@@ -767,7 +767,7 @@ function ScheduleMatchView({ round, roundIdx, teams, teamNames, teamColorIndices
             const finished = finishedInRound.includes(i);
             return (
               <button key={i} onClick={() => {
-                if (!finished && !activeMatchInfo) {
+                if (!finished) {
                   setActiveMatchIdx(i);
                 }
               }} style={{ ...s.tab(activeMatchIdx === i), opacity: finished ? 0.5 : 1, fontSize:12 }}>
