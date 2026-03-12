@@ -338,6 +338,7 @@ function CourtRecorder({ matchInfo, homePlayers: initHomePlayers, awayPlayers: i
 
   // 선수 터치 핸들러
   const handlePlayerTap = (player, isHome) => {
+    if (!homeGk || !awayGk) { alert(`키퍼를 먼저 지정하세요: ${!homeGk?homeTeam:""}${!homeGk&&!awayGk?", ":""}${!awayGk?awayTeam:""}`); return; }
     // 어시스트 선수 선택 대기 중
     if (actionMode === "selectAssist" && pendingGoalPlayer) {
       if (player === pendingGoalPlayer.player) return; // 자기 자신 스킵
