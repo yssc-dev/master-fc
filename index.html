@@ -518,7 +518,7 @@ function CourtRecorder({ matchInfo, homePlayers: initHomePlayers, awayPlayers: i
             <div style={{ fontSize:17, fontWeight:700, marginBottom:14, color:C.white }}>{selectedPlayer.player}</div>
             <div style={{ display:"flex", gap:10, justifyContent:"center" }}>
               <button onClick={handleGoal} style={{ ...s.btn(C.green), flex:1, padding:"12px 0", fontSize:15 }}>⚽ 골</button>
-              <button onClick={handleAssist} style={{ ...s.btn(C.accent, C.bg), flex:1, padding:"12px 0", fontSize:15 }}>👟 어시스트</button>
+              <button onClick={handleAssist} style={{ ...s.btn(C.accent, C.bg), flex:1, padding:"12px 0", fontSize:15 }}>👟 어시</button>
               <button onClick={handleOwnGoal} style={{ ...s.btn(C.red), flex:1, padding:"12px 0", fontSize:15 }}>🔴 자책골</button>
             </div>
             <button onClick={resetState} style={{ ...s.btnSm(C.grayDark), marginTop:10, width:"100%" }}>취소</button>
