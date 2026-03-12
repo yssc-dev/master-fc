@@ -333,8 +333,8 @@ function CourtRecorder({ matchInfo, homePlayers: initHomePlayers, awayPlayers: i
   const mercCandidates = (attendees || []).filter(p => !homePlayers.includes(p) && !awayPlayers.includes(p));
 
   const matchEvents = allEvents.filter(e => e.matchId === matchId);
-  const homeScore = matchEvents.filter(e => e.scoringTeam === homeTeam).length;
-  const awayScore = matchEvents.filter(e => e.scoringTeam === awayTeam).length;
+  const homeScore = matchEvents.filter(e => e.scoringTeam === homeTeam).reduce((s, e) => s + (e.type === "owngoal" ? 2 : 1), 0);
+  const awayScore = matchEvents.filter(e => e.scoringTeam === awayTeam).reduce((s, e) => s + (e.type === "owngoal" ? 2 : 1), 0);
 
   // 선수 터치 핸들러
   const handlePlayerTap = (player, isHome) => {
@@ -762,8 +762,8 @@ function ScheduleMatchView({ schedule, currentRoundIdx, viewingRoundIdx, setView
       <div style={{ display:"flex", gap:8, marginBottom:12 }}>
         {matchInfos.map((mi, i) => {
           const evts = allEvents.filter(e => e.matchId === mi.matchId);
-          const hs = evts.filter(e => e.scoringTeam === mi.homeTeam).length;
-          const as_ = evts.filter(e => e.scoringTeam === mi.awayTeam).length;
+          const hs = evts.filter(e => e.scoringTeam === mi.homeTeam).reduce((s, e) => s + (e.type === "owngoal" ? 2 : 1), 0);
+          const as_ = evts.filter(e => e.scoringTeam === mi.awayTeam).reduce((s, e) => s + (e.type === "owngoal" ? 2 : 1), 0);
           return (
             <div key={i} style={{ flex:1, background:C.card, borderRadius:10, padding:"8px 6px", textAlign:"center", borderTop:`3px solid ${i===0?C.accent:C.orange}` }}>
               <div style={{ fontSize:10, color:i===0?C.accent:C.orange, fontWeight:700, marginBottom:4 }}>{courtCount===2?(i===0?"A구장":"B구장"):`경기${i+1}`}</div>
@@ -850,8 +850,8 @@ function FreeMatchView({ teams, teamNames, teamColorIndices, gks, courtCount, al
       const mi = getMatchInfo(ci);
       if (!mi) continue;
       const evts = allEvents.filter(e => e.matchId === mi.matchId);
-      const homeScore = evts.filter(e => e.scoringTeam === mi.homeTeam).length;
-      const awayScore = evts.filter(e => e.scoringTeam === mi.awayTeam).length;
+      const homeScore = evts.filter(e => e.scoringTeam === mi.homeTeam).reduce((s, e) => s + (e.type === "owngoal" ? 2 : 1), 0);
+      const awayScore = evts.filter(e => e.scoringTeam === mi.awayTeam).reduce((s, e) => s + (e.type === "owngoal" ? 2 : 1), 0);
       results.push({ ...mi, homeScore, awayScore, court: courtCount2 ? (ci===0?"A구장":"B구장") : "", mercenaries: [] });
     }
     if (results.length === 0) { alert("진행 중인 경기가 없습니다"); return; }
@@ -1469,8 +1469,8 @@ function App() {
           homeIdx: pair[0], awayIdx: pair[1], matchId,
           homeTeam, awayTeam,
           homeGk: gks[pair[0]] || null, awayGk: gks[pair[1]] || null,
-          homeScore: evts.filter(e => e.scoringTeam === homeTeam).length,
-          awayScore: evts.filter(e => e.scoringTeam === awayTeam).length,
+          homeScore: evts.filter(e => e.scoringTeam === homeTeam).reduce((s, e) => s + (e.type === "owngoal" ? 2 : 1), 0),
+          awayScore: evts.filter(e => e.scoringTeam === awayTeam).reduce((s, e) => s + (e.type === "owngoal" ? 2 : 1), 0),
           court: courtCount===2 ? (i===0?"A구장":"B구장") : "",
           mercenaries: [],
         };
@@ -1522,18 +1522,38 @@ function App() {
                 <span style={{ fontSize:15, fontWeight:700, color:C.white }}>대진표</span>
                 <button onClick={() => setMatchModal(null)} style={styles.btnSm(C.grayDark)}>닫기</button>
               </div>
-              {schedule.map((round, ri) => (
-                <div key={ri} style={{ marginBottom:10, padding:10, borderRadius:8, background: ri===currentRoundIdx?`${C.accent}11`:C.cardLight }}>
-                  <div style={{ fontSize:12, fontWeight:700, color: confirmedRounds[ri]?C.green:ri===currentRoundIdx?C.accent:C.gray, marginBottom:4 }}>
-                    라운드 {ri+1} {confirmedRounds[ri]?"(종료)":ri<=currentRoundIdx?"(진행중)":""}
-                  </div>
-                  {round.matches.map((pair, mi) => (
-                    <div key={mi} style={{ fontSize:12, color:C.white, marginLeft:8 }}>
-                      {courtCount===2?(mi===0?"A":"B")+": ":""}{teamNames[pair[0]]} vs {teamNames[pair[1]]}
-                    </div>
+              <table style={{ width:"100%", borderCollapse:"collapse" }}>
+                <thead>
+                  <tr>
+                    <th style={styles.th}>라운드</th>
+                    {courtCount===2 ? (
+                      <>{<th style={styles.th}>A구장</th>}{<th style={styles.th}>B구장</th>}</>
+                    ) : (
+                      <th style={styles.th}>대진</th>
+                    )}
+                    <th style={styles.th}>상태</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {schedule.map((round, ri) => (
+                    <tr key={ri} style={{ background: ri===currentRoundIdx?`${C.accent}11`:"transparent", cursor:"pointer" }}
+                      onClick={() => { setViewingRoundIdx(ri <= currentRoundIdx ? ri : viewingRoundIdx); setMatchModal(null); }}>
+                      <td style={styles.td(ri===currentRoundIdx)}>{ri+1}</td>
+                      {courtCount===2 ? (
+                        <>
+                          <td style={{ ...styles.td(), fontSize:11 }}>{round.matches[0]?`${teamNames[round.matches[0][0]]} vs ${teamNames[round.matches[0][1]]}`:"-"}</td>
+                          <td style={{ ...styles.td(), fontSize:11 }}>{round.matches[1]?`${teamNames[round.matches[1][0]]} vs ${teamNames[round.matches[1][1]]}`:"-"}</td>
+                        </>
+                      ) : (
+                        <td style={{ ...styles.td(), fontSize:11 }}>{round.matches.map((p,mi) => `${teamNames[p[0]]} vs ${teamNames[p[1]]}`).join(", ")}</td>
+                      )}
+                      <td style={{ ...styles.td(), color: confirmedRounds[ri]?C.green:ri<=currentRoundIdx?C.orange:C.gray, fontSize:10 }}>
+                        {confirmedRounds[ri]?"종료":ri<=currentRoundIdx?"진행중":"-"}
+                      </td>
+                    </tr>
                   ))}
-                </div>
-              ))}
+                </tbody>
+              </table>
             </div>
           </div>
         )}
