@@ -625,13 +625,16 @@ function CourtRecorder({ matchInfo, homePlayers: initHomePlayers, awayPlayers: i
                 <div style={{ display:"flex", alignItems:"center", gap:6 }}>
                   <span style={{ fontSize:14 }}>{e.type === "goal" ? "⚽" : "🔴"}</span>
                   <div style={{ flex:1 }}>
-                    <span style={{ fontWeight:700, fontSize:13 }}>{e.type === "goal" ? "골" : "자책골"}</span>
-                    <span style={{ marginLeft:6, fontWeight:600 }}>{e.player}</span>
+                    <span style={{ fontWeight:600 }}>{e.player}</span>
+                    <span style={{ color:C.gray, fontSize:11 }}>({e.type==="goal"?"골":"자책골"})</span>
                     {e.type === "goal" && e.assist && (
-                      <span style={{ color:C.gray, fontSize:12 }}> ← {e.assist}</span>
+                      <span style={{ color:C.gray, fontSize:11 }}> ← {e.assist}<span style={{ opacity:0.7 }}>(어시)</span></span>
                     )}
                     {e.type === "goal" && !e.assist && (
                       <span style={{ color:C.grayDark, fontSize:11 }}> (어시 없음)</span>
+                    )}
+                    {e.type === "goal" && e.concedingGk && (
+                      <span style={{ color:C.gray, fontSize:11 }}> / 실점: {e.concedingGk}</span>
                     )}
                   </div>
                   <span style={{ color: e.scoringTeam === homeTeam ? homeColor?.bg : awayColor?.bg, fontSize:11, fontWeight:600 }}>{e.scoringTeam}</span>
@@ -721,40 +724,45 @@ function CourtRecorder({ matchInfo, homePlayers: initHomePlayers, awayPlayers: i
 function ScheduleMatchView({ round, roundIdx, teams, teamNames, teamColorIndices, gks, courtCount, allEvents, onRecordEvent, onUndoEvent, onDeleteEvent, onEditEvent, onFinishMatch, completedMatches, attendees, styles: s }) {
   const [activeMatchIdx, setActiveMatchIdx] = useState(0);
   const [finishedInRound, setFinishedInRound] = useState([]);
-  const [activeMatchInfo, setActiveMatchInfo] = useState(null); // running match info
+  const [matchInfoMap, setMatchInfoMap] = useState({}); // {idx: matchInfo}
 
   const matches = round?.matches || [];
 
   useEffect(() => {
     setFinishedInRound([]);
     setActiveMatchIdx(0);
-    setActiveMatchInfo(null);
+    setMatchInfoMap({});
   }, [roundIdx]);
 
-  // 현재 매치가 아직 시작 안됐으면 바로 시작
+  // 각 경기별 matchInfo 초기화
   useEffect(() => {
-    if (matches.length > 0 && !activeMatchInfo && !finishedInRound.includes(activeMatchIdx)) {
-      const pair = matches[activeMatchIdx];
-      if (pair) {
-        setActiveMatchInfo({
-          homeIdx: pair[0], awayIdx: pair[1],
-          matchId: `R${completedMatches.length + finishedInRound.length + 1}`,
-          homeTeam: teamNames[pair[0]], awayTeam: teamNames[pair[1]],
-          homeGk: gks[pair[0]] || null, awayGk: gks[pair[1]] || null,
-          homeColor: TEAM_COLORS[teamColorIndices[pair[0]]],
-          awayColor: TEAM_COLORS[teamColorIndices[pair[1]]],
-          homePlayers: teams[pair[0]],
-          awayPlayers: teams[pair[1]],
-        });
-      }
+    if (matches.length > 0) {
+      const newMap = {};
+      matches.forEach((pair, i) => {
+        if (pair && !matchInfoMap[i] && !finishedInRound.includes(i)) {
+          newMap[i] = {
+            homeIdx: pair[0], awayIdx: pair[1],
+            matchId: `R${completedMatches.length + finishedInRound.length + i + 1}`,
+            homeTeam: teamNames[pair[0]], awayTeam: teamNames[pair[1]],
+            homeGk: gks[pair[0]] || null, awayGk: gks[pair[1]] || null,
+            homeColor: TEAM_COLORS[teamColorIndices[pair[0]]],
+            awayColor: TEAM_COLORS[teamColorIndices[pair[1]]],
+            homePlayers: teams[pair[0]],
+            awayPlayers: teams[pair[1]],
+          };
+        }
+      });
+      if (Object.keys(newMap).length > 0) setMatchInfoMap(prev => ({ ...prev, ...newMap }));
     }
-  }, [activeMatchIdx, matches, activeMatchInfo, finishedInRound]);
+  }, [matches, finishedInRound]);
+
+  const activeMatchInfo = matchInfoMap[activeMatchIdx] || null;
 
   const handleFinishMatch = (matchData) => {
     onFinishMatch(matchData);
     const newFinished = [...finishedInRound, activeMatchIdx];
     setFinishedInRound(newFinished);
-    setActiveMatchInfo(null);
+    setMatchInfoMap(prev => { const c = {...prev}; delete c[activeMatchIdx]; return c; });
     const nextIdx = matches.findIndex((_, i) => i > activeMatchIdx && !newFinished.includes(i));
     if (nextIdx >= 0) setActiveMatchIdx(nextIdx);
   };
