@@ -441,6 +441,8 @@ function CourtRecorder({ matchInfo, homePlayers: initHomePlayers, awayPlayers: i
 
   const handleFinish = () => {
     if (!homeGk || !awayGk) { alert(`키퍼를 지정하세요: ${!homeGk?homeTeam:""}${!homeGk&&!awayGk?", ":""}${!awayGk?awayTeam:""}`); return; }
+    const msg = `${courtLabel ? courtLabel + "\n" : ""}${homeTeam} ${homeScore} : ${awayScore} ${awayTeam}\n\n경기결과를 확정하시겠습니까?`;
+    if (!confirm(msg)) return;
     onFinish({ matchId, homeIdx, awayIdx, homeTeam, awayTeam, homeGk, awayGk, homeScore, awayScore, court: courtLabel, mercenaries: mercs });
     resetState();
   };
