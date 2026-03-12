@@ -305,17 +305,32 @@ function generate1Court(teamCount, rotations) {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// CourtRecorder — 새 UI: 선수터치 → 골/어시/자책 선택
+// CourtRecorder — 선수터치 → 골/어시/자책 선택 + GK토글 + 용병추가
 // ═══════════════════════════════════════════════════════════════
-function CourtRecorder({ matchInfo, homePlayers, awayPlayers, allEvents, onRecordEvent, onUndoEvent, onDeleteEvent, onEditEvent, onFinish, styles: s, courtLabel }) {
+function CourtRecorder({ matchInfo, homePlayers: initHomePlayers, awayPlayers: initAwayPlayers, allEvents, onRecordEvent, onUndoEvent, onDeleteEvent, onEditEvent, onFinish, onMatchInfoUpdate, styles: s, courtLabel, attendees }) {
   const [selectedPlayer, setSelectedPlayer] = useState(null); // {player, isHome}
   const [actionMode, setActionMode] = useState(null); // null | "selectAssist" | "selectScorer"
   const [pendingGoalPlayer, setPendingGoalPlayer] = useState(null);
   const [pendingAssistPlayer, setPendingAssistPlayer] = useState(null);
   const [editingEvent, setEditingEvent] = useState(null); // 수정 중인 이벤트 index (allEvents 내)
   const [editField, setEditField] = useState(null); // "player" | "assist" | null
+  // GK 토글 상태 (경기 중 변경 가능)
+  const [homeGk, setHomeGk] = useState(matchInfo.homeGk || null);
+  const [awayGk, setAwayGk] = useState(matchInfo.awayGk || null);
+  // 용병 추가 상태
+  const [mercs, setMercs] = useState([]); // [{player, side:"home"|"away"}]
+  const [showMercPicker, setShowMercPicker] = useState(null); // "home"|"away"|null
 
-  const { homeIdx, awayIdx, matchId, homeGk, awayGk, homeTeam, awayTeam, homeColor, awayColor } = matchInfo;
+  const { homeIdx, awayIdx, matchId, homeTeam, awayTeam, homeColor, awayColor } = matchInfo;
+
+  // 실제 선수 목록 = 원본 + 용병
+  const homeMercs = mercs.filter(m => m.side === "home").map(m => m.player);
+  const awayMercs = mercs.filter(m => m.side === "away").map(m => m.player);
+  const homePlayers = [...initHomePlayers, ...homeMercs];
+  const awayPlayers = [...initAwayPlayers, ...awayMercs];
+
+  // 용병 후보: 현재 경기에 없는 참석자
+  const mercCandidates = (attendees || []).filter(p => !homePlayers.includes(p) && !awayPlayers.includes(p));
 
   const matchEvents = allEvents.filter(e => e.matchId === matchId);
   const homeScore = matchEvents.filter(e => e.scoringTeam === homeTeam).length;
@@ -416,8 +431,25 @@ function CourtRecorder({ matchInfo, homePlayers, awayPlayers, allEvents, onRecor
   };
 
   const handleFinish = () => {
-    onFinish({ matchId, homeIdx, awayIdx, homeTeam, awayTeam, homeGk, awayGk, homeScore, awayScore, court: courtLabel });
+    onFinish({ matchId, homeIdx, awayIdx, homeTeam, awayTeam, homeGk, awayGk, homeScore, awayScore, court: courtLabel, mercenaries: mercs });
     resetState();
+  };
+
+  // GK 토글
+  const toggleGk = (player, isHome) => {
+    if (isHome) setHomeGk(prev => prev === player ? null : player);
+    else setAwayGk(prev => prev === player ? null : player);
+  };
+
+  // 용병 추가
+  const addMerc = (player, side) => {
+    setMercs(prev => [...prev, { player, side }]);
+    setShowMercPicker(null);
+  };
+
+  // 용병 제거
+  const removeMerc = (player) => {
+    setMercs(prev => prev.filter(m => m.player !== player));
   };
 
   // 하이라이트 스타일 (선수 선택 상태에 따라)
@@ -484,25 +516,85 @@ function CourtRecorder({ matchInfo, homePlayers, awayPlayers, allEvents, onRecor
 
       {/* 선수 버튼 */}
       <div style={{ display:"flex", gap:8 }}>
+        {/* 홈팀 */}
         <div style={{ flex:1 }}>
           <div style={{ fontSize:10, color:C.gray, textAlign:"center", marginBottom:4 }}>{homeTeam}</div>
-          {homePlayers.map(p => (
-            <button key={p} onClick={() => handlePlayerTap(p, true)} style={getPlayerStyle(p, true)}>
-              {homeGk === p && <span style={{ marginRight:4, fontSize:10 }}>🧤</span>}
-              {p}
-            </button>
-          ))}
+          {homePlayers.map(p => {
+            const isMerc = homeMercs.includes(p);
+            return (
+              <div key={p} style={{ display:"flex", gap:3, marginBottom:4, alignItems:"stretch" }}>
+                <button onClick={() => handlePlayerTap(p, true)} style={{ ...getPlayerStyle(p, true), flex:1, marginBottom:0 }}>
+                  {homeGk === p && <span style={{ marginRight:4, fontSize:10 }}>🧤</span>}
+                  {isMerc && <span style={{ marginRight:4, fontSize:10 }}>⭐</span>}
+                  {p}
+                </button>
+                <button onClick={() => toggleGk(p, true)}
+                  style={{ ...s.btnSm(homeGk === p ? C.yellow : C.grayDarker, homeGk === p ? "#000" : C.gray), padding:"4px 6px", fontSize:9, minWidth:28 }}>
+                  GK
+                </button>
+                {isMerc && (
+                  <button onClick={() => removeMerc(p)}
+                    style={{ ...s.btnSm(C.redDim), padding:"4px 6px", fontSize:9, minWidth:24 }}>X</button>
+                )}
+              </div>
+            );
+          })}
+          <button onClick={() => setShowMercPicker("home")}
+            style={{ ...s.btnSm(C.grayDark, C.orange), width:"100%", marginTop:4, fontSize:11 }}>
+            + 선수추가
+          </button>
         </div>
+        {/* 원정팀 */}
         <div style={{ flex:1 }}>
           <div style={{ fontSize:10, color:C.gray, textAlign:"center", marginBottom:4 }}>{awayTeam}</div>
-          {awayPlayers.map(p => (
-            <button key={p} onClick={() => handlePlayerTap(p, false)} style={getPlayerStyle(p, false)}>
-              {awayGk === p && <span style={{ marginRight:4, fontSize:10 }}>🧤</span>}
-              {p}
-            </button>
-          ))}
+          {awayPlayers.map(p => {
+            const isMerc = awayMercs.includes(p);
+            return (
+              <div key={p} style={{ display:"flex", gap:3, marginBottom:4, alignItems:"stretch" }}>
+                <button onClick={() => handlePlayerTap(p, false)} style={{ ...getPlayerStyle(p, false), flex:1, marginBottom:0 }}>
+                  {awayGk === p && <span style={{ marginRight:4, fontSize:10 }}>🧤</span>}
+                  {isMerc && <span style={{ marginRight:4, fontSize:10 }}>⭐</span>}
+                  {p}
+                </button>
+                <button onClick={() => toggleGk(p, false)}
+                  style={{ ...s.btnSm(awayGk === p ? C.yellow : C.grayDarker, awayGk === p ? "#000" : C.gray), padding:"4px 6px", fontSize:9, minWidth:28 }}>
+                  GK
+                </button>
+                {isMerc && (
+                  <button onClick={() => removeMerc(p)}
+                    style={{ ...s.btnSm(C.redDim), padding:"4px 6px", fontSize:9, minWidth:24 }}>X</button>
+                )}
+              </div>
+            );
+          })}
+          <button onClick={() => setShowMercPicker("away")}
+            style={{ ...s.btnSm(C.grayDark, C.orange), width:"100%", marginTop:4, fontSize:11 }}>
+            + 선수추가
+          </button>
         </div>
       </div>
+
+      {/* 용병 선택 모달 */}
+      {showMercPicker && (
+        <div style={{ background:C.cardLight, borderRadius:10, padding:12, marginTop:8 }}>
+          <div style={{ fontSize:13, fontWeight:600, marginBottom:8, color:C.orange }}>
+            {showMercPicker === "home" ? homeTeam : awayTeam}에 선수 추가
+          </div>
+          {mercCandidates.length === 0 ? (
+            <div style={{ fontSize:12, color:C.gray }}>추가 가능한 선수가 없습니다.</div>
+          ) : (
+            <div style={{ display:"flex", flexWrap:"wrap", gap:4 }}>
+              {mercCandidates.map(p => (
+                <button key={p} onClick={() => addMerc(p, showMercPicker)}
+                  style={{ ...s.btnSm(C.grayDarker, C.white), padding:"6px 10px" }}>
+                  {p}
+                </button>
+              ))}
+            </div>
+          )}
+          <button onClick={() => setShowMercPicker(null)} style={{ ...s.btnSm(C.grayDark), marginTop:8 }}>닫기</button>
+        </div>
+      )}
 
       {/* 하단: 경기종료 */}
       <div style={{ display:"flex", gap:8, marginTop:10 }}>
@@ -614,129 +706,12 @@ function CourtRecorder({ matchInfo, homePlayers, awayPlayers, allEvents, onRecor
 }
 
 // ═══════════════════════════════════════════════════════════════
-// MatchSetup — 경기 전 GK 지정 + 임시용병 추가
-// ═══════════════════════════════════════════════════════════════
-function MatchSetup({ homeIdx, awayIdx, teams, teamNames, teamColorIndices, defaultGks, allTeams, attendees, onStart, onCancel, styles: s }) {
-  const [matchGks, setMatchGks] = useState({ home: defaultGks[homeIdx] || null, away: defaultGks[awayIdx] || null });
-  const [mercenaries, setMercenaries] = useState([]); // [{player, toSide:"home"|"away"}]
-  const [showMercPicker, setShowMercPicker] = useState(null); // "home" | "away" | null
-
-  const homeTeam = teamNames[homeIdx];
-  const awayTeam = teamNames[awayIdx];
-  const homeColor = TEAM_COLORS[teamColorIndices[homeIdx]];
-  const awayColor = TEAM_COLORS[teamColorIndices[awayIdx]];
-  const homePlayers = teams[homeIdx];
-  const awayPlayers = teams[awayIdx];
-
-  // 다른 팀 선수 목록 (용병 후보)
-  const otherPlayers = attendees.filter(p => !homePlayers.includes(p) && !awayPlayers.includes(p) && !mercenaries.find(m => m.player === p));
-
-  const addMercenary = (player, toSide) => {
-    setMercenaries(prev => [...prev, { player, toSide }]);
-    setShowMercPicker(null);
-  };
-
-  const removeMercenary = (player) => {
-    setMercenaries(prev => prev.filter(m => m.player !== player));
-  };
-
-  const handleStart = () => {
-    const homeMercs = mercenaries.filter(m => m.toSide === "home").map(m => m.player);
-    const awayMercs = mercenaries.filter(m => m.toSide === "away").map(m => m.player);
-    onStart({
-      homeGk: matchGks.home,
-      awayGk: matchGks.away,
-      homePlayers: [...homePlayers, ...homeMercs],
-      awayPlayers: [...awayPlayers, ...awayMercs],
-      mercenaries,
-    });
-  };
-
-  const renderSide = (side, teamName, players, color, teamIdx) => {
-    const gk = side === "home" ? matchGks.home : matchGks.away;
-    const sideMercs = mercenaries.filter(m => m.toSide === side);
-
-    return (
-      <div style={{ flex:1 }}>
-        <div style={{ fontSize:13, fontWeight:700, color: color?.bg, marginBottom:6, textAlign:"center" }}>{teamName}</div>
-
-        {/* GK 선택 */}
-        <div style={{ fontSize:11, color:C.gray, marginBottom:4 }}>🧤 키퍼 지정</div>
-        {players.map(p => (
-          <button key={p} onClick={() => setMatchGks(prev => ({ ...prev, [side]: prev[side] === p ? null : p }))}
-            style={{ ...s.btnSm(gk === p ? C.yellow : C.grayDarker, gk === p ? "#000" : C.gray), width:"100%", marginBottom:3, textAlign:"left", padding:"8px 10px" }}>
-            {gk === p ? "🧤 " : ""}{p}
-          </button>
-        ))}
-
-        {/* 임시 용병 */}
-        {sideMercs.length > 0 && (
-          <div style={{ marginTop:6 }}>
-            <div style={{ fontSize:11, color:C.orange, marginBottom:2 }}>임시 용병</div>
-            {sideMercs.map(m => (
-              <div key={m.player} style={{ display:"flex", alignItems:"center", gap:4, padding:"4px 8px", background:`${C.orange}22`, borderRadius:6, marginBottom:2, fontSize:12 }}>
-                <span style={{ color:C.orange }}>⭐</span>
-                <span style={{ color:C.white }}>{m.player}</span>
-                <button onClick={() => removeMercenary(m.player)} style={{ ...s.btnSm(C.redDim), padding:"2px 6px", fontSize:10, marginLeft:"auto" }}>X</button>
-              </div>
-            ))}
-          </div>
-        )}
-
-        <button onClick={() => setShowMercPicker(side)} style={{ ...s.btnSm(C.grayDark, C.orange), width:"100%", marginTop:6 }}>
-          + 임시 용병 추가
-        </button>
-      </div>
-    );
-  };
-
-  return (
-    <div style={s.card}>
-      <div style={{ fontSize:15, fontWeight:700, textAlign:"center", marginBottom:12, color:C.white }}>경기 준비</div>
-
-      <div style={{ display:"flex", gap:12, marginBottom:12 }}>
-        {renderSide("home", homeTeam, homePlayers, homeColor, homeIdx)}
-        <div style={{ display:"flex", alignItems:"center", color:C.gray, fontSize:18, fontWeight:900 }}>VS</div>
-        {renderSide("away", awayTeam, awayPlayers, awayColor, awayIdx)}
-      </div>
-
-      {/* 용병 선택 모달 */}
-      {showMercPicker && (
-        <div style={{ background:C.cardLight, borderRadius:10, padding:12, marginBottom:10 }}>
-          <div style={{ fontSize:13, fontWeight:600, marginBottom:8, color:C.orange }}>
-            {showMercPicker === "home" ? homeTeam : awayTeam}에 용병 추가
-          </div>
-          {otherPlayers.length === 0 ? (
-            <div style={{ fontSize:12, color:C.gray }}>추가 가능한 선수가 없습니다.</div>
-          ) : (
-            <div style={{ display:"flex", flexWrap:"wrap", gap:4 }}>
-              {otherPlayers.map(p => (
-                <button key={p} onClick={() => addMercenary(p, showMercPicker)}
-                  style={{ ...s.btnSm(C.grayDarker, C.white), padding:"6px 10px" }}>
-                  {p}
-                </button>
-              ))}
-            </div>
-          )}
-          <button onClick={() => setShowMercPicker(null)} style={{ ...s.btnSm(C.grayDark), marginTop:8 }}>닫기</button>
-        </div>
-      )}
-
-      <div style={{ display:"flex", gap:8 }}>
-        <button onClick={onCancel} style={s.btn(C.grayDark)}>취소</button>
-        <button onClick={handleStart} style={{ ...s.btn(C.green), flex:1 }}>경기 시작</button>
-      </div>
-    </div>
-  );
-}
-
 // ═══════════════════════════════════════════════════════════════
 // ScheduleMatchView
 // ═══════════════════════════════════════════════════════════════
 function ScheduleMatchView({ round, roundIdx, teams, teamNames, teamColorIndices, gks, courtCount, allEvents, onRecordEvent, onUndoEvent, onDeleteEvent, onEditEvent, onFinishMatch, completedMatches, attendees, styles: s }) {
   const [activeMatchIdx, setActiveMatchIdx] = useState(0);
   const [finishedInRound, setFinishedInRound] = useState([]);
-  const [setupMatch, setSetupMatch] = useState(null); // null | matchPair index
   const [activeMatchInfo, setActiveMatchInfo] = useState(null); // running match info
 
   const matches = round?.matches || [];
@@ -744,38 +719,34 @@ function ScheduleMatchView({ round, roundIdx, teams, teamNames, teamColorIndices
   useEffect(() => {
     setFinishedInRound([]);
     setActiveMatchIdx(0);
-    setSetupMatch(null);
     setActiveMatchInfo(null);
   }, [roundIdx]);
 
-  // 현재 매치가 아직 시작 안됐으면 setup 보여줌
+  // 현재 매치가 아직 시작 안됐으면 바로 시작
   useEffect(() => {
     if (matches.length > 0 && !activeMatchInfo && !finishedInRound.includes(activeMatchIdx)) {
-      setSetupMatch(activeMatchIdx);
+      const pair = matches[activeMatchIdx];
+      if (pair) {
+        setActiveMatchInfo({
+          homeIdx: pair[0], awayIdx: pair[1],
+          matchId: `R${completedMatches.length + finishedInRound.length + 1}`,
+          homeTeam: teamNames[pair[0]], awayTeam: teamNames[pair[1]],
+          homeGk: gks[pair[0]] || null, awayGk: gks[pair[1]] || null,
+          homeColor: TEAM_COLORS[teamColorIndices[pair[0]]],
+          awayColor: TEAM_COLORS[teamColorIndices[pair[1]]],
+          homePlayers: teams[pair[0]],
+          awayPlayers: teams[pair[1]],
+        });
+      }
     }
   }, [activeMatchIdx, matches, activeMatchInfo, finishedInRound]);
 
-  const handleMatchStart = (matchIdx, setupData) => {
-    const pair = matches[matchIdx];
-    setActiveMatchInfo({
-      homeIdx: pair[0], awayIdx: pair[1],
-      matchId: `R${completedMatches.length + 1}`,
-      homeTeam: teamNames[pair[0]], awayTeam: teamNames[pair[1]],
-      homeGk: setupData.homeGk, awayGk: setupData.awayGk,
-      homeColor: TEAM_COLORS[teamColorIndices[pair[0]]],
-      awayColor: TEAM_COLORS[teamColorIndices[pair[1]]],
-      homePlayers: setupData.homePlayers,
-      awayPlayers: setupData.awayPlayers,
-      mercenaries: setupData.mercenaries,
-    });
-    setSetupMatch(null);
-  };
-
   const handleFinishMatch = (matchData) => {
     onFinishMatch(matchData);
-    setFinishedInRound(prev => [...prev, activeMatchIdx]);
+    const newFinished = [...finishedInRound, activeMatchIdx];
+    setFinishedInRound(newFinished);
     setActiveMatchInfo(null);
-    const nextIdx = matches.findIndex((_, i) => i > activeMatchIdx && !finishedInRound.includes(i) && i !== activeMatchIdx);
+    const nextIdx = matches.findIndex((_, i) => i > activeMatchIdx && !newFinished.includes(i));
     if (nextIdx >= 0) setActiveMatchIdx(nextIdx);
   };
 
@@ -798,7 +769,6 @@ function ScheduleMatchView({ round, roundIdx, teams, teamNames, teamColorIndices
               <button key={i} onClick={() => {
                 if (!finished && !activeMatchInfo) {
                   setActiveMatchIdx(i);
-                  setSetupMatch(i);
                 }
               }} style={{ ...s.tab(activeMatchIdx === i), opacity: finished ? 0.5 : 1, fontSize:12 }}>
                 {finished ? "✓ " : ""}{courtCount === 2 ? (i === 0 ? "A구장" : "B구장") : `경기${i+1}`}
@@ -806,19 +776,6 @@ function ScheduleMatchView({ round, roundIdx, teams, teamNames, teamColorIndices
             );
           })}
         </div>
-      )}
-
-      {/* 경기 Setup */}
-      {setupMatch !== null && !activeMatchInfo && !finishedInRound.includes(setupMatch) && (
-        <MatchSetup
-          homeIdx={matches[setupMatch][0]}
-          awayIdx={matches[setupMatch][1]}
-          teams={teams} teamNames={teamNames} teamColorIndices={teamColorIndices}
-          defaultGks={gks} allTeams={teams} attendees={attendees}
-          onStart={(data) => handleMatchStart(setupMatch, data)}
-          onCancel={() => setSetupMatch(null)}
-          styles={s}
-        />
       )}
 
       {/* 경기 진행 중 */}
@@ -835,6 +792,7 @@ function ScheduleMatchView({ round, roundIdx, teams, teamNames, teamColorIndices
           onFinish={handleFinishMatch}
           styles={s}
           courtLabel={courtCount === 2 ? (activeMatchIdx === 0 ? "A구장" : "B구장") : ""}
+          attendees={attendees}
         />
       )}
 
@@ -850,23 +808,20 @@ function ScheduleMatchView({ round, roundIdx, teams, teamNames, teamColorIndices
 // ═══════════════════════════════════════════════════════════════
 function FreeMatchView({ teams, teamNames, teamColorIndices, gks, courtCount, allEvents, onRecordEvent, onUndoEvent, onDeleteEvent, onEditEvent, onFinishMatch, completedMatches, attendees, styles: s, isExtraRound }) {
   const [selection, setSelection] = useState({ home: null, away: null });
-  const [setupMode, setSetupMode] = useState(false);
   const [activeMatchInfo, setActiveMatchInfo] = useState(null);
 
-  const handleMatchStart = (setupData) => {
-    const pair = [selection.home, selection.away];
+  const handleStartMatch = () => {
+    const h = selection.home, a = selection.away;
     setActiveMatchInfo({
-      homeIdx: pair[0], awayIdx: pair[1],
+      homeIdx: h, awayIdx: a,
       matchId: `R${completedMatches.length + 1}`,
-      homeTeam: teamNames[pair[0]], awayTeam: teamNames[pair[1]],
-      homeGk: setupData.homeGk, awayGk: setupData.awayGk,
-      homeColor: TEAM_COLORS[teamColorIndices[pair[0]]],
-      awayColor: TEAM_COLORS[teamColorIndices[pair[1]]],
-      homePlayers: setupData.homePlayers,
-      awayPlayers: setupData.awayPlayers,
-      mercenaries: setupData.mercenaries,
+      homeTeam: teamNames[h], awayTeam: teamNames[a],
+      homeGk: gks[h] || null, awayGk: gks[a] || null,
+      homeColor: TEAM_COLORS[teamColorIndices[h]],
+      awayColor: TEAM_COLORS[teamColorIndices[a]],
+      homePlayers: teams[h],
+      awayPlayers: teams[a],
     });
-    setSetupMode(false);
   };
 
   const handleFinishMatch = (matchData) => {
@@ -887,22 +842,9 @@ function FreeMatchView({ teams, teamNames, teamColorIndices, gks, courtCount, al
           allEvents={allEvents} onRecordEvent={onRecordEvent} onUndoEvent={onUndoEvent}
           onDeleteEvent={onDeleteEvent} onEditEvent={onEditEvent}
           onFinish={handleFinishMatch} styles={s} courtLabel=""
+          attendees={attendees}
         />
       </div>
-    );
-  }
-
-  // 경기 Setup (GK + 용병)
-  if (setupMode && selection.home !== null && selection.away !== null) {
-    return (
-      <MatchSetup
-        homeIdx={selection.home} awayIdx={selection.away}
-        teams={teams} teamNames={teamNames} teamColorIndices={teamColorIndices}
-        defaultGks={gks} allTeams={teams} attendees={attendees}
-        onStart={handleMatchStart}
-        onCancel={() => setSetupMode(false)}
-        styles={s}
-      />
     );
   }
 
@@ -933,10 +875,10 @@ function FreeMatchView({ teams, teamNames, teamColorIndices, gks, courtCount, al
           </div>
         </div>
         <button
-          onClick={() => setSetupMode(true)}
+          onClick={handleStartMatch}
           disabled={selection.home === null || selection.away === null || selection.home === selection.away}
           style={{ ...s.btnFull(C.green), marginTop:12, opacity: (selection.home !== null && selection.away !== null && selection.home !== selection.away) ? 1 : 0.4 }}>
-          경기 준비
+          경기 시작
         </button>
       </div>
     </div>
@@ -1004,7 +946,6 @@ function App() {
   const [teamColorIndices, setTeamColorIndices] = useState([]);
   const [gks, setGks] = useState({});
   const [editingTeamName, setEditingTeamName] = useState(null);
-  const [moveSource, setMoveSource] = useState(null);
 
   const [schedule, setSchedule] = useState([]);
   const [currentRoundIdx, setCurrentRoundIdx] = useState(0);
@@ -1081,11 +1022,6 @@ function App() {
     setPhase("teamBuild");
   };
 
-  const movePlayer = (player, fromIdx, toIdx) => {
-    setTeams(prev => { const c = prev.map(t => [...t]); c[fromIdx] = c[fromIdx].filter(p => p !== player); c[toIdx] = [...c[toIdx], player]; return c; });
-    if (gks[fromIdx] === player) setGks(prev => { const c = {...prev}; delete c[fromIdx]; return c; });
-  };
-  const toggleGk = (player, tIdx) => setGks(prev => { const c = {...prev}; c[tIdx] = c[tIdx] === player ? undefined : player; if (!c[tIdx]) delete c[tIdx]; return c; });
   const reshuffleTeams = () => { const d = snakeDraft(attendees, teamCount); setTeams(d); setTeamNames(d.map(t => `팀${t[0]}`)); setGks({}); };
 
   const startMatches = () => {
@@ -1397,29 +1333,15 @@ function App() {
                 </div>
                 <div style={{ display:"flex", flexWrap:"wrap", gap:4 }}>
                   {team.map((player, pIdx) => {
-                    const isGk = gks[tIdx]===player;
                     const pd = getPlayerData(player);
                     return (
-                      <div key={player} style={styles.playerInTeam(color)}>
+                      <div key={player} style={{ ...styles.playerInTeam(color), color:C.white }}>
                         {pIdx===0 && <span style={{ fontSize:10, marginRight:2 }}>👑</span>}
-                        {isGk && <span style={{ fontSize:10, marginRight:2 }}>🧤</span>}
                         <span>{player}</span>
                         <span style={{ fontSize:10, opacity:0.6, marginLeft:4 }}>{pd.point}p</span>
-                        <button onClick={e => { e.stopPropagation(); toggleGk(player, tIdx); }}
-                          style={{ ...styles.btnSm(isGk?C.yellow:C.grayDarker, isGk?"#000":C.gray), padding:"2px 6px", fontSize:10, marginLeft:4 }}>GK</button>
-                        <button onClick={e => { e.stopPropagation(); setMoveSource(moveSource?.player===player?null:{player,teamIdx:tIdx}); }}
-                          style={{ ...styles.btnSm(moveSource?.player===player?C.orange:C.grayDarker, C.gray), padding:"2px 6px", fontSize:10 }}>
-                          {moveSource?.player===player?"취소":"↔"}
-                        </button>
                       </div>
                     );
                   })}
-                  {moveSource && moveSource.teamIdx!==tIdx && (
-                    <div onClick={() => { movePlayer(moveSource.player, moveSource.teamIdx, tIdx); setMoveSource(null); }}
-                      style={{ display:"inline-flex", alignItems:"center", padding:"6px 12px", borderRadius:8, fontSize:12, margin:2, cursor:"pointer", border:`2px dashed ${C.accent}`, color:C.accent }}>
-                      + {moveSource.player}
-                    </div>
-                  )}
                 </div>
               </div>
             );
