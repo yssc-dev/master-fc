@@ -801,6 +801,7 @@ function ScheduleMatchView({ round, roundIdx, teams, teamNames, teamColorIndices
       {/* 경기 진행 중 */}
       {activeMatchInfo && !allFinished && (
         <CourtRecorder
+          key={activeMatchIdx}
           matchInfo={activeMatchInfo}
           homePlayers={activeMatchInfo.homePlayers}
           awayPlayers={activeMatchInfo.awayPlayers}
