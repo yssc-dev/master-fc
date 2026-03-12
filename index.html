@@ -636,8 +636,8 @@ function CourtRecorder({ matchInfo, homePlayers: initHomePlayers, awayPlayers: i
                     {e.type === "goal" && !e.assist && (
                       <span style={{ color:C.grayDark, fontSize:11 }}> (어시 없음)</span>
                     )}
-                    {e.type === "goal" && e.concedingGk && (
-                      <span style={{ color:C.gray, fontSize:11 }}> / 실점: {e.concedingGk}</span>
+                    {e.concedingGk && (
+                      <span style={{ color:C.gray, fontSize:11 }}> / 실점: {e.concedingGk}{e.type==="owngoal"?" (2점)":""}</span>
                     )}
                   </div>
                   <span style={{ color: e.scoringTeam === homeTeam ? homeColor?.bg : awayColor?.bg, fontSize:11, fontWeight:600 }}>{e.scoringTeam}</span>
@@ -1562,7 +1562,7 @@ function App() {
                         <span style={{ fontWeight:600 }}>{e.player}</span>
                         <span style={{ color:C.gray, fontSize:11 }}>({e.type==="goal"?"골":"자책골"})</span>
                         {e.assist && <span style={{ color:C.gray, fontSize:11 }}> ← {e.assist}<span style={{ opacity:0.7 }}>(어시)</span></span>}
-                        {e.type==="goal" && e.concedingGk && <span style={{ color:C.gray, fontSize:11 }}> / 실점: {e.concedingGk}</span>}
+                        {e.concedingGk && <span style={{ color:C.gray, fontSize:11 }}> / 실점: {e.concedingGk}{e.type==="owngoal"?" (2점)":""}</span>}
                       </div>
                     ))}
                   </div>
