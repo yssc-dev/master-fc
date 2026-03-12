@@ -610,10 +610,7 @@ function CourtRecorder({ matchInfo, homePlayers: initHomePlayers, awayPlayers: i
         </div>
       )}
 
-      {/* 하단: 경기종료 */}
-      <div style={{ display:"flex", gap:8, marginTop:10 }}>
-        <button onClick={handleFinish} style={{ ...s.btn(C.accent, C.bg), flex:1 }}>경기 종료 확정</button>
-      </div>
+      {/* 하단 여백 (경기종료 버튼은 라운드 레벨로 이동) */}
 
       {/* 이벤트 로그 — 상세 표시 + 수정/삭제 */}
       {matchEvents.length > 0 && (
@@ -726,102 +723,63 @@ function CourtRecorder({ matchInfo, homePlayers: initHomePlayers, awayPlayers: i
 // ═══════════════════════════════════════════════════════════════
 // ScheduleMatchView
 // ═══════════════════════════════════════════════════════════════
-function ScheduleMatchView({ round, roundIdx, teams, teamNames, teamColorIndices, gks, courtCount, allEvents, onRecordEvent, onUndoEvent, onDeleteEvent, onEditEvent, onFinishMatch, completedMatches, attendees, styles: s }) {
-  const [activeMatchIdx, setActiveMatchIdx] = useState(0);
-  const [finishedInRound, setFinishedInRound] = useState([]);
-  const [matchInfoMap, setMatchInfoMap] = useState({}); // {idx: matchInfo}
-
+function ScheduleMatchView({ schedule, currentRoundIdx, viewingRoundIdx, setViewingRoundIdx, confirmedRounds, onConfirmRound, teams, teamNames, teamColorIndices, gks, courtCount, allEvents, onRecordEvent, onUndoEvent, onDeleteEvent, onEditEvent, completedMatches, attendees, styles: s }) {
+  const round = schedule[viewingRoundIdx];
   const matches = round?.matches || [];
+  const isConfirmed = confirmedRounds[viewingRoundIdx] || false;
 
-  useEffect(() => {
-    setFinishedInRound([]);
-    setActiveMatchIdx(0);
-    setMatchInfoMap({});
-  }, [roundIdx]);
-
-  // 각 경기별 matchInfo 초기화
-  useEffect(() => {
-    if (matches.length > 0) {
-      const newMap = {};
-      matches.forEach((pair, i) => {
-        if (pair && !matchInfoMap[i] && !finishedInRound.includes(i)) {
-          newMap[i] = {
-            homeIdx: pair[0], awayIdx: pair[1],
-            matchId: `R${completedMatches.length + finishedInRound.length + i + 1}`,
-            homeTeam: teamNames[pair[0]], awayTeam: teamNames[pair[1]],
-            homeGk: gks[pair[0]] || null, awayGk: gks[pair[1]] || null,
-            homeColor: TEAM_COLORS[teamColorIndices[pair[0]]],
-            awayColor: TEAM_COLORS[teamColorIndices[pair[1]]],
-            homePlayers: teams[pair[0]],
-            awayPlayers: teams[pair[1]],
-          };
-        }
-      });
-      if (Object.keys(newMap).length > 0) setMatchInfoMap(prev => ({ ...prev, ...newMap }));
-    }
-  }, [matches, finishedInRound]);
-
-  const activeMatchInfo = matchInfoMap[activeMatchIdx] || null;
-
-  const handleFinishMatch = (matchData) => {
-    onFinishMatch(matchData);
-    const newFinished = [...finishedInRound, activeMatchIdx];
-    setFinishedInRound(newFinished);
-    setMatchInfoMap(prev => { const c = {...prev}; delete c[activeMatchIdx]; return c; });
-    const nextIdx = matches.findIndex((_, i) => i > activeMatchIdx && !newFinished.includes(i));
-    if (nextIdx >= 0) setActiveMatchIdx(nextIdx);
-  };
-
-  if (matches.length === 0) {
-    return <div style={{ textAlign:"center", padding:20, color:C.gray }}>모든 정규 라운드 완료</div>;
-  }
-
-  const allFinished = matches.every((_, i) => finishedInRound.includes(i));
+  // 각 경기별 matchInfo 생성
+  const matchInfos = useMemo(() => {
+    return matches.map((pair, i) => ({
+      homeIdx: pair[0], awayIdx: pair[1],
+      matchId: `R${viewingRoundIdx+1}_C${i}`,
+      homeTeam: teamNames[pair[0]], awayTeam: teamNames[pair[1]],
+      homeGk: gks[pair[0]] || null, awayGk: gks[pair[1]] || null,
+      homeColor: TEAM_COLORS[teamColorIndices[pair[0]]],
+      awayColor: TEAM_COLORS[teamColorIndices[pair[1]]],
+      homePlayers: teams[pair[0]],
+      awayPlayers: teams[pair[1]],
+    }));
+  }, [viewingRoundIdx, matches, teamNames, gks, teamColorIndices, teams]);
 
   return (
     <div>
-      <div style={{ fontSize:13, color:C.gray, marginBottom:8 }}>라운드 {roundIdx + 1} · {matches.length}경기</div>
-
-      {/* 경기 탭 */}
-      {matches.length > 1 && (
-        <div style={s.tabRow}>
-          {matches.map((m, i) => {
-            const finished = finishedInRound.includes(i);
-            return (
-              <button key={i} onClick={() => {
-                if (!finished) {
-                  setActiveMatchIdx(i);
-                }
-              }} style={{ ...s.tab(activeMatchIdx === i), opacity: finished ? 0.5 : 1, fontSize:12 }}>
-                {finished ? "✓ " : ""}{courtCount === 2 ? (i === 0 ? "A구장" : "B구장") : `경기${i+1}`}
-              </button>
-            );
-          })}
+      {/* 라운드 네비게이션 */}
+      <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:12, marginBottom:10 }}>
+        <button onClick={() => setViewingRoundIdx(Math.max(0, viewingRoundIdx - 1))} disabled={viewingRoundIdx === 0}
+          style={{ ...s.btnSm(C.grayDark), opacity: viewingRoundIdx===0?0.3:1 }}>◀</button>
+        <div style={{ fontSize:14, fontWeight:700, color:C.white }}>
+          라운드 {viewingRoundIdx + 1} / {schedule.length}
+          <span style={{ fontSize:11, marginLeft:8, color: isConfirmed ? C.green : C.orange, fontWeight:600 }}>
+            {isConfirmed ? "종료된게임" : "경기진행중"}
+          </span>
         </div>
-      )}
+        <button onClick={() => setViewingRoundIdx(Math.min(currentRoundIdx, viewingRoundIdx + 1))} disabled={viewingRoundIdx >= currentRoundIdx}
+          style={{ ...s.btnSm(C.grayDark), opacity: viewingRoundIdx>=currentRoundIdx?0.3:1 }}>▶</button>
+      </div>
 
-      {/* 경기 진행 중 */}
-      {activeMatchInfo && !allFinished && (
-        <CourtRecorder
-          key={activeMatchIdx}
-          matchInfo={activeMatchInfo}
-          homePlayers={activeMatchInfo.homePlayers}
-          awayPlayers={activeMatchInfo.awayPlayers}
-          allEvents={allEvents}
-          onRecordEvent={onRecordEvent}
-          onUndoEvent={onUndoEvent}
-          onDeleteEvent={onDeleteEvent}
-          onEditEvent={onEditEvent}
-          onFinish={handleFinishMatch}
-          styles={s}
-          courtLabel={courtCount === 2 ? (activeMatchIdx === 0 ? "A구장" : "B구장") : ""}
-          attendees={attendees}
-        />
-      )}
-
-      {allFinished && (
-        <div style={{ textAlign:"center", padding:20, color:C.green, fontWeight:700 }}>이 라운드 완료! ✓</div>
-      )}
+      {/* 구장별 CourtRecorder 나열 */}
+      {matchInfos.map((mi, i) => (
+        <div key={`${viewingRoundIdx}_${i}`} style={{ marginBottom:16, borderLeft:`3px solid ${i===0?C.accent:C.orange}`, paddingLeft:8 }}>
+          <div style={{ fontSize:13, fontWeight:700, color: i===0?C.accent:C.orange, marginBottom:6 }}>
+            {courtCount === 2 ? (i === 0 ? "A구장" : "B구장") : `경기 ${i+1}`}
+          </div>
+          <CourtRecorder
+            matchInfo={mi}
+            homePlayers={mi.homePlayers}
+            awayPlayers={mi.awayPlayers}
+            allEvents={allEvents}
+            onRecordEvent={onRecordEvent}
+            onUndoEvent={onUndoEvent}
+            onDeleteEvent={onDeleteEvent}
+            onEditEvent={onEditEvent}
+            onFinish={() => {}}
+            styles={s}
+            courtLabel={courtCount === 2 ? (i === 0 ? "A구장" : "B구장") : ""}
+            attendees={attendees}
+          />
+        </div>
+      ))}
     </div>
   );
 }
@@ -830,80 +788,147 @@ function ScheduleMatchView({ round, roundIdx, teams, teamNames, teamColorIndices
 // FreeMatchView
 // ═══════════════════════════════════════════════════════════════
 function FreeMatchView({ teams, teamNames, teamColorIndices, gks, courtCount, allEvents, onRecordEvent, onUndoEvent, onDeleteEvent, onEditEvent, onFinishMatch, completedMatches, attendees, styles: s, isExtraRound }) {
+  const [courtMatches, setCourtMatches] = useState({}); // { 0: {home,away}, 1: {home,away} }
+  const [activeCourtTab, setActiveCourtTab] = useState(0);
+  const [settingCourt, setSettingCourt] = useState(null); // which court is being configured
   const [selection, setSelection] = useState({ home: null, away: null });
-  const [activeMatchInfo, setActiveMatchInfo] = useState(null);
 
-  const handleStartMatch = () => {
-    const h = selection.home, a = selection.away;
-    setActiveMatchInfo({
-      homeIdx: h, awayIdx: a,
-      matchId: `R${completedMatches.length + 1}`,
-      homeTeam: teamNames[h], awayTeam: teamNames[a],
-      homeGk: gks[h] || null, awayGk: gks[a] || null,
-      homeColor: TEAM_COLORS[teamColorIndices[h]],
-      awayColor: TEAM_COLORS[teamColorIndices[a]],
-      homePlayers: teams[h],
-      awayPlayers: teams[a],
-    });
+  const courtCount2 = courtCount === 2;
+  const courts = courtCount2 ? [0, 1] : [0];
+
+  // 구장에 대진이 설정되었는지
+  const courtHasMatch = (ci) => courtMatches[ci] && courtMatches[ci].home !== null && courtMatches[ci].away !== null;
+
+  // matchInfo 생성
+  const getMatchInfo = (ci) => {
+    const cm = courtMatches[ci];
+    if (!cm || cm.home === null || cm.away === null) return null;
+    return {
+      homeIdx: cm.home, awayIdx: cm.away,
+      matchId: `F${completedMatches.length + ci + 1}_C${ci}`,
+      homeTeam: teamNames[cm.home], awayTeam: teamNames[cm.away],
+      homeGk: gks[cm.home] || null, awayGk: gks[cm.away] || null,
+      homeColor: TEAM_COLORS[teamColorIndices[cm.home]],
+      awayColor: TEAM_COLORS[teamColorIndices[cm.away]],
+      homePlayers: teams[cm.home],
+      awayPlayers: teams[cm.away],
+    };
   };
 
-  const handleFinishMatch = (matchData) => {
-    onFinishMatch(matchData);
-    setActiveMatchInfo(null);
+  const activeMatchInfo = getMatchInfo(activeCourtTab);
+
+  const handleSetCourt = () => {
+    if (selection.home === null || selection.away === null || selection.home === selection.away) return;
+    setCourtMatches(prev => ({ ...prev, [settingCourt]: { home: selection.home, away: selection.away } }));
     setSelection({ home: null, away: null });
+    setSettingCourt(null);
   };
 
-  // 경기 진행 중
-  if (activeMatchInfo) {
+  // 라운드 확정 (모든 구장)
+  const handleConfirmRound = () => {
+    const results = [];
+    for (const ci of courts) {
+      const mi = getMatchInfo(ci);
+      if (!mi) continue;
+      const evts = allEvents.filter(e => e.matchId === mi.matchId);
+      const homeScore = evts.filter(e => e.scoringTeam === mi.homeTeam).length;
+      const awayScore = evts.filter(e => e.scoringTeam === mi.awayTeam).length;
+      results.push({ ...mi, homeScore, awayScore, court: courtCount2 ? (ci===0?"A구장":"B구장") : "", mercenaries: [] });
+    }
+    if (results.length === 0) { alert("진행 중인 경기가 없습니다"); return; }
+    const msg = results.map(r => `${r.court?r.court+": ":""}${r.homeTeam} ${r.homeScore}:${r.awayScore} ${r.awayTeam}`).join("\n");
+    if (!confirm(msg + "\n\n경기결과를 확정하시겠습니까?")) return;
+    results.forEach(r => onFinishMatch(r));
+    setCourtMatches({});
+  };
+
+  // 구장 설정 모달
+  if (settingCourt !== null) {
     return (
       <div>
-        {isExtraRound && <div style={{ textAlign:"center", fontSize:12, color:C.orange, marginBottom:8 }}>임시 경기</div>}
-        <CourtRecorder
-          matchInfo={activeMatchInfo}
-          homePlayers={activeMatchInfo.homePlayers}
-          awayPlayers={activeMatchInfo.awayPlayers}
-          allEvents={allEvents} onRecordEvent={onRecordEvent} onUndoEvent={onUndoEvent}
-          onDeleteEvent={onDeleteEvent} onEditEvent={onEditEvent}
-          onFinish={handleFinishMatch} styles={s} courtLabel=""
-          attendees={attendees}
-        />
+        <div style={{ fontSize:13, color:C.gray, marginBottom:8 }}>{courtCount2 ? (settingCourt===0?"A구장":"B구장") : ""} 대진 선택</div>
+        <div style={s.card}>
+          <div style={{ display:"flex", gap:12 }}>
+            <div style={{ flex:1 }}>
+              <div style={{ fontSize:12, color:C.gray, marginBottom:6, textAlign:"center" }}>홈팀</div>
+              {teamNames.map((name, idx) => (
+                <button key={idx} onClick={() => setSelection(prev => ({ ...prev, home: idx }))}
+                  style={{ ...s.matchBtn(selection.home === idx ? TEAM_COLORS[teamColorIndices[idx]] : null), width:"100%", marginBottom:4, opacity: selection.away === idx ? 0.3 : 1 }}>
+                  {name}
+                </button>
+              ))}
+            </div>
+            <div style={{ display:"flex", alignItems:"center", color:C.gray, fontSize:18, fontWeight:900 }}>VS</div>
+            <div style={{ flex:1 }}>
+              <div style={{ fontSize:12, color:C.gray, marginBottom:6, textAlign:"center" }}>원정팀</div>
+              {teamNames.map((name, idx) => (
+                <button key={idx} onClick={() => setSelection(prev => ({ ...prev, away: idx }))}
+                  style={{ ...s.matchBtn(selection.away === idx ? TEAM_COLORS[teamColorIndices[idx]] : null), width:"100%", marginBottom:4, opacity: selection.home === idx ? 0.3 : 1 }}>
+                  {name}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div style={{ display:"flex", gap:8, marginTop:12 }}>
+            <button onClick={() => { setSettingCourt(null); setSelection({home:null,away:null}); }} style={s.btn(C.grayDark)}>취소</button>
+            <button onClick={handleSetCourt}
+              disabled={selection.home === null || selection.away === null || selection.home === selection.away}
+              style={{ ...s.btnFull(C.green), flex:1, opacity: (selection.home!==null&&selection.away!==null&&selection.home!==selection.away)?1:0.4 }}>
+              확인
+            </button>
+          </div>
+        </div>
       </div>
     );
   }
 
-  // 대진 선택
   return (
     <div>
-      <div style={{ fontSize:13, color:C.gray, marginBottom:8 }}>{isExtraRound ? "임시 경기 대진 선택" : "다음 경기 대진 선택"}</div>
-      <div style={{ ...s.card }}>
-        <div style={{ display:"flex", gap:12 }}>
-          <div style={{ flex:1 }}>
-            <div style={{ fontSize:12, color:C.gray, marginBottom:6, textAlign:"center" }}>홈팀</div>
-            {teamNames.map((name, idx) => (
-              <button key={idx} onClick={() => setSelection(prev => ({ ...prev, home: idx }))}
-                style={{ ...s.matchBtn(selection.home === idx ? TEAM_COLORS[teamColorIndices[idx]] : null), width:"100%", marginBottom:4, opacity: selection.away === idx ? 0.3 : 1 }}>
-                {name}
+      {/* 구장 탭 */}
+      {courtCount2 && (
+        <div style={s.tabRow}>
+          {courts.map(ci => {
+            const mi = getMatchInfo(ci);
+            return (
+              <button key={ci} onClick={() => setActiveCourtTab(ci)}
+                style={{ ...s.tab(activeCourtTab === ci), fontSize:11, padding:"8px 4px" }}>
+                <div>{ci===0?"A구장":"B구장"}</div>
+                {mi && <div style={{ fontSize:10, marginTop:2, opacity:0.8 }}>{mi.homeTeam} vs {mi.awayTeam}</div>}
+                {!mi && <div style={{ fontSize:10, marginTop:2, opacity:0.5 }}>미설정</div>}
               </button>
-            ))}
-          </div>
-          <div style={{ display:"flex", alignItems:"center", color:C.gray, fontSize:18, fontWeight:900 }}>VS</div>
-          <div style={{ flex:1 }}>
-            <div style={{ fontSize:12, color:C.gray, marginBottom:6, textAlign:"center" }}>원정팀</div>
-            {teamNames.map((name, idx) => (
-              <button key={idx} onClick={() => setSelection(prev => ({ ...prev, away: idx }))}
-                style={{ ...s.matchBtn(selection.away === idx ? TEAM_COLORS[teamColorIndices[idx]] : null), width:"100%", marginBottom:4, opacity: selection.home === idx ? 0.3 : 1 }}>
-                {name}
-              </button>
-            ))}
-          </div>
+            );
+          })}
         </div>
-        <button
-          onClick={handleStartMatch}
-          disabled={selection.home === null || selection.away === null || selection.home === selection.away}
-          style={{ ...s.btnFull(C.green), marginTop:12, opacity: (selection.home !== null && selection.away !== null && selection.home !== selection.away) ? 1 : 0.4 }}>
-          경기 시작
-        </button>
-      </div>
+      )}
+
+      {/* 대진 미설정 시 설정 버튼 */}
+      {!courtHasMatch(activeCourtTab) ? (
+        <div style={{ textAlign:"center", padding:30 }}>
+          <div style={{ color:C.gray, marginBottom:12 }}>{courtCount2?(activeCourtTab===0?"A구장":"B구장"):""} 대진을 설정하세요</div>
+          <button onClick={() => setSettingCourt(activeCourtTab)} style={s.btn(C.accent, C.bg)}>대진 설정</button>
+        </div>
+      ) : (
+        <div>
+          <CourtRecorder
+            key={`free_${activeCourtTab}_${courtMatches[activeCourtTab]?.home}_${courtMatches[activeCourtTab]?.away}`}
+            matchInfo={activeMatchInfo}
+            homePlayers={activeMatchInfo.homePlayers}
+            awayPlayers={activeMatchInfo.awayPlayers}
+            allEvents={allEvents} onRecordEvent={onRecordEvent} onUndoEvent={onUndoEvent}
+            onDeleteEvent={onDeleteEvent} onEditEvent={onEditEvent}
+            onFinish={() => {}} styles={s}
+            courtLabel={courtCount2 ? (activeCourtTab===0?"A구장":"B구장") : ""}
+            attendees={attendees}
+          />
+        </div>
+      )}
+
+      {/* 라운드 확정 버튼 */}
+      {courts.some(ci => courtHasMatch(ci)) && (
+        <div style={{ marginTop:12 }}>
+          <button onClick={handleConfirmRound} style={{ ...s.btnFull(C.accent, C.bg) }}>경기 종료 확정</button>
+        </div>
+      )}
     </div>
   );
 }
@@ -973,10 +998,13 @@ function App() {
 
   const [schedule, setSchedule] = useState([]);
   const [currentRoundIdx, setCurrentRoundIdx] = useState(0);
+  const [viewingRoundIdx, setViewingRoundIdx] = useState(0);
+  const [confirmedRounds, setConfirmedRounds] = useState({});
   const [completedMatches, setCompletedMatches] = useState([]);
   const [allEvents, setAllEvents] = useState([]);
   const [isExtraRound, setIsExtraRound] = useState(false);
   const [splitPhase, setSplitPhase] = useState("first");
+  const [matchModal, setMatchModal] = useState(null); // "schedule"|"standings"|"playerStats"
 
   // 경기 상태를 시트에 자동 저장 (디바운스)
   const saveTimerRef = useRef(null);
@@ -987,14 +1015,14 @@ function App() {
       setSyncStatus("saving");
       AppSync.saveState({
         phase, teams, teamNames, teamColorIndices, gks, allEvents,
-        completedMatches, schedule, currentRoundIdx, attendees,
+        completedMatches, schedule, currentRoundIdx, viewingRoundIdx, confirmedRounds, attendees,
         teamCount, courtCount, matchMode, isExtraRound, splitPhase, rotations,
       }).then(() => {
         setSyncStatus("saved");
         setTimeout(() => setSyncStatus(""), 2000);
       }).catch(() => setSyncStatus("error"));
     }, 1500); // 1.5초 디바운스
-  }, [phase, teams, teamNames, teamColorIndices, gks, allEvents, completedMatches, schedule, currentRoundIdx, attendees, teamCount, courtCount, matchMode, isExtraRound, splitPhase, rotations]);
+  }, [phase, teams, teamNames, teamColorIndices, gks, allEvents, completedMatches, schedule, currentRoundIdx, viewingRoundIdx, confirmedRounds, attendees, teamCount, courtCount, matchMode, isExtraRound, splitPhase, rotations]);
 
   // 경기 중 상태 변경 시 자동 저장
   useEffect(() => {
@@ -1019,6 +1047,8 @@ function App() {
     if (s.allEvents) setAllEvents(s.allEvents);
     if (s.isExtraRound != null) setIsExtraRound(s.isExtraRound);
     if (s.splitPhase) setSplitPhase(s.splitPhase);
+    if (s.viewingRoundIdx != null) setViewingRoundIdx(s.viewingRoundIdx);
+    if (s.confirmedRounds) setConfirmedRounds(s.confirmedRounds);
     if (s.phase) setPhase(s.phase);
     setPendingRestore(null);
   };
@@ -1067,6 +1097,9 @@ function App() {
     setCompletedMatches([]);
     setAllEvents([]);
     setIsExtraRound(false);
+    setViewingRoundIdx(0);
+    setConfirmedRounds({});
+    setMatchModal(null);
     setPhase("match");
   };
 
@@ -1106,9 +1139,14 @@ function App() {
   const finishMatch = (matchData) => {
     const match = { ...matchData, isExtra: isExtraRound };
     setCompletedMatches(prev => [...prev, match]);
+  };
+
+  const confirmRound = (roundIdx, matchResults) => {
+    matchResults.forEach(r => finishMatch(r));
+    setConfirmedRounds(prev => ({ ...prev, [roundIdx]: true }));
     if (matchMode === "schedule" && !isExtraRound) {
       if (teamCount === 6 && courtCount === 2 && splitPhase === "first") {
-        const cnt = completedMatches.filter(m => !m.isExtra).length + 1;
+        const cnt = completedMatches.filter(m => !m.isExtra).length + matchResults.length;
         if (cnt >= 6) {
           const standings = getTeamStandings();
           const top = standings.slice(0,3).map(s => s.idx);
@@ -1120,7 +1158,9 @@ function App() {
           setSplitPhase("second");
         }
       }
-      setCurrentRoundIdx(prev => prev + 1);
+      const nextIdx = roundIdx + 1;
+      setCurrentRoundIdx(nextIdx);
+      setViewingRoundIdx(nextIdx);
     }
   };
 
@@ -1395,33 +1435,98 @@ function App() {
 
   // ═══════════ PHASE: MATCH ═══════════
   if (phase === "match") {
-    const totalReg = matchMode==="schedule" ? schedule.length : 0;
-    const compReg = completedMatches.filter(m => !m.isExtra).length;
+    const allRoundsComplete = matchMode==="schedule" && schedule.length > 0 && currentRoundIdx >= schedule.length;
+    const viewRound = matchMode==="schedule" ? schedule[viewingRoundIdx] : null;
+    const viewRoundConfirmed = confirmedRounds[viewingRoundIdx] || false;
+
+    // 스케줄 모드: 현재 보고 있는 라운드의 경기 결과 계산
+    const getScheduleRoundResults = () => {
+      if (!viewRound) return [];
+      return viewRound.matches.map((pair, i) => {
+        const matchId = `R${viewingRoundIdx+1}_C${i}`;
+        const evts = allEvents.filter(e => e.matchId === matchId);
+        const homeTeam = teamNames[pair[0]], awayTeam = teamNames[pair[1]];
+        return {
+          homeIdx: pair[0], awayIdx: pair[1], matchId,
+          homeTeam, awayTeam,
+          homeGk: gks[pair[0]] || null, awayGk: gks[pair[1]] || null,
+          homeScore: evts.filter(e => e.scoringTeam === homeTeam).length,
+          awayScore: evts.filter(e => e.scoringTeam === awayTeam).length,
+          court: courtCount===2 ? (i===0?"A구장":"B구장") : "",
+          mercenaries: [],
+        };
+      });
+    };
+
+    const handleConfirmScheduleRound = () => {
+      const results = getScheduleRoundResults();
+      // GK 체크
+      for (const r of results) {
+        if (!r.homeGk || !r.awayGk) {
+          alert(`${r.court} 키퍼를 지정하세요: ${!r.homeGk?r.homeTeam:""}${!r.homeGk&&!r.awayGk?", ":""}${!r.awayGk?r.awayTeam:""}`);
+          return;
+        }
+      }
+      const msg = results.map(r => `${r.court?r.court+": ":""}${r.homeTeam} ${r.homeScore}:${r.awayScore} ${r.awayTeam}`).join("\n");
+      if (!confirm(msg + "\n\n라운드 " + (viewingRoundIdx+1) + " 결과를 확정하시겠습니까?")) return;
+      confirmRound(viewingRoundIdx, results);
+    };
+
     return (
       <div style={styles.app}>
         <div style={styles.header}>
           <div style={styles.title}>⚽ 경기 진행</div>
           <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:8 }}>
-            <div style={styles.subtitle}>{matchMode==="schedule"?`${isExtraRound?"임시 경기":`${compReg}/${totalReg}R`}`:`자유대진 · ${completedMatches.length}경기`}</div>
+            <div style={styles.subtitle}>{matchMode==="schedule"?`${allRoundsComplete?"전체 라운드 완료":`라운드 ${currentRoundIdx+1}/${schedule.length}`}`:`자유대전 · ${completedMatches.length}경기`}</div>
             {AppSync.enabled() && syncStatus && (
               <div style={{ fontSize:9, padding:"2px 6px", borderRadius:4, background: syncStatus==="saved"?"#22c55e22":syncStatus==="saving"?"#3b82f622":"#ef444422", color: syncStatus==="saved"?"#22c55e":syncStatus==="saving"?"#3b82f6":"#ef4444", fontWeight:600 }}>
                 {syncStatus==="saving"?"저장 중...":syncStatus==="saved"?"저장됨":"저장 실패"}
               </div>
             )}
           </div>
-        </div>
-        <div style={styles.phaseIndicator}>
-          {["참석자","팀편성","경기","집계"].map((l,i) => (
-            <div key={i} style={{ display:"flex", alignItems:"center", gap:4 }}>
-              <div style={styles.dot(i===2)}/><span style={{ fontSize:10, color:i===2?C.accent:C.grayDark }}>{l}</span>
-            </div>
-          ))}
+          {/* 상단 모달 버튼 + 게임마감 */}
+          <div style={{ display:"flex", gap:6, justifyContent:"center", marginTop:8 }}>
+            {matchMode==="schedule" && <button onClick={() => setMatchModal("schedule")} style={{ ...styles.btnSm(C.grayDark, C.white), fontSize:11 }}>대진표</button>}
+            <button onClick={() => setMatchModal("standings")} style={{ ...styles.btnSm(C.grayDark, C.white), fontSize:11 }}>팀순위</button>
+            <button onClick={() => setMatchModal("playerStats")} style={{ ...styles.btnSm(C.grayDark, C.white), fontSize:11 }}>개인기록</button>
+            {(allRoundsComplete || matchMode==="free") && (
+              <button onClick={() => setPhase("summary")} style={{ ...styles.btnSm(C.green, C.bg), fontSize:11, fontWeight:700 }}>게임마감</button>
+            )}
+          </div>
         </div>
 
-        {completedMatches.length > 0 && (
-          <div style={styles.section}>
-            <div style={styles.sectionTitle}>📊 현재 순위</div>
-            <div style={styles.card}>
+        {/* ── 모달: 대진표 ── */}
+        {matchModal === "schedule" && (
+          <div onClick={() => setMatchModal(null)} style={{ position:"fixed", top:0, left:0, right:0, bottom:0, background:"rgba(0,0,0,0.7)", zIndex:1000, overflow:"auto", display:"flex", alignItems:"flex-start", justifyContent:"center", paddingTop:40 }}>
+            <div onClick={e => e.stopPropagation()} style={{ background:C.card, borderRadius:14, padding:16, width:"90%", maxWidth:460, maxHeight:"80vh", overflow:"auto" }}>
+              <div style={{ display:"flex", justifyContent:"space-between", marginBottom:12 }}>
+                <span style={{ fontSize:15, fontWeight:700, color:C.white }}>대진표</span>
+                <button onClick={() => setMatchModal(null)} style={styles.btnSm(C.grayDark)}>닫기</button>
+              </div>
+              {schedule.map((round, ri) => (
+                <div key={ri} style={{ marginBottom:10, padding:10, borderRadius:8, background: ri===currentRoundIdx?`${C.accent}11`:C.cardLight }}>
+                  <div style={{ fontSize:12, fontWeight:700, color: confirmedRounds[ri]?C.green:ri===currentRoundIdx?C.accent:C.gray, marginBottom:4 }}>
+                    라운드 {ri+1} {confirmedRounds[ri]?"(종료)":ri<=currentRoundIdx?"(진행중)":""}
+                  </div>
+                  {round.matches.map((pair, mi) => (
+                    <div key={mi} style={{ fontSize:12, color:C.white, marginLeft:8 }}>
+                      {courtCount===2?(mi===0?"A":"B")+": ":""}{teamNames[pair[0]]} vs {teamNames[pair[1]]}
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* ── 모달: 팀순위 ── */}
+        {matchModal === "standings" && (
+          <div onClick={() => setMatchModal(null)} style={{ position:"fixed", top:0, left:0, right:0, bottom:0, background:"rgba(0,0,0,0.7)", zIndex:1000, overflow:"auto", display:"flex", alignItems:"flex-start", justifyContent:"center", paddingTop:40 }}>
+            <div onClick={e => e.stopPropagation()} style={{ background:C.card, borderRadius:14, padding:16, width:"90%", maxWidth:460, maxHeight:"80vh", overflow:"auto" }}>
+              <div style={{ display:"flex", justifyContent:"space-between", marginBottom:12 }}>
+                <span style={{ fontSize:15, fontWeight:700, color:C.white }}>팀 순위</span>
+                <button onClick={() => setMatchModal(null)} style={styles.btnSm(C.grayDark)}>닫기</button>
+              </div>
               <table style={{ width:"100%", borderCollapse:"collapse" }}>
                 <thead><tr>{["#","팀","경기","승","무","패","득","실","승점"].map(h => <th key={h} style={styles.th}>{h}</th>)}</tr></thead>
                 <tbody>
@@ -1435,10 +1540,19 @@ function App() {
                 </tbody>
               </table>
             </div>
-            <div style={{ ...styles.sectionTitle, marginTop:12 }}>👤 선수 누적기록</div>
-            <div style={{ ...styles.card, overflowX:"auto" }}>
-              <table style={{ width:"100%", borderCollapse:"collapse", minWidth:360 }}>
-                <thead><tr>{["선수","골","어시","자책","CS","실점"].map(h => <th key={h} style={styles.th}>{h}</th>)}</tr></thead>
+          </div>
+        )}
+
+        {/* ── 모달: 개인기록 ── */}
+        {matchModal === "playerStats" && (
+          <div onClick={() => setMatchModal(null)} style={{ position:"fixed", top:0, left:0, right:0, bottom:0, background:"rgba(0,0,0,0.7)", zIndex:1000, overflow:"auto", display:"flex", alignItems:"flex-start", justifyContent:"center", paddingTop:40 }}>
+            <div onClick={e => e.stopPropagation()} style={{ background:C.card, borderRadius:14, padding:16, width:"90%", maxWidth:460, maxHeight:"80vh", overflow:"auto" }}>
+              <div style={{ display:"flex", justifyContent:"space-between", marginBottom:12 }}>
+                <span style={{ fontSize:15, fontWeight:700, color:C.white }}>선수 누적기록</span>
+                <button onClick={() => setMatchModal(null)} style={styles.btnSm(C.grayDark)}>닫기</button>
+              </div>
+              <table style={{ width:"100%", borderCollapse:"collapse" }}>
+                <thead><tr>{["선수","골","어시","자책","클린","실점"].map(h => <th key={h} style={styles.th}>{h}</th>)}</tr></thead>
                 <tbody>
                   {attendees.map(p => { const st = playerMatchStats[p]; if (!st || (st.goals===0 && st.assists===0 && st.owngoals===0 && st.cleanSheets===0 && st.conceded===0)) return null; return (
                     <tr key={p}>
@@ -1456,13 +1570,16 @@ function App() {
           </div>
         )}
 
+        {/* ── 메인 영역 ── */}
         <div style={styles.section}>
-          {matchMode==="schedule" && currentScheduleRound && !isExtraRound ? (
-            <ScheduleMatchView round={currentScheduleRound} roundIdx={currentRoundIdx}
+          {matchMode==="schedule" && schedule.length > 0 && !isExtraRound ? (
+            <ScheduleMatchView schedule={schedule} currentRoundIdx={currentRoundIdx}
+              viewingRoundIdx={viewingRoundIdx} setViewingRoundIdx={setViewingRoundIdx}
+              confirmedRounds={confirmedRounds} onConfirmRound={confirmRound}
               teams={teams} teamNames={teamNames} teamColorIndices={teamColorIndices} gks={gks}
               courtCount={courtCount} allEvents={allEvents} onRecordEvent={recordMatchEvent}
               onUndoEvent={undoMatchEvent} onDeleteEvent={deleteEvent} onEditEvent={editEvent}
-              onFinishMatch={finishMatch} completedMatches={completedMatches}
+              completedMatches={completedMatches}
               attendees={attendees} styles={styles} />
           ) : (
             <FreeMatchView teams={teams} teamNames={teamNames} teamColorIndices={teamColorIndices} gks={gks}
@@ -1473,12 +1590,18 @@ function App() {
           )}
         </div>
 
-        <div style={styles.bottomBar}>
-          {matchMode==="schedule" && !isExtraRound && currentRoundIdx>=schedule.length && (
-            <button onClick={() => setIsExtraRound(true)} style={styles.btn(C.orange)}>추가 경기</button>
-          )}
-          <button onClick={() => setPhase("summary")} style={{ ...styles.btn(C.purple), flex:1 }}>최종 집계</button>
-        </div>
+        {/* ── 하단 바: 라운드 종료 확정 (스케줄 모드) ── */}
+        {matchMode==="schedule" && schedule.length > 0 && !isExtraRound && (
+          <div style={styles.bottomBar}>
+            {!viewRoundConfirmed && viewingRoundIdx <= currentRoundIdx && viewingRoundIdx < schedule.length ? (
+              <button onClick={handleConfirmScheduleRound} style={{ ...styles.btn(C.accent, C.bg), flex:1 }}>
+                라운드 {viewingRoundIdx+1} 종료 확정
+              </button>
+            ) : viewRoundConfirmed ? (
+              <div style={{ flex:1, textAlign:"center", color:C.green, fontWeight:700, padding:10 }}>라운드 {viewingRoundIdx+1} 종료됨</div>
+            ) : null}
+          </div>
+        )}
       </div>
     );
   }
@@ -1523,7 +1646,7 @@ function App() {
           <div style={styles.sectionTitle}>👤 선수별 기록</div>
           <div style={{ ...styles.card, overflowX:"auto" }}>
             <table style={{ width:"100%", borderCollapse:"collapse", minWidth:480 }}>
-              <thead><tr>{["선수","팀","골","어시","역주행","CS","🍀","🍠","실점","GK","총점"].map(h => <th key={h} style={styles.th}>{h}</th>)}</tr></thead>
+              <thead><tr>{["선수","팀","골","어시","역주행","클린","🍀","🍠","실점","GK","총점"].map(h => <th key={h} style={styles.th}>{h}</th>)}</tr></thead>
               <tbody>
                 {playerRows.map(p => (
                   <tr key={p.name}>
@@ -1575,7 +1698,12 @@ function App() {
         </div>
         <div style={styles.bottomBar}>
           <button onClick={() => setPhase("match")} style={styles.btn(C.grayDark)}>경기로</button>
-          <button onClick={() => alert("API URL 설정 필요")} style={{ ...styles.btn(C.green), flex:1 }}>시트 저장</button>
+          <button onClick={() => {
+            const d = new Date();
+            if (confirm(`${d.getMonth()+1}월 ${d.getDate()}일 풋살기록을 확정하시겠습니까?\n\n확정 후에도 경기 화면에서 수정 가능합니다.`)) {
+              alert("기록이 확정되었습니다.");
+            }
+          }} style={{ ...styles.btn(C.green), flex:1 }}>기록 확정</button>
         </div>
       </div>
     );
