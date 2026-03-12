@@ -374,8 +374,14 @@ function CourtRecorder({ matchInfo, homePlayers: initHomePlayers, awayPlayers: i
     setActionMode(null);
   };
 
+  const checkGk = () => {
+    if (!homeGk || !awayGk) { alert(`키퍼를 먼저 지정하세요: ${!homeGk?homeTeam:""}${!homeGk&&!awayGk?", ":""}${!awayGk?awayTeam:""}`); return false; }
+    return true;
+  };
+
   // 골 선택
   const handleGoal = () => {
+    if (!checkGk()) return;
     setPendingGoalPlayer(selectedPlayer);
     setActionMode("selectAssist");
     setSelectedPlayer(null);
@@ -383,6 +389,7 @@ function CourtRecorder({ matchInfo, homePlayers: initHomePlayers, awayPlayers: i
 
   // 어시스트 선택
   const handleAssist = () => {
+    if (!checkGk()) return;
     setPendingAssistPlayer(selectedPlayer);
     setActionMode("selectScorer");
     setSelectedPlayer(null);
@@ -390,6 +397,7 @@ function CourtRecorder({ matchInfo, homePlayers: initHomePlayers, awayPlayers: i
 
   // 자책골 선택
   const handleOwnGoal = () => {
+    if (!checkGk()) return;
     const sp = selectedPlayer;
     const ownTeam = sp.isHome ? homeTeam : awayTeam;
     const scoringTeam = sp.isHome ? awayTeam : homeTeam;
@@ -431,6 +439,7 @@ function CourtRecorder({ matchInfo, homePlayers: initHomePlayers, awayPlayers: i
   };
 
   const handleFinish = () => {
+    if (!homeGk || !awayGk) { alert(`키퍼를 지정하세요: ${!homeGk?homeTeam:""}${!homeGk&&!awayGk?", ":""}${!awayGk?awayTeam:""}`); return; }
     onFinish({ matchId, homeIdx, awayIdx, homeTeam, awayTeam, homeGk, awayGk, homeScore, awayScore, court: courtLabel, mercenaries: mercs });
     resetState();
   };
@@ -1031,8 +1040,6 @@ function App() {
 
   const startMatches = () => {
     if (teams.some(t => t.length < 1)) { alert("모든 팀에 최소 1명"); return; }
-    const missingGk = teams.map((t, i) => gks[i] ? null : teamNames[i]).filter(Boolean);
-    if (missingGk.length > 0) { alert(`키퍼 미지정: ${missingGk.join(", ")}`); return; }
     if (matchMode === "schedule") {
       let sched;
       if (courtCount === 2) {
