@@ -525,7 +525,7 @@ function CourtRecorder({ matchInfo, homePlayers: initHomePlayers, awayPlayers: i
               <div key={p} style={{ display:"flex", gap:3, marginBottom:4, alignItems:"stretch" }}>
                 <button onClick={() => handlePlayerTap(p, true)} style={{ ...getPlayerStyle(p, true), flex:1, marginBottom:0 }}>
                   {homeGk === p && <span style={{ marginRight:4, fontSize:10 }}>🧤</span>}
-                  {isMerc && <span style={{ marginRight:4, fontSize:10 }}>⭐</span>}
+                  {isMerc && <span style={{ marginRight:2, fontSize:9, color:C.orange }}>(용병)</span>}
                   {p}
                 </button>
                 <button onClick={() => toggleGk(p, true)}
@@ -553,7 +553,7 @@ function CourtRecorder({ matchInfo, homePlayers: initHomePlayers, awayPlayers: i
               <div key={p} style={{ display:"flex", gap:3, marginBottom:4, alignItems:"stretch" }}>
                 <button onClick={() => handlePlayerTap(p, false)} style={{ ...getPlayerStyle(p, false), flex:1, marginBottom:0 }}>
                   {awayGk === p && <span style={{ marginRight:4, fontSize:10 }}>🧤</span>}
-                  {isMerc && <span style={{ marginRight:4, fontSize:10 }}>⭐</span>}
+                  {isMerc && <span style={{ marginRight:2, fontSize:9, color:C.orange }}>(용병)</span>}
                   {p}
                 </button>
                 <button onClick={() => toggleGk(p, false)}
@@ -1031,6 +1031,8 @@ function App() {
 
   const startMatches = () => {
     if (teams.some(t => t.length < 1)) { alert("모든 팀에 최소 1명"); return; }
+    const missingGk = teams.map((t, i) => gks[i] ? null : teamNames[i]).filter(Boolean);
+    if (missingGk.length > 0) { alert(`키퍼 미지정: ${missingGk.join(", ")}`); return; }
     if (matchMode === "schedule") {
       let sched;
       if (courtCount === 2) {
@@ -1409,6 +1411,24 @@ function App() {
                       <td style={styles.td()}>{t.gf}</td><td style={styles.td()}>{t.ga}</td><td style={styles.td(true)}>{t.points}</td>
                     </tr>
                   ))}
+                </tbody>
+              </table>
+            </div>
+            <div style={{ ...styles.sectionTitle, marginTop:12 }}>👤 선수 누적기록</div>
+            <div style={{ ...styles.card, overflowX:"auto" }}>
+              <table style={{ width:"100%", borderCollapse:"collapse", minWidth:360 }}>
+                <thead><tr>{["선수","골","어시","자책","CS","실점"].map(h => <th key={h} style={styles.th}>{h}</th>)}</tr></thead>
+                <tbody>
+                  {attendees.map(p => { const st = playerMatchStats[p]; if (!st || (st.goals===0 && st.assists===0 && st.owngoals===0 && st.cleanSheets===0 && st.conceded===0)) return null; return (
+                    <tr key={p}>
+                      <td style={styles.td(true)}>{p}</td>
+                      <td style={styles.td(st.goals>0)}>{st.goals}</td>
+                      <td style={styles.td(st.assists>0)}>{st.assists}</td>
+                      <td style={{ ...styles.td(st.owngoals>0), color:st.owngoals>0?C.red:C.white }}>{st.owngoals}</td>
+                      <td style={styles.td(st.cleanSheets>0)}>{st.cleanSheets}</td>
+                      <td style={styles.td()}>{st.conceded}</td>
+                    </tr>
+                  ); }).filter(Boolean)}
                 </tbody>
               </table>
             </div>
