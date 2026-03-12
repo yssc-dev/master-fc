@@ -72,6 +72,30 @@ const AppSync = {
       });
     } catch (e) { console.warn("상태 삭제 실패:", e.message); }
   },
+
+  async writePointLog(data) {
+    if (!this.enabled()) return null;
+    try {
+      const resp = await fetch(APPS_SCRIPT_URL, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain" },
+        body: JSON.stringify({ action: "writePointLog", data }),
+      });
+      return await resp.json();
+    } catch (e) { console.warn("포인트로그 저장 실패:", e.message); return null; }
+  },
+
+  async writePlayerLog(data) {
+    if (!this.enabled()) return null;
+    try {
+      const resp = await fetch(APPS_SCRIPT_URL, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain" },
+        body: JSON.stringify({ action: "writePlayerLog", data }),
+      });
+      return await resp.json();
+    } catch (e) { console.warn("선수별집계 저장 실패:", e.message); return null; }
+  },
 };
 
 // 대시보드 CSV 파싱 → 선수 배열
@@ -1737,10 +1761,43 @@ function App() {
         </div>
         <div style={styles.bottomBar}>
           <button onClick={() => setPhase("match")} style={styles.btn(C.grayDark)}>경기로</button>
-          <button onClick={() => {
+          <button onClick={async () => {
             const d = new Date();
-            if (confirm(`${d.getMonth()+1}월 ${d.getDate()}일 풋살기록을 확정하시겠습니까?\n\n확정 후에도 경기 화면에서 수정 가능합니다.`)) {
-              alert("기록이 확정되었습니다.");
+            const dateStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+            if (!confirm(`${d.getMonth()+1}월 ${d.getDate()}일 풋살기록을 확정하시겠습니까?\n\n시트에 포인트로그 + 선수별집계를 저장합니다.`)) return;
+
+            // 포인트로그 데이터 (이벤트별)
+            const pointEvents = allEvents.filter(e => e.type === "goal" || e.type === "owngoal").map(e => ({
+              gameDate: dateStr,
+              matchId: e.matchId || "",
+              myTeam: e.team || "",
+              opponentTeam: e.type === "goal" ? (e.concedingTeam || "") : (e.scoringTeam || ""),
+              scorer: e.type === "goal" ? e.player : "",
+              assist: e.assist || "",
+              ownGoalPlayer: e.type === "owngoal" ? e.player : "",
+              concedingGk: e.concedingGk || "",
+              inputTime: new Date(e.timestamp).toLocaleString("ko-KR"),
+            }));
+
+            // 선수별집계 데이터
+            const now = new Date().toLocaleString("ko-KR");
+            const playerData = attendees.map(p => {
+              const pts = calcPlayerPoints(p);
+              if (pts.goals===0 && pts.assists===0 && pts.owngoals===0 && pts.conceded===0 && pts.cleanSheets===0 && pts.keeperGames===0 && pts.crova===0 && pts.goguma===0) return null;
+              return { gameDate: dateStr, name: p, ...pts, inputTime: now };
+            }).filter(Boolean);
+
+            try {
+              const [r1, r2] = await Promise.all([
+                AppSync.writePointLog({ events: pointEvents }),
+                AppSync.writePlayerLog({ players: playerData }),
+              ]);
+              const msg = `기록 확정 완료!\n\n포인트로그: ${r1?.count||0}건\n선수별집계: ${r2?.count||0}명`;
+              alert(msg);
+              // 경기 상태 초기화
+              AppSync.clearState();
+            } catch (err) {
+              alert("시트 저장 실패: " + err.message);
             }
           }} style={{ ...styles.btn(C.green), flex:1 }}>기록 확정</button>
         </div>

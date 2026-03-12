@@ -47,6 +47,10 @@ function doPost(e) {
       result = _saveGameState(body.state);
     } else if (action === "clearState") {
       result = _clearGameState();
+    } else if (action === "writePointLog") {
+      result = _writePointLog(body.data);
+    } else if (action === "writePlayerLog") {
+      result = _writePlayerLog(body.data);
     } else {
       result = { error: "Unknown action: " + action };
     }
@@ -131,6 +135,78 @@ function _clearGameState() {
     sheet.getRange("A2:C2").clearContent();
   }
   return { success: true, message: "상태 초기화 완료" };
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 포인트로그 쓰기 (이벤트별 한 줄씩)
+// 시트 컬럼: 경기일자, 경기번호, 내팀, 상대팀, 득점선수, 어시선수, 자책골, 실점키퍼명, 입력시간
+// ═══════════════════════════════════════════════════════════════
+var POINT_LOG_SHEET = "포인트로그";
+
+function _writePointLog(data) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(POINT_LOG_SHEET);
+  if (!sheet) {
+    sheet = ss.insertSheet(POINT_LOG_SHEET);
+    sheet.getRange("A1:I1").setValues([["경기일자","경기번호","내팀","상대팀","득점선수","어시선수","자책골","실점키퍼명","입력시간"]]);
+    sheet.getRange("A1:I1").setFontWeight("bold");
+  }
+  var rows = data.events || [];
+  if (rows.length === 0) return { success: true, message: "이벤트 없음", count: 0 };
+
+  var values = rows.map(function(e) {
+    return [
+      e.gameDate,
+      e.matchId,
+      e.myTeam,
+      e.opponentTeam,
+      e.scorer || "",
+      e.assist || "",
+      e.ownGoalPlayer || "",
+      e.concedingGk || "",
+      e.inputTime
+    ];
+  });
+  var lastRow = sheet.getLastRow();
+  sheet.getRange(lastRow + 1, 1, values.length, 9).setValues(values);
+  return { success: true, count: values.length };
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 선수별집계기록로그 쓰기 (선수당 한 줄)
+// 시트 컬럼: 경기일자, 선수, 골, 어시, 역주행, 실점, 클린시트, 크로바, 고구마, 키퍼경기수, 입력시간
+// ═══════════════════════════════════════════════════════════════
+var PLAYER_LOG_SHEET = "선수별집계기록로그";
+
+function _writePlayerLog(data) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(PLAYER_LOG_SHEET);
+  if (!sheet) {
+    sheet = ss.insertSheet(PLAYER_LOG_SHEET);
+    sheet.getRange("A1:K1").setValues([["경기일자","선수","골","어시","역주행","실점","클린시트","크로바","고구마","키퍼경기수","입력시간"]]);
+    sheet.getRange("A1:K1").setFontWeight("bold");
+  }
+  var rows = data.players || [];
+  if (rows.length === 0) return { success: true, message: "선수 데이터 없음", count: 0 };
+
+  var values = rows.map(function(p) {
+    return [
+      p.gameDate,
+      p.name,
+      p.goals || 0,
+      p.assists || 0,
+      p.owngoals || 0,
+      p.conceded || 0,
+      p.cleanSheets || 0,
+      p.crova || 0,
+      p.goguma || 0,
+      p.keeperGames || 0,
+      p.inputTime
+    ];
+  });
+  var lastRow = sheet.getLastRow();
+  sheet.getRange(lastRow + 1, 1, values.length, 11).setValues(values);
+  return { success: true, count: values.length };
 }
 
 // ═══════════════════════════════════════════════════════════════
