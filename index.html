@@ -510,16 +510,18 @@ function CourtRecorder({ matchInfo, homePlayers: initHomePlayers, awayPlayers: i
         </div>
       )}
 
-      {/* 선수 액션 팝업 */}
+      {/* 선수 액션 모달 */}
       {selectedPlayer && !actionMode && (
-        <div style={{ textAlign:"center", padding:10, background:`${C.accent}22`, borderRadius:10, marginBottom:8 }}>
-          <div style={{ fontSize:15, fontWeight:700, marginBottom:8, color:C.white }}>{selectedPlayer.player}</div>
-          <div style={{ display:"flex", gap:8, justifyContent:"center" }}>
-            <button onClick={handleGoal} style={{ ...s.btn(C.green), flex:1 }}>⚽ 골</button>
-            <button onClick={handleAssist} style={{ ...s.btn(C.accent, C.bg), flex:1 }}>👟 어시스트</button>
-            <button onClick={handleOwnGoal} style={{ ...s.btn(C.red), flex:1 }}>🔴 자책골</button>
+        <div onClick={resetState} style={{ position:"fixed", top:0, left:0, right:0, bottom:0, background:"rgba(0,0,0,0.6)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:1000 }}>
+          <div onClick={e => e.stopPropagation()} style={{ background:C.card, borderRadius:14, padding:20, minWidth:260, maxWidth:"80vw", textAlign:"center" }}>
+            <div style={{ fontSize:17, fontWeight:700, marginBottom:14, color:C.white }}>{selectedPlayer.player}</div>
+            <div style={{ display:"flex", gap:10, justifyContent:"center" }}>
+              <button onClick={handleGoal} style={{ ...s.btn(C.green), flex:1, padding:"12px 0", fontSize:15 }}>⚽ 골</button>
+              <button onClick={handleAssist} style={{ ...s.btn(C.accent, C.bg), flex:1, padding:"12px 0", fontSize:15 }}>👟 어시스트</button>
+              <button onClick={handleOwnGoal} style={{ ...s.btn(C.red), flex:1, padding:"12px 0", fontSize:15 }}>🔴 자책골</button>
+            </div>
+            <button onClick={resetState} style={{ ...s.btnSm(C.grayDark), marginTop:10, width:"100%" }}>취소</button>
           </div>
-          <button onClick={resetState} style={{ ...s.btnSm(C.grayDark), marginTop:6 }}>취소</button>
         </div>
       )}
 
