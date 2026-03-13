@@ -1238,7 +1238,7 @@ function App({ authUser, teamContext, onLogout, onBackToMenu }) {
   const makeTeamName = (members) => {
     const top = [...members].sort((a, b) => getPlayerPoint(b) - getPlayerPoint(a))[0];
     const firstName = top.length > 1 ? top.slice(1) : top; // 성 제외
-    return `team${firstName}`;
+    return `팀 ${firstName}`;
   };
 
   const [draftMode, setDraftMode] = useState("snake"); // "snake" | "free"
@@ -1254,7 +1254,7 @@ function App({ authUser, teamContext, onLogout, onBackToMenu }) {
       // 자유편성: 참석자 미선택이면 전체 선수로 세팅
       if (attendees.length === 0) setAttendees(sortedPlayers.map(p => p.name));
       setTeams(Array.from({ length: teamCount }, () => []));
-      setTeamNames(Array.from({ length: teamCount }, (_, i) => `team${i + 1}`));
+      setTeamNames(Array.from({ length: teamCount }, (_, i) => `팀 ${i + 1}`));
       setFreeSelectTeam(0);
     }
     setTeamColorIndices(Array.from({ length: teamCount }, (_, i) => i % TEAM_COLORS.length));
@@ -1287,7 +1287,7 @@ function App({ authUser, teamContext, onLogout, onBackToMenu }) {
       const c = prev.map(t => [...t]);
       c[teamIdx] = c[teamIdx].filter(p => p !== player);
       const updated = [...teamNames];
-      updated[teamIdx] = c[teamIdx].length > 0 ? makeTeamName(c[teamIdx]) : `team${teamIdx + 1}`;
+      updated[teamIdx] = c[teamIdx].length > 0 ? makeTeamName(c[teamIdx]) : `팀 ${teamIdx + 1}`;
       setTeamNames(updated);
       return c;
     });
@@ -1383,6 +1383,7 @@ function App({ authUser, teamContext, onLogout, onBackToMenu }) {
       const nextIdx = roundIdx + 1;
       setCurrentRoundIdx(nextIdx);
       setViewingRoundIdx(nextIdx);
+      setGks({}); // 라운드 전환 시 GK 초기화
     }
   };
 
@@ -1596,7 +1597,7 @@ function App({ authUser, teamContext, onLogout, onBackToMenu }) {
         <div style={styles.section}>
           <div style={{ ...styles.row, marginBottom:12 }}>
             {draftMode==="snake" && <button onClick={reshuffleTeams} style={styles.btnSm(C.grayDark)}>재배치</button>}
-            {draftMode==="free" && <button onClick={() => { setTeams(Array.from({length:teamCount},()=>[])); setTeamNames(Array.from({length:teamCount},(_,i)=>`team${i+1}`)); setGks({}); }} style={styles.btnSm(C.grayDark)}>초기화</button>}
+            {draftMode==="free" && <button onClick={() => { setTeams(Array.from({length:teamCount},()=>[])); setTeamNames(Array.from({length:teamCount},(_,i)=>`팀 ${i+1}`)); setGks({}); }} style={styles.btnSm(C.grayDark)}>초기화</button>}
             <span style={{ fontSize:11, color:C.gray }}>전력: {teams.map(t => teamPower(t)).join(" / ")}</span>
           </div>
 
@@ -1782,23 +1783,33 @@ function App({ authUser, teamContext, onLogout, onBackToMenu }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {schedule.map((round, ri) => (
+                  {schedule.map((round, ri) => {
+                    // 확정된 라운드면 스코어 계산
+                    const getMatchScore = (pair, ci) => {
+                      if (!pair || !confirmedRounds[ri]) return `${teamNames[pair[0]]} vs ${teamNames[pair[1]]}`;
+                      const matchId = `R${ri+1}_C${ci}`;
+                      const evts = allEvents.filter(e => e.matchId === matchId);
+                      const hs = evts.filter(e => e.scoringTeam === teamNames[pair[0]]).reduce((s,e) => s + (e.type==="owngoal"?2:1), 0);
+                      const as_ = evts.filter(e => e.scoringTeam === teamNames[pair[1]]).reduce((s,e) => s + (e.type==="owngoal"?2:1), 0);
+                      return `${teamNames[pair[0]]} ${hs}:${as_} ${teamNames[pair[1]]}`;
+                    };
+                    return (
                     <tr key={ri} style={{ background: ri===currentRoundIdx?`${C.accent}11`:"transparent", cursor:"pointer" }}
                       onClick={() => { setViewingRoundIdx(ri <= currentRoundIdx ? ri : viewingRoundIdx); setMatchModal(null); }}>
                       <td style={styles.td(ri===currentRoundIdx)}>{ri+1}</td>
                       {courtCount===2 ? (
                         <>
-                          <td style={{ ...styles.td(), fontSize:11 }}>{round.matches[0]?`${teamNames[round.matches[0][0]]} vs ${teamNames[round.matches[0][1]]}`:"-"}</td>
-                          <td style={{ ...styles.td(), fontSize:11 }}>{round.matches[1]?`${teamNames[round.matches[1][0]]} vs ${teamNames[round.matches[1][1]]}`:"-"}</td>
+                          <td style={{ ...styles.td(), fontSize:11 }}>{round.matches[0]?getMatchScore(round.matches[0], 0):"-"}</td>
+                          <td style={{ ...styles.td(), fontSize:11 }}>{round.matches[1]?getMatchScore(round.matches[1], 1):"-"}</td>
                         </>
                       ) : (
-                        <td style={{ ...styles.td(), fontSize:11 }}>{round.matches.map((p,mi) => `${teamNames[p[0]]} vs ${teamNames[p[1]]}`).join(", ")}</td>
+                        <td style={{ ...styles.td(), fontSize:11 }}>{round.matches.map((p,mi) => getMatchScore(p, mi)).join(", ")}</td>
                       )}
                       <td style={{ ...styles.td(), color: confirmedRounds[ri]?C.green:ri<=currentRoundIdx?C.orange:C.gray, fontSize:10 }}>
                         {confirmedRounds[ri]?"종료":ri<=currentRoundIdx?"진행중":"-"}
                       </td>
                     </tr>
-                  ))}
+                  );})}
                 </tbody>
               </table>
             </div>
@@ -2022,7 +2033,7 @@ function App({ authUser, teamContext, onLogout, onBackToMenu }) {
             } catch (err) {
               alert("시트 저장 실패: " + err.message);
             }
-          }} style={{ ...styles.btn(C.green), flex:1 }}>기록 확정</button>
+          }} style={{ ...styles.btn(C.green), flex:1, opacity: teamContext?.role === "관리자" ? 1 : 0.4 }} disabled={teamContext?.role !== "관리자"}>{teamContext?.role === "관리자" ? "기록 확정" : "기록 확정 (관리자만)"}</button>
         </div>
       </div>
     );
