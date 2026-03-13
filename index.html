@@ -1192,11 +1192,21 @@ function App({ authUser, onLogout }) {
     return `team${firstName}`;
   };
 
+  const [draftMode, setDraftMode] = useState("snake"); // "snake" | "free"
+  const [freeSelectTeam, setFreeSelectTeam] = useState(0); // 자유편성 시 선택 중인 팀 인덱스
+
   const goToTeamBuild = () => {
     if (attendees.length < teamCount * 2) { alert(`최소 ${teamCount * 2}명 선택`); return; }
-    const drafted = snakeDraft(attendees, teamCount);
-    setTeams(drafted);
-    setTeamNames(drafted.map(t => makeTeamName(t)));
+    if (draftMode === "snake") {
+      const drafted = snakeDraft(attendees, teamCount);
+      setTeams(drafted);
+      setTeamNames(drafted.map(t => makeTeamName(t)));
+    } else {
+      // 자유편성: 빈 팀으로 시작
+      setTeams(Array.from({ length: teamCount }, () => []));
+      setTeamNames(Array.from({ length: teamCount }, (_, i) => `team${i + 1}`));
+      setFreeSelectTeam(0);
+    }
     setTeamColorIndices(Array.from({ length: teamCount }, (_, i) => i % TEAM_COLORS.length));
     setGks({});
     setPhase("teamBuild");
@@ -1207,6 +1217,38 @@ function App({ authUser, onLogout }) {
     if (gks[fromIdx] === player) setGks(prev => { const c = {...prev}; delete c[fromIdx]; return c; });
   };
   const reshuffleTeams = () => { const d = snakeDraft(attendees, teamCount); setTeams(d); setTeamNames(d.map(t => makeTeamName(t))); setGks({}); };
+
+  // 자유편성: 선수를 팀에 추가
+  const freeAddPlayer = (player) => {
+    setTeams(prev => {
+      const c = prev.map(t => [...t]);
+      c[freeSelectTeam].push(player);
+      // 팀명 자동 갱신
+      const updated = [...teamNames];
+      updated[freeSelectTeam] = makeTeamName(c[freeSelectTeam]);
+      setTeamNames(updated);
+      return c;
+    });
+  };
+
+  // 자유편성: 선수를 팀에서 제거
+  const freeRemovePlayer = (player, teamIdx) => {
+    setTeams(prev => {
+      const c = prev.map(t => [...t]);
+      c[teamIdx] = c[teamIdx].filter(p => p !== player);
+      const updated = [...teamNames];
+      updated[teamIdx] = c[teamIdx].length > 0 ? makeTeamName(c[teamIdx]) : `team${teamIdx + 1}`;
+      setTeamNames(updated);
+      return c;
+    });
+    if (gks[teamIdx] === player) setGks(prev => { const c = {...prev}; delete c[teamIdx]; return c; });
+  };
+
+  // 자유편성: 미배정 선수 목록
+  const unassignedPlayers = useMemo(() => {
+    const assigned = new Set(teams.flat());
+    return attendees.filter(p => !assigned.has(p));
+  }, [teams, attendees]);
 
   const startMatches = () => {
     if (teams.some(t => t.length < 1)) { alert("모든 팀에 최소 1명"); return; }
@@ -1437,11 +1479,18 @@ function App({ authUser, onLogout }) {
               <div style={{ fontSize:12, color:C.gray, marginBottom:6 }}>구장 수</div>
               <div style={styles.row}>{[1,2].map(n => <button key={n} onClick={() => setCourtCount(n)} style={styles.btn(courtCount===n?C.accent:C.grayDark, courtCount===n?C.bg:C.white)}>{n}코트</button>)}</div>
             </div>
-            <div style={{ marginBottom: courtCount===1&&matchMode==="schedule"?12:0 }}>
+            <div style={{ marginBottom:12 }}>
               <div style={{ fontSize:12, color:C.gray, marginBottom:6 }}>경기 모드</div>
               <div style={styles.row}>
                 <button onClick={() => setMatchMode("schedule")} style={styles.btn(matchMode==="schedule"?C.accent:C.grayDark, matchMode==="schedule"?C.bg:C.white)}>대진표</button>
                 <button onClick={() => setMatchMode("free")} style={styles.btn(matchMode==="free"?C.accent:C.grayDark, matchMode==="free"?C.bg:C.white)}>자유대진</button>
+              </div>
+            </div>
+            <div style={{ marginBottom: courtCount===1&&matchMode==="schedule"?12:0 }}>
+              <div style={{ fontSize:12, color:C.gray, marginBottom:6 }}>팀 편성 방식</div>
+              <div style={styles.row}>
+                <button onClick={() => setDraftMode("snake")} style={styles.btn(draftMode==="snake"?C.accent:C.grayDark, draftMode==="snake"?C.bg:C.white)}>스네이크</button>
+                <button onClick={() => setDraftMode("free")} style={styles.btn(draftMode==="free"?C.accent:C.grayDark, draftMode==="free"?C.bg:C.white)}>자유편성</button>
               </div>
             </div>
             {courtCount===1 && matchMode==="schedule" && (
@@ -1491,11 +1540,14 @@ function App({ authUser, onLogout }) {
 
   // ═══════════ PHASE: TEAM BUILD ═══════════
   if (phase === "teamBuild") {
+    // 팀원 포인트순 정렬 (최고 포인트 = 팀장 = 👑)
+    const sortedTeam = (team) => [...team].sort((a, b) => getPlayerPoint(b) - getPlayerPoint(a));
+
     return (
       <div style={styles.app}>
         <div style={styles.header}>
           <div style={styles.title}>⚽ 팀 편성</div>
-          <div style={styles.subtitle}>스네이크 드래프트 · {teamCount}팀 · {attendees.length}명</div>
+          <div style={styles.subtitle}>{draftMode==="snake"?"스네이크 드래프트":"자유 편성"} · {teamCount}팀 · {attendees.length}명</div>
         </div>
         <div style={styles.phaseIndicator}>
           {["참석자","팀편성","경기","집계"].map((l,i) => (
@@ -1506,13 +1558,48 @@ function App({ authUser, onLogout }) {
         </div>
         <div style={styles.section}>
           <div style={{ ...styles.row, marginBottom:12 }}>
-            <button onClick={reshuffleTeams} style={styles.btnSm(C.grayDark)}>재배치</button>
+            {draftMode==="snake" && <button onClick={reshuffleTeams} style={styles.btnSm(C.grayDark)}>재배치</button>}
+            {draftMode==="free" && <button onClick={() => { setTeams(Array.from({length:teamCount},()=>[])); setTeamNames(Array.from({length:teamCount},(_,i)=>`team${i+1}`)); setGks({}); }} style={styles.btnSm(C.grayDark)}>초기화</button>}
             <span style={{ fontSize:11, color:C.gray }}>전력: {teams.map(t => teamPower(t)).join(" / ")}</span>
           </div>
+
+          {/* 자유편성: 미배정 선수 목록 */}
+          {draftMode==="free" && unassignedPlayers.length > 0 && (
+            <div style={{ ...styles.card, border:`2px solid ${C.accent}44`, marginBottom:14 }}>
+              <div style={{ fontSize:12, fontWeight:700, color:C.accent, marginBottom:8 }}>미배정 선수 ({unassignedPlayers.length}명) → 아래 팀을 선택 후 클릭</div>
+              <div style={{ display:"flex", flexWrap:"wrap", gap:4 }}>
+                {[...unassignedPlayers].sort((a,b) => getPlayerPoint(b) - getPlayerPoint(a)).map(p => {
+                  const pd = getPlayerData(p);
+                  return (
+                    <div key={p} onClick={() => freeAddPlayer(p)}
+                      style={{ ...styles.chip(false), cursor:"pointer", padding:"6px 10px", fontSize:12 }}>
+                      <span>{p}</span><span style={{ fontSize:10, opacity:0.6 }}>{pd.point}p</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* 자유편성: 팀 선택 탭 */}
+          {draftMode==="free" && (
+            <div style={{ display:"flex", gap:0, marginBottom:12 }}>
+              {teams.map((_, tIdx) => (
+                <button key={tIdx} onClick={() => setFreeSelectTeam(tIdx)}
+                  style={{ flex:1, padding:"8px 4px", textAlign:"center", background:freeSelectTeam===tIdx?TEAM_COLORS[teamColorIndices[tIdx]]?.bg||C.accent:C.card, color:freeSelectTeam===tIdx?TEAM_COLORS[teamColorIndices[tIdx]]?.text||C.bg:C.gray, fontWeight:700, fontSize:12, border:"none", cursor:"pointer", borderRadius:0, borderBottom:freeSelectTeam===tIdx?`3px solid ${C.white}`:"3px solid transparent" }}>
+                  {teamNames[tIdx]} ({teams[tIdx].length})
+                </button>
+              ))}
+            </div>
+          )}
+
           {teams.map((team, tIdx) => {
             const color = TEAM_COLORS[teamColorIndices[tIdx]];
+            const sorted = sortedTeam(team);
+            const isSelectedFreeTeam = draftMode==="free" && freeSelectTeam===tIdx;
             return (
-              <div key={tIdx} style={styles.teamCard(teamColorIndices[tIdx])}>
+              <div key={tIdx} style={{ ...styles.teamCard(teamColorIndices[tIdx]), border: isSelectedFreeTeam?`2px solid ${color?.bg||C.accent}`:"none" }}
+                onClick={() => { if (draftMode==="free") setFreeSelectTeam(tIdx); }}>
                 <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:8 }}>
                   <div style={{ display:"flex", alignItems:"center", gap:8 }}>
                     {editingTeamName===tIdx ? (
@@ -1520,37 +1607,47 @@ function App({ authUser, onLogout }) {
                         onChange={e => { const c=[...teamNames]; c[tIdx]=e.target.value; setTeamNames(c); }}
                         onBlur={() => setEditingTeamName(null)} onKeyDown={e => e.key==="Enter"&&setEditingTeamName(null)} />
                     ) : (
-                      <span style={{ fontWeight:700, fontSize:14, cursor:"pointer" }} onClick={() => setEditingTeamName(tIdx)}>{teamNames[tIdx]}</span>
+                      <span style={{ fontWeight:700, fontSize:14, cursor:"pointer" }} onClick={(e) => { e.stopPropagation(); setEditingTeamName(tIdx); }}>{teamNames[tIdx]}</span>
                     )}
                     <span style={{ fontSize:11, color:C.gray }}>전력 {teamPower(team)}</span>
                   </div>
                   <div style={{ display:"flex", gap:3 }}>
                     {TEAM_COLORS.map((tc,ci) => (
-                      <div key={ci} onClick={() => { const c=[...teamColorIndices]; c[tIdx]=ci; setTeamColorIndices(c); }}
+                      <div key={ci} onClick={(e) => { e.stopPropagation(); const c=[...teamColorIndices]; c[tIdx]=ci; setTeamColorIndices(c); }}
                         style={{ width:16, height:16, borderRadius:"50%", background:tc.bg, border:teamColorIndices[tIdx]===ci?`2px solid ${C.white}`:`1px solid ${C.grayDark}`, cursor:"pointer" }} />
                     ))}
                   </div>
                 </div>
                 <div style={{ display:"flex", flexWrap:"wrap", gap:4 }}>
-                  {team.map((player, pIdx) => {
+                  {sorted.map((player, pIdx) => {
                     const pd = getPlayerData(player);
                     return (
                       <div key={player} style={{ ...styles.playerInTeam(color), color:C.white }}>
-                        {pIdx===0 && <span style={{ fontSize:10, marginRight:2 }}>👑</span>}
+                        {pIdx===0 && team.length > 0 && <span style={{ fontSize:10, marginRight:2 }}>👑</span>}
                         <span>{player}</span>
                         <span style={{ fontSize:10, opacity:0.6, marginLeft:4 }}>{pd.point}p</span>
-                        <button onClick={e => { e.stopPropagation(); setMoveSource(moveSource?.player===player?null:{player,teamIdx:tIdx}); }}
-                          style={{ ...styles.btnSm(moveSource?.player===player?C.orange:C.grayDarker, C.gray), padding:"2px 6px", fontSize:10, marginLeft:4 }}>
-                          {moveSource?.player===player?"취소":"↔"}
-                        </button>
+                        {draftMode==="snake" ? (
+                          <button onClick={e => { e.stopPropagation(); setMoveSource(moveSource?.player===player?null:{player,teamIdx:tIdx}); }}
+                            style={{ ...styles.btnSm(moveSource?.player===player?C.orange:C.grayDarker, C.gray), padding:"2px 6px", fontSize:10, marginLeft:4 }}>
+                            {moveSource?.player===player?"취소":"↔"}
+                          </button>
+                        ) : (
+                          <button onClick={e => { e.stopPropagation(); freeRemovePlayer(player, tIdx); }}
+                            style={{ ...styles.btnSm(C.redDim, C.white), padding:"2px 6px", fontSize:10, marginLeft:4 }}>
+                            ✕
+                          </button>
+                        )}
                       </div>
                     );
                   })}
-                  {moveSource && moveSource.teamIdx!==tIdx && (
+                  {draftMode==="snake" && moveSource && moveSource.teamIdx!==tIdx && (
                     <div onClick={() => { movePlayer(moveSource.player, moveSource.teamIdx, tIdx); setMoveSource(null); }}
                       style={{ display:"inline-flex", alignItems:"center", padding:"6px 12px", borderRadius:8, fontSize:12, margin:2, cursor:"pointer", border:`2px dashed ${C.accent}`, color:C.accent }}>
                       + {moveSource.player}
                     </div>
+                  )}
+                  {draftMode==="free" && team.length===0 && (
+                    <div style={{ color:C.grayDark, fontSize:12, padding:8 }}>위에서 선수를 클릭하세요</div>
                   )}
                 </div>
               </div>
@@ -1559,7 +1656,7 @@ function App({ authUser, onLogout }) {
         </div>
         <div style={styles.bottomBar}>
           <button onClick={() => setPhase("setup")} style={styles.btn(C.grayDark)}>이전</button>
-          <button onClick={startMatches} style={{ ...styles.btn(C.green), flex:1 }}>경기 시작</button>
+          <button onClick={startMatches} style={{ ...styles.btn(C.green), flex:1, opacity: teams.some(t=>t.length<1)?0.5:1 }}>경기 시작</button>
         </div>
       </div>
     );
