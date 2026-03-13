@@ -1226,7 +1226,8 @@ function App({ authUser, teamContext, onLogout, onBackToMenu }) {
   const [allEvents, setAllEvents] = useState([]);
   const [isExtraRound, setIsExtraRound] = useState(false);
   const [splitPhase, setSplitPhase] = useState("first");
-  const [matchModal, setMatchModal] = useState(null); // "schedule"|"standings"|"playerStats"
+  const [matchModal, setMatchModal] = useState(null); // "schedule"|"standings"|"playerStats"|"teamRoster"
+  const [matchModal_sortKey, setMatchModal_sortKey] = useState("total");
 
   // 경기 상태를 시트에 자동 저장 (디바운스)
   const saveTimerRef = useRef(null);
@@ -1961,15 +1962,20 @@ function App({ authUser, teamContext, onLogout, onBackToMenu }) {
                 <button onClick={() => setMatchModal(null)} style={styles.btnSm(C.grayDark)}>닫기</button>
               </div>
               <table style={{ width:"100%", borderCollapse:"collapse" }}>
-                <thead><tr>{["#","팀","경기","승","무","패","득","실","승점"].map(h => <th key={h} style={styles.th}>{h}</th>)}</tr></thead>
+                <thead><tr>{["#","팀","경기","승","무","패","득","실","득실","승점"].map(h => <th key={h} style={styles.th}>{h}</th>)}</tr></thead>
                 <tbody>
-                  {getTeamStandings().map((t,i) => (
+                  {getTeamStandings().map((t,i) => {
+                    const gd = t.gf - t.ga;
+                    return (
                     <tr key={t.name}>
                       <td style={styles.td()}>{i+1}</td><td style={styles.td(true)}>{t.name}</td>
                       <td style={styles.td()}>{t.games}</td><td style={styles.td()}>{t.wins}</td><td style={styles.td()}>{t.draws}</td><td style={styles.td()}>{t.losses}</td>
-                      <td style={styles.td()}>{t.gf}</td><td style={styles.td()}>{t.ga}</td><td style={styles.td(true)}>{t.points}</td>
+                      <td style={styles.td()}>{t.gf}</td><td style={styles.td()}>{t.ga}</td>
+                      <td style={{ ...styles.td(true), color: gd > 0 ? C.green : gd < 0 ? C.red : C.white }}>{gd > 0 ? `+${gd}` : gd}</td>
+                      <td style={styles.td(true)}>{t.points}</td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -1977,31 +1983,48 @@ function App({ authUser, teamContext, onLogout, onBackToMenu }) {
         )}
 
         {/* ── 모달: 개인기록 ── */}
-        {matchModal === "playerStats" && (
+        {matchModal === "playerStats" && (() => {
+          const cols = ["선수","골","어시","자책","클린","실점","🍀","🍠","합계"];
+          const rows = attendees.map(p => {
+            const pts = calcPlayerPoints(p);
+            if (pts.goals===0 && pts.assists===0 && pts.owngoals===0 && pts.cleanSheets===0 && pts.conceded===0 && pts.crova===0 && pts.goguma===0) return null;
+            return { name: p, ...pts };
+          }).filter(Boolean);
+          const sortKey = matchModal_sortKey || "total";
+          const sorted = [...rows].sort((a, b) => {
+            if (sortKey === "name") return a.name.localeCompare(b.name, "ko");
+            return (b[sortKey] || 0) - (a[sortKey] || 0);
+          });
+          const colKeys = ["name","goals","assists","owngoals","cleanSheets","conceded","crova","goguma","total"];
+          return (
           <div onClick={() => setMatchModal(null)} style={{ position:"fixed", top:0, left:0, right:0, bottom:0, background:"rgba(0,0,0,0.7)", zIndex:1000, overflow:"auto", display:"flex", alignItems:"flex-start", justifyContent:"center", paddingTop:40 }}>
-            <div onClick={e => e.stopPropagation()} style={{ background:C.card, borderRadius:14, padding:16, width:"90%", maxWidth:460, maxHeight:"80vh", overflow:"auto" }}>
+            <div onClick={e => e.stopPropagation()} style={{ background:C.card, borderRadius:14, padding:16, width:"90%", maxWidth:500, maxHeight:"80vh", overflow:"auto" }}>
               <div style={{ display:"flex", justifyContent:"space-between", marginBottom:12 }}>
-                <span style={{ fontSize:15, fontWeight:700, color:C.white }}>선수 누적기록</span>
+                <span style={{ fontSize:15, fontWeight:700, color:C.white }}>오늘의 선수기록</span>
                 <button onClick={() => setMatchModal(null)} style={styles.btnSm(C.grayDark)}>닫기</button>
               </div>
               <table style={{ width:"100%", borderCollapse:"collapse" }}>
-                <thead><tr>{["선수","골","어시","자책","클린","실점"].map(h => <th key={h} style={styles.th}>{h}</th>)}</tr></thead>
+                <thead><tr>{cols.map((h, ci) => <th key={h} style={{ ...styles.th, cursor:"pointer", color: matchModal_sortKey===colKeys[ci] ? C.accent : C.gray }} onClick={(e) => { e.stopPropagation(); setMatchModal_sortKey(colKeys[ci]); }}>{h}{matchModal_sortKey===colKeys[ci]?" ▼":""}</th>)}</tr></thead>
                 <tbody>
-                  {attendees.map(p => { const st = playerMatchStats[p]; if (!st || (st.goals===0 && st.assists===0 && st.owngoals===0 && st.cleanSheets===0 && st.conceded===0)) return null; return (
-                    <tr key={p}>
-                      <td style={styles.td(true)}>{p}</td>
-                      <td style={styles.td(st.goals>0)}>{st.goals}</td>
-                      <td style={styles.td(st.assists>0)}>{st.assists}</td>
-                      <td style={{ ...styles.td(st.owngoals>0), color:st.owngoals>0?C.red:C.white }}>{st.owngoals}</td>
-                      <td style={styles.td(st.cleanSheets>0)}>{st.cleanSheets}</td>
-                      <td style={styles.td()}>{st.conceded}</td>
+                  {sorted.map(p => (
+                    <tr key={p.name}>
+                      <td style={styles.td(true)}>{p.name}</td>
+                      <td style={styles.td(p.goals>0)}>{p.goals}</td>
+                      <td style={styles.td(p.assists>0)}>{p.assists}</td>
+                      <td style={{ ...styles.td(p.owngoals>0), color:p.owngoals>0?C.red:C.white }}>{p.owngoals > 0 ? `-${p.owngoals}` : 0}</td>
+                      <td style={styles.td(p.cleanSheets>0)}>{p.cleanSheets}</td>
+                      <td style={styles.td()}>{p.conceded}</td>
+                      <td style={{ ...styles.td(p.crova>0), color:p.crova>0?C.green:C.white }}>{p.crova||""}</td>
+                      <td style={{ ...styles.td(p.goguma<0), color:p.goguma<0?C.red:C.white }}>{p.goguma||""}</td>
+                      <td style={{ ...styles.td(true), fontSize:13, fontWeight:800, color:p.total>0?C.green:p.total<0?C.red:C.white }}>{p.total > 0 ? `+${p.total}` : p.total}</td>
                     </tr>
-                  ); }).filter(Boolean)}
+                  ))}
                 </tbody>
               </table>
             </div>
           </div>
-        )}
+          );
+        })()}
 
         {/* ── 메인 영역 ── */}
         <div style={styles.section}>
@@ -2500,7 +2523,7 @@ function Root() {
     setPendingRestore(null);
   };
 
-  const handleStartNew = () => {
+  const handleStartNew = async () => {
     if (pendingRestore) {
       if (teamContext?.role !== "관리자") {
         alert("진행중인 경기가 있습니다.\n관리자만 새 경기를 시작할 수 있습니다.");
@@ -2510,8 +2533,8 @@ function Root() {
       const editorInfo = lastEditor ? `${lastEditor}님이 기록 중인 경기입니다.\n` : "";
       if (!confirm(`${editorInfo}정말 새로 시작하시겠습니까?\n기존 진행중 경기가 초기화됩니다.`)) return;
       if (!confirm("되돌릴 수 없습니다. 정말 삭제하시겠습니까?")) return;
+      await FirebaseSync.clearState(teamContext?.team);
       AppSync.clearState();
-      FirebaseSync.clearState(teamContext?.team);
       setPendingRestore(null);
     }
     setScreen("app");
