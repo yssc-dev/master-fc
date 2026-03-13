@@ -118,8 +118,9 @@ function _verifyAuth(name, phone4) {
   var data = sheet.getRange(2, 1, lastRow - 1, 2).getValues();
   for (var i = 0; i < data.length; i++) {
     var regName = String(data[i][0]).trim();
-    var regPhone = String(data[i][1]).trim();
-    if (regName === String(name).trim() && regPhone === String(phone4).trim()) {
+    var regPhone = String(data[i][1]).trim().replace(/^0+/, ""); // 앞 0 제거
+    var inputPhone = String(phone4).trim().replace(/^0+/, ""); // 앞 0 제거
+    if (regName === String(name).trim() && regPhone === inputPhone) {
       return { success: true, name: regName };
     }
   }
