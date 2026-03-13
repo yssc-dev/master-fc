@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>마스터FC 풋살 기록기</title>
+  <title>풋살 경기기록</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { background: #0f172a; -webkit-tap-highlight-color: transparent; }
@@ -22,7 +22,7 @@
 const { useState, useCallback, useMemo, useEffect, useRef, Component } = React;
 
 // ═══════════════════════════════════════════════════════════════
-// 마스터FC 풋살 경기기록 웹앱 v2.3
+// 풋살 경기기록 웹앱 v3.0 (멀티팀 아키텍처)
 // ═══════════════════════════════════════════════════════════════
 
 // ─── Error Boundary ───
@@ -65,7 +65,7 @@ const AUTH_STORAGE_KEY = "masterfc_auth";
 const AUTH_EXPIRY_HOURS = 24; // 인증 유효기간 (시간)
 
 // ▼▼▼ Apps Script 웹앱 URL ▼▼▼
-const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbzFMwDYoP7peP-9zxoQO4TDRK--VOXc5WoBxlSt7VoM1LIDvtX_1TfHybTTGzmcMOO3/exec";
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwySaMM818pZpm3xHDMRXhRofpPQ4i2BDeATz-DWVeHAxHVEdAthH9casg0PUM4cg7r/exec";
 
 // ─── 인증 유틸 ───
 const AuthUtil = {
@@ -81,8 +81,8 @@ const AuthUtil = {
       return data;
     } catch (e) { return null; }
   },
-  save(name, phone4) {
-    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({ name, phone4, timestamp: Date.now() }));
+  save(name, phone4, team, mode, role) {
+    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({ name, phone4, team, mode, role, timestamp: Date.now() }));
   },
   clear() {
     localStorage.removeItem(AUTH_STORAGE_KEY);
@@ -95,16 +95,23 @@ const AppSync = {
 
   _getAuthToken() {
     const auth = AuthUtil.getStored();
-    return auth ? `${auth.name}:${auth.phone4}` : "";
+    return auth ? `${auth.team || ""}:${auth.name}:${auth.phone4}` : "";
+  },
+
+  _getTeam() {
+    const auth = AuthUtil.getStored();
+    return auth?.team || "";
   },
 
   async saveState(state) {
     if (!this.enabled()) return;
     try {
+      const team = this._getTeam();
+      const gameDate = new Date().toISOString().slice(0,10);
       await fetch(APPS_SCRIPT_URL, {
         method: "POST",
         headers: { "Content-Type": "text/plain" },
-        body: JSON.stringify({ action: "saveState", state, authToken: this._getAuthToken() }),
+        body: JSON.stringify({ action: "saveState", state, team, gameDate, authToken: this._getAuthToken() }),
       });
     } catch (e) { console.warn("상태 저장 실패:", e.message); }
   },
@@ -112,7 +119,8 @@ const AppSync = {
   async loadState() {
     if (!this.enabled()) return null;
     try {
-      const resp = await fetch(APPS_SCRIPT_URL + "?action=loadState&authToken=" + encodeURIComponent(this._getAuthToken()));
+      const team = this._getTeam();
+      const resp = await fetch(APPS_SCRIPT_URL + "?action=loadState&team=" + encodeURIComponent(team) + "&authToken=" + encodeURIComponent(this._getAuthToken()));
       const data = await resp.json();
       return data.found ? data : null;
     } catch (e) { console.warn("상태 복원 실패:", e.message); return null; }
@@ -121,21 +129,48 @@ const AppSync = {
   async clearState() {
     if (!this.enabled()) return;
     try {
+      const team = this._getTeam();
+      const gameDate = new Date().toISOString().slice(0,10);
       await fetch(APPS_SCRIPT_URL, {
         method: "POST",
         headers: { "Content-Type": "text/plain" },
-        body: JSON.stringify({ action: "clearState", authToken: this._getAuthToken() }),
+        body: JSON.stringify({ action: "clearState", team, gameDate, authToken: this._getAuthToken() }),
       });
     } catch (e) { console.warn("상태 삭제 실패:", e.message); }
+  },
+
+  async finalizeState() {
+    if (!this.enabled()) return;
+    try {
+      const team = this._getTeam();
+      const gameDate = new Date().toISOString().slice(0,10);
+      const resp = await fetch(APPS_SCRIPT_URL, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain" },
+        body: JSON.stringify({ action: "finalizeState", team, gameDate, authToken: this._getAuthToken() }),
+      });
+      return await resp.json();
+    } catch (e) { console.warn("상태 확정 실패:", e.message); return null; }
+  },
+
+  async getHistory() {
+    if (!this.enabled()) return [];
+    try {
+      const team = this._getTeam();
+      const resp = await fetch(APPS_SCRIPT_URL + "?action=getHistory&team=" + encodeURIComponent(team) + "&authToken=" + encodeURIComponent(this._getAuthToken()));
+      const data = await resp.json();
+      return data.history || [];
+    } catch (e) { console.warn("이력 조회 실패:", e.message); return []; }
   },
 
   async writePointLog(data) {
     if (!this.enabled()) return null;
     try {
+      const team = this._getTeam();
       const resp = await fetch(APPS_SCRIPT_URL, {
         method: "POST",
         headers: { "Content-Type": "text/plain" },
-        body: JSON.stringify({ action: "writePointLog", data, authToken: this._getAuthToken() }),
+        body: JSON.stringify({ action: "writePointLog", data: { ...data, team }, authToken: this._getAuthToken() }),
       });
       return await resp.json();
     } catch (e) { console.warn("포인트로그 저장 실패:", e.message); return null; }
@@ -144,10 +179,11 @@ const AppSync = {
   async writePlayerLog(data) {
     if (!this.enabled()) return null;
     try {
+      const team = this._getTeam();
       const resp = await fetch(APPS_SCRIPT_URL, {
         method: "POST",
         headers: { "Content-Type": "text/plain" },
-        body: JSON.stringify({ action: "writePlayerLog", data, authToken: this._getAuthToken() }),
+        body: JSON.stringify({ action: "writePlayerLog", data: { ...data, team }, authToken: this._getAuthToken() }),
       });
       return await resp.json();
     } catch (e) { console.warn("선수별집계 저장 실패:", e.message); return null; }
@@ -400,7 +436,7 @@ function generate1Court(teamCount, rotations) {
 // ═══════════════════════════════════════════════════════════════
 // CourtRecorder — 선수터치 → 골/어시/자책 선택 + GK토글 + 용병추가
 // ═══════════════════════════════════════════════════════════════
-function CourtRecorder({ matchInfo, homePlayers: initHomePlayers, awayPlayers: initAwayPlayers, allEvents, onRecordEvent, onUndoEvent, onDeleteEvent, onEditEvent, onFinish, onMatchInfoUpdate, styles: s, courtLabel, attendees }) {
+function CourtRecorder({ matchInfo, homePlayers: initHomePlayers, awayPlayers: initAwayPlayers, allEvents, onRecordEvent, onUndoEvent, onDeleteEvent, onEditEvent, onFinish, onMatchInfoUpdate, onGkChange, styles: s, courtLabel, attendees }) {
   const [selectedPlayer, setSelectedPlayer] = useState(null); // {player, isHome}
   const [actionMode, setActionMode] = useState(null); // null | "selectAssist" | "selectScorer"
   const [pendingGoalPlayer, setPendingGoalPlayer] = useState(null);
@@ -542,8 +578,19 @@ function CourtRecorder({ matchInfo, homePlayers: initHomePlayers, awayPlayers: i
 
   // GK 토글
   const toggleGk = (player, isHome) => {
-    if (isHome) setHomeGk(prev => prev === player ? null : player);
-    else setAwayGk(prev => prev === player ? null : player);
+    if (isHome) {
+      setHomeGk(prev => {
+        const next = prev === player ? null : player;
+        if (onGkChange) onGkChange(matchInfo.homeIdx, next);
+        return next;
+      });
+    } else {
+      setAwayGk(prev => {
+        const next = prev === player ? null : player;
+        if (onGkChange) onGkChange(matchInfo.awayIdx, next);
+        return next;
+      });
+    }
   };
 
   // 용병 추가
@@ -816,7 +863,7 @@ function CourtRecorder({ matchInfo, homePlayers: initHomePlayers, awayPlayers: i
 // ═══════════════════════════════════════════════════════════════
 // ScheduleMatchView
 // ═══════════════════════════════════════════════════════════════
-function ScheduleMatchView({ schedule, currentRoundIdx, viewingRoundIdx, setViewingRoundIdx, confirmedRounds, onConfirmRound, teams, teamNames, teamColorIndices, gks, courtCount, allEvents, onRecordEvent, onUndoEvent, onDeleteEvent, onEditEvent, completedMatches, attendees, styles: s }) {
+function ScheduleMatchView({ schedule, currentRoundIdx, viewingRoundIdx, setViewingRoundIdx, confirmedRounds, onConfirmRound, teams, teamNames, teamColorIndices, gks, courtCount, allEvents, onRecordEvent, onUndoEvent, onDeleteEvent, onEditEvent, completedMatches, attendees, onGkChange, styles: s }) {
   const round = schedule[viewingRoundIdx];
   const matches = round?.matches || [];
   const isConfirmed = confirmedRounds[viewingRoundIdx] || false;
@@ -886,6 +933,7 @@ function ScheduleMatchView({ schedule, currentRoundIdx, viewingRoundIdx, setView
             onDeleteEvent={onDeleteEvent}
             onEditEvent={onEditEvent}
             onFinish={() => {}}
+            onGkChange={onGkChange}
             styles={s}
             courtLabel={courtCount === 2 ? (i === 0 ? "A구장" : "B구장") : ""}
             attendees={attendees}
@@ -899,7 +947,7 @@ function ScheduleMatchView({ schedule, currentRoundIdx, viewingRoundIdx, setView
 // ═══════════════════════════════════════════════════════════════
 // FreeMatchView
 // ═══════════════════════════════════════════════════════════════
-function FreeMatchView({ teams, teamNames, teamColorIndices, gks, courtCount, allEvents, onRecordEvent, onUndoEvent, onDeleteEvent, onEditEvent, onFinishMatch, completedMatches, attendees, styles: s, isExtraRound }) {
+function FreeMatchView({ teams, teamNames, teamColorIndices, gks, courtCount, allEvents, onRecordEvent, onUndoEvent, onDeleteEvent, onEditEvent, onFinishMatch, completedMatches, attendees, onGkChange, styles: s, isExtraRound }) {
   const [courtMatches, setCourtMatches] = useState({}); // { 0: {home,away}, 1: {home,away} }
   const [activeCourtTab, setActiveCourtTab] = useState(0);
   const [settingCourt, setSettingCourt] = useState(null); // which court is being configured
@@ -1028,7 +1076,7 @@ function FreeMatchView({ teams, teamNames, teamColorIndices, gks, courtCount, al
             awayPlayers={activeMatchInfo.awayPlayers}
             allEvents={allEvents} onRecordEvent={onRecordEvent} onUndoEvent={onUndoEvent}
             onDeleteEvent={onDeleteEvent} onEditEvent={onEditEvent}
-            onFinish={() => {}} styles={s}
+            onFinish={() => {}} onGkChange={onGkChange} styles={s}
             courtLabel={courtCount2 ? (activeCourtTab===0?"A구장":"B구장") : ""}
             attendees={attendees}
           />
@@ -1048,14 +1096,14 @@ function FreeMatchView({ teams, teamNames, teamColorIndices, gks, courtCount, al
 // ═══════════════════════════════════════════════════════════════
 // MAIN APP
 // ═══════════════════════════════════════════════════════════════
-function App({ authUser, onLogout }) {
+function App({ authUser, teamContext, onLogout, onBackToMenu }) {
   const [phase, setPhase] = useState("setup");
   const [dataLoading, setDataLoading] = useState(true);
   const [dataSource, setDataSource] = useState(""); // "sheet" or "fallback"
   const [seasonPlayers, setSeasonPlayers] = useState(FALLBACK_DATA.players);
   const [seasonCrova, setSeasonCrova] = useState(FALLBACK_DATA.seasonCrova);
   const [seasonGoguma, setSeasonGoguma] = useState(FALLBACK_DATA.seasonGoguma);
-  const [pendingRestore, setPendingRestore] = useState(null); // 복원 대기 상태
+  const pendingRestore = null; // 복원은 Root에서 처리됨
   const [syncStatus, setSyncStatus] = useState(""); // "", "saving", "saved", "error"
 
   const [attendanceLoading, setAttendanceLoading] = useState(false);
@@ -1075,9 +1123,9 @@ function App({ authUser, onLogout }) {
       } else {
         setDataSource("fallback");
       }
-      // 저장된 경기 상태가 있으면 복원 여부 확인
+      // 저장된 경기 상태가 있으면 자동 복원 (Root의 PostLoginMenu에서 이미 결정됨)
       if (saved && saved.found && saved.state && saved.state.phase !== "setup") {
-        setPendingRestore(saved);
+        restoreState(saved);
       }
     }).finally(() => setDataLoading(false));
   }, []);
@@ -1166,7 +1214,6 @@ function App({ authUser, onLogout }) {
     if (s.viewingRoundIdx != null) setViewingRoundIdx(s.viewingRoundIdx);
     if (s.confirmedRounds) setConfirmedRounds(s.confirmedRounds);
     if (s.phase) setPhase(s.phase);
-    setPendingRestore(null);
   };
 
   const [playerSortMode, setPlayerSortMode] = useState("point"); // "point" | "name"
@@ -1290,6 +1337,10 @@ function App({ authUser, onLogout }) {
   }, [completedMatches, teamNames]);
 
   const currentScheduleRound = useMemo(() => matchMode === "free" || !schedule[currentRoundIdx] ? null : schedule[currentRoundIdx], [schedule, currentRoundIdx, matchMode]);
+
+  const handleGkChange = useCallback((teamIdx, player) => {
+    setGks(prev => ({ ...prev, [teamIdx]: player }));
+  }, []);
 
   const recordMatchEvent = (courtId, event) => setAllEvents(prev => [...prev, { ...event, id: generateEventId(), courtId, timestamp: Date.now() }]);
   const undoMatchEvent = (courtId, matchId) => {
@@ -1417,42 +1468,8 @@ function App({ authUser, onLogout }) {
     return (
       <div style={{ ...styles.app, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", minHeight:"100vh" }}>
         <div style={{ fontSize:32, marginBottom:16 }}>⚽</div>
-        <div style={{ color:C.white, fontSize:16, fontWeight:600, marginBottom:8 }}>마스터FC 경기기록</div>
+        <div style={{ color:C.white, fontSize:16, fontWeight:600, marginBottom:8 }}>{teamContext?.team || "풋살"} 경기기록</div>
         <div style={{ color:C.gray, fontSize:13 }}>선수 데이터 불러오는 중...</div>
-      </div>
-    );
-  }
-
-  // ═══════════ 이전 경기 복원 확인 ═══════════
-  if (pendingRestore) {
-    const s = pendingRestore;
-    const savedTime = s.savedAt ? new Date(s.savedAt).toLocaleString("ko-KR") : "알 수 없음";
-    const lastEditor = s.state?.lastEditor || "";
-    const lastEditTime = s.state?.lastEditTime ? new Date(s.state.lastEditTime).toLocaleString("ko-KR") : "";
-
-    const handleNewStart = () => {
-      const editorInfo = lastEditor ? `${lastEditor}님이 기록 중인 경기입니다.\n` : "";
-      if (!confirm(`${editorInfo}정말 초기화하시겠습니까?\n기존 경기 기록이 모두 삭제됩니다.`)) return;
-      if (!confirm("⚠️ 되돌릴 수 없습니다. 정말 삭제하시겠습니까?")) return;
-      setPendingRestore(null);
-      AppSync.clearState();
-    };
-
-    return (
-      <div style={{ ...styles.app, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", minHeight:"100vh", padding:24 }}>
-        <div style={{ fontSize:32, marginBottom:16 }}>💾</div>
-        <div style={{ color:C.white, fontSize:16, fontWeight:700, marginBottom:8 }}>진행 중인 경기가 있습니다</div>
-        {lastEditor && <div style={{ color:C.accent, fontSize:14, fontWeight:600, marginBottom:4 }}>기록자: {lastEditor}</div>}
-        <div style={{ color:C.gray, fontSize:13, marginBottom:4 }}>저장 시간: {lastEditTime || savedTime}</div>
-        <div style={{ color:C.gray, fontSize:12, marginBottom:24 }}>{s.summary || ""}</div>
-        <div style={{ display:"flex", gap:12 }}>
-          <button onClick={() => restoreState(s)} style={{ padding:"12px 24px", borderRadius:10, border:"none", background:C.green, color:"#fff", fontSize:14, fontWeight:700, cursor:"pointer" }}>
-            이어서 하기
-          </button>
-          <button onClick={handleNewStart} style={{ padding:"12px 24px", borderRadius:10, border:"none", background:C.grayDark, color:C.gray, fontSize:14, fontWeight:600, cursor:"pointer" }}>
-            새로 시작
-          </button>
-        </div>
       </div>
     );
   }
@@ -1462,16 +1479,17 @@ function App({ authUser, onLogout }) {
     return (
       <div style={styles.app}>
         <div style={styles.header}>
-          <div style={styles.title}>⚽ 마스터FC 경기기록</div>
+          <div style={styles.title}>⚽ {teamContext?.team || "풋살"} 경기기록</div>
           <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:8 }}>
-            <div style={styles.subtitle}>{new Date().toLocaleDateString("ko-KR")} 풋살 기록기</div>
+            <div style={styles.subtitle}>{new Date().toLocaleDateString("ko-KR")} {teamContext?.mode || "풋살"} 기록기</div>
             <div style={{ fontSize:9, padding:"2px 6px", borderRadius:4, background: dataSource==="sheet" ? "#22c55e22" : "#f9731644", color: dataSource==="sheet" ? "#22c55e" : "#f97316", fontWeight:600 }}>
               {dataSource==="sheet" ? "시트 연동" : "오프라인"}
             </div>
           </div>
           {authUser && (
             <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:8, marginTop:4 }}>
-              <span style={{ fontSize:11, color:"rgba(255,255,255,0.7)" }}>{authUser.name}</span>
+              <span style={{ fontSize:11, color:"rgba(255,255,255,0.7)" }}>{authUser.name} · {teamContext?.team}</span>
+              {onBackToMenu && <button onClick={onBackToMenu} style={{ fontSize:10, padding:"2px 8px", borderRadius:4, background:"rgba(255,255,255,0.15)", color:"rgba(255,255,255,0.7)", border:"none", cursor:"pointer" }}>메뉴</button>}
               <button onClick={onLogout} style={{ fontSize:10, padding:"2px 8px", borderRadius:4, background:"rgba(255,255,255,0.15)", color:"rgba(255,255,255,0.7)", border:"none", cursor:"pointer" }}>로그아웃</button>
             </div>
           )}
@@ -1848,13 +1866,13 @@ function App({ authUser, onLogout }) {
               courtCount={courtCount} allEvents={allEvents} onRecordEvent={recordMatchEvent}
               onUndoEvent={undoMatchEvent} onDeleteEvent={deleteEvent} onEditEvent={editEvent}
               completedMatches={completedMatches}
-              attendees={attendees} styles={styles} />
+              attendees={attendees} onGkChange={handleGkChange} styles={styles} />
           ) : (
             <FreeMatchView teams={teams} teamNames={teamNames} teamColorIndices={teamColorIndices} gks={gks}
               courtCount={courtCount} allEvents={allEvents} onRecordEvent={recordMatchEvent}
               onUndoEvent={undoMatchEvent} onDeleteEvent={deleteEvent} onEditEvent={editEvent}
               onFinishMatch={finishMatch} completedMatches={completedMatches}
-              attendees={attendees} styles={styles} isExtraRound={isExtraRound} />
+              attendees={attendees} onGkChange={handleGkChange} styles={styles} isExtraRound={isExtraRound} />
           )}
         </div>
 
@@ -1997,10 +2015,10 @@ function App({ authUser, onLogout }) {
                 AppSync.writePointLog({ events: pointEvents }),
                 AppSync.writePlayerLog({ players: playerData }),
               ]);
+              // 경기 상태를 "확정"으로 변경 (삭제X)
+              await AppSync.finalizeState();
               const msg = `기록 확정 완료!\n\n포인트로그: ${r1?.count||0}건\n선수별집계: ${r2?.count||0}명`;
               alert(msg);
-              // 경기 상태 초기화
-              AppSync.clearState();
             } catch (err) {
               alert("시트 저장 실패: " + err.message);
             }
@@ -2020,8 +2038,10 @@ function LoginScreen({ onLogin }) {
   const [phone4, setPhone4] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [step, setStep] = useState("auth"); // "auth" | "teamSelect"
+  const [teams, setTeams] = useState([]); // [{team, mode, role}, ...]
 
-  const handleLogin = async () => {
+  const handleVerify = async () => {
     const trimName = name.trim();
     if (!trimName) { setError("이름을 입력하세요"); return; }
     if (!/^\d{4}$/.test(phone4)) { setError("휴대폰 뒷자리 4자리를 입력하세요"); return; }
@@ -2030,8 +2050,19 @@ function LoginScreen({ onLogin }) {
     try {
       const result = await AppSync.verifyAuth(trimName, phone4);
       if (result.success) {
-        AuthUtil.save(trimName, phone4);
-        onLogin({ name: trimName, phone4 });
+        if (result.teams && result.teams.length > 0) {
+          setTeams(result.teams);
+          if (result.teams.length === 1) {
+            // 소속팀이 1개면 바로 선택
+            handleTeamSelect(result.teams[0]);
+          } else {
+            setStep("teamSelect");
+          }
+        } else {
+          // 이전 버전 호환: teams 없으면 기본팀으로 처리
+          AuthUtil.save(trimName, phone4, result.name || trimName, "풋살", "멤버");
+          onLogin({ name: trimName, phone4 }, { team: result.name || trimName, mode: "풋살", role: "멤버" });
+        }
       } else {
         setError(result.message || "이름 또는 번호가 일치하지 않습니다");
       }
@@ -2040,6 +2071,11 @@ function LoginScreen({ onLogin }) {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleTeamSelect = (teamInfo) => {
+    AuthUtil.save(name.trim(), phone4, teamInfo.team, teamInfo.mode, teamInfo.role);
+    onLogin({ name: name.trim(), phone4 }, teamInfo);
   };
 
   const ls = {
@@ -2053,21 +2089,207 @@ function LoginScreen({ onLogin }) {
     error: { fontSize:12, color:"#ef4444", textAlign:"center", marginBottom:10 },
   };
 
+  if (step === "teamSelect") {
+    return (
+      <div style={ls.container}>
+        <div style={ls.card}>
+          <div style={{ fontSize:32, textAlign:"center", marginBottom:12 }}>⚽</div>
+          <div style={ls.title}>{name.trim()}님</div>
+          <div style={ls.subtitle}>소속팀을 선택하세요</div>
+          {teams.map((t, i) => (
+            <button key={i} onClick={() => handleTeamSelect(t)}
+              style={{ ...ls.btn, marginTop: i > 0 ? 8 : 0, background: t.mode === "축구" ? "#3b82f6" : "#22d3ee", display:"flex", alignItems:"center", justifyContent:"center", gap:8 }}>
+              <span style={{ fontWeight:700 }}>{t.team}</span>
+              <span style={{ fontSize:12, opacity:0.8 }}>({t.mode})</span>
+              {t.role === "관리자" && <span style={{ fontSize:10, background:"rgba(0,0,0,0.2)", padding:"2px 6px", borderRadius:4 }}>관리자</span>}
+            </button>
+          ))}
+          <button onClick={() => { setStep("auth"); setTeams([]); }}
+            style={{ ...ls.btn, background:"#475569", color:"#94a3b8", marginTop:12 }}>
+            뒤로
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div style={ls.container}>
       <div style={ls.card}>
         <div style={{ fontSize:32, textAlign:"center", marginBottom:12 }}>⚽</div>
-        <div style={ls.title}>마스터FC</div>
-        <div style={ls.subtitle}>풋살 경기기록 로그인</div>
+        <div style={ls.title}>풋살 경기기록</div>
+        <div style={ls.subtitle}>로그인</div>
         <label style={ls.label}>이름</label>
-        <input style={ls.input} placeholder="홍길동" value={name} onChange={e => setName(e.target.value)} onKeyDown={e => e.key==="Enter" && handleLogin()} />
+        <input style={ls.input} placeholder="홍길동" value={name} onChange={e => setName(e.target.value)} onKeyDown={e => e.key==="Enter" && handleVerify()} />
         <label style={ls.label}>휴대폰 뒷자리 (4자리)</label>
         <input style={ls.input} type="tel" inputMode="numeric" maxLength={4} placeholder="1234" value={phone4}
           onChange={e => setPhone4(e.target.value.replace(/\D/g, "").slice(0, 4))}
-          onKeyDown={e => e.key==="Enter" && handleLogin()} />
+          onKeyDown={e => e.key==="Enter" && handleVerify()} />
         {error && <div style={ls.error}>{error}</div>}
-        <button style={{ ...ls.btn, opacity: loading ? 0.6 : 1 }} onClick={handleLogin} disabled={loading}>
+        <button style={{ ...ls.btn, opacity: loading ? 0.6 : 1 }} onClick={handleVerify} disabled={loading}>
           {loading ? "확인 중..." : "로그인"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PostLoginMenu — 메인 메뉴 (이어하기/새 경기/과거 조회)
+// ═══════════════════════════════════════════════════════════════
+function PostLoginMenu({ authUser, teamContext, onStartNew, onContinue, onViewHistory, onLogout, hasPendingGame }) {
+  const ms = {
+    container: { background:"#0f172a", minHeight:"100vh", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:24, fontFamily:"'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif" },
+    card: { background:"#1e293b", borderRadius:16, padding:28, width:"100%", maxWidth:340 },
+    title: { fontSize:22, fontWeight:800, color:"#f8fafc", textAlign:"center", marginBottom:4 },
+    subtitle: { fontSize:13, color:"#94a3b8", textAlign:"center", marginBottom:24 },
+    btn: (bg, tc="#fff") => ({ background:bg, color:tc, border:"none", borderRadius:10, padding:"14px", fontSize:15, fontWeight:700, cursor:"pointer", width:"100%", marginBottom:10 }),
+    modeTag: { fontSize:11, padding:"3px 8px", borderRadius:6, fontWeight:600 },
+  };
+  return (
+    <div style={ms.container}>
+      <div style={ms.card}>
+        <div style={{ fontSize:32, textAlign:"center", marginBottom:12 }}>⚽</div>
+        <div style={ms.title}>{teamContext.team}</div>
+        <div style={ms.subtitle}>
+          {authUser.name}님 · <span style={{ ...ms.modeTag, background: teamContext.mode==="축구" ? "#3b82f622" : "#22d3ee22", color: teamContext.mode==="축구" ? "#3b82f6" : "#22d3ee" }}>{teamContext.mode}</span>
+          {teamContext.role === "관리자" && <span style={{ ...ms.modeTag, background:"#f9731622", color:"#f97316", marginLeft:6 }}>관리자</span>}
+        </div>
+
+        {hasPendingGame && (
+          <button onClick={onContinue} style={ms.btn("#22c55e", "#fff")}>
+            이어서 하기
+          </button>
+        )}
+
+        <button onClick={onStartNew} style={ms.btn("#22d3ee", "#0f172a")}>
+          새 경기 시작
+        </button>
+
+        <button onClick={onViewHistory} style={ms.btn("#334155", "#f8fafc")}>
+          과거 경기 조회
+        </button>
+
+        <div style={{ borderTop:"1px solid #475569", marginTop:12, paddingTop:12 }}>
+          <button onClick={onLogout} style={{ ...ms.btn("#1e293b", "#94a3b8"), marginBottom:0, border:"1px solid #475569" }}>
+            로그아웃
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// HistoryView — 확정된 과거 경기 읽기전용 조회
+// ═══════════════════════════════════════════════════════════════
+function HistoryView({ teamContext, onBack }) {
+  const [loading, setLoading] = useState(true);
+  const [history, setHistory] = useState([]);
+  const [selectedGame, setSelectedGame] = useState(null);
+
+  useEffect(() => {
+    AppSync.getHistory().then(data => {
+      setHistory(data);
+    }).finally(() => setLoading(false));
+  }, []);
+
+  const hs = {
+    container: { background:"#0f172a", minHeight:"100vh", color:"#f8fafc", fontFamily:"'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif", maxWidth:500, margin:"0 auto" },
+    header: { background:"linear-gradient(135deg, #0891b2, #6366f1)", padding:"16px", textAlign:"center", position:"sticky", top:0, zIndex:100 },
+    card: { background:"#1e293b", borderRadius:12, padding:14, marginBottom:10 },
+  };
+
+  if (loading) {
+    return (
+      <div style={{ ...hs.container, display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", minHeight:"100vh" }}>
+        <div style={{ color:"#94a3b8", fontSize:14 }}>과거 경기 불러오는 중...</div>
+      </div>
+    );
+  }
+
+  // 상세 보기
+  if (selectedGame) {
+    let gameState = null;
+    try { gameState = JSON.parse(selectedGame.stateJson); } catch(e) {}
+
+    return (
+      <div style={hs.container}>
+        <div style={hs.header}>
+          <div style={{ fontSize:18, fontWeight:800, color:"#f8fafc" }}>{selectedGame.gameDate} 경기 기록</div>
+          <div style={{ fontSize:12, color:"rgba(255,255,255,0.7)", marginTop:2 }}>{teamContext.team} · 읽기전용</div>
+        </div>
+        <div style={{ padding:16 }}>
+          <div style={{ fontSize:12, color:"#94a3b8", marginBottom:8 }}>{selectedGame.summary}</div>
+
+          {gameState && gameState.completedMatches && gameState.completedMatches.map((m, i) => {
+            const evts = (gameState.allEvents || []).filter(e => e.matchId === m.matchId);
+            return (
+              <div key={i} style={{ ...hs.card, background: m.isExtra ? "#f9731611" : "#1e293b" }}>
+                <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
+                  <span style={{ fontSize:11, color:"#94a3b8" }}>{m.matchId}{m.isExtra ? " (임시)" : ""}</span>
+                  {m.court && <span style={{ fontSize:10, color:"#94a3b8" }}>{m.court}</span>}
+                </div>
+                <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:12, fontSize:16, fontWeight:700 }}>
+                  <span style={{ color: m.homeScore > m.awayScore ? "#10b981" : "#f8fafc" }}>{m.homeTeam}</span>
+                  <span style={{ fontSize:24, fontWeight:900 }}>{m.homeScore} : {m.awayScore}</span>
+                  <span style={{ color: m.awayScore > m.homeScore ? "#10b981" : "#f8fafc" }}>{m.awayTeam}</span>
+                </div>
+                {evts.length > 0 && (
+                  <div style={{ marginTop:6 }}>
+                    {evts.map((e, ei) => (
+                      <div key={ei} style={{ display:"flex", alignItems:"center", padding:"4px 8px", borderRadius:6, background:"#334155", marginBottom:3, fontSize:11, gap:4, color:"#f8fafc" }}>
+                        <span>{e.type === "goal" ? "⚽" : "🔴"}</span>
+                        <span style={{ fontWeight:600 }}>{e.player}</span>
+                        <span style={{ color:"#94a3b8" }}>({e.type === "goal" ? "골" : "자책골"})</span>
+                        {e.assist && <span style={{ color:"#94a3b8" }}> ← {e.assist}(어시)</span>}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+
+          {(!gameState || !gameState.completedMatches || gameState.completedMatches.length === 0) && (
+            <div style={{ textAlign:"center", color:"#94a3b8", padding:20 }}>상세 기록이 없습니다</div>
+          )}
+
+          <button onClick={() => setSelectedGame(null)}
+            style={{ background:"#475569", color:"#f8fafc", border:"none", borderRadius:8, padding:"10px 16px", fontSize:14, fontWeight:600, cursor:"pointer", width:"100%", marginTop:12 }}>
+            목록으로
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={hs.container}>
+      <div style={hs.header}>
+        <div style={{ fontSize:18, fontWeight:800, color:"#f8fafc" }}>과거 경기 조회</div>
+        <div style={{ fontSize:12, color:"rgba(255,255,255,0.7)", marginTop:2 }}>{teamContext.team}</div>
+      </div>
+      <div style={{ padding:16 }}>
+        {history.length === 0 ? (
+          <div style={{ textAlign:"center", color:"#94a3b8", padding:40 }}>확정된 경기 기록이 없습니다</div>
+        ) : (
+          history.map((h, i) => (
+            <div key={i} onClick={() => setSelectedGame(h)}
+              style={{ ...hs.card, cursor:"pointer", border:"1px solid #475569" }}>
+              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+                <div>
+                  <div style={{ fontSize:15, fontWeight:700, color:"#f8fafc" }}>{h.gameDate}</div>
+                  <div style={{ fontSize:12, color:"#94a3b8", marginTop:2 }}>{h.summary || "경기 기록"}</div>
+                </div>
+                <div style={{ fontSize:12, color:"#22d3ee", fontWeight:600 }}>상세 ▶</div>
+              </div>
+            </div>
+          ))
+        )}
+        <button onClick={onBack}
+          style={{ background:"#475569", color:"#f8fafc", border:"none", borderRadius:8, padding:"10px 16px", fontSize:14, fontWeight:600, cursor:"pointer", width:"100%", marginTop:12 }}>
+          메뉴로 돌아가기
         </button>
       </div>
     </div>
@@ -2079,21 +2301,84 @@ function LoginScreen({ onLogin }) {
 // ═══════════════════════════════════════════════════════════════
 function Root() {
   const [authed, setAuthed] = useState(() => !!AuthUtil.getStored());
-  const [authUser, setAuthUser] = useState(() => AuthUtil.getStored());
+  const [authUser, setAuthUser] = useState(() => {
+    const stored = AuthUtil.getStored();
+    return stored ? { name: stored.name, phone4: stored.phone4 } : null;
+  });
+  const [teamContext, setTeamContext] = useState(() => {
+    const stored = AuthUtil.getStored();
+    return stored?.team ? { team: stored.team, mode: stored.mode || "풋살", role: stored.role || "멤버" } : null;
+  });
+  const [screen, setScreen] = useState(() => {
+    const stored = AuthUtil.getStored();
+    return stored?.team ? "menu" : "login";
+  }); // "login" | "menu" | "app" | "history"
+  const [pendingRestore, setPendingRestore] = useState(null);
+  const [checkingPending, setCheckingPending] = useState(false);
 
-  const handleLogin = (user) => {
+  const handleLogin = (user, teamInfo) => {
     setAuthUser(user);
+    setTeamContext(teamInfo);
     setAuthed(true);
+    setScreen("menu");
+    // 진행중인 경기 체크
+    setCheckingPending(true);
+    AppSync.loadState().then(saved => {
+      if (saved && saved.found && saved.state && saved.state.phase !== "setup") {
+        setPendingRestore(saved);
+      }
+    }).finally(() => setCheckingPending(false));
   };
 
   const handleLogout = () => {
     AuthUtil.clear();
     setAuthed(false);
     setAuthUser(null);
+    setTeamContext(null);
+    setScreen("login");
+    setPendingRestore(null);
   };
 
-  if (!authed) return <LoginScreen onLogin={handleLogin} />;
-  return <App authUser={authUser} onLogout={handleLogout} />;
+  const handleStartNew = () => {
+    if (pendingRestore) {
+      const lastEditor = pendingRestore.state?.lastEditor || "";
+      const editorInfo = lastEditor ? `${lastEditor}님이 기록 중인 경기입니다.\n` : "";
+      if (!confirm(`${editorInfo}정말 새로 시작하시겠습니까?\n기존 진행중 경기가 초기화됩니다.`)) return;
+      if (!confirm("되돌릴 수 없습니다. 정말 삭제하시겠습니까?")) return;
+      AppSync.clearState();
+      setPendingRestore(null);
+    }
+    setScreen("app");
+  };
+
+  const handleContinue = () => {
+    setScreen("app");
+  };
+
+  if (screen === "login" || !authed) return <LoginScreen onLogin={handleLogin} />;
+
+  if (screen === "menu") {
+    return <PostLoginMenu
+      authUser={authUser}
+      teamContext={teamContext}
+      hasPendingGame={!!pendingRestore}
+      onStartNew={handleStartNew}
+      onContinue={handleContinue}
+      onViewHistory={() => setScreen("history")}
+      onLogout={handleLogout}
+    />;
+  }
+
+  if (screen === "history") {
+    return <HistoryView teamContext={teamContext} onBack={() => setScreen("menu")} />;
+  }
+
+  return <App
+    authUser={authUser}
+    teamContext={teamContext}
+    onLogout={handleLogout}
+    onBackToMenu={() => setScreen("menu")}
+  />;
 }
 
 ReactDOM.createRoot(document.getElementById("root")).render(
