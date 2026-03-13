@@ -19,11 +19,36 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
   <script type="text/babel" data-type="module">
-const { useState, useCallback, useMemo, useEffect, useRef } = React;
+const { useState, useCallback, useMemo, useEffect, useRef, Component } = React;
 
 // ═══════════════════════════════════════════════════════════════
-// 마스터FC 풋살 경기기록 웹앱 v2.2
+// 마스터FC 풋살 경기기록 웹앱 v2.3
 // ═══════════════════════════════════════════════════════════════
+
+// ─── Error Boundary ───
+class ErrorBoundary extends Component {
+  constructor(props) { super(props); this.state = { hasError: false, error: null }; }
+  static getDerivedStateFromError(error) { return { hasError: true, error }; }
+  componentDidCatch(error, info) { console.error("앱 에러:", error, info); }
+  render() {
+    if (this.state.hasError) {
+      return React.createElement("div", { style: { background:"#0f172a", minHeight:"100vh", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:24, color:"#f8fafc", fontFamily:"sans-serif" } },
+        React.createElement("div", { style: { fontSize:32, marginBottom:16 } }, "⚠️"),
+        React.createElement("div", { style: { fontSize:16, fontWeight:700, marginBottom:8 } }, "앱에 오류가 발생했습니다"),
+        React.createElement("div", { style: { fontSize:12, color:"#94a3b8", marginBottom:16, textAlign:"center", maxWidth:300 } }, String(this.state.error?.message || this.state.error)),
+        React.createElement("button", { onClick: () => { this.setState({ hasError: false, error: null }); }, style: { background:"#22d3ee", color:"#0f172a", border:"none", borderRadius:8, padding:"10px 24px", fontSize:14, fontWeight:700, cursor:"pointer" } }, "다시 시도"),
+        React.createElement("button", { onClick: () => { this.setState({ hasError: false, error: null }); window.location.reload(); }, style: { background:"#475569", color:"#fff", border:"none", borderRadius:8, padding:"10px 24px", fontSize:14, fontWeight:600, cursor:"pointer", marginTop:8 } }, "새로고침")
+      );
+    }
+    return this.props.children;
+  }
+}
+
+// ─── 고유 ID 생성 ───
+let _eventIdCounter = 0;
+function generateEventId() {
+  return `evt_${Date.now()}_${++_eventIdCounter}`;
+}
 
 // Google Sheet 연동 설정
 const SHEET_CONFIG = {
@@ -35,12 +60,48 @@ const SHEET_CONFIG = {
   }
 };
 
-// ▼▼▼ Apps Script 웹앱 URL (배포 후 여기에 붙여넣기) ▼▼▼
-const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwTVWUtbrlwgezmgLOj9gPZEdxJhjaLbil6iWHvSP6gIbst7FxUVEtQWZ-8CAA8ek4Q/exec";  // 예: "https://script.google.com/macros/s/AKfyc.../exec"
+// ─── 인증 설정 ───
+const AUTH_STORAGE_KEY = "masterfc_auth";
+const AUTH_EXPIRY_HOURS = 24; // 인증 유효기간 (시간)
+
+// ▼▼▼ Apps Script 웹앱 URL ▼▼▼
+// 보안: URL은 localStorage에 저장. GitHub에 노출 방지.
+// 최초 접속 시 URL 입력 화면이 표시됨.
+function getAppsScriptUrl() {
+  return localStorage.getItem("masterfc_api_url") || "";
+}
+const APPS_SCRIPT_URL = getAppsScriptUrl();
+
+// ─── 인증 유틸 ───
+const AuthUtil = {
+  getStored() {
+    try {
+      const raw = localStorage.getItem(AUTH_STORAGE_KEY);
+      if (!raw) return null;
+      const data = JSON.parse(raw);
+      if (Date.now() - data.timestamp > AUTH_EXPIRY_HOURS * 3600 * 1000) {
+        localStorage.removeItem(AUTH_STORAGE_KEY);
+        return null;
+      }
+      return data;
+    } catch { return null; }
+  },
+  save(name, phone4) {
+    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({ name, phone4, timestamp: Date.now() }));
+  },
+  clear() {
+    localStorage.removeItem(AUTH_STORAGE_KEY);
+  }
+};
 
 // Apps Script 연동 유틸
 const AppSync = {
   enabled() { return !!APPS_SCRIPT_URL; },
+
+  _getAuthToken() {
+    const auth = AuthUtil.getStored();
+    return auth ? `${auth.name}:${auth.phone4}` : "";
+  },
 
   async saveState(state) {
     if (!this.enabled()) return;
@@ -48,7 +109,7 @@ const AppSync = {
       await fetch(APPS_SCRIPT_URL, {
         method: "POST",
         headers: { "Content-Type": "text/plain" },
-        body: JSON.stringify({ action: "saveState", state }),
+        body: JSON.stringify({ action: "saveState", state, authToken: this._getAuthToken() }),
       });
     } catch (e) { console.warn("상태 저장 실패:", e.message); }
   },
@@ -56,7 +117,7 @@ const AppSync = {
   async loadState() {
     if (!this.enabled()) return null;
     try {
-      const resp = await fetch(APPS_SCRIPT_URL + "?action=loadState");
+      const resp = await fetch(APPS_SCRIPT_URL + "?action=loadState&authToken=" + encodeURIComponent(this._getAuthToken()));
       const data = await resp.json();
       return data.found ? data : null;
     } catch (e) { console.warn("상태 복원 실패:", e.message); return null; }
@@ -68,7 +129,7 @@ const AppSync = {
       await fetch(APPS_SCRIPT_URL, {
         method: "POST",
         headers: { "Content-Type": "text/plain" },
-        body: JSON.stringify({ action: "clearState" }),
+        body: JSON.stringify({ action: "clearState", authToken: this._getAuthToken() }),
       });
     } catch (e) { console.warn("상태 삭제 실패:", e.message); }
   },
@@ -79,7 +140,7 @@ const AppSync = {
       const resp = await fetch(APPS_SCRIPT_URL, {
         method: "POST",
         headers: { "Content-Type": "text/plain" },
-        body: JSON.stringify({ action: "writePointLog", data }),
+        body: JSON.stringify({ action: "writePointLog", data, authToken: this._getAuthToken() }),
       });
       return await resp.json();
     } catch (e) { console.warn("포인트로그 저장 실패:", e.message); return null; }
@@ -91,29 +152,71 @@ const AppSync = {
       const resp = await fetch(APPS_SCRIPT_URL, {
         method: "POST",
         headers: { "Content-Type": "text/plain" },
-        body: JSON.stringify({ action: "writePlayerLog", data }),
+        body: JSON.stringify({ action: "writePlayerLog", data, authToken: this._getAuthToken() }),
       });
       return await resp.json();
     } catch (e) { console.warn("선수별집계 저장 실패:", e.message); return null; }
   },
+
+  async verifyAuth(name, phone4) {
+    if (!this.enabled()) return { success: false, message: "서버 연결 불가" };
+    try {
+      const resp = await fetch(APPS_SCRIPT_URL, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain" },
+        body: JSON.stringify({ action: "verifyAuth", name, phone4 }),
+      });
+      return await resp.json();
+    } catch (e) { return { success: false, message: "인증 서버 연결 실패" }; }
+  },
 };
 
-// 대시보드 CSV 파싱 → 선수 배열
+// 대시보드 CSV 파싱 → 선수 배열 (헤더 기반 컬럼 매핑)
 function parseCSV(text) {
   const lines = text.split('\n');
+  if (lines.length < 4) return [];
   const players = [];
-  for (let i = 3; i < lines.length; i++) { // 헤더 3줄 스킵
+
+  // 헤더 행 찾기: 여러 줄 헤더 중 실제 컬럼명이 있는 행 탐색
+  let headerIdx = -1;
+  const HEADER_KEYWORDS = ["이름", "포인트", "게임수"];
+  for (let i = 0; i < Math.min(5, lines.length); i++) {
+    const fields = parseCSVLine(lines[i]);
+    const joined = fields.join(" ");
+    if (HEADER_KEYWORDS.some(k => joined.includes(k))) { headerIdx = i; break; }
+  }
+
+  // 헤더를 찾으면 헤더 기반 매핑, 못 찾으면 기존 인덱스 폴백
+  let colMap = null;
+  if (headerIdx >= 0) {
+    const headers = parseCSVLine(lines[headerIdx]);
+    colMap = {};
+    headers.forEach((h, idx) => {
+      const t = h.trim().toLowerCase();
+      if (t.includes("ppg") || t === "ppg") colMap.ppg = idx;
+      else if (t.includes("순위") || t === "순위") colMap.rank = idx;
+      else if (t.includes("백넘버") || t.includes("등번호")) colMap.backNum = idx;
+      else if (t.includes("이름") || t === "이름") colMap.name = idx;
+      else if (t.includes("게임수") || t.includes("게임")) colMap.games = idx;
+      else if (t.includes("포인트") || t === "포인트") colMap.point = idx;
+    });
+  }
+
+  // 폴백 인덱스 (기존 호환)
+  const col = colMap && colMap.name != null ? colMap : { ppg:0, rank:1, backNum:2, name:3, games:4, point:13 };
+  const startRow = headerIdx >= 0 ? headerIdx + 1 : 3;
+
+  for (let i = startRow; i < lines.length; i++) {
     const line = lines[i];
     if (!line.trim()) continue;
     const fields = parseCSVLine(line);
-    // A(0)=ppg, B(1)=rank, C(2)=백넘버, D(3)=이름, E(4)=게임수, N(13)=포인트
-    const name = fields[3];
+    const name = fields[col.name];
     if (!name) continue;
-    const rank = parseInt(fields[1]) || 0;
-    const backNum = fields[2] ? parseInt(fields[2]) || null : null;
-    const games = parseInt(fields[4]) || 0;
-    const point = parseInt(fields[13]) || 0;
-    const ppg = parseFloat(fields[0]) || 0;
+    const rank = parseInt(fields[col.rank]) || 0;
+    const backNum = col.backNum != null && fields[col.backNum] ? parseInt(fields[col.backNum]) || null : null;
+    const games = parseInt(fields[col.games]) || 0;
+    const point = parseInt(fields[col.point]) || 0;
+    const ppg = col.ppg != null ? parseFloat(fields[col.ppg]) || 0 : 0;
     players.push({ rank, name, backNum, games, point, ppg });
   }
   return players;
@@ -641,8 +744,8 @@ function CourtRecorder({ matchInfo, homePlayers: initHomePlayers, awayPlayers: i
         <div style={{ marginTop:10 }}>
           <div style={{ fontSize:12, fontWeight:700, color:C.gray, marginBottom:6 }}>경기 기록 ({matchEvents.length}건)</div>
           {matchEvents.map((e, localIdx) => {
-            // allEvents에서의 실제 인덱스 찾기
-            const globalIdx = allEvents.findIndex(ae => ae === e);
+            // allEvents에서의 실제 인덱스 찾기 (고유 ID 우선, 폴백으로 참조 비교)
+            const globalIdx = e.id ? allEvents.findIndex(ae => ae.id === e.id) : allEvents.findIndex(ae => ae === e);
             const isEditing = editingEvent === globalIdx;
 
             return (
@@ -979,7 +1082,7 @@ function FreeMatchView({ teams, teamNames, teamColorIndices, gks, courtCount, al
 // ═══════════════════════════════════════════════════════════════
 // MAIN APP
 // ═══════════════════════════════════════════════════════════════
-function App() {
+function App({ authUser, onLogout }) {
   const [phase, setPhase] = useState("setup");
   const [dataLoading, setDataLoading] = useState(true);
   const [dataSource, setDataSource] = useState(""); // "sheet" or "fallback"
@@ -1051,21 +1154,23 @@ function App() {
 
   // 경기 상태를 시트에 자동 저장 (디바운스)
   const saveTimerRef = useRef(null);
+  const gameState = useMemo(() => ({
+    phase, teams, teamNames, teamColorIndices, gks, allEvents,
+    completedMatches, schedule, currentRoundIdx, viewingRoundIdx, confirmedRounds, attendees,
+    teamCount, courtCount, matchMode, isExtraRound, splitPhase, rotations,
+  }), [phase, teams, teamNames, teamColorIndices, gks, allEvents, completedMatches, schedule, currentRoundIdx, viewingRoundIdx, confirmedRounds, attendees, teamCount, courtCount, matchMode, isExtraRound, splitPhase, rotations]);
+
   const autoSave = useCallback(() => {
     if (!AppSync.enabled()) return;
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(() => {
       setSyncStatus("saving");
-      AppSync.saveState({
-        phase, teams, teamNames, teamColorIndices, gks, allEvents,
-        completedMatches, schedule, currentRoundIdx, viewingRoundIdx, confirmedRounds, attendees,
-        teamCount, courtCount, matchMode, isExtraRound, splitPhase, rotations,
-      }).then(() => {
+      AppSync.saveState(gameState).then(() => {
         setSyncStatus("saved");
         setTimeout(() => setSyncStatus(""), 2000);
       }).catch(() => setSyncStatus("error"));
-    }, 1500); // 1.5초 디바운스
-  }, [phase, teams, teamNames, teamColorIndices, gks, allEvents, completedMatches, schedule, currentRoundIdx, viewingRoundIdx, confirmedRounds, attendees, teamCount, courtCount, matchMode, isExtraRound, splitPhase, rotations]);
+    }, 1500);
+  }, [gameState]);
 
   // 경기 중 상태 변경 시 자동 저장
   useEffect(() => {
@@ -1163,7 +1268,7 @@ function App() {
 
   const currentScheduleRound = useMemo(() => matchMode === "free" || !schedule[currentRoundIdx] ? null : schedule[currentRoundIdx], [schedule, currentRoundIdx, matchMode]);
 
-  const recordMatchEvent = (courtId, event) => setAllEvents(prev => [...prev, { ...event, courtId, timestamp: Date.now() }]);
+  const recordMatchEvent = (courtId, event) => setAllEvents(prev => [...prev, { ...event, id: generateEventId(), courtId, timestamp: Date.now() }]);
   const undoMatchEvent = (courtId, matchId) => {
     setAllEvents(prev => {
       const idx = [];
@@ -1329,6 +1434,12 @@ function App() {
               {dataSource==="sheet" ? "시트 연동" : "오프라인"}
             </div>
           </div>
+          {authUser && (
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"center", gap:8, marginTop:4 }}>
+              <span style={{ fontSize:11, color:"rgba(255,255,255,0.7)" }}>{authUser.name}</span>
+              <button onClick={onLogout} style={{ fontSize:10, padding:"2px 8px", borderRadius:4, background:"rgba(255,255,255,0.15)", color:"rgba(255,255,255,0.7)", border:"none", cursor:"pointer" }}>로그아웃</button>
+            </div>
+          )}
         </div>
         <div style={styles.phaseIndicator}>
           {["참석자","팀편성","경기","집계"].map((l,i) => (
@@ -1807,7 +1918,151 @@ function App() {
   return null;
 }
 
-ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+// ═══════════════════════════════════════════════════════════════
+// 로그인 화면
+// ═══════════════════════════════════════════════════════════════
+function LoginScreen({ onLogin }) {
+  const [name, setName] = useState("");
+  const [phone4, setPhone4] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleLogin = async () => {
+    const trimName = name.trim();
+    if (!trimName) { setError("이름을 입력하세요"); return; }
+    if (!/^\d{4}$/.test(phone4)) { setError("휴대폰 뒷자리 4자리를 입력하세요"); return; }
+    setError("");
+    setLoading(true);
+    try {
+      const result = await AppSync.verifyAuth(trimName, phone4);
+      if (result.success) {
+        AuthUtil.save(trimName, phone4);
+        onLogin({ name: trimName, phone4 });
+      } else {
+        setError(result.message || "이름 또는 번호가 일치하지 않습니다");
+      }
+    } catch (e) {
+      setError("인증 서버 연결 실패");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const ls = {
+    container: { background:"#0f172a", minHeight:"100vh", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:24, fontFamily:"'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif" },
+    card: { background:"#1e293b", borderRadius:16, padding:28, width:"100%", maxWidth:340 },
+    title: { fontSize:22, fontWeight:800, color:"#f8fafc", textAlign:"center", marginBottom:4 },
+    subtitle: { fontSize:13, color:"#94a3b8", textAlign:"center", marginBottom:24 },
+    label: { fontSize:12, color:"#94a3b8", marginBottom:6, display:"block" },
+    input: { background:"#334155", border:"1px solid #475569", borderRadius:8, padding:"10px 14px", color:"#f8fafc", fontSize:15, outline:"none", width:"100%", marginBottom:14 },
+    btn: { background:"#22d3ee", color:"#0f172a", border:"none", borderRadius:8, padding:"12px", fontSize:15, fontWeight:700, cursor:"pointer", width:"100%", marginTop:4 },
+    error: { fontSize:12, color:"#ef4444", textAlign:"center", marginBottom:10 },
+  };
+
+  return (
+    <div style={ls.container}>
+      <div style={ls.card}>
+        <div style={{ fontSize:32, textAlign:"center", marginBottom:12 }}>⚽</div>
+        <div style={ls.title}>마스터FC</div>
+        <div style={ls.subtitle}>풋살 경기기록 로그인</div>
+        <label style={ls.label}>이름</label>
+        <input style={ls.input} placeholder="홍길동" value={name} onChange={e => setName(e.target.value)} onKeyDown={e => e.key==="Enter" && handleLogin()} />
+        <label style={ls.label}>휴대폰 뒷자리 (4자리)</label>
+        <input style={ls.input} type="tel" inputMode="numeric" maxLength={4} placeholder="1234" value={phone4}
+          onChange={e => setPhone4(e.target.value.replace(/\D/g, "").slice(0, 4))}
+          onKeyDown={e => e.key==="Enter" && handleLogin()} />
+        {error && <div style={ls.error}>{error}</div>}
+        <button style={{ ...ls.btn, opacity: loading ? 0.6 : 1 }} onClick={handleLogin} disabled={loading}>
+          {loading ? "확인 중..." : "로그인"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// API URL 설정 화면 (최초 1회)
+// ═══════════════════════════════════════════════════════════════
+function ApiSetupScreen({ onSave }) {
+  const [url, setUrl] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleSave = async () => {
+    const trimmed = url.trim();
+    if (!trimmed || !trimmed.startsWith("https://script.google.com/")) {
+      setError("올바른 Apps Script URL을 입력하세요"); return;
+    }
+    setLoading(true); setError("");
+    try {
+      const resp = await fetch(trimmed + "?action=ping");
+      const data = await resp.json();
+      if (data.ok) {
+        localStorage.setItem("masterfc_api_url", trimmed);
+        onSave(trimmed);
+      } else { setError("서버 응답 오류"); }
+    } catch (e) { setError("연결 실패: " + e.message); }
+    finally { setLoading(false); }
+  };
+
+  const ls = {
+    container: { background:"#0f172a", minHeight:"100vh", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:24, fontFamily:"'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif" },
+    card: { background:"#1e293b", borderRadius:16, padding:28, width:"100%", maxWidth:380 },
+  };
+  return (
+    <div style={ls.container}>
+      <div style={ls.card}>
+        <div style={{ fontSize:32, textAlign:"center", marginBottom:12 }}>🔗</div>
+        <div style={{ fontSize:18, fontWeight:800, color:"#f8fafc", textAlign:"center", marginBottom:4 }}>서버 연결 설정</div>
+        <div style={{ fontSize:12, color:"#94a3b8", textAlign:"center", marginBottom:20 }}>Apps Script 배포 URL을 입력하세요 (최초 1회)</div>
+        <input style={{ background:"#334155", border:"1px solid #475569", borderRadius:8, padding:"10px 14px", color:"#f8fafc", fontSize:13, outline:"none", width:"100%", marginBottom:10 }}
+          placeholder="https://script.google.com/macros/s/.../exec"
+          value={url} onChange={e => setUrl(e.target.value)} onKeyDown={e => e.key==="Enter" && handleSave()} />
+        {error && <div style={{ fontSize:12, color:"#ef4444", marginBottom:10 }}>{error}</div>}
+        <button onClick={handleSave} disabled={loading}
+          style={{ background:"#22d3ee", color:"#0f172a", border:"none", borderRadius:8, padding:"12px", fontSize:14, fontWeight:700, cursor:"pointer", width:"100%", opacity:loading?0.6:1 }}>
+          {loading ? "연결 확인 중..." : "연결"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 인증 래퍼 + Error Boundary
+// ═══════════════════════════════════════════════════════════════
+function Root() {
+  const [apiReady, setApiReady] = useState(() => !!APPS_SCRIPT_URL);
+  const [authed, setAuthed] = useState(() => !!AuthUtil.getStored());
+  const [authUser, setAuthUser] = useState(() => AuthUtil.getStored());
+
+  const handleApiSave = (url) => {
+    // 런타임에 URL 반영 (모듈 스코프 const이므로 window 경유)
+    window.__APPS_SCRIPT_URL__ = url;
+    window.location.reload();
+  };
+
+  const handleLogin = (user) => {
+    setAuthUser(user);
+    setAuthed(true);
+  };
+
+  const handleLogout = () => {
+    AuthUtil.clear();
+    setAuthed(false);
+    setAuthUser(null);
+  };
+
+  if (!apiReady) return <ApiSetupScreen onSave={handleApiSave} />;
+  if (!authed) return <LoginScreen onLogin={handleLogin} />;
+  return <App authUser={authUser} onLogout={handleLogout} />;
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(
+  <ErrorBoundary>
+    <Root />
+  </ErrorBoundary>
+);
   </script>
 </body>
 </html>

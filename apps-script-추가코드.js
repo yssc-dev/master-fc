@@ -13,11 +13,22 @@
 // ═══════════════════════════════════════════════════════════════
 
 var STATE_SHEET_NAME = "앱_경기상태";
+var AUTH_SHEET_NAME = "회원인증"; // 컬럼: A=이름, B=휴대폰뒷자리(4자리)
 
 function doGet(e) {
   try {
     var action = (e && e.parameter && e.parameter.action) || "ping";
     var result;
+
+    // 인증 검증 (ping 제외)
+    if (action !== "ping") {
+      var authToken = (e && e.parameter && e.parameter.authToken) || "";
+      if (!_verifyAuthToken(authToken)) {
+        return ContentService
+          .createTextOutput(JSON.stringify({ error: "인증 실패", authRequired: true }))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
+    }
 
     if (action === "loadState") {
       result = _loadGameState();
@@ -39,11 +50,30 @@ function doGet(e) {
 
 function doPost(e) {
   try {
-    var body = JSON.parse(e.postData.contents);
+    var body;
+    try {
+      body = JSON.parse(e.postData.contents);
+    } catch (parseErr) {
+      return ContentService
+        .createTextOutput(JSON.stringify({ error: "잘못된 요청 형식" }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
     var action = body.action;
     var result;
 
-    if (action === "saveState") {
+    // 인증 검증 (verifyAuth 자체는 제외)
+    if (action !== "verifyAuth") {
+      var authToken = body.authToken || "";
+      if (!_verifyAuthToken(authToken)) {
+        return ContentService
+          .createTextOutput(JSON.stringify({ error: "인증 실패", authRequired: true }))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
+    }
+
+    if (action === "verifyAuth") {
+      result = _verifyAuth(body.name, body.phone4);
+    } else if (action === "saveState") {
       result = _saveGameState(body.state);
     } else if (action === "clearState") {
       result = _clearGameState();
@@ -63,6 +93,45 @@ function doPost(e) {
       .createTextOutput(JSON.stringify({ error: err.message }))
       .setMimeType(ContentService.MimeType.JSON);
   }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 회원 인증 (이름 + 휴대폰 뒷자리 4자리)
+// 시트 컬럼: A=이름, B=휴대폰뒷자리(4자리)
+// ═══════════════════════════════════════════════════════════════
+function _getAuthSheet() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(AUTH_SHEET_NAME);
+  if (!sheet) {
+    sheet = ss.insertSheet(AUTH_SHEET_NAME);
+    sheet.getRange("A1:B1").setValues([["이름", "휴대폰뒷자리"]]);
+    sheet.getRange("A1:B1").setFontWeight("bold");
+  }
+  return sheet;
+}
+
+function _verifyAuth(name, phone4) {
+  if (!name || !phone4) return { success: false, message: "이름과 휴대폰 뒷자리를 입력하세요" };
+  var sheet = _getAuthSheet();
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return { success: false, message: "등록된 회원이 없습니다. 관리자에게 문의하세요" };
+  var data = sheet.getRange(2, 1, lastRow - 1, 2).getValues();
+  for (var i = 0; i < data.length; i++) {
+    var regName = String(data[i][0]).trim();
+    var regPhone = String(data[i][1]).trim();
+    if (regName === String(name).trim() && regPhone === String(phone4).trim()) {
+      return { success: true, name: regName };
+    }
+  }
+  return { success: false, message: "이름 또는 번호가 일치하지 않습니다" };
+}
+
+function _verifyAuthToken(token) {
+  if (!token) return false;
+  var parts = token.split(":");
+  if (parts.length !== 2) return false;
+  var result = _verifyAuth(parts[0], parts[1]);
+  return result.success === true;
 }
 
 // 앱_경기상태 시트 가져오기 (없으면 생성)
