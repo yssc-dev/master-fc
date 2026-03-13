@@ -38,6 +38,9 @@ function doGet(e) {
     } else if (action === "getHistory") {
       var team = (e && e.parameter && e.parameter.team) || "";
       result = _getHistory(team);
+    } else if (action === "getCumulativeBonus") {
+      var team = (e && e.parameter && e.parameter.team) || "";
+      result = _getCumulativeBonus(team);
     } else if (action === "ping") {
       result = { ok: true, time: new Date().toISOString() };
     } else {
@@ -454,6 +457,44 @@ function _writePlayerLog(data) {
   var lastRow = sheet.getLastRow();
   sheet.getRange(lastRow + 1, 1, values.length, 12).setValues(values);
   return { success: true, count: values.length };
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 누적 크로바/고구마 조회 (선수별집계기록로그에서 합산)
+// ═══════════════════════════════════════════════════════════════
+function _getCumulativeBonus(team) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(PLAYER_LOG_SHEET);
+  if (!sheet) return { crova: {}, goguma: {} };
+
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return { crova: {}, goguma: {} };
+
+  var colCount = sheet.getLastColumn();
+  var data = sheet.getRange(2, 1, lastRow - 1, colCount).getValues();
+
+  // 컬럼: 경기일자(0), 선수(1), 골(2), 어시(3), 역주행(4), 실점(5), 클린시트(6), 크로바(7), 고구마(8), 키퍼경기수(9), 입력시간(10), [팀이름(11)]
+  var crova = {};
+  var goguma = {};
+
+  for (var i = 0; i < data.length; i++) {
+    // 팀 필터 (12컬럼 형식이면)
+    if (team && colCount >= 12) {
+      var rowTeam = String(data[i][11]).trim();
+      if (rowTeam && rowTeam !== team) continue;
+    }
+
+    var name = String(data[i][1]).trim();
+    if (!name) continue;
+
+    var c = Number(data[i][7]) || 0;
+    var g = Number(data[i][8]) || 0;
+
+    if (c !== 0) crova[name] = (crova[name] || 0) + c;
+    if (g !== 0) goguma[name] = (goguma[name] || 0) + g;
+  }
+
+  return { crova: crova, goguma: goguma };
 }
 
 // ═══════════════════════════════════════════════════════════════
