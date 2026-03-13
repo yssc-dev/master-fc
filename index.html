@@ -65,12 +65,7 @@ const AUTH_STORAGE_KEY = "masterfc_auth";
 const AUTH_EXPIRY_HOURS = 24; // 인증 유효기간 (시간)
 
 // ▼▼▼ Apps Script 웹앱 URL ▼▼▼
-// 보안: URL은 localStorage에 저장. GitHub에 노출 방지.
-// 최초 접속 시 URL 입력 화면이 표시됨.
-function getAppsScriptUrl() {
-  return localStorage.getItem("masterfc_api_url") || "";
-}
-const APPS_SCRIPT_URL = getAppsScriptUrl();
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwTVWUtbrlwgezmgLOj9gPZEdxJhjaLbil6iWHvSP6gIbst7FxUVEtQWZ-8CAA8ek4Q/exec";
 
 // ─── 인증 유틸 ───
 const AuthUtil = {
@@ -2066,66 +2061,11 @@ function LoginScreen({ onLogin }) {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// API URL 설정 화면 (최초 1회)
-// ═══════════════════════════════════════════════════════════════
-function ApiSetupScreen({ onSave }) {
-  const [url, setUrl] = useState("");
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
-
-  const handleSave = async () => {
-    const trimmed = url.trim();
-    if (!trimmed || !trimmed.startsWith("https://script.google.com/")) {
-      setError("올바른 Apps Script URL을 입력하세요"); return;
-    }
-    setLoading(true); setError("");
-    try {
-      const resp = await fetch(trimmed + "?action=ping");
-      const data = await resp.json();
-      if (data.ok) {
-        localStorage.setItem("masterfc_api_url", trimmed);
-        onSave(trimmed);
-      } else { setError("서버 응답 오류"); }
-    } catch (e) { setError("연결 실패: " + e.message); }
-    finally { setLoading(false); }
-  };
-
-  const ls = {
-    container: { background:"#0f172a", minHeight:"100vh", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:24, fontFamily:"'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif" },
-    card: { background:"#1e293b", borderRadius:16, padding:28, width:"100%", maxWidth:380 },
-  };
-  return (
-    <div style={ls.container}>
-      <div style={ls.card}>
-        <div style={{ fontSize:32, textAlign:"center", marginBottom:12 }}>🔗</div>
-        <div style={{ fontSize:18, fontWeight:800, color:"#f8fafc", textAlign:"center", marginBottom:4 }}>서버 연결 설정</div>
-        <div style={{ fontSize:12, color:"#94a3b8", textAlign:"center", marginBottom:20 }}>Apps Script 배포 URL을 입력하세요 (최초 1회)</div>
-        <input style={{ background:"#334155", border:"1px solid #475569", borderRadius:8, padding:"10px 14px", color:"#f8fafc", fontSize:13, outline:"none", width:"100%", marginBottom:10 }}
-          placeholder="https://script.google.com/macros/s/.../exec"
-          value={url} onChange={e => setUrl(e.target.value)} onKeyDown={e => e.key==="Enter" && handleSave()} />
-        {error && <div style={{ fontSize:12, color:"#ef4444", marginBottom:10 }}>{error}</div>}
-        <button onClick={handleSave} disabled={loading}
-          style={{ background:"#22d3ee", color:"#0f172a", border:"none", borderRadius:8, padding:"12px", fontSize:14, fontWeight:700, cursor:"pointer", width:"100%", opacity:loading?0.6:1 }}>
-          {loading ? "연결 확인 중..." : "연결"}
-        </button>
-      </div>
-    </div>
-  );
-}
-
-// ═══════════════════════════════════════════════════════════════
 // 인증 래퍼 + Error Boundary
 // ═══════════════════════════════════════════════════════════════
 function Root() {
-  const [apiReady, setApiReady] = useState(() => !!APPS_SCRIPT_URL);
   const [authed, setAuthed] = useState(() => !!AuthUtil.getStored());
   const [authUser, setAuthUser] = useState(() => AuthUtil.getStored());
-
-  const handleApiSave = (url) => {
-    // 런타임에 URL 반영 (모듈 스코프 const이므로 window 경유)
-    window.__APPS_SCRIPT_URL__ = url;
-    window.location.reload();
-  };
 
   const handleLogin = (user) => {
     setAuthUser(user);
@@ -2138,7 +2078,6 @@ function Root() {
     setAuthUser(null);
   };
 
-  if (!apiReady) return <ApiSetupScreen onSave={handleApiSave} />;
   if (!authed) return <LoginScreen onLogin={handleLogin} />;
   return <App authUser={authUser} onLogout={handleLogout} />;
 }
