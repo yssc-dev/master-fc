@@ -375,9 +375,11 @@ function _getHistory(team) {
     }
   }
 
-  // 최신순 정렬
+  // 최신순 정렬 (같은 날짜면 저장시간으로 구분)
   history.sort(function(a, b) {
-    return b.gameDate.localeCompare(a.gameDate);
+    var d = b.gameDate.localeCompare(a.gameDate);
+    if (d !== 0) return d;
+    return (b.savedAt || "").localeCompare(a.savedAt || "");
   });
 
   return { history: history };
