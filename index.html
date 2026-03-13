@@ -1185,11 +1185,18 @@ function App({ authUser, onLogout }) {
     setNewPlayer("");
   };
 
+  // 팀 내 최고 포인트 선수의 이름(성 제외)으로 팀명 생성
+  const makeTeamName = (members) => {
+    const top = [...members].sort((a, b) => getPlayerPoint(b) - getPlayerPoint(a))[0];
+    const firstName = top.length > 1 ? top.slice(1) : top; // 성 제외
+    return `팀${firstName}`;
+  };
+
   const goToTeamBuild = () => {
     if (attendees.length < teamCount * 2) { alert(`최소 ${teamCount * 2}명 선택`); return; }
     const drafted = snakeDraft(attendees, teamCount);
     setTeams(drafted);
-    setTeamNames(drafted.map(t => `팀${t[0]}`));
+    setTeamNames(drafted.map(t => makeTeamName(t)));
     setTeamColorIndices(Array.from({ length: teamCount }, (_, i) => i % TEAM_COLORS.length));
     setGks({});
     setPhase("teamBuild");
@@ -1199,7 +1206,7 @@ function App({ authUser, onLogout }) {
     setTeams(prev => { const c = prev.map(t => [...t]); c[fromIdx] = c[fromIdx].filter(p => p !== player); c[toIdx] = [...c[toIdx], player]; return c; });
     if (gks[fromIdx] === player) setGks(prev => { const c = {...prev}; delete c[fromIdx]; return c; });
   };
-  const reshuffleTeams = () => { const d = snakeDraft(attendees, teamCount); setTeams(d); setTeamNames(d.map(t => `팀${t[0]}`)); setGks({}); };
+  const reshuffleTeams = () => { const d = snakeDraft(attendees, teamCount); setTeams(d); setTeamNames(d.map(t => makeTeamName(t))); setGks({}); };
 
   const startMatches = () => {
     if (teams.some(t => t.length < 1)) { alert("모든 팀에 최소 1명"); return; }
