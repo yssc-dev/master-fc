@@ -214,6 +214,16 @@ const AppSync = {
       return await resp.json();
     } catch (e) { return { success: false, message: "인증 서버 연결 실패" }; }
   },
+
+  async getCumulativeBonus() {
+    if (!this.enabled()) return { crova: {}, goguma: {} };
+    try {
+      const team = this._getTeam();
+      const resp = await fetch(APPS_SCRIPT_URL + "?action=getCumulativeBonus&team=" + encodeURIComponent(team) + "&authToken=" + encodeURIComponent(this._getAuthToken()));
+      const data = await resp.json();
+      return { crova: data.crova || {}, goguma: data.goguma || {} };
+    } catch (e) { console.warn("누적 보너스 조회 실패:", e.message); return { crova: {}, goguma: {} }; }
+  },
 };
 
 // ─── Firebase 실시간 동기화 ───
@@ -1175,15 +1185,19 @@ function App({ authUser, teamContext, onLogout, onBackToMenu }) {
     Promise.all([
       fetchSheetData().catch(err => { console.warn("시트 로딩 실패:", err.message); return null; }),
       FirebaseSync.loadState(team).then(fb => fb || AppSync.loadState()),
-    ]).then(([sheetData, saved]) => {
+      AppSync.getCumulativeBonus().catch(err => { console.warn("누적보너스 로딩 실패:", err.message); return { crova: {}, goguma: {} }; }),
+    ]).then(([sheetData, saved, cumBonus]) => {
       if (sheetData) {
         SEASON_DATA = sheetData;
         setSeasonPlayers(sheetData.players);
-        setSeasonCrova(sheetData.seasonCrova);
-        setSeasonGoguma(sheetData.seasonGoguma);
         setDataSource("sheet");
       } else {
         setDataSource("fallback");
+      }
+      // 누적 크로바/고구마 데이터 설정
+      if (cumBonus) {
+        setSeasonCrova(cumBonus.crova || {});
+        setSeasonGoguma(cumBonus.goguma || {});
       }
       // 저장된 경기 상태가 있으면 자동 복원 (Root의 PostLoginMenu에서 이미 결정됨)
       if (saved && saved.found && saved.state && saved.state.phase !== "setup") {
@@ -1513,12 +1527,20 @@ function App({ authUser, teamContext, onLogout, onBackToMenu }) {
     return sorted[0][0];
   }, [seasonCrova, seasonGoguma]);
 
+  // 전체 라운드 종료 여부
+  const allRoundsComplete = useMemo(() => {
+    if (matchMode === "schedule" && schedule.length > 0) return currentRoundIdx >= schedule.length;
+    if (matchMode === "free") return phase === "summary";
+    return false;
+  }, [matchMode, schedule, currentRoundIdx, phase]);
+
   const calcPlayerPoints = useCallback((player) => {
     const st = playerMatchStats[player];
     if (!st) return { total:0, goals:0, assists:0, owngoals:0, cleanSheets:0, crova:0, goguma:0, conceded:0, keeperGames:0 };
     let pts = st.goals + st.assists + st.owngoals * -2 + st.cleanSheets;
     let crova=0, goguma=0;
-    if (finalStandings.length > 0 && completedMatches.filter(m => !m.isExtra).length > 0) {
+    // 크로바/고구마는 전체 라운드 종료 후에만 부여
+    if (allRoundsComplete && finalStandings.length > 0 && completedMatches.filter(m => !m.isExtra).length > 0) {
       const pt = getPlayerTeamName(player);
       const first = finalStandings[0], last = finalStandings[finalStandings.length-1];
       const sgl = getSeasonLeader("goguma"), scl = getSeasonLeader("crova");
@@ -1529,7 +1551,7 @@ function App({ authUser, teamContext, onLogout, onBackToMenu }) {
       if (pt === last.name) { goguma = -1*gm; pts += goguma; }
     }
     return { total:pts, goals:st.goals, assists:st.assists, owngoals:st.owngoals, cleanSheets:st.cleanSheets, crova, goguma, conceded:st.conceded, keeperGames:st.keeperGames };
-  }, [playerMatchStats, finalStandings, completedMatches, getPlayerTeamName, getSeasonLeader]);
+  }, [playerMatchStats, finalStandings, completedMatches, getPlayerTeamName, getSeasonLeader, allRoundsComplete]);
 
   // ─── STYLES ───
   const styles = {
@@ -1798,7 +1820,7 @@ function App({ authUser, teamContext, onLogout, onBackToMenu }) {
 
   // ═══════════ PHASE: MATCH ═══════════
   if (phase === "match") {
-    const allRoundsComplete = matchMode==="schedule" && schedule.length > 0 && currentRoundIdx >= schedule.length;
+    // allRoundsComplete는 App 레벨에서 계산됨
     const viewRound = matchMode==="schedule" ? schedule[viewingRoundIdx] : null;
     const viewRoundConfirmed = confirmedRounds[viewingRoundIdx] || false;
 
