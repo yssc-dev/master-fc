@@ -1172,7 +1172,12 @@ function App({ authUser, onLogout }) {
     setPendingRestore(null);
   };
 
-  const sortedPlayers = useMemo(() => [...seasonPlayers].sort((a,b) => b.point - a.point), [seasonPlayers]);
+  const [playerSortMode, setPlayerSortMode] = useState("point"); // "point" | "name"
+  const sortedPlayers = useMemo(() => {
+    const arr = [...seasonPlayers];
+    if (playerSortMode === "name") return arr.sort((a, b) => a.name.localeCompare(b.name, "ko"));
+    return arr.sort((a, b) => b.point - a.point);
+  }, [seasonPlayers, playerSortMode]);
 
   const toggleAttendee = (name) => setAttendees(prev => prev.includes(name) ? prev.filter(x => x !== name) : [...prev, name]);
   const selectAll = () => setAttendees(sortedPlayers.filter(p => p.games > 0).map(p => p.name));
@@ -1196,13 +1201,14 @@ function App({ authUser, onLogout }) {
   const [freeSelectTeam, setFreeSelectTeam] = useState(0); // 자유편성 시 선택 중인 팀 인덱스
 
   const goToTeamBuild = () => {
-    if (attendees.length < teamCount * 2) { alert(`최소 ${teamCount * 2}명 선택`); return; }
     if (draftMode === "snake") {
+      if (attendees.length < teamCount * 2) { alert(`최소 ${teamCount * 2}명 선택`); return; }
       const drafted = snakeDraft(attendees, teamCount);
       setTeams(drafted);
       setTeamNames(drafted.map(t => makeTeamName(t)));
     } else {
-      // 자유편성: 빈 팀으로 시작
+      // 자유편성: 참석자 미선택이면 전체 선수로 세팅
+      if (attendees.length === 0) setAttendees(sortedPlayers.map(p => p.name));
       setTeams(Array.from({ length: teamCount }, () => []));
       setTeamNames(Array.from({ length: teamCount }, (_, i) => `team${i + 1}`));
       setFreeSelectTeam(0);
@@ -1514,6 +1520,10 @@ function App({ authUser, onLogout }) {
             </button>
             <button onClick={selectAll} style={styles.btnSm(C.grayDark)}>활동선수 전체</button>
             <button onClick={clearAll} style={styles.btnSm(C.grayDark)}>초기화</button>
+            <button onClick={() => setPlayerSortMode(playerSortMode==="point"?"name":"point")}
+              style={styles.btnSm(C.accentDim, C.white)}>
+              {playerSortMode==="point"?"포인트순":"이름순"}
+            </button>
           </div>
           <div style={styles.card}>
             <div style={{ display:"flex", flexWrap:"wrap" }}>
@@ -1530,8 +1540,8 @@ function App({ authUser, onLogout }) {
           </div>
         </div>
         <div style={styles.bottomBar}>
-          <button onClick={goToTeamBuild} style={{ ...styles.btnFull(C.accent, C.bg), opacity:attendees.length<teamCount*2?0.5:1 }}>
-            팀 편성 ({attendees.length}명 → {teamCount}팀)
+          <button onClick={goToTeamBuild} style={{ ...styles.btnFull(C.accent, C.bg), opacity:draftMode==="snake"&&attendees.length<teamCount*2?0.5:1 }}>
+            {draftMode==="free" ? `자유 편성 (${teamCount}팀)` : `팀 편성 (${attendees.length}명 → ${teamCount}팀)`}
           </button>
         </div>
       </div>
