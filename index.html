@@ -171,52 +171,23 @@ const AppSync = {
   },
 };
 
-// 대시보드 CSV 파싱 → 선수 배열 (헤더 기반 컬럼 매핑)
+// 대시보드 CSV 파싱 → 선수 배열
+// 시트 구조: 헤더 3줄(행0~2) 스킵, 행3부터 데이터
+// 컬럼: A(0)=PPG, B(1)=순위, C(2)=백넘버, D(3)=이름, E(4)=게임수, N(13)=포인트
 function parseCSV(text) {
   const lines = text.split('\n');
-  if (lines.length < 4) return [];
   const players = [];
-
-  // 헤더 행 찾기: 여러 줄 헤더 중 실제 컬럼명이 있는 행 탐색
-  let headerIdx = -1;
-  const HEADER_KEYWORDS = ["이름", "포인트", "게임수"];
-  for (let i = 0; i < Math.min(5, lines.length); i++) {
-    const fields = parseCSVLine(lines[i]);
-    const joined = fields.join(" ");
-    if (HEADER_KEYWORDS.some(k => joined.includes(k))) { headerIdx = i; break; }
-  }
-
-  // 헤더를 찾으면 헤더 기반 매핑, 못 찾으면 기존 인덱스 폴백
-  let colMap = null;
-  if (headerIdx >= 0) {
-    const headers = parseCSVLine(lines[headerIdx]);
-    colMap = {};
-    headers.forEach((h, idx) => {
-      const t = h.trim().toLowerCase();
-      if (t.includes("ppg") || t === "ppg") colMap.ppg = idx;
-      else if (t.includes("순위") || t === "순위") colMap.rank = idx;
-      else if (t.includes("백넘버") || t.includes("등번호")) colMap.backNum = idx;
-      else if (t.includes("이름") || t === "이름") colMap.name = idx;
-      else if (t.includes("게임수") || t.includes("게임")) colMap.games = idx;
-      else if (t.includes("포인트") || t === "포인트") colMap.point = idx;
-    });
-  }
-
-  // 폴백 인덱스 (기존 호환)
-  const col = colMap && colMap.name != null ? colMap : { ppg:0, rank:1, backNum:2, name:3, games:4, point:13 };
-  const startRow = headerIdx >= 0 ? headerIdx + 1 : 3;
-
-  for (let i = startRow; i < lines.length; i++) {
+  for (let i = 3; i < lines.length; i++) {
     const line = lines[i];
     if (!line.trim()) continue;
     const fields = parseCSVLine(line);
-    const name = fields[col.name];
+    const name = fields[3];
     if (!name) continue;
-    const rank = parseInt(fields[col.rank]) || 0;
-    const backNum = col.backNum != null && fields[col.backNum] ? parseInt(fields[col.backNum]) || null : null;
-    const games = parseInt(fields[col.games]) || 0;
-    const point = parseInt(fields[col.point]) || 0;
-    const ppg = col.ppg != null ? parseFloat(fields[col.ppg]) || 0 : 0;
+    const rank = parseInt(fields[1]) || 0;
+    const backNum = fields[2] ? parseInt(fields[2]) || null : null;
+    const games = parseInt(fields[4]) || 0;
+    const point = parseInt(fields[13]) || 0;
+    const ppg = parseFloat(fields[0]) || 0;
     players.push({ rank, name, backNum, games, point, ppg });
   }
   return players;
