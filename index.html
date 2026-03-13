@@ -2148,7 +2148,7 @@ function LoginScreen({ onLogin }) {
 // ═══════════════════════════════════════════════════════════════
 // PostLoginMenu — 메인 메뉴 (이어하기/새 경기/과거 조회)
 // ═══════════════════════════════════════════════════════════════
-function PostLoginMenu({ authUser, teamContext, onStartNew, onContinue, onViewHistory, onLogout, hasPendingGame }) {
+function PostLoginMenu({ authUser, teamContext, onStartNew, onContinue, onViewHistory, onLogout, hasPendingGame, checkingPending }) {
   const ms = {
     container: { background:"#0f172a", minHeight:"100vh", display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:24, fontFamily:"'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif" },
     card: { background:"#1e293b", borderRadius:16, padding:28, width:"100%", maxWidth:340 },
@@ -2167,15 +2167,20 @@ function PostLoginMenu({ authUser, teamContext, onStartNew, onContinue, onViewHi
           {teamContext.role === "관리자" && <span style={{ ...ms.modeTag, background:"#f9731622", color:"#f97316", marginLeft:6 }}>관리자</span>}
         </div>
 
-        {hasPendingGame && (
-          <button onClick={onContinue} style={ms.btn("#22c55e", "#fff")}>
-            이어서 하기
-          </button>
+        {checkingPending ? (
+          <div style={{ textAlign:"center", padding:16, color:"#94a3b8", fontSize:13 }}>진행중인 경기 확인 중...</div>
+        ) : (
+          <>
+            {hasPendingGame && (
+              <button onClick={onContinue} style={ms.btn("#22c55e", "#fff")}>
+                이어서 하기
+              </button>
+            )}
+            <button onClick={onStartNew} style={ms.btn("#22d3ee", "#0f172a")}>
+              새 경기 시작
+            </button>
+          </>
         )}
-
-        <button onClick={onStartNew} style={ms.btn("#22d3ee", "#0f172a")}>
-          새 경기 시작
-        </button>
 
         <button onClick={onViewHistory} style={ms.btn("#334155", "#f8fafc")}>
           과거 경기 조회
@@ -2352,6 +2357,10 @@ function Root() {
 
   const handleStartNew = () => {
     if (pendingRestore) {
+      if (teamContext?.role !== "관리자") {
+        alert("진행중인 경기가 있습니다.\n관리자만 새 경기를 시작할 수 있습니다.");
+        return;
+      }
       const lastEditor = pendingRestore.state?.lastEditor || "";
       const editorInfo = lastEditor ? `${lastEditor}님이 기록 중인 경기입니다.\n` : "";
       if (!confirm(`${editorInfo}정말 새로 시작하시겠습니까?\n기존 진행중 경기가 초기화됩니다.`)) return;
@@ -2373,6 +2382,7 @@ function Root() {
       authUser={authUser}
       teamContext={teamContext}
       hasPendingGame={!!pendingRestore}
+      checkingPending={checkingPending}
       onStartNew={handleStartNew}
       onContinue={handleContinue}
       onViewHistory={() => setScreen("history")}
