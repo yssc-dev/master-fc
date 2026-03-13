@@ -18,6 +18,20 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
+  <script>
+    const firebaseApp = firebase.initializeApp({
+      apiKey: "AIzaSyD2VWdwbRvzk0b_ITquHZ41z3u9aqmBD04",
+      authDomain: "footsal-webapp.firebaseapp.com",
+      databaseURL: "https://footsal-webapp-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "footsal-webapp",
+      storageBucket: "footsal-webapp.firebasestorage.app",
+      messagingSenderId: "129192240649",
+      appId: "1:129192240649:web:015a3cda835429990a3ad8"
+    });
+    const firebaseDb = firebase.database();
+  </script>
   <script type="text/babel" data-type="module">
 const { useState, useCallback, useMemo, useEffect, useRef, Component } = React;
 
@@ -199,6 +213,53 @@ const AppSync = {
       });
       return await resp.json();
     } catch (e) { return { success: false, message: "인증 서버 연결 실패" }; }
+  },
+};
+
+// ─── Firebase 실시간 동기화 ───
+const FirebaseSync = {
+  _ref(team) {
+    const safeTeam = (team || "기본팀").replace(/[.#$/\[\]]/g, "_");
+    return firebaseDb.ref("games/" + safeTeam + "/current");
+  },
+
+  async saveState(team, state) {
+    try {
+      await this._ref(team).set({
+        state: JSON.stringify(state),
+        updatedAt: firebase.database.ServerValue.TIMESTAMP,
+      });
+    } catch (e) { console.warn("Firebase 저장 실패:", e.message); }
+  },
+
+  async loadState(team) {
+    try {
+      const snap = await this._ref(team).get();
+      if (!snap.exists()) return null;
+      const data = snap.val();
+      return { found: true, state: JSON.parse(data.state), savedAt: data.updatedAt };
+    } catch (e) { console.warn("Firebase 로드 실패:", e.message); return null; }
+  },
+
+  async clearState(team) {
+    try {
+      await this._ref(team).remove();
+    } catch (e) { console.warn("Firebase 삭제 실패:", e.message); }
+  },
+
+  // 실시간 리스너 등록 — 다른 사용자의 변경 감지
+  listen(team, callback) {
+    const ref = this._ref(team);
+    const handler = (snap) => {
+      if (!snap.exists()) { callback(null); return; }
+      try {
+        const data = snap.val();
+        callback({ state: JSON.parse(data.state), updatedAt: data.updatedAt });
+      } catch (e) { callback(null); }
+    };
+    ref.on("value", handler);
+    // unsubscribe 함수 반환
+    return () => ref.off("value", handler);
   },
 };
 
@@ -1110,9 +1171,10 @@ function App({ authUser, teamContext, onLogout, onBackToMenu }) {
 
   // 앱 시작 시: 선수 데이터 + 저장된 경기 상태 불러오기
   useEffect(() => {
+    const team = teamContext?.team || "";
     Promise.all([
       fetchSheetData().catch(err => { console.warn("시트 로딩 실패:", err.message); return null; }),
-      AppSync.loadState(),
+      FirebaseSync.loadState(team).then(fb => fb || AppSync.loadState()),
     ]).then(([sheetData, saved]) => {
       if (sheetData) {
         SEASON_DATA = sheetData;
@@ -1176,22 +1238,55 @@ function App({ authUser, teamContext, onLogout, onBackToMenu }) {
     lastEditTime: Date.now(),
   }), [phase, teams, teamNames, teamColorIndices, gks, allEvents, completedMatches, schedule, currentRoundIdx, viewingRoundIdx, confirmedRounds, attendees, teamCount, courtCount, matchMode, isExtraRound, splitPhase, rotations, authUser]);
 
+  const isSyncingRef = useRef(false); // 외부 변경 적용 중 플래그
+
   const autoSave = useCallback(() => {
-    if (!AppSync.enabled()) return;
+    if (isSyncingRef.current) return; // 외부 변경 적용 중이면 저장 스킵
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(() => {
       setSyncStatus("saving");
-      AppSync.saveState(gameState).then(() => {
+      const team = teamContext?.team || "";
+      // Firebase 실시간 저장 (즉시)
+      FirebaseSync.saveState(team, gameState);
+      // Google Sheets 백업 저장 (병행)
+      if (AppSync.enabled()) {
+        AppSync.saveState(gameState).then(() => {
+          setSyncStatus("saved");
+          setTimeout(() => setSyncStatus(""), 2000);
+        }).catch(() => setSyncStatus("error"));
+      } else {
         setSyncStatus("saved");
         setTimeout(() => setSyncStatus(""), 2000);
-      }).catch(() => setSyncStatus("error"));
-    }, 1500);
-  }, [gameState]);
+      }
+    }, 800);
+  }, [gameState, teamContext]);
 
   // 경기 중 상태 변경 시 자동 저장
   useEffect(() => {
     if (phase !== "setup" && phase !== "") autoSave();
   }, [allEvents, completedMatches, currentRoundIdx, phase, gks]);
+
+  // Firebase 실시간 리스너 — 다른 사용자의 변경 감지
+  const lastRemoteUpdateRef = useRef(0);
+  useEffect(() => {
+    const team = teamContext?.team;
+    if (!team) return;
+    const unsub = FirebaseSync.listen(team, (data) => {
+      if (!data || !data.state) return;
+      // 본인이 방금 저장한 것이면 무시 (1초 이내)
+      if (data.updatedAt && Math.abs(Date.now() - data.updatedAt) < 1500) {
+        if (data.state.lastEditor === authUser?.name) return;
+      }
+      // 이전에 받은 것과 같으면 무시
+      if (data.updatedAt && data.updatedAt <= lastRemoteUpdateRef.current) return;
+      lastRemoteUpdateRef.current = data.updatedAt || Date.now();
+      // 외부 변경 적용
+      isSyncingRef.current = true;
+      restoreState({ state: data.state });
+      setTimeout(() => { isSyncingRef.current = false; }, 500);
+    });
+    return unsub;
+  }, [teamContext?.team, authUser?.name]);
 
   // 저장된 상태 복원
   const restoreState = (saved) => {
@@ -1754,6 +1849,7 @@ function App({ authUser, teamContext, onLogout, onBackToMenu }) {
           {/* 상단 모달 버튼 + 게임마감 */}
           <div style={{ display:"flex", gap:6, justifyContent:"center", marginTop:8 }}>
             {matchMode==="schedule" && <button onClick={() => setMatchModal("schedule")} style={{ ...styles.btnSm(C.grayDark, C.white), fontSize:11 }}>대진표</button>}
+            <button onClick={() => setMatchModal("teamRoster")} style={{ ...styles.btnSm(C.grayDark, C.white), fontSize:11 }}>팀명단</button>
             <button onClick={() => setMatchModal("standings")} style={{ ...styles.btnSm(C.grayDark, C.white), fontSize:11 }}>팀순위</button>
             <button onClick={() => setMatchModal("playerStats")} style={{ ...styles.btnSm(C.grayDark, C.white), fontSize:11 }}>개인기록</button>
             {(allRoundsComplete || matchMode==="free") && (
@@ -1812,6 +1908,46 @@ function App({ authUser, teamContext, onLogout, onBackToMenu }) {
                   );})}
                 </tbody>
               </table>
+            </div>
+          </div>
+        )}
+
+        {/* ── 모달: 팀명단 ── */}
+        {matchModal === "teamRoster" && (
+          <div onClick={() => setMatchModal(null)} style={{ position:"fixed", top:0, left:0, right:0, bottom:0, background:"rgba(0,0,0,0.7)", zIndex:1000, overflow:"auto", display:"flex", alignItems:"flex-start", justifyContent:"center", paddingTop:40 }}>
+            <div onClick={e => e.stopPropagation()} style={{ background:C.card, borderRadius:14, padding:16, width:"90%", maxWidth:460, maxHeight:"80vh", overflow:"auto" }}>
+              <div style={{ display:"flex", justifyContent:"space-between", marginBottom:12 }}>
+                <span style={{ fontSize:15, fontWeight:700, color:C.white }}>팀 명단</span>
+                <button onClick={() => setMatchModal(null)} style={styles.btnSm(C.grayDark)}>닫기</button>
+              </div>
+              {teams.map((team, tIdx) => {
+                const color = TEAM_COLORS[teamColorIndices[tIdx]];
+                const sorted = [...team].sort((a, b) => {
+                  const pa = calcPlayerPoints(a), pb = calcPlayerPoints(b);
+                  return pb.total - pa.total;
+                });
+                const teamTodayTotal = team.reduce((s, p) => s + calcPlayerPoints(p).total, 0);
+                return (
+                  <div key={tIdx} style={{ ...styles.teamCard(teamColorIndices[tIdx]), marginBottom:8 }}>
+                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:6 }}>
+                      <span style={{ fontWeight:700, fontSize:14, color:color?.bg || C.accent }}>{teamNames[tIdx]}</span>
+                      <span style={{ fontSize:11, color:C.gray }}>{team.length}명 · 오늘 {teamTodayTotal}p</span>
+                    </div>
+                    <div style={{ display:"flex", flexWrap:"wrap", gap:4 }}>
+                      {sorted.map((p, pIdx) => {
+                        const pts = calcPlayerPoints(p);
+                        return (
+                          <span key={p} style={{ ...styles.playerInTeam(color), color:C.white }}>
+                            {pIdx === 0 && <span style={{ fontSize:10, marginRight:2 }}>👑</span>}
+                            {p}
+                            <span style={{ fontSize:10, opacity:0.6, marginLeft:4, color: pts.total > 0 ? C.green : pts.total < 0 ? C.red : C.gray }}>{pts.total > 0 ? "+" : ""}{pts.total}p</span>
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
@@ -2028,6 +2164,7 @@ function App({ authUser, teamContext, onLogout, onBackToMenu }) {
               ]);
               // 경기 상태를 "확정"으로 변경 (삭제X)
               await AppSync.finalizeState();
+              await FirebaseSync.clearState(teamContext?.team); // 확정 후 Firebase 정리
               const msg = `기록 확정 완료!\n\n포인트로그: ${r1?.count||0}건\n선수별집계: ${r2?.count||0}명`;
               alert(msg);
             } catch (err) {
@@ -2337,13 +2474,21 @@ function Root() {
     setTeamContext(teamInfo);
     setAuthed(true);
     setScreen("menu");
-    // 진행중인 경기 체크
+    // 진행중인 경기 체크 (Firebase 우선, Sheets 폴백)
     setCheckingPending(true);
-    AppSync.loadState().then(saved => {
-      if (saved && saved.found && saved.state && saved.state.phase !== "setup") {
-        setPendingRestore(saved);
+    FirebaseSync.loadState(teamInfo.team).then(fbSaved => {
+      if (fbSaved && fbSaved.found && fbSaved.state && fbSaved.state.phase !== "setup") {
+        setPendingRestore(fbSaved);
+        setCheckingPending(false);
+      } else {
+        // Firebase에 없으면 Sheets에서 확인
+        return AppSync.loadState().then(saved => {
+          if (saved && saved.found && saved.state && saved.state.phase !== "setup") {
+            setPendingRestore(saved);
+          }
+        });
       }
-    }).finally(() => setCheckingPending(false));
+    }).catch(() => {}).finally(() => setCheckingPending(false));
   };
 
   const handleLogout = () => {
@@ -2366,6 +2511,7 @@ function Root() {
       if (!confirm(`${editorInfo}정말 새로 시작하시겠습니까?\n기존 진행중 경기가 초기화됩니다.`)) return;
       if (!confirm("되돌릴 수 없습니다. 정말 삭제하시겠습니까?")) return;
       AppSync.clearState();
+      FirebaseSync.clearState(teamContext?.team);
       setPendingRestore(null);
     }
     setScreen("app");
