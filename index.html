@@ -1167,7 +1167,7 @@ function FreeMatchView({ teams, teamNames, teamColorIndices, gks, courtCount, al
 // ═══════════════════════════════════════════════════════════════
 // MAIN APP
 // ═══════════════════════════════════════════════════════════════
-function App({ authUser, teamContext, onLogout, onBackToMenu }) {
+function App({ authUser, teamContext, isNewGame, onLogout, onBackToMenu }) {
   const [phase, setPhase] = useState("setup");
   const [dataLoading, setDataLoading] = useState(true);
   const [dataSource, setDataSource] = useState(""); // "sheet" or "fallback"
@@ -1182,11 +1182,17 @@ function App({ authUser, teamContext, onLogout, onBackToMenu }) {
   // 앱 시작 시: 선수 데이터 + 저장된 경기 상태 불러오기
   useEffect(() => {
     const team = teamContext?.team || "";
-    Promise.all([
+    const loadPromises = [
       fetchSheetData().catch(err => { console.warn("시트 로딩 실패:", err.message); return null; }),
-      FirebaseSync.loadState(team).then(fb => fb || AppSync.loadState()),
       AppSync.getCumulativeBonus().catch(err => { console.warn("누적보너스 로딩 실패:", err.message); return { crova: {}, goguma: {} }; }),
-    ]).then(([sheetData, saved, cumBonus]) => {
+    ];
+    // 새 경기 시작이면 저장된 상태 로드 불필요
+    if (!isNewGame) {
+      loadPromises.push(
+        FirebaseSync.loadState(team).then(fb => fb || AppSync.loadState())
+      );
+    }
+    Promise.all(loadPromises).then(([sheetData, cumBonus, saved]) => {
       if (sheetData) {
         SEASON_DATA = sheetData;
         setSeasonPlayers(sheetData.players);
@@ -1199,8 +1205,8 @@ function App({ authUser, teamContext, onLogout, onBackToMenu }) {
         setSeasonCrova(cumBonus.crova || {});
         setSeasonGoguma(cumBonus.goguma || {});
       }
-      // 저장된 경기 상태가 있으면 자동 복원 (Root의 PostLoginMenu에서 이미 결정됨)
-      if (saved && saved.found && saved.state && saved.state.phase !== "setup") {
+      // 저장된 경기 상태가 있으면 자동 복원
+      if (!isNewGame && saved && saved.found && saved.state && saved.state.phase !== "setup") {
         restoreState(saved);
       }
     }).finally(() => setDataLoading(false));
@@ -2513,6 +2519,7 @@ function Root() {
   }); // "login" | "menu" | "app" | "history"
   const [pendingRestore, setPendingRestore] = useState(null);
   const [checkingPending, setCheckingPending] = useState(false);
+  const [isNewGame, setIsNewGame] = useState(false);
 
   const handleLogin = (user, teamInfo) => {
     setAuthUser(user);
@@ -2556,13 +2563,15 @@ function Root() {
       if (!confirm(`${editorInfo}정말 새로 시작하시겠습니까?\n기존 진행중 경기가 초기화됩니다.`)) return;
       if (!confirm("되돌릴 수 없습니다. 정말 삭제하시겠습니까?")) return;
       await FirebaseSync.clearState(teamContext?.team);
-      AppSync.clearState();
+      await AppSync.clearState();
       setPendingRestore(null);
     }
+    setIsNewGame(true);
     setScreen("app");
   };
 
   const handleContinue = () => {
+    setIsNewGame(false);
     setScreen("app");
   };
 
@@ -2588,8 +2597,9 @@ function Root() {
   return <App
     authUser={authUser}
     teamContext={teamContext}
+    isNewGame={isNewGame}
     onLogout={handleLogout}
-    onBackToMenu={() => setScreen("menu")}
+    onBackToMenu={() => { setIsNewGame(false); setScreen("menu"); }}
   />;
 }
 
