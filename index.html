@@ -1189,7 +1189,7 @@ function App({ authUser, onLogout }) {
   const makeTeamName = (members) => {
     const top = [...members].sort((a, b) => getPlayerPoint(b) - getPlayerPoint(a))[0];
     const firstName = top.length > 1 ? top.slice(1) : top; // 성 제외
-    return `팀${firstName}`;
+    return `team${firstName}`;
   };
 
   const goToTeamBuild = () => {
