@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { C } from '../../config/constants';
+import { useTheme } from '../../hooks/useTheme';
 import Modal from '../common/Modal';
 
 export default function PlayerStatsModal({ attendees, calcPlayerPoints, onClose, styles: s }) {
+  const { C } = useTheme();
   const [sortKey, setSortKey] = useState("total");
 
   const cols = ["선수", "골", "어시", "자책", "클린", "실점", "🍀", "🍠", "합계"];

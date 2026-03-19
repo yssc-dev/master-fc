@@ -1,8 +1,9 @@
-import { C } from '../../config/constants';
+import { useTheme } from '../../hooks/useTheme';
 
 const phases = ["참석자", "팀편성", "경기", "집계"];
 
 export default function PhaseIndicator({ activeIndex }) {
+  const { C } = useTheme();
   return (
     <div style={{ display: "flex", justifyContent: "center", gap: 8, padding: "8px 0", background: "rgba(0,0,0,0.2)" }}>
       {phases.map((l, i) => (

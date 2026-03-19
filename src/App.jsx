@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
-import { C, TEAM_COLORS } from './config/constants';
+import { TEAM_COLORS } from './config/constants';
 import { FALLBACK_DATA } from './config/fallbackData';
+import { useTheme } from './hooks/useTheme';
 import { getPlayerPoint, getPlayerData, teamPower } from './utils/scoring';
 import { snakeDraft } from './utils/draft';
 import { generateRoundRobin, generate4Team2Court, generate5Team2Court, generate6Team2Court, generate1Court } from './utils/brackets';
@@ -9,7 +10,7 @@ import { fetchSheetData, fetchAttendanceData } from './services/sheetService';
 import AppSync from './services/appSync';
 import FirebaseSync from './services/firebaseSync';
 import { useGameReducer } from './hooks/useGameReducer';
-import { styles } from './styles/theme';
+import { makeStyles } from './styles/theme';
 import PhaseIndicator from './components/common/PhaseIndicator';
 import Modal from './components/common/Modal';
 import ScheduleMatchView from './components/game/ScheduleMatchView';
@@ -446,7 +447,8 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, onLogo
     }
   };
 
-  const s = styles;
+  const { C, mode: themeMode, toggle: toggleTheme } = useTheme();
+  const s = makeStyles(C);
   const viewRoundConfirmed = confirmedRounds[viewingRoundIdx] || false;
 
   // LOADING

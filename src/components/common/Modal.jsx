@@ -1,6 +1,7 @@
-import { C } from '../../config/constants';
+import { useTheme } from '../../hooks/useTheme';
 
 export default function Modal({ onClose, children, title, maxWidth = 460 }) {
+  const { C } = useTheme();
   return (
     <div onClick={onClose} style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.7)", zIndex: 1000, overflow: "auto", display: "flex", alignItems: "flex-start", justifyContent: "center", paddingTop: 40 }}>
       <div onClick={e => e.stopPropagation()} style={{ background: C.card, borderRadius: 14, padding: 16, width: "90%", maxWidth, maxHeight: "80vh", overflow: "auto" }}>

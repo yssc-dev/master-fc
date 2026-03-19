@@ -1,22 +1,24 @@
 import { useState } from 'react';
 import AppSync from '../../services/appSync';
-
-const ls = {
-  container: { background: "#0f172a", minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: "'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif" },
-  card: { background: "#1e293b", borderRadius: 16, padding: 28, width: "100%", maxWidth: 340 },
-  title: { fontSize: 22, fontWeight: 800, color: "#f8fafc", textAlign: "center", marginBottom: 4 },
-  subtitle: { fontSize: 13, color: "#94a3b8", textAlign: "center", marginBottom: 24 },
-  label: { fontSize: 12, color: "#94a3b8", marginBottom: 6, display: "block" },
-  input: { background: "#334155", border: "1px solid #475569", borderRadius: 8, padding: "10px 14px", color: "#f8fafc", fontSize: 15, outline: "none", width: "100%", marginBottom: 14 },
-  btn: { background: "#22d3ee", color: "#0f172a", border: "none", borderRadius: 8, padding: "12px", fontSize: 15, fontWeight: 700, cursor: "pointer", width: "100%", marginTop: 4 },
-  error: { fontSize: 12, color: "#ef4444", textAlign: "center", marginBottom: 10 },
-};
+import { useTheme } from '../../hooks/useTheme';
 
 export default function LoginScreen({ onLogin }) {
+  const { C, mode, toggle } = useTheme();
   const [name, setName] = useState("");
   const [phone4, setPhone4] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  const ls = {
+    container: { background: C.bg, minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: "'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif" },
+    card: { background: C.card, borderRadius: 16, padding: 28, width: "100%", maxWidth: 340 },
+    title: { fontSize: 22, fontWeight: 800, color: C.white, textAlign: "center", marginBottom: 4 },
+    subtitle: { fontSize: 13, color: C.gray, textAlign: "center", marginBottom: 24 },
+    label: { fontSize: 12, color: C.gray, marginBottom: 6, display: "block" },
+    input: { background: C.cardLight, border: `1px solid ${C.grayDark}`, borderRadius: 8, padding: "10px 14px", color: C.white, fontSize: 15, outline: "none", width: "100%", marginBottom: 14 },
+    btn: { background: C.accent, color: C.bg, border: "none", borderRadius: 8, padding: "12px", fontSize: 15, fontWeight: 700, cursor: "pointer", width: "100%", marginTop: 4 },
+    error: { fontSize: 12, color: C.red, textAlign: "center", marginBottom: 10 },
+  };
 
   const handleVerify = async () => {
     const trimName = name.trim();
@@ -43,6 +45,9 @@ export default function LoginScreen({ onLogin }) {
 
   return (
     <div style={ls.container}>
+      <button onClick={toggle} style={{ position: "fixed", top: 16, right: 16, background: C.cardLight, color: C.gray, border: "none", borderRadius: 8, padding: "6px 10px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+        {mode === "dark" ? "☀️" : "🌙"}
+      </button>
       <div style={ls.card}>
         <div style={{ fontSize: 32, textAlign: "center", marginBottom: 12 }}>⚽</div>
         <div style={ls.title}>경기 기록</div>

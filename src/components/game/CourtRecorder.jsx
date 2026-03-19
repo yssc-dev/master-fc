@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { C } from '../../config/constants';
+import { useTheme } from '../../hooks/useTheme';
 import PlayerActionModal from './PlayerActionModal';
 import EventLog from './EventLog';
 
 export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers, awayPlayers: initAwayPlayers, allEvents, onRecordEvent, onUndoEvent, onDeleteEvent, onEditEvent, onFinish, onMatchInfoUpdate, onGkChange, styles: s, courtLabel, attendees }) {
+  const { C } = useTheme();
   const [selectedPlayer, setSelectedPlayer] = useState(null);
   const [actionMode, setActionMode] = useState(null);
   const [pendingGoalPlayer, setPendingGoalPlayer] = useState(null);

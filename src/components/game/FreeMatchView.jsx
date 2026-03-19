@@ -1,8 +1,10 @@
 import { useState } from 'react';
-import { C, TEAM_COLORS } from '../../config/constants';
+import { TEAM_COLORS } from '../../config/constants';
+import { useTheme } from '../../hooks/useTheme';
 import CourtRecorder from './CourtRecorder';
 
 export default function FreeMatchView({ teams, teamNames, teamColorIndices, gks, courtCount, allEvents, onRecordEvent, onUndoEvent, onDeleteEvent, onEditEvent, onFinishMatch, completedMatches, attendees, onGkChange, styles: s, isExtraRound }) {
+  const { C } = useTheme();
   const [courtMatches, setCourtMatches] = useState({});
   const [activeCourtTab, setActiveCourtTab] = useState(0);
   const [settingCourt, setSettingCourt] = useState(null);

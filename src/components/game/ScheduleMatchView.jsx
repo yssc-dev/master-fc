@@ -1,8 +1,10 @@
 import { useMemo } from 'react';
-import { C, TEAM_COLORS } from '../../config/constants';
+import { TEAM_COLORS } from '../../config/constants';
+import { useTheme } from '../../hooks/useTheme';
 import CourtRecorder from './CourtRecorder';
 
 export default function ScheduleMatchView({ schedule, currentRoundIdx, viewingRoundIdx, setViewingRoundIdx, confirmedRounds, onConfirmRound, teams, teamNames, teamColorIndices, gks, courtCount, allEvents, onRecordEvent, onUndoEvent, onDeleteEvent, onEditEvent, completedMatches, attendees, onGkChange, styles: s }) {
+  const { C } = useTheme();
   const round = schedule[viewingRoundIdx];
   const matches = round?.matches || [];
   const isConfirmed = confirmedRounds[viewingRoundIdx] || false;

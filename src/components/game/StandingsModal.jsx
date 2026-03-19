@@ -1,7 +1,8 @@
-import { C } from '../../config/constants';
+import { useTheme } from '../../hooks/useTheme';
 import Modal from '../common/Modal';
 
 export default function StandingsModal({ standings, onClose, styles: s }) {
+  const { C } = useTheme();
   return (
     <Modal onClose={onClose} title="팀 순위">
       <table style={{ width: "100%", borderCollapse: "collapse" }}>

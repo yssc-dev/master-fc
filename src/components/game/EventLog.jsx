@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { C } from '../../config/constants';
+import { useTheme } from '../../hooks/useTheme';
 
 export default function EventLog({ matchEvents, allEvents, matchId, homePlayers, awayPlayers, homeTeam, awayTeam, homeGk, awayGk, homeColor, awayColor, onDeleteEvent, onEditEvent, styles: s }) {
+  const { C } = useTheme();
   const [editingEvent, setEditingEvent] = useState(null);
 
   if (matchEvents.length === 0) return null;

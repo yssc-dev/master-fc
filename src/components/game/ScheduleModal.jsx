@@ -1,7 +1,8 @@
-import { C } from '../../config/constants';
+import { useTheme } from '../../hooks/useTheme';
 import Modal from '../common/Modal';
 
 export default function ScheduleModal({ schedule, currentRoundIdx, viewingRoundIdx, setViewingRoundIdx, confirmedRounds, allEvents, teamNames, courtCount, onClose, styles: s }) {
+  const { C } = useTheme();
   const getMatchScore = (pair, ci, ri) => {
     if (!pair || !confirmedRounds[ri]) return `${teamNames[pair[0]]} vs ${teamNames[pair[1]]}`;
     const matchId = `R${ri + 1}_C${ci}`;
