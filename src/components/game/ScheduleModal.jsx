@@ -5,13 +5,10 @@ import Modal from '../common/Modal';
 export default function ScheduleModal({ schedule, currentRoundIdx, viewingRoundIdx, setViewingRoundIdx, confirmedRounds, allEvents, teamNames, teamColorIndices, courtCount, onClose, styles: s }) {
   const { C } = useTheme();
 
-  const pill = (teamIdx) => {
-    const color = TEAM_COLORS[teamColorIndices?.[teamIdx]] || { bg: C.cardLight, text: C.white };
-    return {
-      display: "inline-block", padding: "2px 6px", borderRadius: 10, fontSize: 9, fontWeight: 700,
-      background: color.bg, color: color.text, whiteSpace: "nowrap",
-    };
-  };
+  const pill = () => ({
+    display: "inline-block", padding: "2px 6px", borderRadius: 10, fontSize: 9, fontWeight: 700,
+    background: C.cardLight, color: C.white, whiteSpace: "nowrap",
+  });
 
   const getMatchCell = (pair, ci, ri) => {
     if (!pair) return <span style={{ color: C.grayDark, fontSize: 10 }}>-</span>;
