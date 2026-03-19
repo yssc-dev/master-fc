@@ -4,7 +4,7 @@ import { FALLBACK_DATA } from './config/fallbackData';
 import { useTheme } from './hooks/useTheme';
 import { getPlayerPoint, getPlayerData, teamPower } from './utils/scoring';
 import { snakeDraft } from './utils/draft';
-import { generateRoundRobin, generate4Team2Court, generate5Team2Court, generate6Team2Court, generate1Court } from './utils/brackets';
+import { generateRoundRobin, generate4Team2Court, generate5Team2Court, generate6Team2Court, generate6TeamSecondHalf, generate1Court } from './utils/brackets';
 import { generateEventId } from './utils/idGenerator';
 import { fetchSheetData, fetchAttendanceData } from './services/sheetService';
 import AppSync from './services/appSync';
@@ -395,12 +395,10 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
       const cnt = completedMatches.filter(m => !m.isExtra).length + matchResults.length;
       if (cnt >= 6) {
         const standings = getTeamStandings();
-        const top = standings.slice(0, 3).map(s => s.idx);
-        const bot = standings.slice(3, 6).map(s => s.idx);
-        const rrT = generateRoundRobin(top), rrB = generateRoundRobin(bot);
-        const sh = [];
-        for (let r = 0; r < 2; r++) for (let i = 0; i < rrT.length; i++) sh.push({ matches: [...(rrT[i] || []), ...(rrB[i] || [])] });
-        newSchedule = [...schedule, ...sh];
+        // 순위대로 재매핑: [1위idx, 2위idx, ..., 6위idx]
+        const rankedIndices = standings.map(s => s.idx);
+        const secondHalf = generate6TeamSecondHalf(rankedIndices);
+        newSchedule = [...schedule, ...secondHalf];
         newSplitPhase = "second";
       }
     }
