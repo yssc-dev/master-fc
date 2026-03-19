@@ -81,30 +81,55 @@ export async function fetchAttendanceData() {
   const text = await resp.text();
   const lines = text.split('\n');
 
-  // G~L열(index 6~11), 시트 2행~9행 (CSV row 1~8)
-  // 열 = 팀, 각 열의 첫 선수 = 팀장
-  // 팀명 = "팀 " + 팀장 이름에서 성 제거 (조승훈 → 팀 승훈)
+  // CSV 구조:
+  // Row 0: col 7~11 = "팀승훈 조승훈" (팀명+1번시드 한 셀에 합쳐짐)
+  // Row 1+: col 6~10 = 2번 시드부터 선수
+  // → Row 0에서 팀명과 팀장 분리, Row 1+에서 나머지 선수 추출
   const prebuiltTeams = [];
   const prebuiltTeamNames = [];
   const allAttendees = [];
 
-  for (let col = 6; col <= 11; col++) {
+  // Row 0 파싱: col 7~11에서 "팀명 선수명" 분리
+  const row0 = lines.length > 0 ? parseCSVLine(lines[0]) : [];
+  const teamInfos = []; // [{teamName, captain, dataCol}]
+  for (let col = 7; col <= 11; col++) {
+    const cell = (row0[col] || '').trim();
+    if (!cell) continue;
+    // "팀승훈 조승훈" → 팀명="팀승훈", 캡틴="조승훈"
+    // "팀승훈" (캡틴 없는 경우도 대비)
+    const parts = cell.split(/\s+/);
+    const teamName = parts[0] || cell;
+    const captain = parts[1] || null;
+    teamInfos.push({ teamName, captain, colOffset: col - 7 }); // col 7→0, 8→1 ...
+  }
+
+  // 각 팀의 선수 구성
+  for (let ti = 0; ti < teamInfos.length; ti++) {
+    const info = teamInfos[ti];
     const members = [];
+
+    // 1번 시드(팀장) 추가
+    if (info.captain) {
+      members.push(info.captain);
+      if (!allAttendees.includes(info.captain)) allAttendees.push(info.captain);
+    }
+
+    // 2번 시드부터: Row 1+, col 6~10 (col = 6 + ti)
+    const dataCol = 6 + ti;
     for (let row = 1; row <= 8; row++) {
       if (row >= lines.length) break;
       const f = parseCSVLine(lines[row]);
-      const name = (f[col] || '').trim();
-      if (name) {
+      const name = (f[dataCol] || '').trim();
+      if (name && !members.includes(name)) {
         members.push(name);
         if (!allAttendees.includes(name)) allAttendees.push(name);
       }
     }
-    if (members.length === 0) continue;
-    prebuiltTeams.push(members);
-    // 팀명: 팀장(첫 선수) 이름에서 성 제거
-    const captain = members[0];
-    const teamName = captain.length > 1 ? `팀 ${captain.slice(1)}` : `팀 ${captain}`;
-    prebuiltTeamNames.push(teamName);
+
+    if (members.length > 0) {
+      prebuiltTeams.push(members);
+      prebuiltTeamNames.push(info.teamName);
+    }
   }
 
   return {
