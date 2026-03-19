@@ -190,24 +190,33 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
             );
           })()}
 
-          {/* 키퍼 성적 */}
-          {keepers.length > 0 && (
-            <div style={ds.section}>
-              <div style={ds.sectionTitle}>🧤 키퍼 성적</div>
-              <div style={ds.card}>
-                {keepers.map((k, i) => (
-                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0", borderBottom: i < keepers.length - 1 ? `1px solid ${C.borderColor}` : "none" }}>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: i < 3 ? C.orange : C.gray, minWidth: 14 }}>{i + 1}</span>
-                    <span style={{ fontSize: 13, fontWeight: 600, flex: 1 }}>{k.name}</span>
-                    <div style={{ textAlign: "right" }}>
-                      <div style={{ fontSize: 12, fontWeight: 700, color: C.accent }}>{k.avgConceded.toFixed(2)} 실점/경기</div>
-                      <div style={{ fontSize: 10, color: C.gray }}>{k.keeperGames}경기 · 실점 {k.totalConceded}</div>
+          {/* 키퍼 성적 — Q열(키퍼경기수) 평균 이상 & T열(실점률) 낮은순 */}
+          {(() => {
+            const keeperPlayers = members.filter(p => p.keeperGames > 0);
+            if (keeperPlayers.length === 0) return null;
+            const avgKG = keeperPlayers.reduce((s, p) => s + p.keeperGames, 0) / keeperPlayers.length;
+            const qualified = keeperPlayers
+              .filter(p => p.keeperGames >= avgKG)
+              .sort((a, b) => (a.concededRate || 999) - (b.concededRate || 999));
+            if (qualified.length === 0) return null;
+            return (
+              <div style={ds.section}>
+                <div style={ds.sectionTitle}>🧤 키퍼 성적 <span style={{ fontSize: 10, fontWeight: 400, color: C.gray }}>({Math.round(avgKG)}경기 이상)</span></div>
+                <div style={ds.card}>
+                  {qualified.map((p, i) => (
+                    <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0", borderBottom: i < qualified.length - 1 ? `1px solid ${C.borderColor}` : "none" }}>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: i < 3 ? C.orange : C.gray, minWidth: 14 }}>{i + 1}</span>
+                      <span style={{ fontSize: 13, fontWeight: 600, flex: 1 }}>{p.name}</span>
+                      <div style={{ textAlign: "right" }}>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: C.accent }}>{p.concededRate || 0} 실점률</div>
+                        <div style={{ fontSize: 10, color: C.gray }}>{p.keeperGames}경기 · 실점 {p.conceded} · CS {p.cleanSheets}</div>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* 출석률 */}
           {activePlayers.length > 0 && (
