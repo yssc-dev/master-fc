@@ -23,6 +23,11 @@ dist-ssr
 *.sln
 *.sw?
 
+# Screenshots
+*.png
+*.jpg
+*.jpeg
+
 # Environment
 .env
 .env.local
