@@ -219,15 +219,15 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
           {/* 출석률 */}
           {activePlayers.length > 0 && (
             <div style={ds.section}>
-              <div style={ds.sectionTitle}>출석률 TOP 10</div>
-              <div style={ds.card}>
-                {[...members].sort((a, b) => b.games - a.games).slice(0, 10).map((p, i) => {
-                  const pct = Math.round((p.games / maxGames) * 100);
+              <div style={ds.sectionTitle}>출석률 <span style={{ fontSize: 11, fontWeight: 400, color: C.gray }}>(전체 {maxGames}경기 기준)</span></div>
+              <div style={{ ...ds.card, display: "flex", flexWrap: "wrap", gap: 0 }}>
+                {[...members].filter(p => p.games > 0).sort((a, b) => b.games - a.games).map((p, i) => {
+                  const ratio = p.games / (maxGames || 1);
+                  const opacity = 0.3 + ratio * 0.7;
                   return (
-                    <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 0", borderBottom: i < 9 ? `1px solid ${C.borderColor}` : "none" }}>
-                      <span style={{ fontSize: 12, fontWeight: 600, minWidth: 52 }}>{p.name}</span>
-                      <Bar value={p.games} max={maxGames} color={pct === 100 ? "#22c55e" : C.accent} />
-                      <span style={{ fontSize: 11, fontWeight: 600, color: pct === 100 ? "#22c55e" : C.white, minWidth: 48, textAlign: "right" }}>{p.games}/{maxGames} ({pct}%)</span>
+                    <div key={i} style={{ width: "50%", display: "flex", justifyContent: "space-between", alignItems: "center", padding: "5px 6px", fontSize: 12 }}>
+                      <span style={{ fontWeight: 600, opacity }}>{p.name}</span>
+                      <span style={{ fontWeight: 700, color: ratio >= 1 ? "#22c55e" : C.accent, opacity }}>{p.games}/{maxGames}</span>
                     </div>
                   );
                 })}
