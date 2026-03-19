@@ -26,6 +26,8 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
     sectionTitle: { fontSize: 14, fontWeight: 700, color: C.gray, marginBottom: 8, display: "flex", alignItems: "center", gap: 6 },
     sportTab: (active) => ({ padding: "8px 16px", borderRadius: 20, fontSize: 13, fontWeight: 600, border: "none", cursor: "pointer", background: active ? C.accent : C.cardLight, color: active ? C.bg : C.gray }),
     btn: (bg, tc = "#fff") => ({ background: bg, color: tc, border: "none", borderRadius: 10, padding: "14px", fontSize: 15, fontWeight: 700, cursor: "pointer", width: "100%" }),
+    thStyle: { padding: "6px 3px", textAlign: "center", color: C.gray, borderBottom: `1px solid ${C.borderColor}`, fontWeight: 600, fontSize: 10, whiteSpace: "nowrap" },
+    tdStyle: (hl = false) => ({ padding: "6px 3px", textAlign: "center", borderBottom: `1px solid ${C.borderColor}`, fontWeight: hl ? 700 : 400, color: hl ? C.white : C.gray, fontSize: 11 }),
     mainTab: (active) => ({
       flex: 1, padding: "12px 8px", textAlign: "center", fontSize: 14, fontWeight: 700, border: "none", cursor: "pointer",
       background: active ? C.card : "transparent", color: active ? C.white : C.gray,
@@ -243,30 +245,62 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
     </>
   );
 
+  const [statSort, setStatSort] = useState("point");
+  const statCols = [
+    { key: "rank", label: "#", w: 22 },
+    { key: "name", label: "선수", w: 52 },
+    { key: "games", label: "경기", w: 30 },
+    { key: "goals", label: "골", w: 26 },
+    { key: "assists", label: "어시", w: 30 },
+    { key: "ownGoals", label: "역주행", w: 34 },
+    { key: "cleanSheets", label: "CS", w: 24 },
+    { key: "conceded", label: "실점", w: 30 },
+    { key: "keeperGames", label: "GK", w: 24 },
+    { key: "ppg", label: "PPG", w: 32 },
+    { key: "point", label: "PT", w: 30 },
+  ];
+
+  const sortedMembers = [...members].sort((a, b) => {
+    if (statSort === "name") return a.name.localeCompare(b.name, "ko");
+    return (b[statSort] || 0) - (a[statSort] || 0);
+  });
+
   const renderRoster = () => (
     <div style={ds.section}>
-      <div style={ds.sectionTitle}>팀원 명단 {!membersLoading && `(${members.length}명)`}</div>
-      <div style={ds.card}>
+      <div style={ds.sectionTitle}>개인 누적 기록 <span style={{ fontSize: 11, fontWeight: 400, color: C.gray }}>({members.length}명)</span></div>
+      <div style={{ ...ds.card, overflowX: "auto", padding: 8 }}>
         {membersLoading ? (
           <div style={{ textAlign: "center", color: C.gray, fontSize: 13, padding: 8 }}>불러오는 중...</div>
-        ) : members.length === 0 ? (
-          <div style={{ textAlign: "center", color: C.gray, fontSize: 13, padding: 8 }}>등록된 선수가 없습니다</div>
         ) : (
-          <div>
-            {members.map((p, i) => (
-              <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: i < members.length - 1 ? `1px solid ${C.borderColor}` : "none" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span style={{ fontSize: 11, color: C.grayDark, fontWeight: 600, minWidth: 28 }}>#{p.backNum || "-"}</span>
-                  <span style={{ fontSize: 14, fontWeight: 600 }}>{p.name}</span>
-                  {i < 3 && <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 4, background: "#f59e0b22", color: "#f59e0b", fontWeight: 600 }}>{i + 1}위</span>}
-                </div>
-                <div style={{ textAlign: "right" }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: C.accent }}>{p.point}pt</div>
-                  <div style={{ fontSize: 10, color: C.gray }}>{p.games}경기 · PPG {p.ppg}</div>
-                </div>
-              </div>
-            ))}
-          </div>
+          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 400 }}>
+            <thead>
+              <tr>
+                {statCols.map(col => (
+                  <th key={col.key} onClick={() => setStatSort(col.key)}
+                    style={{ ...ds.thStyle, cursor: "pointer", color: statSort === col.key ? C.accent : C.gray, minWidth: col.w }}>
+                    {col.label}{statSort === col.key ? " ▼" : ""}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {sortedMembers.map((p, i) => (
+                <tr key={i}>
+                  <td style={ds.tdStyle(false)}>{i + 1}</td>
+                  <td style={ds.tdStyle(true)}>{p.name}</td>
+                  <td style={ds.tdStyle(false)}>{p.games}</td>
+                  <td style={ds.tdStyle(p.goals > 0)}>{p.goals}</td>
+                  <td style={ds.tdStyle(p.assists > 0)}>{p.assists}</td>
+                  <td style={{ ...ds.tdStyle(p.ownGoals > 0), color: p.ownGoals > 0 ? C.red : undefined }}>{p.ownGoals}</td>
+                  <td style={ds.tdStyle(p.cleanSheets > 0)}>{p.cleanSheets}</td>
+                  <td style={ds.tdStyle(false)}>{p.conceded}</td>
+                  <td style={ds.tdStyle(false)}>{p.keeperGames}</td>
+                  <td style={ds.tdStyle(false)}>{p.ppg}</td>
+                  <td style={{ ...ds.tdStyle(true), fontWeight: 800, color: C.accent }}>{p.point}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         )}
       </div>
     </div>
@@ -384,8 +418,8 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
 
       <div style={{ display: "flex", background: C.bg, borderBottom: `1px solid ${C.grayDarker}` }}>
         {[
-          { key: "records", label: "기록" },
-          { key: "roster", label: "명단" },
+          { key: "records", label: "대시보드" },
+          { key: "roster", label: "개인기록" },
           { key: "games", label: "경기관리", badge: pendingGames.length > 0 },
         ].map(tab => (
           <button key={tab.key} onClick={() => setActiveTab(tab.key)} style={ds.mainTab(activeTab === tab.key)}>
