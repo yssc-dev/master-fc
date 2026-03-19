@@ -676,7 +676,10 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, onLogo
     return (
       <div style={s.app}>
         <div style={s.header}>
-          <div style={s.title}>⚽ 경기 진행</div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <button onClick={onBackToMenu} style={{ position: "absolute", left: 16, background: "rgba(255,255,255,0.15)", color: "#fff", border: "none", borderRadius: 8, padding: "4px 10px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>홈</button>
+            <div style={s.title}>⚽ 경기 진행</div>
+          </div>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
             <div style={s.subtitle}>{matchMode === "schedule" ? `${allRoundsComplete ? "전체 라운드 완료" : `라운드 ${currentRoundIdx + 1}/${schedule.length}`}` : `자유대전 · ${completedMatches.length}경기`}</div>
             {AppSync.enabled() && syncStatus && (
