@@ -47,6 +47,8 @@ export async function fetchAttendanceData() {
   const lines = text.split('\n');
   const attendees = [];
   let teamCount = null;
+
+  // E열(index 4): 참석자 명단
   for (let i = 0; i < lines.length; i++) {
     const f = parseCSVLine(lines[i]);
     let name = f[4] || '';
@@ -60,5 +62,24 @@ export async function fetchAttendanceData() {
       teamCount = parseInt(f[6]) || null;
     }
   }
-  return { attendees, teamCount };
+
+  // G2:L9 (index 6~11, 행 1~8): 시트에서 이미 편성된 팀 명단
+  // G=1팀, H=2팀, I=3팀, J=4팀, K=5팀, L=6팀
+  const prebuiltTeams = [];
+  for (let col = 6; col <= 11; col++) {
+    const members = [];
+    // 행1~8 (CSV 0-indexed, 시트 row 2~9)
+    for (let row = 1; row <= 8; row++) {
+      if (row >= lines.length) break;
+      const f = parseCSVLine(lines[row]);
+      const name = (f[col] || '').trim();
+      if (name) members.push(name);
+    }
+    if (members.length > 0) prebuiltTeams.push(members);
+  }
+
+  // 팀 수: prebuiltTeams 기준 (없으면 F열 값 사용)
+  const sheetTeamCount = prebuiltTeams.length > 0 ? prebuiltTeams.length : teamCount;
+
+  return { attendees, teamCount: sheetTeamCount, prebuiltTeams };
 }

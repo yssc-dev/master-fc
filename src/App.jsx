@@ -104,18 +104,34 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
       }
       dispatch({ type: 'SET_FIELDS', fields });
 
-      // 구글시트 연동 모드: 참석명단 → 자동 팀편성 → 바로 경기
+      // 구글시트 연동 모드: 시트의 팀 편성을 그대로 사용, 없으면 스네이크 드래프트
       if (gameMode === "sheetSync" && attendanceData && attendanceData.attendees.length > 0) {
         const sp = players || FALLBACK_DATA.players;
-        const sheetTeamCount = attendanceData.teamCount || 4;
-        const sheetAttendees = attendanceData.attendees;
-        const drafted = snakeDraft(sheetAttendees, sheetTeamCount, sp);
+        const prebuilt = attendanceData.prebuiltTeams || [];
+        const hasPrebuilt = prebuilt.length > 0 && prebuilt.some(t => t.length > 0);
+
+        let finalTeams;
+        let sheetTeamCount;
+        if (hasPrebuilt) {
+          // 시트에서 이미 편성된 팀 사용 (G2:L9)
+          finalTeams = prebuilt;
+          sheetTeamCount = prebuilt.length;
+        } else {
+          // 편성 없으면 스네이크 드래프트
+          sheetTeamCount = attendanceData.teamCount || 4;
+          finalTeams = snakeDraft(attendanceData.attendees, sheetTeamCount, sp);
+        }
+
+        // 참석자 = 모든 팀원 합산 (시트 편성에 포함된 용병 포함)
+        const allPlayers = [...new Set([...attendanceData.attendees, ...finalTeams.flat()])];
+
         const makeNameFromTeam = (members) => {
+          if (members.length === 0) return "팀";
           const top = [...members].sort((a, b) => getPlayerPoint(b, sp) - getPlayerPoint(a, sp))[0];
           const firstName = top.length > 1 ? top.slice(1) : top;
           return `팀 ${firstName}`;
         };
-        const tNames = drafted.map(t => makeNameFromTeam(t));
+        const tNames = finalTeams.map(t => makeNameFromTeam(t));
         const tColors = Array.from({ length: sheetTeamCount }, (_, i) => i % TEAM_COLORS.length);
 
         const cc = 2;
@@ -128,12 +144,12 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
         dispatch({
           type: 'SET_FIELDS',
           fields: {
-            attendees: sheetAttendees,
+            attendees: allPlayers,
             teamCount: sheetTeamCount,
             courtCount: cc,
             matchMode: "schedule",
-            draftMode: "snake",
-            teams: drafted,
+            draftMode: hasPrebuilt ? "sheet" : "snake",
+            teams: finalTeams,
             teamNames: tNames,
             teamColorIndices: tColors,
             gks: {},
