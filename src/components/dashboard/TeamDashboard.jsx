@@ -34,43 +34,203 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
     }),
   };
 
+  const maxGames = members.length > 0 ? Math.max(...members.map(p => p.games)) : 1;
+  const totalGoals = members.reduce((s, p) => s + (p.goals || 0), 0);
+  const totalAssists = members.reduce((s, p) => s + (p.assists || 0), 0);
+  const activePlayers = members.filter(p => p.games > 0);
+  const maxPoint = members.length > 0 ? Math.max(...members.map(p => p.point), 1) : 1;
+
+  const Bar = ({ value, max, color, height = 10 }) => (
+    <div style={{ background: C.cardLight, borderRadius: height / 2, height, flex: 1, overflow: "hidden" }}>
+      <div style={{ background: color, height: "100%", borderRadius: height / 2, width: `${Math.min(100, (value / (max || 1)) * 100)}%`, transition: "width 0.3s" }} />
+    </div>
+  );
+
+  const DeltaBadge = ({ value }) => {
+    if (!value || value === 0) return null;
+    const isUp = value > 0;
+    return (
+      <span style={{ fontSize: 10, padding: "1px 4px", borderRadius: 3, fontWeight: 700, background: isUp ? "#22c55e22" : "#ef444422", color: isUp ? "#22c55e" : "#ef4444" }}>
+        {isUp ? "+" : ""}{value}
+      </span>
+    );
+  };
+
   const renderRecords = () => (
     <>
-      <div style={ds.section}>
-        <div style={ds.sectionTitle}>{activeSport} 시즌 기록</div>
-        <div style={ds.card}>
-          {membersLoading ? (
-            <div style={{ textAlign: "center", color: C.gray, fontSize: 13, padding: 8 }}>불러오는 중...</div>
-          ) : (
-            <>
-              <div style={{ display: "flex", justifyContent: "space-around", textAlign: "center", marginBottom: 12 }}>
-                <div>
-                  <div style={{ fontSize: 20, fontWeight: 800, color: C.accent }}>{members.reduce((s, p) => s + (p.games || 0), 0)}</div>
-                  <div style={{ fontSize: 11, color: C.gray }}>총 경기수</div>
+      {membersLoading ? (
+        <div style={{ ...ds.section, textAlign: "center", color: C.gray, fontSize: 13, padding: 20 }}>불러오는 중...</div>
+      ) : (
+        <>
+          {/* 시즌 요약 카드 */}
+          <div style={ds.section}>
+            <div style={{ display: "flex", gap: 8 }}>
+              {[
+                { label: "경기", value: maxGames, color: C.accent },
+                { label: "골", value: totalGoals, color: "#22c55e" },
+                { label: "어시", value: totalAssists, color: "#3b82f6" },
+                { label: "참여", value: activePlayers.length, color: C.orange },
+              ].map((s, i) => (
+                <div key={i} style={{ flex: 1, background: C.card, borderRadius: 10, padding: "12px 8px", textAlign: "center" }}>
+                  <div style={{ fontSize: 22, fontWeight: 800, color: s.color }}>{s.value}</div>
+                  <div style={{ fontSize: 10, color: C.gray, marginTop: 2 }}>{s.label}</div>
                 </div>
-                <div>
-                  <div style={{ fontSize: 20, fontWeight: 800, color: C.green }}>{members.length}</div>
-                  <div style={{ fontSize: 11, color: C.gray }}>등록 선수</div>
+              ))}
+            </div>
+          </div>
+
+          {/* 포인트 TOP 5 */}
+          {members.length > 0 && (
+            <div style={ds.section}>
+              <div style={ds.sectionTitle}>포인트 TOP 5</div>
+              <div style={ds.card}>
+                {members.slice(0, 5).map((p, i) => (
+                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 0", borderBottom: i < 4 ? `1px solid ${C.borderColor}` : "none" }}>
+                    <span style={{ fontSize: 12, fontWeight: 800, color: i < 3 ? C.orange : C.gray, minWidth: 18 }}>{i + 1}</span>
+                    <span style={{ fontSize: 13, fontWeight: 600, minWidth: 52 }}>{p.name}</span>
+                    <Bar value={p.point} max={maxPoint} color={C.accent} />
+                    <span style={{ fontSize: 13, fontWeight: 700, color: C.accent, minWidth: 36, textAlign: "right" }}>{p.point}</span>
+                    <DeltaBadge value={p.pointDelta} />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 골·어시 TOP 5 */}
+          {members.length > 0 && (
+            <div style={ds.section}>
+              <div style={{ display: "flex", gap: 8 }}>
+                {/* 골 TOP 5 */}
+                <div style={{ flex: 1 }}>
+                  <div style={{ ...ds.sectionTitle, fontSize: 12 }}>⚽ 골 TOP 5</div>
+                  <div style={ds.card}>
+                    {[...members].sort((a, b) => b.goals - a.goals).slice(0, 5).map((p, i) => (
+                      <div key={i} style={{ display: "flex", alignItems: "center", gap: 4, padding: "5px 0", borderBottom: i < 4 ? `1px solid ${C.borderColor}` : "none", fontSize: 12 }}>
+                        <span style={{ fontWeight: 700, color: i < 3 ? C.orange : C.gray, minWidth: 14 }}>{i + 1}</span>
+                        <span style={{ fontWeight: 600, flex: 1 }}>{p.name}</span>
+                        <span style={{ fontWeight: 700, color: "#22c55e" }}>{p.goals}</span>
+                        <DeltaBadge value={p.goalsDelta} />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                {/* 어시 TOP 5 */}
+                <div style={{ flex: 1 }}>
+                  <div style={{ ...ds.sectionTitle, fontSize: 12 }}>👟 어시 TOP 5</div>
+                  <div style={ds.card}>
+                    {[...members].sort((a, b) => b.assists - a.assists).slice(0, 5).map((p, i) => (
+                      <div key={i} style={{ display: "flex", alignItems: "center", gap: 4, padding: "5px 0", borderBottom: i < 4 ? `1px solid ${C.borderColor}` : "none", fontSize: 12 }}>
+                        <span style={{ fontWeight: 700, color: i < 3 ? C.orange : C.gray, minWidth: 14 }}>{i + 1}</span>
+                        <span style={{ fontWeight: 600, flex: 1 }}>{p.name}</span>
+                        <span style={{ fontWeight: 700, color: "#3b82f6" }}>{p.assists}</span>
+                        <DeltaBadge value={p.assistsDelta} />
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
-              {members.length > 0 && (
-                <div>
-                  <div style={{ fontSize: 11, color: C.gray, marginBottom: 4 }}>포인트 TOP 5</div>
-                  {members.slice(0, 5).map((p, i) => (
-                    <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", fontSize: 13, borderBottom: i < 4 ? `1px solid ${C.borderColor}` : "none" }}>
-                      <span><span style={{ color: C.orange, fontWeight: 700, marginRight: 6 }}>{i + 1}위</span>{p.name}</span>
-                      <span style={{ color: C.accent, fontWeight: 600 }}>{p.point}pt · {p.games}경기</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </>
+            </div>
           )}
-        </div>
-      </div>
-      <div style={ds.section}>
-        <button onClick={onViewHistory} style={{ ...ds.btn(C.cardLight, C.white) }}>과거 경기 조회</button>
-      </div>
+
+          {/* 최근 핫/콜드 */}
+          {activePlayers.length > 0 && (() => {
+            const withDelta = activePlayers.map(p => ({ ...p, totalDelta: (p.goalsDelta || 0) + (p.assistsDelta || 0) + (p.pointDelta || 0) }));
+            const hot = [...withDelta].sort((a, b) => b.totalDelta - a.totalDelta).slice(0, 3).filter(p => p.totalDelta > 0);
+            const cold = [...withDelta].sort((a, b) => a.totalDelta - b.totalDelta).slice(0, 3).filter(p => p.totalDelta < 0);
+            if (hot.length === 0 && cold.length === 0) return null;
+            return (
+              <div style={ds.section}>
+                <div style={ds.sectionTitle}>최근 변동</div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  {hot.length > 0 && (
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: "#22c55e", marginBottom: 6 }}>HOT</div>
+                      {hot.map((p, i) => (
+                        <div key={i} style={{ ...ds.card, marginBottom: 6, padding: 10 }}>
+                          <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 3 }}>{p.name}</div>
+                          <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                            {p.goalsDelta > 0 && <DeltaBadge value={p.goalsDelta} />}
+                            {p.assistsDelta > 0 && <span style={{ fontSize: 10, color: C.gray }}>어시+{p.assistsDelta}</span>}
+                            {p.pointDelta > 0 && <span style={{ fontSize: 10, color: C.gray }}>PT+{p.pointDelta}</span>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {cold.length > 0 && (
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: "#ef4444", marginBottom: 6 }}>COLD</div>
+                      {cold.map((p, i) => (
+                        <div key={i} style={{ ...ds.card, marginBottom: 6, padding: 10 }}>
+                          <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 3 }}>{p.name}</div>
+                          <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                            {p.pointDelta < 0 && <span style={{ fontSize: 10, padding: "1px 4px", borderRadius: 3, background: "#ef444422", color: "#ef4444", fontWeight: 700 }}>PT{p.pointDelta}</span>}
+                            {p.concededDelta < 0 && <span style={{ fontSize: 10, color: C.gray }}>실점{p.concededDelta}</span>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* 키퍼 성적 */}
+          {(() => {
+            const keepers = members.filter(p => p.keeperGames > 0).sort((a, b) => {
+              const aAvg = a.keeperConceded / (a.keeperGames || 1);
+              const bAvg = b.keeperConceded / (b.keeperGames || 1);
+              return aAvg - bAvg;
+            });
+            if (keepers.length === 0) return null;
+            return (
+              <div style={ds.section}>
+                <div style={ds.sectionTitle}>🧤 키퍼 성적</div>
+                <div style={ds.card}>
+                  {keepers.slice(0, 5).map((p, i) => {
+                    const avg = (p.keeperConceded / (p.keeperGames || 1)).toFixed(1);
+                    return (
+                      <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0", borderBottom: i < keepers.length - 1 && i < 4 ? `1px solid ${C.borderColor}` : "none" }}>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: i < 3 ? C.orange : C.gray, minWidth: 14 }}>{i + 1}</span>
+                        <span style={{ fontSize: 13, fontWeight: 600, flex: 1 }}>{p.name}</span>
+                        <div style={{ textAlign: "right" }}>
+                          <div style={{ fontSize: 12, fontWeight: 700, color: C.accent }}>{avg} 실점/경기</div>
+                          <div style={{ fontSize: 10, color: C.gray }}>{p.keeperGames}경기 · CS {p.cleanSheets}</div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* 출석률 */}
+          {activePlayers.length > 0 && (
+            <div style={ds.section}>
+              <div style={ds.sectionTitle}>출석률 TOP 10</div>
+              <div style={ds.card}>
+                {[...members].sort((a, b) => b.games - a.games).slice(0, 10).map((p, i) => {
+                  const pct = Math.round((p.games / maxGames) * 100);
+                  return (
+                    <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 0", borderBottom: i < 9 ? `1px solid ${C.borderColor}` : "none" }}>
+                      <span style={{ fontSize: 12, fontWeight: 600, minWidth: 52 }}>{p.name}</span>
+                      <Bar value={p.games} max={maxGames} color={pct === 100 ? "#22c55e" : C.accent} />
+                      <span style={{ fontSize: 11, fontWeight: 600, color: pct === 100 ? "#22c55e" : C.white, minWidth: 48, textAlign: "right" }}>{p.games}/{maxGames} ({pct}%)</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          <div style={ds.section}>
+            <button onClick={onViewHistory} style={{ ...ds.btn(C.cardLight, C.white) }}>과거 경기 조회</button>
+          </div>
+        </>
+      )}
     </>
   );
 

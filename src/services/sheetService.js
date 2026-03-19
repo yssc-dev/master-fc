@@ -12,21 +12,41 @@ function parseCSVLine(line) {
   return fields;
 }
 
+function parseNum(v) { return parseInt(v) || 0; }
+function parseFloat2(v) { return parseFloat(v) || 0; }
+function parseDelta(v) { if (!v || v === '-' || v === '') return 0; return parseInt(v) || 0; }
+
 function parseCSV(text) {
   const lines = text.split('\n');
   const players = [];
   for (let i = 3; i < lines.length; i++) {
     const line = lines[i];
     if (!line.trim()) continue;
-    const fields = parseCSVLine(line);
-    const name = fields[3];
+    const f = parseCSVLine(line);
+    const name = f[3];
     if (!name) continue;
-    const rank = parseInt(fields[1]) || 0;
-    const backNum = fields[2] ? parseInt(fields[2]) || null : null;
-    const games = parseInt(fields[4]) || 0;
-    const point = parseInt(fields[13]) || 0;
-    const ppg = parseFloat(fields[0]) || 0;
-    players.push({ rank, name, backNum, games, point, ppg });
+    players.push({
+      ppg: parseFloat2(f[0]),           // A: 경기당 포인트
+      rank: parseNum(f[1]),             // B: 순위
+      backNum: f[2] ? parseNum(f[2]) || null : null, // C: 등번호
+      name,                             // D: 이름
+      games: parseNum(f[4]),            // E: 경기수
+      goals: parseNum(f[5]),            // F: 골
+      goalsDelta: parseDelta(f[6]),     // G: 골 변동
+      assists: parseNum(f[7]),          // H: 어시스트
+      assistsDelta: parseDelta(f[8]),   // I: 어시 변동
+      ownGoals: parseNum(f[9]),         // J: 역주행(자책골)
+      ownGoalsDelta: parseDelta(f[10]), // K: 역주행 변동
+      conceded: parseNum(f[11]),        // L: 실점
+      concededDelta: parseDelta(f[12]), // M: 실점 변동
+      point: parseNum(f[13]),           // N: 포인트 합계
+      cleanSheets: parseNum(f[14]),     // O: 클린시트
+      cleanSheetsDelta: parseDelta(f[15]), // P: 클린시트 변동
+      keeperGames: parseNum(f[16]),     // Q: 키퍼 출전 경기수
+      keeperConceded: parseNum(f[17]),  // R: 누적 실점
+      pointDelta: parseDelta(f[18]),    // S: 포인트 변동
+      pointRatio: parseFloat2(f[19]),   // T: 포인트 비율
+    });
   }
   return players;
 }
