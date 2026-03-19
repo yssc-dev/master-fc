@@ -3,24 +3,27 @@ import { TEAM_COLORS } from '../../config/constants';
 import { useTheme } from '../../hooks/useTheme';
 import CourtRecorder from './CourtRecorder';
 
-export default function ScheduleMatchView({ schedule, currentRoundIdx, viewingRoundIdx, setViewingRoundIdx, confirmedRounds, onConfirmRound, teams, teamNames, teamColorIndices, gks, courtCount, allEvents, onRecordEvent, onUndoEvent, onDeleteEvent, onEditEvent, completedMatches, attendees, onGkChange, styles: s }) {
+export default function ScheduleMatchView({ schedule, currentRoundIdx, viewingRoundIdx, setViewingRoundIdx, confirmedRounds, onConfirmRound, teams, teamNames, teamColorIndices, gks, gksHistory, courtCount, allEvents, onRecordEvent, onUndoEvent, onDeleteEvent, onEditEvent, completedMatches, attendees, onGkChange, styles: s }) {
   const { C } = useTheme();
   const round = schedule[viewingRoundIdx];
   const matches = round?.matches || [];
   const isConfirmed = confirmedRounds[viewingRoundIdx] || false;
+
+  // 확정된 라운드면 gksHistory에서, 현재 라운드면 gks에서 GK 참조
+  const roundGks = isConfirmed ? (gksHistory?.[viewingRoundIdx] || {}) : gks;
 
   const matchInfos = useMemo(() => {
     return matches.map((pair, i) => ({
       homeIdx: pair[0], awayIdx: pair[1],
       matchId: `R${viewingRoundIdx + 1}_C${i}`,
       homeTeam: teamNames[pair[0]], awayTeam: teamNames[pair[1]],
-      homeGk: gks[pair[0]] || null, awayGk: gks[pair[1]] || null,
+      homeGk: roundGks[pair[0]] || null, awayGk: roundGks[pair[1]] || null,
       homeColor: TEAM_COLORS[teamColorIndices[pair[0]]],
       awayColor: TEAM_COLORS[teamColorIndices[pair[1]]],
       homePlayers: teams[pair[0]],
       awayPlayers: teams[pair[1]],
     }));
-  }, [viewingRoundIdx, matches, teamNames, gks, teamColorIndices, teams]);
+  }, [viewingRoundIdx, matches, teamNames, roundGks, teamColorIndices, teams]);
 
   return (
     <div>

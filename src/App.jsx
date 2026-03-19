@@ -25,7 +25,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
     phase, dataLoading, dataSource, seasonPlayers, seasonCrova, seasonGoguma,
     syncStatus, attendanceLoading, attendees, newPlayer, teamCount, courtCount,
     matchMode, rotations, draftMode, freeSelectTeam, teams, teamNames,
-    teamColorIndices, gks, editingTeamName, moveSource, schedule, currentRoundIdx,
+    teamColorIndices, gks, gksHistory, editingTeamName, moveSource, schedule, currentRoundIdx,
     viewingRoundIdx, confirmedRounds, completedMatches, allEvents, isExtraRound,
     splitPhase, matchModal, matchModal_sortKey, playerSortMode,
   } = state;
@@ -190,12 +190,12 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
   const gameState = useMemo(() => ({
     gameId: gameId || "legacy",
     gameCreator: state.gameCreator || authUser?.name || "알 수 없음",
-    phase, teams, teamNames, teamColorIndices, gks, allEvents,
+    phase, teams, teamNames, teamColorIndices, gks, gksHistory, allEvents,
     completedMatches, schedule, currentRoundIdx, viewingRoundIdx, confirmedRounds, attendees,
     teamCount, courtCount, matchMode, isExtraRound, splitPhase, rotations,
     lastEditor: authUser?.name || "알 수 없음",
     lastEditTime: Date.now(),
-  }), [phase, teams, teamNames, teamColorIndices, gks, allEvents, completedMatches, schedule, currentRoundIdx, viewingRoundIdx, confirmedRounds, attendees, teamCount, courtCount, matchMode, isExtraRound, splitPhase, rotations, authUser, gameId]);
+  }), [phase, teams, teamNames, teamColorIndices, gks, gksHistory, allEvents, completedMatches, schedule, currentRoundIdx, viewingRoundIdx, confirmedRounds, attendees, teamCount, courtCount, matchMode, isExtraRound, splitPhase, rotations, authUser, gameId]);
 
   const autoSave = useCallback(() => {
     if (isSyncingRef.current) return;
@@ -806,7 +806,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
             <ScheduleMatchView schedule={schedule} currentRoundIdx={currentRoundIdx}
               viewingRoundIdx={viewingRoundIdx} setViewingRoundIdx={(v) => set('viewingRoundIdx', v)}
               confirmedRounds={confirmedRounds} onConfirmRound={confirmRound}
-              teams={teams} teamNames={teamNames} teamColorIndices={teamColorIndices} gks={gks}
+              teams={teams} teamNames={teamNames} teamColorIndices={teamColorIndices} gks={gks} gksHistory={gksHistory || {}}
               courtCount={courtCount} allEvents={allEvents} onRecordEvent={recordMatchEvent}
               onUndoEvent={undoMatchEvent} onDeleteEvent={deleteEvent} onEditEvent={editEvent}
               completedMatches={completedMatches} attendees={attendees} onGkChange={handleGkChange} styles={s} />

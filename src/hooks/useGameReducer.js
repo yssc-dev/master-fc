@@ -22,6 +22,7 @@ const initialState = {
   teamNames: [],
   teamColorIndices: [],
   gks: {},
+  gksHistory: {},  // { roundIdx: { teamIdx: playerName } } — 확정된 라운드별 GK 기록
   editingTeamName: null,
   moveSource: null,
   schedule: [],
@@ -56,13 +57,21 @@ function gameReducer(state, action) {
       if (s.teamNames) updates.teamNames = s.teamNames;
       if (s.teamColorIndices) updates.teamColorIndices = s.teamColorIndices;
       if (s.gks) updates.gks = s.gks;
+      if (s.gksHistory) updates.gksHistory = s.gksHistory;
       if (s.schedule) updates.schedule = s.schedule;
-      if (s.currentRoundIdx != null) updates.currentRoundIdx = s.currentRoundIdx;
+      if (s.currentRoundIdx != null) {
+        // ★ 범위 보정: schedule 길이를 초과하면 마지막 라운드로 고정
+        const maxIdx = (updates.schedule || s.schedule || state.schedule || []).length - 1;
+        updates.currentRoundIdx = maxIdx >= 0 ? Math.min(s.currentRoundIdx, maxIdx) : s.currentRoundIdx;
+      }
       if (s.completedMatches) updates.completedMatches = s.completedMatches;
       if (s.allEvents) updates.allEvents = s.allEvents;
       if (s.isExtraRound != null) updates.isExtraRound = s.isExtraRound;
       if (s.splitPhase) updates.splitPhase = s.splitPhase;
-      if (s.viewingRoundIdx != null) updates.viewingRoundIdx = s.viewingRoundIdx;
+      if (s.viewingRoundIdx != null) {
+        const maxIdx2 = (updates.schedule || s.schedule || state.schedule || []).length - 1;
+        updates.viewingRoundIdx = maxIdx2 >= 0 ? Math.min(s.viewingRoundIdx, maxIdx2) : s.viewingRoundIdx;
+      }
       if (s.confirmedRounds) updates.confirmedRounds = s.confirmedRounds;
       if (s.gameCreator) updates.gameCreator = s.gameCreator;
       if (s.phase) updates.phase = s.phase;
@@ -100,9 +109,11 @@ function gameReducer(state, action) {
     case 'CONFIRM_ROUND': {
       const { roundIdx, matchResults, nextRoundIdx, newSchedule, newSplitPhase } = action;
       const newCompleted = [...state.completedMatches, ...matchResults.map(r => ({ ...r, isExtra: state.isExtraRound }))];
+      // 현재 GK를 라운드별 히스토리에 저장 후 초기화
       const updates = {
         completedMatches: newCompleted,
         confirmedRounds: { ...state.confirmedRounds, [roundIdx]: true },
+        gksHistory: { ...state.gksHistory, [roundIdx]: { ...state.gks } },
         gks: {},
       };
       if (newSchedule) updates.schedule = newSchedule;
