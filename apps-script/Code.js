@@ -10,6 +10,16 @@ var AUTH_SHEET_NAME = "회원인증";
 var POINT_LOG_SHEET = "포인트로그";
 var PLAYER_LOG_SHEET = "선수별집계기록로그";
 
+// ─── 한국시간 헬퍼 ───
+
+function _kstNow() {
+  return Utilities.formatDate(new Date(), "Asia/Seoul", "yyyy-MM-dd'T'HH:mm:ss'+09:00'");
+}
+
+function _kstDate() {
+  return Utilities.formatDate(new Date(), "Asia/Seoul", "yyyy-MM-dd");
+}
+
 // ─── 공통 헬퍼 ───
 
 function _jsonResponse(data) {
@@ -70,7 +80,7 @@ function doGet(e) {
     var action = (e && e.parameter && e.parameter.action) || "ping";
 
     if (action === "ping") {
-      return _jsonResponse({ success: true, time: new Date().toISOString() });
+      return _jsonResponse({ success: true, time: _kstNow() });
     }
 
     // 인증
@@ -261,7 +271,7 @@ function _saveGameState(state, team, gameId) {
   if (!state) return { success: false, error: "state is empty" };
   if (!team) team = "기본팀";
   if (!gameId) gameId = state.gameId || "";
-  var gameDate = new Date().toISOString().slice(0, 10);
+  var gameDate = _kstDate();
 
   var lock = LockService.getScriptLock();
   if (!lock.tryLock(10000)) return { success: false, error: "다른 저장이 진행 중입니다. 잠시 후 다시 시도하세요" };
@@ -269,7 +279,7 @@ function _saveGameState(state, team, gameId) {
   try {
     var sheet = _getOrCreateStateSheet();
     var json = JSON.stringify(state);
-    var now = new Date().toISOString();
+    var now = _kstNow();
 
     var evtCount = (state.allEvents || []).length;
     var matchCount = (state.completedMatches || []).length;
@@ -333,7 +343,7 @@ function _loadGameState(team) {
   if (!json) return { success: true, found: false, games: [] };
   try {
     var state = JSON.parse(json);
-    var game = { gameId: state.gameId || "legacy", state: state, savedAt: savedAt ? new Date(savedAt).toISOString() : null };
+    var game = { gameId: state.gameId || "legacy", state: state, savedAt: savedAt ? String(savedAt) : null };
     return { success: true, found: true, games: [game], state: state, savedAt: game.savedAt };
   } catch (e) {
     return { success: false, found: false, games: [], error: "JSON 파싱 실패: " + e.message };
@@ -395,7 +405,7 @@ function _finalizeGameState(team, gameId) {
       if (row < 0) return { success: false, error: "진행중인 경기 없음" };
 
       sheet.getRange(row, 3).setValue("확정");
-      sheet.getRange(row, 5).setValue(new Date().toISOString());
+      sheet.getRange(row, 5).setValue(_kstNow());
       return { success: true, message: "경기 확정 완료" };
     }
 
@@ -429,7 +439,7 @@ function _getHistory(team) {
         gameDate: String(data[i][1]).trim(),
         status: "확정",
         stateJson: String(data[i][3]),
-        savedAt: data[i][4] ? new Date(data[i][4]).toISOString() : null,
+        savedAt: data[i][4] ? String(data[i][4]) : null,
         summary: String(data[i][5]) || "",
       });
     }
@@ -493,7 +503,7 @@ function _writePointLog(data) {
       return [
         e.gameDate, e.matchId, e.myTeam || "", e.opponentTeam || "",
         e.scorer || "", e.assist || "", e.ownGoalPlayer || "",
-        e.concedingGk || "", e.inputTime || new Date().toISOString(), teamName,
+        e.concedingGk || "", e.inputTime || _kstNow(), teamName,
       ];
     });
 
@@ -537,7 +547,7 @@ function _writePlayerLog(data) {
         Number(p.goals) || 0, Number(p.assists) || 0, Number(p.owngoals) || 0,
         Number(p.conceded) || 0, Number(p.cleanSheets) || 0,
         Number(p.crova) || 0, Number(p.goguma) || 0, Number(p.keeperGames) || 0,
-        p.inputTime || new Date().toISOString(), teamName,
+        p.inputTime || _kstNow(), teamName,
       ];
     });
 
