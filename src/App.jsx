@@ -738,17 +738,18 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
 
         {matchModal === "teamRoster" && (
           <Modal onClose={() => set('matchModal', null)} title="팀 명단">
-            <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4 }}>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
               {teams.map((team, tIdx) => {
                 const color = TEAM_COLORS[teamColorIndices[tIdx]];
+                const colWidth = teams.length <= 4 ? `calc(${100 / teams.length}% - 5px)` : `calc(${100 / Math.ceil(teams.length / 2)}% - 5px)`;
                 return (
-                  <div key={tIdx} style={{ minWidth: 100, flex: 1, background: C.card, borderRadius: 10, borderTop: `3px solid ${color?.bg || C.accent}`, padding: "10px 8px" }}>
-                    <div style={{ textAlign: "center", marginBottom: 8 }}>
-                      <div style={{ fontWeight: 700, fontSize: 13, color: color?.bg || C.accent }}>{teamNames[tIdx]}</div>
-                      <div style={{ fontSize: 10, color: C.gray }}>{team.length}명</div>
+                  <div key={tIdx} style={{ width: colWidth, background: C.card, borderRadius: 10, borderTop: `3px solid ${color?.bg || C.accent}`, padding: "8px 6px" }}>
+                    <div style={{ textAlign: "center", marginBottom: 6 }}>
+                      <div style={{ fontWeight: 700, fontSize: 12, color: color?.bg || C.accent }}>{teamNames[tIdx]}</div>
+                      <div style={{ fontSize: 9, color: C.gray }}>{team.length}명</div>
                     </div>
                     {team.map((p, pIdx) => (
-                      <div key={p} style={{ padding: "5px 4px", borderBottom: pIdx < team.length - 1 ? `1px solid ${C.grayDarker}` : "none", fontSize: 12 }}>
+                      <div key={p} style={{ padding: "4px 2px", borderBottom: pIdx < team.length - 1 ? `1px solid ${C.grayDarker}` : "none", fontSize: 11 }}>
                         <span style={{ fontWeight: 600, color: C.white }}>{p}</span>
                       </div>
                     ))}
