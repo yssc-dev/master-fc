@@ -93,7 +93,7 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
                     <span style={{ fontSize: 13, fontWeight: 600, minWidth: 52 }}>{p.name}</span>
                     <Bar value={p.point} max={maxPoint} color={C.accent} />
                     <span style={{ fontSize: 13, fontWeight: 700, color: C.accent, minWidth: 36, textAlign: "right" }}>{p.point}</span>
-                    <DeltaBadge value={p.pointDelta} />
+                    <DeltaBadge value={(p.goalsDelta || 0) + (p.assistsDelta || 0) - (p.ownGoalsDelta || 0) * 2 + (p.cleanSheetsDelta || 0)} />
                   </div>
                 ))}
               </div>
@@ -138,8 +138,11 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
 
           {/* 최근 핫/콜드 */}
           {activePlayers.length > 0 && (() => {
-            // pointDelta(S열) = 골+어시+역주행+클린시트 변동 합산 (크로바/고구마 변동은 시트에 없어 제외)
-            const withDelta = activePlayers.map(p => ({ ...p, totalDelta: p.pointDelta || 0 }));
+            // 포인트 변동 = 골 + 어시 - 역주행*2 + 클린시트 (크로바/고구마 변동은 시트 미제공)
+            const withDelta = activePlayers.map(p => ({
+              ...p,
+              totalDelta: (p.goalsDelta || 0) + (p.assistsDelta || 0) - (p.ownGoalsDelta || 0) * 2 + (p.cleanSheetsDelta || 0),
+            }));
             const hot = [...withDelta].sort((a, b) => b.totalDelta - a.totalDelta).slice(0, 3).filter(p => p.totalDelta > 0);
             const cold = [...withDelta].sort((a, b) => a.totalDelta - b.totalDelta).slice(0, 3).filter(p => p.totalDelta < 0);
             if (hot.length === 0 && cold.length === 0) return null;

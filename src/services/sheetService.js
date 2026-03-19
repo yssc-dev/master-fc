@@ -38,13 +38,13 @@ function parseCSV(text) {
       ownGoals: parseNum(f[9]),         // J: 역주행(자책골)
       ownGoalsDelta: parseDelta(f[10]), // K: 역주행 변동
       conceded: parseNum(f[11]),        // L: 실점
-      concededDelta: parseDelta(f[12]), // M: 실점 변동
+      _reserved12: parseDelta(f[12]),    // M: (미사용)
       point: parseNum(f[13]),           // N: 포인트 합계
       cleanSheets: parseNum(f[14]),     // O: 클린시트
       cleanSheetsDelta: parseDelta(f[15]), // P: 클린시트 변동
       firstHalfPt: parseNum(f[16]),      // Q: 전반기 포인트
       secondHalfPt: parseNum(f[17]),    // R: 후반기 포인트
-      pointDelta: parseDelta(f[18]),    // S: 포인트 변동
+      concededDelta: parseDelta(f[18]),  // S: 실점 변동
       pointRatio: parseFloat2(f[19]),   // T: 후반/전반 비율
     });
   }
