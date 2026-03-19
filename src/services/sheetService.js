@@ -98,13 +98,13 @@ export async function fetchAttendanceData() {
     }
   }
 
-  // G2:L9 (index 6~11, 행 1~8): 시트에서 이미 편성된 팀 명단
-  // G=1팀, H=2팀, I=3팀, J=4팀, K=5팀, L=6팀
+  // H~L열(index 7~11), 행0~7: 시트에서 이미 편성된 팀 명단
+  // G열(index 6)은 시드 라벨, H=1팀, I=2팀, J=3팀, K=4팀, L=5팀
+  // Row 0 = 팀장(1번 시드), Row 1~ = 2번 시드부터
   const prebuiltTeams = [];
-  for (let col = 6; col <= 11; col++) {
+  for (let col = 7; col <= 11; col++) {
     const members = [];
-    // 행1~8 (CSV 0-indexed, 시트 row 2~9)
-    for (let row = 1; row <= 8; row++) {
+    for (let row = 0; row <= 7; row++) {
       if (row >= lines.length) break;
       const f = parseCSVLine(lines[row]);
       const name = (f[col] || '').trim();
