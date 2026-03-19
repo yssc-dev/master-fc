@@ -692,6 +692,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, onLogo
           </div>
           <div style={{ display: "flex", gap: 6, justifyContent: "center", marginTop: 8, flexWrap: "wrap" }}>
             {matchMode === "schedule" && <button onClick={() => set('matchModal', 'schedule')} style={{ ...s.btnSm(C.grayDark, C.white), fontSize: 11 }}>대진표</button>}
+            <button onClick={() => set('matchModal', 'gameFormat')} style={{ ...s.btnSm(C.grayDark, C.white), fontSize: 11 }}>경기방식</button>
             <button onClick={() => set('matchModal', 'teamRoster')} style={{ ...s.btnSm(C.grayDark, C.white), fontSize: 11 }}>팀명단</button>
             <button onClick={() => set('matchModal', 'standings')} style={{ ...s.btnSm(C.grayDark, C.white), fontSize: 11 }}>팀순위</button>
             <button onClick={() => set('matchModal', 'playerStats')} style={{ ...s.btnSm(C.grayDark, C.white), fontSize: 11 }}>개인기록</button>
@@ -755,6 +756,60 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, onLogo
 
         {matchModal === "standings" && <StandingsModal standings={getTeamStandings()} onClose={() => set('matchModal', null)} styles={s} />}
         {matchModal === "playerStats" && <PlayerStatsModal attendees={attendees} calcPlayerPoints={calcPlayerPoints} onClose={() => set('matchModal', null)} styles={s} />}
+
+        {matchModal === "gameFormat" && (
+          <Modal onClose={() => set('matchModal', null)} title="경기방식">
+            <div style={{ fontSize: 13, color: C.white, lineHeight: 1.7 }}>
+              <div style={{ background: C.cardLight, borderRadius: 10, padding: 12, marginBottom: 10 }}>
+                <div style={{ fontWeight: 700, color: C.accent, marginBottom: 6 }}>현재 설정</div>
+                <div>{teamCount}팀 · {courtCount}코트 · {matchMode === "schedule" ? "대진표" : "자유대진"}{matchMode === "schedule" && courtCount === 1 ? ` · ${rotations}회전` : ""}</div>
+              </div>
+
+              <div style={{ background: C.cardLight, borderRadius: 10, padding: 12, marginBottom: 10 }}>
+                <div style={{ fontWeight: 700, color: C.orange, marginBottom: 6 }}>4팀 · 2코트</div>
+                <div style={{ fontSize: 12, color: C.gray }}>
+                  4×라운드로빈 (12라운드)<br/>
+                  A·B 두 구장에서 동시 진행. 모든 팀이 4번씩 맞대결하여 충분한 경기 수 확보.
+                </div>
+              </div>
+
+              <div style={{ background: C.cardLight, borderRadius: 10, padding: 12, marginBottom: 10 }}>
+                <div style={{ fontWeight: 700, color: C.orange, marginBottom: 6 }}>5팀 · 2코트</div>
+                <div style={{ fontSize: 12, color: C.gray }}>
+                  더블 라운드로빈 (10라운드)<br/>
+                  매 라운드 1팀 휴식. 모든 팀이 2번씩 맞대결.
+                </div>
+              </div>
+
+              <div style={{ background: C.cardLight, borderRadius: 10, padding: 12, marginBottom: 10 }}>
+                <div style={{ fontWeight: 700, color: C.orange, marginBottom: 6 }}>6팀 · 2코트</div>
+                <div style={{ fontSize: 12, color: C.gray }}>
+                  그룹 스플릿 (12라운드)<br/>
+                  전반: 3팀×2조 조별 리그 (6라운드)<br/>
+                  후반: 순위 기준 상위 3팀/하위 3팀 재편성 리그 (6라운드)
+                </div>
+              </div>
+
+              <div style={{ background: C.cardLight, borderRadius: 10, padding: 12, marginBottom: 10 }}>
+                <div style={{ fontWeight: 700, color: C.orange, marginBottom: 6 }}>N팀 · 1코트</div>
+                <div style={{ fontSize: 12, color: C.gray }}>
+                  라운드로빈 × 회전 수<br/>
+                  한 경기씩 순차 진행. 회전 수로 총 경기 수 조절.
+                </div>
+              </div>
+
+              <div style={{ background: C.cardLight, borderRadius: 10, padding: 12 }}>
+                <div style={{ fontWeight: 700, color: C.accent, marginBottom: 6 }}>팀 편성 (스네이크 드래프트)</div>
+                <div style={{ fontSize: 12, color: C.gray }}>
+                  시즌 포인트 순으로 정렬 후 지그재그 배정.<br/>
+                  1라운드: 1→2→3→4팀<br/>
+                  2라운드: 4→3→2→1팀<br/>
+                  전력 균형을 자동으로 맞춰줍니다.
+                </div>
+              </div>
+            </div>
+          </Modal>
+        )}
 
         <div style={s.section}>
           {matchMode === "schedule" && schedule.length > 0 && !isExtraRound ? (
