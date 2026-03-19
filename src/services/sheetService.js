@@ -42,10 +42,10 @@ function parseCSV(text) {
       point: parseNum(f[13]),           // N: 포인트 합계
       cleanSheets: parseNum(f[14]),     // O: 클린시트
       cleanSheetsDelta: parseDelta(f[15]), // P: 클린시트 변동
-      keeperGames: parseNum(f[16]),     // Q: 키퍼 출전 경기수
-      keeperConceded: parseNum(f[17]),  // R: 누적 실점
+      firstHalfPt: parseNum(f[16]),      // Q: 전반기 포인트
+      secondHalfPt: parseNum(f[17]),    // R: 후반기 포인트
       pointDelta: parseDelta(f[18]),    // S: 포인트 변동
-      pointRatio: parseFloat2(f[19]),   // T: 포인트 비율
+      pointRatio: parseFloat2(f[19]),   // T: 후반/전반 비율
     });
   }
   return players;
@@ -57,7 +57,21 @@ export async function fetchSheetData() {
   const text = await resp.text();
   const players = parseCSV(text);
   if (players.length === 0) throw new Error("선수 데이터 없음");
-  return { lastUpdated: new Date().toISOString().slice(0, 10), players, seasonCrova: {}, seasonGoguma: {} };
+  // 키퍼 섹션 파싱 (col 22~25, row 3+)
+  const keepers = [];
+  for (let i = 3; i < lines.length; i++) {
+    const f = parseCSVLine(lines[i]);
+    const name = (f[22] || '').trim();
+    if (!name) continue;
+    keepers.push({
+      name,
+      avgConceded: parseFloat2(f[23]),  // 평균 실점/경기
+      totalConceded: parseNum(f[24]),   // 누적 실점
+      keeperGames: parseNum(f[25]),     // 키퍼 경기수
+    });
+  }
+
+  return { lastUpdated: new Date().toISOString().slice(0, 10), players, keepers, seasonCrova: {}, seasonGoguma: {} };
 }
 
 export async function fetchAttendanceData() {

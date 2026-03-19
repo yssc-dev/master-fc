@@ -6,6 +6,7 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
   const { C, mode, toggle } = useTheme();
   const [activeSport, setActiveSport] = useState(teamEntries[0]?.mode || "풋살");
   const [members, setMembers] = useState([]);
+  const [keepers, setKeepers] = useState([]);
   const [membersLoading, setMembersLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("records");
 
@@ -13,7 +14,7 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
 
   useEffect(() => {
     fetchSheetData()
-      .then(data => setMembers(data.players || []))
+      .then(data => { setMembers(data.players || []); setKeepers(data.keepers || []); })
       .catch(() => setMembers([]))
       .finally(() => setMembersLoading(false));
   }, []);
@@ -186,37 +187,58 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
             );
           })()}
 
-          {/* 키퍼 성적 */}
-          {(() => {
-            const keeperPlayers = members.filter(p => p.keeperGames > 0);
-            const avgKeeperGames = keeperPlayers.length > 0 ? keeperPlayers.reduce((s, p) => s + p.keeperGames, 0) / keeperPlayers.length : 0;
-            const keepers = keeperPlayers.filter(p => p.keeperGames >= avgKeeperGames).sort((a, b) => {
-              const aAvg = a.keeperConceded / (a.keeperGames || 1);
-              const bAvg = b.keeperConceded / (b.keeperGames || 1);
-              return aAvg - bAvg;
-            });
-            if (keepers.length === 0) return null;
-            return (
-              <div style={ds.section}>
-                <div style={ds.sectionTitle}>🧤 키퍼 성적</div>
-                <div style={ds.card}>
-                  {keepers.slice(0, 5).map((p, i) => {
-                    const avg = (p.keeperConceded / (p.keeperGames || 1)).toFixed(1);
-                    return (
-                      <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0", borderBottom: i < keepers.length - 1 && i < 4 ? `1px solid ${C.borderColor}` : "none" }}>
-                        <span style={{ fontSize: 12, fontWeight: 700, color: i < 3 ? C.orange : C.gray, minWidth: 14 }}>{i + 1}</span>
-                        <span style={{ fontSize: 13, fontWeight: 600, flex: 1 }}>{p.name}</span>
-                        <div style={{ textAlign: "right" }}>
-                          <div style={{ fontSize: 12, fontWeight: 700, color: C.accent }}>{avg} 실점/경기</div>
-                          <div style={{ fontSize: 10, color: C.gray }}>{p.keeperGames}경기 · CS {p.cleanSheets}</div>
+          {/* 전후반 포인트 비중 */}
+          {members.filter(p => (p.firstHalfPt || 0) + (p.secondHalfPt || 0) > 0).length > 0 && (
+            <div style={ds.section}>
+              <div style={ds.sectionTitle}>전반 / 후반 포인트</div>
+              <div style={ds.card}>
+                {[...members].filter(p => (p.firstHalfPt || 0) + (p.secondHalfPt || 0) > 0).slice(0, 15).map((p, i) => {
+                  const fh = p.firstHalfPt || 0;
+                  const sh = p.secondHalfPt || 0;
+                  const total = fh + sh || 1;
+                  const fhPct = Math.round((fh / total) * 100);
+                  const shPct = 100 - fhPct;
+                  return (
+                    <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 0", borderBottom: i < 14 ? `1px solid ${C.borderColor}` : "none" }}>
+                      <span style={{ fontSize: 11, fontWeight: 600, minWidth: 44, color: C.white }}>{p.name}</span>
+                      <div style={{ flex: 1, display: "flex", height: 14, borderRadius: 7, overflow: "hidden" }}>
+                        <div style={{ width: `${fhPct}%`, background: "#3b82f6", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                          {fhPct >= 20 && <span style={{ fontSize: 8, color: "#fff", fontWeight: 700 }}>{fh}</span>}
+                        </div>
+                        <div style={{ width: `${shPct}%`, background: "#f97316", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                          {shPct >= 20 && <span style={{ fontSize: 8, color: "#fff", fontWeight: 700 }}>{sh}</span>}
                         </div>
                       </div>
-                    );
-                  })}
+                      <span style={{ fontSize: 9, color: C.gray, minWidth: 32, textAlign: "right" }}>{fhPct}:{shPct}</span>
+                    </div>
+                  );
+                })}
+                <div style={{ display: "flex", justifyContent: "center", gap: 12, marginTop: 8 }}>
+                  <span style={{ fontSize: 10, color: "#3b82f6", fontWeight: 600 }}>■ 전반</span>
+                  <span style={{ fontSize: 10, color: "#f97316", fontWeight: 600 }}>■ 후반</span>
                 </div>
               </div>
-            );
-          })()}
+            </div>
+          )}
+
+          {/* 키퍼 성적 */}
+          {keepers.length > 0 && (
+            <div style={ds.section}>
+              <div style={ds.sectionTitle}>🧤 키퍼 성적</div>
+              <div style={ds.card}>
+                {keepers.map((k, i) => (
+                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0", borderBottom: i < keepers.length - 1 ? `1px solid ${C.borderColor}` : "none" }}>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: i < 3 ? C.orange : C.gray, minWidth: 14 }}>{i + 1}</span>
+                    <span style={{ fontSize: 13, fontWeight: 600, flex: 1 }}>{k.name}</span>
+                    <div style={{ textAlign: "right" }}>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: C.accent }}>{k.avgConceded.toFixed(2)} 실점/경기</div>
+                      <div style={{ fontSize: 10, color: C.gray }}>{k.keeperGames}경기 · 실점 {k.totalConceded}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* 출석률 */}
           {activePlayers.length > 0 && (
@@ -255,7 +277,8 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
     { key: "ownGoals", label: "역주행", w: 34 },
     { key: "cleanSheets", label: "CS", w: 24 },
     { key: "conceded", label: "실점", w: 30 },
-    { key: "keeperGames", label: "GK", w: 24 },
+    { key: "firstHalfPt", label: "전반", w: 28 },
+    { key: "secondHalfPt", label: "후반", w: 28 },
     { key: "ppg", label: "PPG", w: 32 },
     { key: "point", label: "PT", w: 30 },
   ];
@@ -294,7 +317,8 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
                   <td style={{ ...ds.tdStyle(p.ownGoals > 0), color: p.ownGoals > 0 ? C.red : undefined }}>{p.ownGoals}</td>
                   <td style={ds.tdStyle(p.cleanSheets > 0)}>{p.cleanSheets}</td>
                   <td style={ds.tdStyle(false)}>{p.conceded}</td>
-                  <td style={ds.tdStyle(false)}>{p.keeperGames}</td>
+                  <td style={ds.tdStyle(false)}>{p.firstHalfPt}</td>
+                  <td style={ds.tdStyle(false)}>{p.secondHalfPt}</td>
                   <td style={ds.tdStyle(false)}>{p.ppg}</td>
                   <td style={{ ...ds.tdStyle(true), fontWeight: 800, color: C.accent }}>{p.point}</td>
                 </tr>
