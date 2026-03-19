@@ -186,7 +186,9 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
 
           {/* 키퍼 성적 */}
           {(() => {
-            const keepers = members.filter(p => p.keeperGames > 0).sort((a, b) => {
+            const keeperPlayers = members.filter(p => p.keeperGames > 0);
+            const avgKeeperGames = keeperPlayers.length > 0 ? keeperPlayers.reduce((s, p) => s + p.keeperGames, 0) / keeperPlayers.length : 0;
+            const keepers = keeperPlayers.filter(p => p.keeperGames >= avgKeeperGames).sort((a, b) => {
               const aAvg = a.keeperConceded / (a.keeperGames || 1);
               const bAvg = b.keeperConceded / (b.keeperGames || 1);
               return aAvg - bAvg;
