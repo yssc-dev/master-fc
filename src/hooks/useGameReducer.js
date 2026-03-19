@@ -32,6 +32,7 @@ const initialState = {
   allEvents: [],
   isExtraRound: false,
   splitPhase: "first",
+  gameCreator: "",
   matchModal: null,
   matchModal_sortKey: "total",
   playerSortMode: "point",
@@ -63,6 +64,7 @@ function gameReducer(state, action) {
       if (s.splitPhase) updates.splitPhase = s.splitPhase;
       if (s.viewingRoundIdx != null) updates.viewingRoundIdx = s.viewingRoundIdx;
       if (s.confirmedRounds) updates.confirmedRounds = s.confirmedRounds;
+      if (s.gameCreator) updates.gameCreator = s.gameCreator;
       if (s.phase) updates.phase = s.phase;
       return { ...state, ...updates };
     }

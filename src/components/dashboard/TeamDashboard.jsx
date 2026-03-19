@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { fetchSheetData } from '../../services/sheetService';
 import { useTheme } from '../../hooks/useTheme';
 
-export default function TeamDashboard({ authUser, teamName, teamEntries, onStartGame, onContinueGame, onViewHistory, onSwitchTeam, onLogout, hasPendingGame, checkingPending }) {
+export default function TeamDashboard({ authUser, teamName, teamEntries, onStartGame, onContinueGame, onViewHistory, onSwitchTeam, onLogout, pendingGames = [], checkingPending }) {
   const { C, mode, toggle } = useTheme();
   const [activeSport, setActiveSport] = useState(teamEntries[0]?.mode || "풋살");
   const [members, setMembers] = useState([]);
@@ -109,18 +109,38 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
         <div style={{ textAlign: "center", padding: 20, color: C.gray, fontSize: 13 }}>진행중인 경기 확인 중...</div>
       ) : (
         <>
-          {hasPendingGame && (
+          {pendingGames.length > 0 && (
             <div style={{ marginBottom: 16 }}>
-              <div style={ds.sectionTitle}>진행중인 경기</div>
-              <div style={{ ...ds.card, border: `1px solid ${C.green}44`, cursor: "pointer" }} onClick={onContinueGame}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <div>
-                    <div style={{ fontSize: 15, fontWeight: 700, color: C.white }}>이어서 하기</div>
-                    <div style={{ fontSize: 12, color: C.gray, marginTop: 2 }}>기록 중인 경기가 있습니다</div>
+              <div style={ds.sectionTitle}>진행중인 경기 ({pendingGames.length})</div>
+              {pendingGames.map((game, idx) => {
+                const gs = game.state || {};
+                const creator = gs.gameCreator || gs.lastEditor || "알 수 없음";
+                const curRound = (gs.currentRoundIdx || 0) + 1;
+                const totalRounds = (gs.schedule || []).length;
+                const completedCount = (gs.completedMatches || []).length;
+                const roundInfo = gs.matchMode === "schedule" && totalRounds > 0
+                  ? `${curRound}/${totalRounds} 라운드`
+                  : `${completedCount}경기 완료`;
+                const attendeeCount = (gs.attendees || []).length;
+
+                return (
+                  <div key={game.gameId} style={{ ...ds.card, border: `1px solid ${C.green}44`, cursor: "pointer", marginBottom: 8 }}
+                    onClick={() => onContinueGame(game.gameId)}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                          <span style={{ fontSize: 14, fontWeight: 700, color: C.white }}>{roundInfo}</span>
+                          <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 4, background: "#22c55e22", color: "#22c55e", fontWeight: 600 }}>진행중</span>
+                        </div>
+                        <div style={{ fontSize: 12, color: C.gray }}>
+                          작성자: {creator} · {attendeeCount}명 · {gs.teamCount || "?"}팀
+                        </div>
+                      </div>
+                      <span style={{ fontSize: 13, color: C.green, fontWeight: 700 }}>▶</span>
+                    </div>
                   </div>
-                  <span style={{ fontSize: 13, color: C.green, fontWeight: 700 }}>진행중 ▶</span>
-                </div>
-              </div>
+                );
+              })}
             </div>
           )}
 
@@ -197,7 +217,7 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
         {[
           { key: "records", label: "기록" },
           { key: "roster", label: "명단" },
-          { key: "games", label: "경기관리", badge: hasPendingGame },
+          { key: "games", label: "경기관리", badge: pendingGames.length > 0 },
         ].map(tab => (
           <button key={tab.key} onClick={() => setActiveTab(tab.key)} style={ds.mainTab(activeTab === tab.key)}>
             <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>

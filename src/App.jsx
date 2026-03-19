@@ -19,7 +19,7 @@ import ScheduleModal from './components/game/ScheduleModal';
 import StandingsModal from './components/game/StandingsModal';
 import PlayerStatsModal from './components/game/PlayerStatsModal';
 
-export default function App({ authUser, teamContext, isNewGame, gameMode, onLogout, onBackToMenu }) {
+export default function App({ authUser, teamContext, isNewGame, gameMode, gameId, onLogout, onBackToMenu }) {
   const [state, dispatch] = useGameReducer();
   const {
     phase, dataLoading, dataSource, seasonPlayers, seasonCrova, seasonGoguma,
@@ -36,25 +36,24 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, onLogo
   useEffect(() => {
     const team = teamContext?.team || "";
 
-    // 이어하기: Firebase 상태를 먼저 빠르게 복원, 나머지는 백그라운드
-    if (!isNewGame) {
-      FirebaseSync.loadState(team).then(fb => {
+    // 이어하기: Firebase에서 특정 gameId로 빠르게 복원
+    if (!isNewGame && gameId) {
+      FirebaseSync.loadState(team, gameId).then(fb => {
         if (fb && fb.found && fb.state && fb.state.phase !== "setup") {
           dispatch({ type: 'SET_FIELDS', fields: { dataLoading: false, dataSource: "restoring" } });
           dispatch({ type: 'RESTORE_STATE', state: fb.state });
-          // 시트 데이터/누적보너스는 백그라운드로 로딩
           _loadBackgroundData(team);
           return;
         }
-        // Firebase에 없으면 Apps Script에서 시도
-        return AppSync.loadState().then(saved => {
-          if (saved && saved.found && saved.state && saved.state.phase !== "setup") {
+        // Firebase에 없으면 Apps Script에서 시도 (전체 로드 후 gameId 매칭)
+        return AppSync.loadAllStates().then(games => {
+          const match = games.find(g => g.gameId === gameId);
+          if (match && match.state && match.state.phase !== "setup") {
             dispatch({ type: 'SET_FIELDS', fields: { dataLoading: false, dataSource: "restoring" } });
-            dispatch({ type: 'RESTORE_STATE', state: saved.state });
+            dispatch({ type: 'RESTORE_STATE', state: match.state });
             _loadBackgroundData(team);
             return;
           }
-          // 저장된 상태 없음 → 새 경기 취급
           _loadAllData(team);
         });
       }).catch(() => _loadAllData(team));
@@ -169,12 +168,14 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, onLogo
   const saveTimerRef = useRef(null);
   const isSyncingRef = useRef(false);
   const gameState = useMemo(() => ({
+    gameId: gameId || "legacy",
+    gameCreator: state.gameCreator || (isNewGame ? (authUser?.name || "알 수 없음") : "알 수 없음"),
     phase, teams, teamNames, teamColorIndices, gks, allEvents,
     completedMatches, schedule, currentRoundIdx, viewingRoundIdx, confirmedRounds, attendees,
     teamCount, courtCount, matchMode, isExtraRound, splitPhase, rotations,
     lastEditor: authUser?.name || "알 수 없음",
     lastEditTime: Date.now(),
-  }), [phase, teams, teamNames, teamColorIndices, gks, allEvents, completedMatches, schedule, currentRoundIdx, viewingRoundIdx, confirmedRounds, attendees, teamCount, courtCount, matchMode, isExtraRound, splitPhase, rotations, authUser]);
+  }), [phase, teams, teamNames, teamColorIndices, gks, allEvents, completedMatches, schedule, currentRoundIdx, viewingRoundIdx, confirmedRounds, attendees, teamCount, courtCount, matchMode, isExtraRound, splitPhase, rotations, authUser, gameId]);
 
   const autoSave = useCallback(() => {
     if (isSyncingRef.current) return;
@@ -182,7 +183,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, onLogo
     saveTimerRef.current = setTimeout(() => {
       set('syncStatus', 'saving');
       const team = teamContext?.team || "";
-      FirebaseSync.saveState(team, gameState);
+      FirebaseSync.saveState(team, gameId || "legacy", gameState);
       if (AppSync.enabled()) {
         AppSync.saveState(gameState).then(() => {
           set('syncStatus', 'saved');
@@ -204,7 +205,8 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, onLogo
   useEffect(() => {
     const team = teamContext?.team;
     if (!team) return;
-    const unsub = FirebaseSync.listen(team, (data) => {
+    const gid = gameId || "legacy";
+    const unsub = FirebaseSync.listen(team, gid, (data) => {
       if (!data || !data.state) return;
       if (data.updatedAt && Math.abs(Date.now() - data.updatedAt) < 1500) {
         if (data.state.lastEditor === authUser?.name) return;
@@ -439,8 +441,8 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, onLogo
         AppSync.writePointLog({ events: pointEvents }),
         AppSync.writePlayerLog({ players: playerData }),
       ]);
-      await AppSync.finalizeState();
-      await FirebaseSync.clearState(teamContext?.team);
+      await AppSync.finalizeState(gameId);
+      await FirebaseSync.clearState(teamContext?.team, gameId);
       alert(`기록 확정 완료!\n\n포인트로그: ${r1?.count || 0}건\n선수별집계: ${r2?.count || 0}명`);
     } catch (err) {
       alert("시트 저장 실패: " + err.message);
@@ -703,8 +705,8 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, onLogo
               <button onClick={async () => {
                 if (!confirm("경기를 삭제하시겠습니까?\n모든 기록이 초기화됩니다.")) return;
                 if (!confirm("되돌릴 수 없습니다. 정말 삭제하시겠습니까?")) return;
-                await FirebaseSync.clearState(teamContext?.team);
-                await AppSync.clearState();
+                await FirebaseSync.clearState(teamContext?.team, gameId);
+                await AppSync.clearState(gameId);
                 window.location.reload();
               }} style={{ ...s.btnSm(C.red, C.white), fontSize: 11 }}>경기삭제</button>
             )}

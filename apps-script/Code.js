@@ -127,11 +127,11 @@ function doPost(e) {
     }
 
     if (action === "saveState") {
-      return _jsonResponse(_saveGameState(body.state, body.team));
+      return _jsonResponse(_saveGameState(body.state, body.team, body.gameId));
     } else if (action === "clearState") {
-      return _jsonResponse(_clearGameState(body.team));
+      return _jsonResponse(_clearGameState(body.team, body.gameId));
     } else if (action === "finalizeState") {
-      return _jsonResponse(_finalizeGameState(body.team));
+      return _jsonResponse(_finalizeGameState(body.team, body.gameId));
     } else if (action === "writePointLog") {
       return _jsonResponse(_writePointLog(body.data));
     } else if (action === "writePlayerLog") {
@@ -220,21 +220,47 @@ function _getOrCreateStateSheet() {
   return sheet;
 }
 
-function _findStateRow(sheet, team, status) {
+// 팀+상태로 모든 행 찾기 (다중 경기 지원)
+function _findAllStateRows(sheet, team, status) {
   var lastRow = sheet.getLastRow();
-  if (lastRow < 2) return -1;
+  if (lastRow < 2) return [];
   var data = sheet.getRange(2, 1, lastRow - 1, 3).getValues();
+  var rows = [];
   for (var i = 0; i < data.length; i++) {
     if (String(data[i][0]).trim() === team && String(data[i][2]).trim() === status) {
-      return i + 2;
+      rows.push(i + 2);
+    }
+  }
+  return rows;
+}
+
+// 팀+gameId로 특정 행 찾기 (state_json 내부의 gameId 매칭)
+function _findStateRowByGameId(sheet, team, gameId) {
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return -1;
+  var colCount = sheet.getLastColumn();
+  if (colCount < 6) return -1;
+  var data = sheet.getRange(2, 1, lastRow - 1, 6).getValues();
+  for (var i = 0; i < data.length; i++) {
+    if (String(data[i][0]).trim() !== team) continue;
+    if (String(data[i][2]).trim() !== "진행중") continue;
+    // 요약(F열)에서 gameId 매칭 (빠른 검색)
+    if (gameId && String(data[i][5]).indexOf(gameId) >= 0) return i + 2;
+    // 폴백: JSON 파싱
+    if (gameId) {
+      try {
+        var s = JSON.parse(data[i][3]);
+        if (s.gameId === gameId) return i + 2;
+      } catch(e) {}
     }
   }
   return -1;
 }
 
-function _saveGameState(state, team) {
+function _saveGameState(state, team, gameId) {
   if (!state) return { success: false, error: "state is empty" };
   if (!team) team = "기본팀";
+  if (!gameId) gameId = state.gameId || "";
   var gameDate = new Date().toISOString().slice(0, 10);
 
   var lock = LockService.getScriptLock();
@@ -247,9 +273,11 @@ function _saveGameState(state, team) {
 
     var evtCount = (state.allEvents || []).length;
     var matchCount = (state.completedMatches || []).length;
-    var summary = (state.phase || "?") + " | 이벤트 " + evtCount + "건 | 완료 " + matchCount + "경기";
+    var creator = state.gameCreator || state.lastEditor || "?";
+    var summary = gameId + " | " + creator + " | " + (state.phase || "?") + " | 이벤트 " + evtCount + "건 | 완료 " + matchCount + "경기";
 
-    var row = _findStateRow(sheet, team, "진행중");
+    // gameId로 기존 행 찾기
+    var row = gameId ? _findStateRowByGameId(sheet, team, gameId) : -1;
     if (row > 0) {
       sheet.getRange(row, 2, 1, 5).setValues([[gameDate, "진행중", json, now, summary]]);
     } else {
@@ -266,48 +294,53 @@ function _saveGameState(state, team) {
 function _loadGameState(team) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName(STATE_SHEET_NAME);
-  if (!sheet) return { success: true, found: false, message: "저장된 상태 없음" };
+  if (!sheet) return { success: true, found: false, games: [] };
 
   if (!team) team = "기본팀";
 
   var lastRow = sheet.getLastRow();
-  if (lastRow < 2) return { success: true, found: false, message: "저장된 상태 없음" };
+  if (lastRow < 2) return { success: true, found: false, games: [] };
 
   var colCount = sheet.getLastColumn();
 
   if (colCount >= 6) {
-    var row = _findStateRow(sheet, team, "진행중");
-    if (row < 0) return { success: true, found: false, message: "저장된 상태 없음" };
+    var rows = _findAllStateRows(sheet, team, "진행중");
+    if (rows.length === 0) return { success: true, found: false, games: [] };
 
-    var rowData = sheet.getRange(row, 1, 1, 6).getValues()[0];
-    var json = rowData[3];
-    var savedAt = rowData[4];
-    var summary = rowData[5];
-
-    if (!json) return { success: true, found: false, message: "저장된 상태 없음" };
-
-    try {
-      var state = JSON.parse(json);
-      return { success: true, found: true, state: state, savedAt: savedAt ? new Date(savedAt).toISOString() : null, summary: summary || "" };
-    } catch (e) {
-      return { success: false, found: false, error: "JSON 파싱 실패: " + e.message };
+    var games = [];
+    for (var r = 0; r < rows.length; r++) {
+      var rowData = sheet.getRange(rows[r], 1, 1, 6).getValues()[0];
+      var json = rowData[3];
+      if (!json) continue;
+      try {
+        var state = JSON.parse(json);
+        games.push({
+          gameId: state.gameId || "legacy_" + r,
+          state: state,
+          savedAt: rowData[4] ? new Date(rowData[4]).toISOString() : null,
+          summary: String(rowData[5]) || "",
+        });
+      } catch (e) { /* skip invalid */ }
     }
+
+    // 하위호환: 단일 게임도 found 플래그 제공
+    return { success: true, found: games.length > 0, games: games, state: games.length > 0 ? games[0].state : null, savedAt: games.length > 0 ? games[0].savedAt : null };
   }
 
   // 이전 형식 호환 (3컬럼)
   var json = sheet.getRange("A2").getValue();
   var savedAt = sheet.getRange("B2").getValue();
-  var summary = sheet.getRange("C2").getValue();
-  if (!json) return { success: true, found: false, message: "저장된 상태 없음" };
+  if (!json) return { success: true, found: false, games: [] };
   try {
     var state = JSON.parse(json);
-    return { success: true, found: true, state: state, savedAt: savedAt ? new Date(savedAt).toISOString() : null, summary: summary || "" };
+    var game = { gameId: state.gameId || "legacy", state: state, savedAt: savedAt ? new Date(savedAt).toISOString() : null };
+    return { success: true, found: true, games: [game], state: state, savedAt: game.savedAt };
   } catch (e) {
-    return { success: false, found: false, error: "JSON 파싱 실패: " + e.message };
+    return { success: false, found: false, games: [], error: "JSON 파싱 실패: " + e.message };
   }
 }
 
-function _clearGameState(team) {
+function _clearGameState(team, gameId) {
   if (!team) team = "기본팀";
 
   var lock = LockService.getScriptLock();
@@ -321,14 +354,18 @@ function _clearGameState(team) {
     var colCount = sheet.getLastColumn();
 
     if (colCount >= 6) {
-      var row = _findStateRow(sheet, team, "진행중");
+      var row = gameId ? _findStateRowByGameId(sheet, team, gameId) : -1;
+      // gameId 없으면 첫 번째 "진행중" 삭제 (하위호환)
+      if (row < 0) {
+        var rows = _findAllStateRows(sheet, team, "진행중");
+        row = rows.length > 0 ? rows[0] : -1;
+      }
       if (row > 0) {
         sheet.deleteRow(row);
       }
       return { success: true, message: "상태 초기화 완료" };
     }
 
-    // 이전 형식 호환
     sheet.getRange("A2:C2").clearContent();
     return { success: true, message: "상태 초기화 완료" };
   } finally {
@@ -336,7 +373,7 @@ function _clearGameState(team) {
   }
 }
 
-function _finalizeGameState(team) {
+function _finalizeGameState(team, gameId) {
   if (!team) team = "기본팀";
 
   var lock = LockService.getScriptLock();
@@ -350,7 +387,11 @@ function _finalizeGameState(team) {
     var colCount = sheet.getLastColumn();
 
     if (colCount >= 6) {
-      var row = _findStateRow(sheet, team, "진행중");
+      var row = gameId ? _findStateRowByGameId(sheet, team, gameId) : -1;
+      if (row < 0) {
+        var rows = _findAllStateRows(sheet, team, "진행중");
+        row = rows.length > 0 ? rows[0] : -1;
+      }
       if (row < 0) return { success: false, error: "진행중인 경기 없음" };
 
       sheet.getRange(row, 3).setValue("확정");

@@ -33,10 +33,12 @@ export default function Root() {
     const stored = AuthUtil.getStored();
     return stored?.team ? "dashboard" : "login";
   });
-  const [pendingRestore, setPendingRestore] = useState(null);
+  // 다중 경기 지원: pendingGames = [{gameId, state, savedAt}, ...]
+  const [pendingGames, setPendingGames] = useState([]);
   const [checkingPending, setCheckingPending] = useState(false);
   const [isNewGame, setIsNewGame] = useState(false);
-  const [gameMode, setGameMode] = useState(null); // "sheetSync" | "custom" | null (continue)
+  const [gameMode, setGameMode] = useState(null);
+  const [activeGameId, setActiveGameId] = useState(null);
 
   const groupTeams = (teams) => {
     const groups = {};
@@ -48,25 +50,29 @@ export default function Root() {
   };
 
   useEffect(() => {
-    if (screen === "dashboard" && selectedTeamName && !pendingRestore) {
-      checkPendingGame(selectedTeamName);
+    if (screen === "dashboard" && selectedTeamName) {
+      checkPendingGames(selectedTeamName);
     }
   }, []);
 
-  const checkPendingGame = (teamName) => {
+  const checkPendingGames = (teamName) => {
     setCheckingPending(true);
-    setPendingRestore(null);
-    FirebaseSync.loadState(teamName).then(fbSaved => {
-      if (fbSaved && fbSaved.found && fbSaved.state && fbSaved.state.phase !== "setup") {
-        setPendingRestore(fbSaved);
-        setCheckingPending(false);
-      } else {
-        return AppSync.loadState().then(saved => {
-          if (saved && saved.found && saved.state && saved.state.phase !== "setup") {
-            setPendingRestore(saved);
-          }
-        });
+    setPendingGames([]);
+
+    FirebaseSync.loadAllActive(teamName).then(fbGames => {
+      if (fbGames.length > 0) {
+        const validGames = fbGames.filter(g => g.state && g.state.phase !== "setup");
+        if (validGames.length > 0) {
+          setPendingGames(validGames);
+          setCheckingPending(false);
+          return;
+        }
       }
+      // Firebase에 없으면 Apps Script에서 시도
+      return AppSync.loadAllStates().then(appGames => {
+        const validGames = appGames.filter(g => g.state && g.state.phase !== "setup");
+        setPendingGames(validGames);
+      });
     }).catch(() => { }).finally(() => setCheckingPending(false));
   };
 
@@ -95,7 +101,7 @@ export default function Root() {
     const u = user || authUser;
     AuthUtil.save(u.name, u.phone4, teamName, first.mode, first.role);
     setScreen("dashboard");
-    checkPendingGame(teamName);
+    checkPendingGames(teamName);
   };
 
   const handleLogout = () => {
@@ -108,47 +114,42 @@ export default function Root() {
     setSelectedTeamEntries([]);
     setTeamContext(null);
     setScreen("login");
-    setPendingRestore(null);
+    setPendingGames([]);
     setGameMode(null);
+    setActiveGameId(null);
   };
 
-  // gameMode: "sheetSync" | "custom"
   const handleStartNew = async (mode) => {
-    if (pendingRestore) {
-      if (teamContext?.role !== "관리자") {
-        alert("진행중인 경기가 있습니다.\n관리자만 새 경기를 시작할 수 있습니다.");
-        return;
-      }
-      const lastEditor = pendingRestore.state?.lastEditor || "";
-      const editorInfo = lastEditor ? `${lastEditor}님이 기록 중인 경기입니다.\n` : "";
-      if (!confirm(`${editorInfo}정말 새로 시작하시겠습니까?\n기존 진행중 경기가 초기화됩니다.`)) return;
-      if (!confirm("되돌릴 수 없습니다. 정말 삭제하시겠습니까?")) return;
-      // 해당 팀의 "진행중" 행만 삭제 (확정 기록/다른 팀 데이터는 보존)
-      await FirebaseSync.clearState(teamContext?.team);
-      await AppSync.clearState();
-      setPendingRestore(null);
+    // 진행중 경기가 있으면 알림
+    if (pendingGames.length > 0) {
+      const creators = pendingGames.map(g => g.state?.gameCreator || g.state?.lastEditor || "알 수 없음");
+      const msg = creators.map((c, i) => `${i + 1}. ${c}님의 경기`).join("\n");
+      if (!confirm(`이미 진행중인 경기가 있습니다:\n\n${msg}\n\n그래도 새 경기를 추가하시겠습니까?`)) return;
     }
+
+    const newGameId = `g_${Date.now()}`;
     setIsNewGame(true);
     setGameMode(mode);
+    setActiveGameId(newGameId);
     setScreen("app");
   };
 
-  const handleContinue = () => {
+  const handleContinue = (gameId) => {
     setIsNewGame(false);
     setGameMode(null);
+    setActiveGameId(gameId);
     setScreen("app");
   };
 
   const handleSwitchTeam = () => {
     if (allTeams.length === 0) {
-      // 팀 정보 없으면 (이전 형식 로그인) 로그아웃
       handleLogout();
       return;
     }
     const groups = groupTeams(allTeams);
     setTeamGroups(groups);
     setScreen("home");
-    setPendingRestore(null);
+    setPendingGames([]);
   };
 
   if (screen === "login" || !authed) return <LoginScreen onLogin={handleLogin} />;
@@ -159,7 +160,7 @@ export default function Root() {
 
   if (screen === "dashboard") {
     return <TeamDashboard authUser={authUser} teamName={selectedTeamName} teamEntries={selectedTeamEntries}
-      hasPendingGame={!!pendingRestore} checkingPending={checkingPending}
+      pendingGames={pendingGames} checkingPending={checkingPending}
       onStartGame={handleStartNew} onContinueGame={handleContinue}
       onViewHistory={() => setScreen("history")} onSwitchTeam={handleSwitchTeam} onLogout={handleLogout} />;
   }
@@ -168,6 +169,6 @@ export default function Root() {
     return <HistoryView teamContext={teamContext} onBack={() => setScreen("dashboard")} />;
   }
 
-  return <App authUser={authUser} teamContext={teamContext} isNewGame={isNewGame} gameMode={gameMode}
-    onLogout={handleLogout} onBackToMenu={() => { setIsNewGame(false); setGameMode(null); setPendingRestore(null); setScreen("dashboard"); }} />;
+  return <App authUser={authUser} teamContext={teamContext} isNewGame={isNewGame} gameMode={gameMode} gameId={activeGameId}
+    onLogout={handleLogout} onBackToMenu={() => { setIsNewGame(false); setGameMode(null); setActiveGameId(null); setPendingGames([]); setScreen("dashboard"); }} />;
 }

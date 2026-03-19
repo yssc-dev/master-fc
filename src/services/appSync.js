@@ -19,47 +19,48 @@ const AppSync = {
     if (!this.enabled()) return;
     try {
       const team = this._getTeam();
-      const gameDate = new Date().toISOString().slice(0, 10);
       await fetch(APPS_SCRIPT_URL, {
         method: "POST",
         headers: { "Content-Type": "text/plain" },
-        body: JSON.stringify({ action: "saveState", state, team, gameDate, authToken: this._getAuthToken() }),
+        body: JSON.stringify({ action: "saveState", state, team, gameId: state.gameId, authToken: this._getAuthToken() }),
       });
     } catch (e) { console.warn("상태 저장 실패:", e.message); }
   },
 
-  async loadState() {
-    if (!this.enabled()) return null;
+  // 모든 진행중 경기 로드
+  async loadAllStates() {
+    if (!this.enabled()) return [];
     try {
       const team = this._getTeam();
       const resp = await fetch(APPS_SCRIPT_URL + "?action=loadState&team=" + encodeURIComponent(team) + "&authToken=" + encodeURIComponent(this._getAuthToken()));
       const data = await resp.json();
-      return data.found ? data : null;
-    } catch (e) { console.warn("상태 복원 실패:", e.message); return null; }
+      // 하위호환: 단일 결과 → 배열 변환
+      if (data.games) return data.games;
+      if (data.found && data.state) return [{ gameId: data.state.gameId || "legacy", state: data.state, savedAt: data.savedAt }];
+      return [];
+    } catch (e) { console.warn("상태 복원 실패:", e.message); return []; }
   },
 
-  async clearState() {
+  async clearState(gameId) {
     if (!this.enabled()) return;
     try {
       const team = this._getTeam();
-      const gameDate = new Date().toISOString().slice(0, 10);
       await fetch(APPS_SCRIPT_URL, {
         method: "POST",
         headers: { "Content-Type": "text/plain" },
-        body: JSON.stringify({ action: "clearState", team, gameDate, authToken: this._getAuthToken() }),
+        body: JSON.stringify({ action: "clearState", team, gameId, authToken: this._getAuthToken() }),
       });
     } catch (e) { console.warn("상태 삭제 실패:", e.message); }
   },
 
-  async finalizeState() {
+  async finalizeState(gameId) {
     if (!this.enabled()) return;
     try {
       const team = this._getTeam();
-      const gameDate = new Date().toISOString().slice(0, 10);
       const resp = await fetch(APPS_SCRIPT_URL, {
         method: "POST",
         headers: { "Content-Type": "text/plain" },
-        body: JSON.stringify({ action: "finalizeState", team, gameDate, authToken: this._getAuthToken() }),
+        body: JSON.stringify({ action: "finalizeState", team, gameId, authToken: this._getAuthToken() }),
       });
       return await resp.json();
     } catch (e) { console.warn("상태 확정 실패:", e.message); return null; }
