@@ -714,31 +714,37 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, onLogo
 
         {matchModal === "teamRoster" && (
           <Modal onClose={() => set('matchModal', null)} title="팀 명단">
-            {teams.map((team, tIdx) => {
-              const color = TEAM_COLORS[teamColorIndices[tIdx]];
-              const sorted = [...team].sort((a, b) => { const pa = calcPlayerPoints(a), pb = calcPlayerPoints(b); return pb.total - pa.total; });
-              const teamTodayTotal = team.reduce((s, p) => s + calcPlayerPoints(p).total, 0);
-              return (
-                <div key={tIdx} style={{ ...s.teamCard(teamColorIndices[tIdx]), marginBottom: 8 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                    <span style={{ fontWeight: 700, fontSize: 14, color: color?.bg || C.accent }}>{teamNames[tIdx]}</span>
-                    <span style={{ fontSize: 11, color: C.gray }}>{team.length}명 · 오늘 {teamTodayTotal}p</span>
-                  </div>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+            <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4 }}>
+              {teams.map((team, tIdx) => {
+                const color = TEAM_COLORS[teamColorIndices[tIdx]];
+                const sorted = [...team].sort((a, b) => { const pa = calcPlayerPoints(a), pb = calcPlayerPoints(b); return pb.total - pa.total; });
+                const teamTodayTotal = team.reduce((s, p) => s + calcPlayerPoints(p).total, 0);
+                return (
+                  <div key={tIdx} style={{ minWidth: 110, flex: 1, background: C.card, borderRadius: 10, borderTop: `3px solid ${color?.bg || C.accent}`, padding: "10px 8px" }}>
+                    <div style={{ textAlign: "center", marginBottom: 8 }}>
+                      <div style={{ fontWeight: 700, fontSize: 13, color: color?.bg || C.accent }}>{teamNames[tIdx]}</div>
+                      <div style={{ fontSize: 10, color: C.gray }}>{team.length}명 · {teamTodayTotal}p</div>
+                    </div>
                     {sorted.map((p, pIdx) => {
                       const pts = calcPlayerPoints(p);
                       return (
-                        <span key={p} style={{ ...s.playerInTeam(color), color: C.white }}>
-                          {pIdx === 0 && <span style={{ fontSize: 10, marginRight: 2 }}>👑</span>}
-                          {p}
-                          <span style={{ fontSize: 10, opacity: 0.6, marginLeft: 4, color: pts.total > 0 ? C.green : pts.total < 0 ? C.red : C.gray }}>{pts.total > 0 ? "+" : ""}{pts.total}p</span>
-                        </span>
+                        <div key={p} style={{ padding: "5px 4px", borderBottom: pIdx < sorted.length - 1 ? `1px solid ${C.grayDarker}` : "none", fontSize: 12 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
+                            {pIdx === 0 && <span style={{ fontSize: 9 }}>👑</span>}
+                            <span style={{ fontWeight: 600, color: C.white }}>{p}</span>
+                          </div>
+                          <div style={{ fontSize: 10, color: pts.total > 0 ? C.green : pts.total < 0 ? C.red : C.gray, marginTop: 1 }}>
+                            {pts.total > 0 ? "+" : ""}{pts.total}p
+                            {pts.goals > 0 && <span style={{ color: C.gray, marginLeft: 3 }}>{pts.goals}골</span>}
+                            {pts.assists > 0 && <span style={{ color: C.gray, marginLeft: 3 }}>{pts.assists}어시</span>}
+                          </div>
+                        </div>
                       );
                     })}
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </Modal>
         )}
 
