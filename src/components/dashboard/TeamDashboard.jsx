@@ -201,7 +201,7 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
             if (qualified.length === 0) return null;
             return (
               <div style={ds.section}>
-                <div style={ds.sectionTitle}>🧤 키퍼 성적 <span style={{ fontSize: 10, fontWeight: 400, color: C.gray }}>({Math.round(avgKG)}경기 이상)</span></div>
+                <div style={ds.sectionTitle}>🧤 키퍼 실점률 TOP 10 <span style={{ fontSize: 10, fontWeight: 400, color: C.gray }}>({Math.round(avgKG)}경기 이상)</span></div>
                 <div style={ds.card}>
                   {qualified.slice(0, 10).map((p, i) => (
                     <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0", borderBottom: i < qualified.length - 1 ? `1px solid ${C.borderColor}` : "none" }}>
@@ -221,7 +221,7 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
           {/* 출석률 */}
           {activePlayers.length > 0 && (
             <div style={ds.section}>
-              <div style={ds.sectionTitle}>출석률 <span style={{ fontSize: 11, fontWeight: 400, color: C.gray }}>(전체 {maxGames}경기 기준)</span></div>
+              <div style={ds.sectionTitle}>출석률 TOP 10 <span style={{ fontSize: 11, fontWeight: 400, color: C.gray }}>(전체 {maxGames}경기 기준)</span></div>
               <div style={{ ...ds.card, display: "flex", flexWrap: "wrap", gap: 0 }}>
                 {[...members].filter(p => p.games > 0).sort((a, b) => b.games - a.games).slice(0, 10).map((p, i) => {
                   const ratio = p.games / (maxGames || 1);
