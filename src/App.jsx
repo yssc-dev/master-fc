@@ -652,13 +652,22 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, onLogo
               </div>
             )}
           </div>
-          <div style={{ display: "flex", gap: 6, justifyContent: "center", marginTop: 8 }}>
+          <div style={{ display: "flex", gap: 6, justifyContent: "center", marginTop: 8, flexWrap: "wrap" }}>
             {matchMode === "schedule" && <button onClick={() => set('matchModal', 'schedule')} style={{ ...s.btnSm(C.grayDark, C.white), fontSize: 11 }}>대진표</button>}
             <button onClick={() => set('matchModal', 'teamRoster')} style={{ ...s.btnSm(C.grayDark, C.white), fontSize: 11 }}>팀명단</button>
             <button onClick={() => set('matchModal', 'standings')} style={{ ...s.btnSm(C.grayDark, C.white), fontSize: 11 }}>팀순위</button>
             <button onClick={() => set('matchModal', 'playerStats')} style={{ ...s.btnSm(C.grayDark, C.white), fontSize: 11 }}>개인기록</button>
             {(allRoundsComplete || matchMode === "free") && (
               <button onClick={() => set('phase', 'summary')} style={{ ...s.btnSm(C.green, C.bg), fontSize: 11, fontWeight: 700 }}>게임마감</button>
+            )}
+            {teamContext?.role === "관리자" && (
+              <button onClick={async () => {
+                if (!confirm("경기를 삭제하시겠습니까?\n모든 기록이 초기화됩니다.")) return;
+                if (!confirm("되돌릴 수 없습니다. 정말 삭제하시겠습니까?")) return;
+                await FirebaseSync.clearState(teamContext?.team);
+                await AppSync.clearState();
+                onBackToMenu();
+              }} style={{ ...s.btnSm(C.red, C.white), fontSize: 11 }}>경기삭제</button>
             )}
           </div>
         </div>
