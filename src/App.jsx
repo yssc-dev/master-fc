@@ -732,7 +732,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
         {matchModal === "schedule" && (
           <ScheduleModal schedule={schedule} currentRoundIdx={currentRoundIdx} viewingRoundIdx={viewingRoundIdx}
             setViewingRoundIdx={(v) => set('viewingRoundIdx', v)} confirmedRounds={confirmedRounds}
-            allEvents={allEvents} teamNames={teamNames} courtCount={courtCount}
+            allEvents={allEvents} teamNames={teamNames} teamColorIndices={teamColorIndices} courtCount={courtCount}
             onClose={() => set('matchModal', null)} styles={s} />
         )}
 
@@ -741,30 +741,17 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
             <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4 }}>
               {teams.map((team, tIdx) => {
                 const color = TEAM_COLORS[teamColorIndices[tIdx]];
-                const sorted = [...team].sort((a, b) => { const pa = calcPlayerPoints(a), pb = calcPlayerPoints(b); return pb.total - pa.total; });
-                const teamTodayTotal = team.reduce((s, p) => s + calcPlayerPoints(p).total, 0);
                 return (
-                  <div key={tIdx} style={{ minWidth: 110, flex: 1, background: C.card, borderRadius: 10, borderTop: `3px solid ${color?.bg || C.accent}`, padding: "10px 8px" }}>
+                  <div key={tIdx} style={{ minWidth: 100, flex: 1, background: C.card, borderRadius: 10, borderTop: `3px solid ${color?.bg || C.accent}`, padding: "10px 8px" }}>
                     <div style={{ textAlign: "center", marginBottom: 8 }}>
                       <div style={{ fontWeight: 700, fontSize: 13, color: color?.bg || C.accent }}>{teamNames[tIdx]}</div>
-                      <div style={{ fontSize: 10, color: C.gray }}>{team.length}명 · {teamTodayTotal}p</div>
+                      <div style={{ fontSize: 10, color: C.gray }}>{team.length}명</div>
                     </div>
-                    {sorted.map((p, pIdx) => {
-                      const pts = calcPlayerPoints(p);
-                      return (
-                        <div key={p} style={{ padding: "5px 4px", borderBottom: pIdx < sorted.length - 1 ? `1px solid ${C.grayDarker}` : "none", fontSize: 12 }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
-                            {pIdx === 0 && <span style={{ fontSize: 9 }}>👑</span>}
-                            <span style={{ fontWeight: 600, color: C.white }}>{p}</span>
-                          </div>
-                          <div style={{ fontSize: 10, color: pts.total > 0 ? C.green : pts.total < 0 ? C.red : C.gray, marginTop: 1 }}>
-                            {pts.total > 0 ? "+" : ""}{pts.total}p
-                            {pts.goals > 0 && <span style={{ color: C.gray, marginLeft: 3 }}>{pts.goals}골</span>}
-                            {pts.assists > 0 && <span style={{ color: C.gray, marginLeft: 3 }}>{pts.assists}어시</span>}
-                          </div>
-                        </div>
-                      );
-                    })}
+                    {team.map((p, pIdx) => (
+                      <div key={p} style={{ padding: "5px 4px", borderBottom: pIdx < team.length - 1 ? `1px solid ${C.grayDarker}` : "none", fontSize: 12 }}>
+                        <span style={{ fontWeight: 600, color: C.white }}>{p}</span>
+                      </div>
+                    ))}
                   </div>
                 );
               })}
@@ -781,50 +768,24 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
               <div style={{ background: C.cardLight, borderRadius: 10, padding: 12, marginBottom: 10 }}>
                 <div style={{ fontWeight: 700, color: C.accent, marginBottom: 6 }}>현재 설정</div>
                 <div>{teamCount}팀 · {courtCount}코트 · {matchMode === "schedule" ? "대진표" : "자유대진"}{matchMode === "schedule" && courtCount === 1 ? ` · ${rotations}회전` : ""}</div>
-              </div>
-
-              <div style={{ background: C.cardLight, borderRadius: 10, padding: 12, marginBottom: 10 }}>
-                <div style={{ fontWeight: 700, color: C.orange, marginBottom: 6 }}>4팀 · 2코트</div>
-                <div style={{ fontSize: 12, color: C.gray }}>
-                  4×라운드로빈 (12라운드)<br/>
-                  A·B 두 구장에서 동시 진행. 모든 팀이 4번씩 맞대결하여 충분한 경기 수 확보.
+                <div style={{ fontSize: 12, color: C.gray, marginTop: 4 }}>
+                  {teamCount === 4 && courtCount === 2 && "4×라운드로빈 · 12라운드"}
+                  {teamCount === 5 && courtCount === 2 && "더블 라운드로빈 · 10라운드 · 매 라운드 1팀 휴식"}
+                  {teamCount === 6 && courtCount === 2 && "그룹 스플릿 · 12라운드 · 전반 조별리그 → 후반 순위별 재편성"}
+                  {courtCount === 1 && matchMode === "schedule" && `라운드로빈 × ${rotations}회전`}
+                  {matchMode === "free" && "매 라운드 직접 대진 선택"}
                 </div>
               </div>
-
-              <div style={{ background: C.cardLight, borderRadius: 10, padding: 12, marginBottom: 10 }}>
-                <div style={{ fontWeight: 700, color: C.orange, marginBottom: 6 }}>5팀 · 2코트</div>
-                <div style={{ fontSize: 12, color: C.gray }}>
-                  더블 라운드로빈 (10라운드)<br/>
-                  매 라운드 1팀 휴식. 모든 팀이 2번씩 맞대결.
+              <details style={{ marginBottom: 8 }}>
+                <summary style={{ fontSize: 12, color: C.gray, cursor: "pointer", padding: "8px 0" }}>다른 경기방식 보기</summary>
+                <div style={{ fontSize: 11, color: C.gray, lineHeight: 1.8, padding: "8px 0" }}>
+                  <b style={{ color: C.orange }}>4팀·2코트</b> — 4×라운드로빈 12R. 모든 팀 4번씩 맞대결<br/>
+                  <b style={{ color: C.orange }}>5팀·2코트</b> — 더블 라운드로빈 10R. 매 라운드 1팀 휴식<br/>
+                  <b style={{ color: C.orange }}>6팀·2코트</b> — 그룹 스플릿 12R. 전반 조별 → 후반 순위별<br/>
+                  <b style={{ color: C.orange }}>N팀·1코트</b> — 라운드로빈 × 회전수. 순차 진행<br/>
+                  <b style={{ color: C.accent }}>스네이크 드래프트</b> — 포인트순 지그재그 배정 (1→2→3→4 / 4→3→2→1)
                 </div>
-              </div>
-
-              <div style={{ background: C.cardLight, borderRadius: 10, padding: 12, marginBottom: 10 }}>
-                <div style={{ fontWeight: 700, color: C.orange, marginBottom: 6 }}>6팀 · 2코트</div>
-                <div style={{ fontSize: 12, color: C.gray }}>
-                  그룹 스플릿 (12라운드)<br/>
-                  전반: 3팀×2조 조별 리그 (6라운드)<br/>
-                  후반: 순위 기준 상위 3팀/하위 3팀 재편성 리그 (6라운드)
-                </div>
-              </div>
-
-              <div style={{ background: C.cardLight, borderRadius: 10, padding: 12, marginBottom: 10 }}>
-                <div style={{ fontWeight: 700, color: C.orange, marginBottom: 6 }}>N팀 · 1코트</div>
-                <div style={{ fontSize: 12, color: C.gray }}>
-                  라운드로빈 × 회전 수<br/>
-                  한 경기씩 순차 진행. 회전 수로 총 경기 수 조절.
-                </div>
-              </div>
-
-              <div style={{ background: C.cardLight, borderRadius: 10, padding: 12 }}>
-                <div style={{ fontWeight: 700, color: C.accent, marginBottom: 6 }}>팀 편성 (스네이크 드래프트)</div>
-                <div style={{ fontSize: 12, color: C.gray }}>
-                  시즌 포인트 순으로 정렬 후 지그재그 배정.<br/>
-                  1라운드: 1→2→3→4팀<br/>
-                  2라운드: 4→3→2→1팀<br/>
-                  전력 균형을 자동으로 맞춰줍니다.
-                </div>
-              </div>
+              </details>
             </div>
           </Modal>
         )}
