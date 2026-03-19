@@ -57,18 +57,18 @@ export async function fetchSheetData() {
   const text = await resp.text();
   const players = parseCSV(text);
   if (players.length === 0) throw new Error("선수 데이터 없음");
-  // 키퍼 섹션 파싱 (col 22~25, row 3+)
+  // 키퍼 섹션 파싱 (col 21~24, row 4+, row3=헤더 "선수명")
   const lines = text.split('\n');
   const keepers = [];
-  for (let i = 3; i < lines.length; i++) {
+  for (let i = 4; i < lines.length; i++) {
     const f = parseCSVLine(lines[i]);
-    const name = (f[22] || '').trim();
-    if (!name) continue;
+    const name = (f[21] || '').trim();
+    if (!name || name === '선수명') continue;
     keepers.push({
       name,
-      avgConceded: parseFloat2(f[23]),  // 평균 실점/경기
-      totalConceded: parseNum(f[24]),   // 누적 실점
-      keeperGames: parseNum(f[25]),     // 키퍼 경기수
+      avgConceded: parseFloat2(f[22]),  // 평균 실점/경기
+      totalConceded: parseNum(f[23]),   // 누적 실점
+      keeperGames: parseNum(f[24]),     // 키퍼 경기수
     });
   }
 
