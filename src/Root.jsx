@@ -169,5 +169,5 @@ export default function Root() {
   }
 
   return <App authUser={authUser} teamContext={teamContext} isNewGame={isNewGame} gameMode={gameMode}
-    onLogout={handleLogout} onBackToMenu={() => { setIsNewGame(false); setGameMode(null); setScreen("dashboard"); }} />;
+    onLogout={handleLogout} onBackToMenu={() => { setIsNewGame(false); setGameMode(null); setPendingRestore(null); setScreen("dashboard"); }} />;
 }

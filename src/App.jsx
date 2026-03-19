@@ -699,7 +699,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, onLogo
                 if (!confirm("되돌릴 수 없습니다. 정말 삭제하시겠습니까?")) return;
                 await FirebaseSync.clearState(teamContext?.team);
                 await AppSync.clearState();
-                onBackToMenu();
+                window.location.reload();
               }} style={{ ...s.btnSm(C.red, C.white), fontSize: 11 }}>경기삭제</button>
             )}
           </div>
