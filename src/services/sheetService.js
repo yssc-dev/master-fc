@@ -82,49 +82,63 @@ export async function fetchAttendanceData() {
   const lines = text.split('\n');
 
   // CSV 구조 (참석명단 시트):
-  // col 5 = F열: 시드 라벨 ("1번 시드", "2번 시드"...)
-  // col 6~11 = G~L열: 팀 데이터 (최대 6팀)
-  // Row 0 (1행): 팀명 (팀승훈, 팀재상, ...)
-  // Row 1~8 (2~9행): 선수 목록 (1번 시드부터 8번 시드)
+  // F열(col 5): 시드 라벨 ("1번 시드", "2번 시드"...)
+  // G~L열(col 6~11): 팀별 선수 데이터 (최대 6팀)
+  // 1번 시드 행: 각 팀의 첫 번째 선수 (팀장) → 이름에서 팀명 생성
+  //   예) "조승훈" → "팀승훈" (성 제거, "팀" + 이름)
+  // 2~8번 시드 행: 나머지 팀원
   const prebuiltTeams = [];
   const prebuiltTeamNames = [];
   const allAttendees = [];
 
-  // 1행(Row 0)에서 팀명 찾기 — G~L열 (col 6~11)
-  let headerRow = -1;
-  for (let row = 0; row <= 2; row++) {
-    if (row >= lines.length) break;
+  // Step 1: "1번 시드" 라벨이 있는 행 찾기 (F열 = col 5)
+  let seedStartRow = -1;
+  for (let row = 0; row < Math.min(lines.length, 10); row++) {
     const f = parseCSVLine(lines[row]);
-    // G~L열(col 6~11) 중 '팀'으로 시작하는 셀이 있으면 헤더행
-    for (let col = 6; col <= 11; col++) {
-      const cell = (f[col] || '').trim();
-      if (cell && cell.startsWith('팀')) { headerRow = row; break; }
+    const label = (f[5] || '').trim().replace(/\s/g, '');
+    if (label === '1번시드' || label === '1번씨드' || label === '시드1' || label === '1시드') {
+      seedStartRow = row;
+      break;
     }
-    if (headerRow >= 0) break;
   }
-  if (headerRow < 0) return { attendees: [], teamCount: 0, prebuiltTeams: [], prebuiltTeamNames: [] };
 
-  // 팀명 파싱 (col 6~11)
-  const headerFields = parseCSVLine(lines[headerRow]);
-  const teamInfos = [];
+  // "1번 시드" 라벨 못 찾으면 → G~K열에 이름이 있는 첫 번째 행을 시작으로
+  if (seedStartRow < 0) {
+    for (let row = 0; row < Math.min(lines.length, 5); row++) {
+      const f = parseCSVLine(lines[row]);
+      let nameCount = 0;
+      for (let col = 6; col <= 11; col++) {
+        const cell = (f[col] || '').trim();
+        // 한글 2~4글자 = 사람 이름일 가능성
+        if (cell && /^[가-힣]{2,4}$/.test(cell)) nameCount++;
+      }
+      if (nameCount >= 3) { seedStartRow = row; break; }
+    }
+  }
+
+  if (seedStartRow < 0) return { attendees: [], teamCount: 0, prebuiltTeams: [], prebuiltTeamNames: [] };
+
+  // Step 2: 팀 컬럼 감지 (col 6~11에서 1번 시드 이름이 있는 열)
+  const seedRow = parseCSVLine(lines[seedStartRow]);
+  const teamCols = [];
   for (let col = 6; col <= 11; col++) {
-    const cell = (headerFields[col] || '').trim();
-    if (!cell) continue;
-    // "팀승훈" 또는 "팀승훈 조승훈" (팀명+캡틴 합쳐진 경우도 대응)
-    const parts = cell.split(/\s+/);
-    const teamName = parts[0] || cell;
-    teamInfos.push({ teamName, col });
+    const name = (seedRow[col] || '').trim();
+    if (name && name.length >= 2) {
+      teamCols.push({ col, captain: name });
+    }
   }
 
-  // 각 팀의 선수 구성 (헤더행 다음 줄부터 8행까지)
-  for (let ti = 0; ti < teamInfos.length; ti++) {
-    const info = teamInfos[ti];
+  if (teamCols.length === 0) return { attendees: [], teamCount: 0, prebuiltTeams: [], prebuiltTeamNames: [] };
+
+  // Step 3: 각 팀 선수 구성 + 팀명 생성
+  for (const tc of teamCols) {
     const members = [];
 
-    for (let row = headerRow + 1; row <= headerRow + 8; row++) {
+    // 1번 시드부터 마지막 시드까지 (seedStartRow ~ seedStartRow+7)
+    for (let row = seedStartRow; row <= seedStartRow + 7; row++) {
       if (row >= lines.length) break;
       const f = parseCSVLine(lines[row]);
-      const name = (f[info.col] || '').trim();
+      const name = (f[tc.col] || '').trim();
       if (name && !members.includes(name)) {
         members.push(name);
         if (!allAttendees.includes(name)) allAttendees.push(name);
@@ -133,7 +147,9 @@ export async function fetchAttendanceData() {
 
     if (members.length > 0) {
       prebuiltTeams.push(members);
-      prebuiltTeamNames.push(info.teamName);
+      // 팀명: "팀 " + 이름 뒤 2글자 → "조승훈" → "팀 승훈", "제갈종주" → "팀 종주"
+      const givenName = tc.captain.length >= 3 ? tc.captain.slice(-2) : tc.captain;
+      prebuiltTeamNames.push('팀 ' + givenName);
     }
   }
 
