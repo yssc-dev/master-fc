@@ -217,7 +217,10 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
   }, [gameState, teamContext]);
 
   useEffect(() => {
-    if (phase !== "setup" && phase !== "") autoSave();
+    if (phase !== "setup" && phase !== "") {
+      console.log('[autoSave trigger] gks:', JSON.stringify(gks));
+      autoSave();
+    }
   }, [allEvents, completedMatches, currentRoundIdx, phase, gks]);
 
   // Firebase listener
@@ -265,10 +268,14 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
   const finalStandings = useMemo(() => getTeamStandings(), [getTeamStandings]);
 
   const allRoundsComplete = useMemo(() => {
-    if (matchMode === "schedule" && schedule.length > 0) return currentRoundIdx >= schedule.length;
+    if (matchMode === "schedule" && schedule.length > 0) {
+      // 마지막 라운드가 확정됐으면 전체 완료
+      const lastIdx = schedule.length - 1;
+      return confirmedRounds[lastIdx] === true;
+    }
     if (matchMode === "free") return phase === "summary";
     return false;
-  }, [matchMode, schedule, currentRoundIdx, phase]);
+  }, [matchMode, schedule, confirmedRounds, phase]);
 
   const getPlayerTeamName = useCallback((player) => {
     for (let i = 0; i < teams.length; i++) { if (teams[i].includes(player)) return teamNames[i]; }
@@ -390,7 +397,8 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
 
   const confirmRound = (roundIdx, matchResults) => {
     let newSchedule = null, newSplitPhase = null;
-    const nextIdx = matchMode === "schedule" && !isExtraRound ? roundIdx + 1 : null;
+    const isLastRound = roundIdx >= schedule.length - 1;
+    const nextIdx = matchMode === "schedule" && !isExtraRound && !isLastRound ? roundIdx + 1 : null;
     if (matchMode === "schedule" && !isExtraRound && teamCount === 6 && courtCount === 2 && splitPhase === "first") {
       const cnt = completedMatches.filter(m => !m.isExtra).length + matchResults.length;
       if (cnt >= 6) {
