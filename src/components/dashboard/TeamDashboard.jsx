@@ -254,7 +254,7 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
                   return (
                     <div key={i} style={{ width: "50%", display: "flex", justifyContent: "space-between", alignItems: "center", padding: "5px 6px", fontSize: 12 }}>
                       <span style={{ fontWeight: 600, opacity }}>{p.name}</span>
-                      <span style={{ fontWeight: 700, color: ratio >= 1 ? "#22c55e" : C.accent, opacity }}>{p.games}/{maxGames}</span>
+                      <span style={{ fontWeight: 700, color: ratio >= 1 ? "#22c55e" : C.accent, opacity }}>{p.games}/{maxGames}({Math.round(ratio * 100)}%)</span>
                     </div>
                   );
                 })}
