@@ -80,60 +80,37 @@ export async function fetchAttendanceData() {
   if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
   const text = await resp.text();
   const lines = text.split('\n');
-  const attendees = [];
-  let teamCount = null;
 
-  // E열(index 4): 참석자 명단
-  for (let i = 0; i < lines.length; i++) {
-    const f = parseCSVLine(lines[i]);
-    let name = f[4] || '';
-    if (name.startsWith('참석 명단 ') || name.startsWith('참석명단 ')) {
-      name = name.replace(/^참석\s*명단\s+/, '');
-    }
-    if (name && name !== '참석 명단' && name !== '참석명단') {
-      attendees.push(name.trim());
-    }
-    if (f[5] && f[5].includes('N개 팀')) {
-      teamCount = parseInt(f[6]) || null;
-    }
-  }
-
-  // G~L열(index 6~11): 시트에서 이미 편성된 팀 명단
-  // F열(index 5)은 시드 라벨
-  // Row 0 = 팀명 헤더 (CSV에서 1번 시드와 합쳐짐: "팀승훈" 형태)
-  // Row 1+ = 2번 시드부터 선수
-  // 1번 시드(팀장)는 CSV에서 누락되므로 팀명에서 추론하여 참석자 목록과 매칭
-  const teamNameRow = lines.length > 0 ? parseCSVLine(lines[0]) : [];
+  // G~L열(index 6~11), 시트 2행~9행 (CSV row 1~8)
+  // 열 = 팀, 각 열의 첫 선수 = 팀장
+  // 팀명 = "팀 " + 팀장 이름에서 성 제거 (조승훈 → 팀 승훈)
   const prebuiltTeams = [];
   const prebuiltTeamNames = [];
+  const allAttendees = [];
 
   for (let col = 6; col <= 11; col++) {
-    const rawTeamName = (teamNameRow[col] || '').trim();
-    if (!rawTeamName) continue;
-    prebuiltTeamNames.push(rawTeamName);
-
     const members = [];
-
-    // 1번 시드(팀장) 복원: 팀명에서 "팀" 제거한 접미사로 참석자 매칭
-    // 예: "팀승훈" → "승훈" → 참석자 중 "승훈"으로 끝나는 사람 = "조승훈"
-    const suffix = rawTeamName.replace(/^팀\s*/, '');
-    if (suffix) {
-      const captain = attendees.find(a => a.endsWith(suffix));
-      if (captain) members.push(captain);
-    }
-
-    // 2번 시드부터 (Row 1+)
     for (let row = 1; row <= 8; row++) {
       if (row >= lines.length) break;
       const f = parseCSVLine(lines[row]);
       const name = (f[col] || '').trim();
-      if (name && !members.includes(name)) members.push(name);
+      if (name) {
+        members.push(name);
+        if (!allAttendees.includes(name)) allAttendees.push(name);
+      }
     }
-
-    if (members.length > 0) prebuiltTeams.push(members);
+    if (members.length === 0) continue;
+    prebuiltTeams.push(members);
+    // 팀명: 팀장(첫 선수) 이름에서 성 제거
+    const captain = members[0];
+    const teamName = captain.length > 1 ? `팀 ${captain.slice(1)}` : `팀 ${captain}`;
+    prebuiltTeamNames.push(teamName);
   }
 
-  const sheetTeamCount = prebuiltTeams.length > 0 ? prebuiltTeams.length : teamCount;
-
-  return { attendees, teamCount: sheetTeamCount, prebuiltTeams, prebuiltTeamNames };
+  return {
+    attendees: allAttendees,
+    teamCount: prebuiltTeams.length,
+    prebuiltTeams,
+    prebuiltTeamNames,
+  };
 }
