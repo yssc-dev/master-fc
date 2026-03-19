@@ -35,17 +35,17 @@ function parseCSV(text) {
       goalsDelta: parseDelta(f[6]),     // G: 골 변동
       assists: parseNum(f[7]),          // H: 어시스트
       assistsDelta: parseDelta(f[8]),   // I: 어시 변동
-      ownGoals: parseNum(f[9]),         // J: 역주행(자책골)
-      ownGoalsDelta: parseDelta(f[10]), // K: 역주행 변동
-      conceded: parseNum(f[11]),        // L: 실점
-      _reserved12: parseDelta(f[12]),    // M: (미사용)
+      ownGoals: parseNum(f[9]),         // J: 자책골
+      ownGoalsDelta: parseDelta(f[10]), // K: 자책골 변동
+      crova: parseNum(f[11]),           // L: 크로바
+      goguma: parseNum(f[12]),          // M: 고구마
       point: parseNum(f[13]),           // N: 포인트 합계
       cleanSheets: parseNum(f[14]),     // O: 클린시트
       cleanSheetsDelta: parseDelta(f[15]), // P: 클린시트 변동
-      firstHalfPt: parseNum(f[16]),      // Q: 전반기 포인트
-      secondHalfPt: parseNum(f[17]),    // R: 후반기 포인트
-      concededDelta: parseDelta(f[18]),  // S: 실점 변동
-      pointRatio: parseFloat2(f[19]),   // T: 후반/전반 비율
+      keeperGames: parseNum(f[16]),     // Q: 키퍼 경기수
+      conceded: parseNum(f[17]),        // R: 실점
+      concededDelta: parseDelta(f[18]), // S: 실점 변동
+      concededRate: parseFloat2(f[19]), // T: 실점률
     });
   }
   return players;

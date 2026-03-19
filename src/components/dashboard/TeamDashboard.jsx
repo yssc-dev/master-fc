@@ -190,40 +190,6 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
             );
           })()}
 
-          {/* 전후반 포인트 비중 */}
-          {members.filter(p => (p.firstHalfPt || 0) + (p.secondHalfPt || 0) > 0).length > 0 && (
-            <div style={ds.section}>
-              <div style={ds.sectionTitle}>포인트 전/후반 비중</div>
-              <div style={ds.card}>
-                {[...members].filter(p => (p.firstHalfPt || 0) + (p.secondHalfPt || 0) > 0).slice(0, 15).map((p, i) => {
-                  const fh = p.firstHalfPt || 0;
-                  const sh = p.secondHalfPt || 0;
-                  const total = fh + sh || 1;
-                  const fhPct = Math.round((fh / total) * 100);
-                  const shPct = 100 - fhPct;
-                  return (
-                    <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 0", borderBottom: i < 14 ? `1px solid ${C.borderColor}` : "none" }}>
-                      <span style={{ fontSize: 11, fontWeight: 600, minWidth: 44, color: C.white }}>{p.name}</span>
-                      <div style={{ flex: 1, display: "flex", height: 14, borderRadius: 7, overflow: "hidden" }}>
-                        <div style={{ width: `${fhPct}%`, background: "#3b82f6", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                          {fhPct >= 20 && <span style={{ fontSize: 8, color: "#fff", fontWeight: 700 }}>{fh}</span>}
-                        </div>
-                        <div style={{ width: `${shPct}%`, background: "#f97316", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                          {shPct >= 20 && <span style={{ fontSize: 8, color: "#fff", fontWeight: 700 }}>{sh}</span>}
-                        </div>
-                      </div>
-                      <span style={{ fontSize: 9, color: C.gray, minWidth: 32, textAlign: "right" }}>{fhPct}:{shPct}</span>
-                    </div>
-                  );
-                })}
-                <div style={{ display: "flex", justifyContent: "center", gap: 12, marginTop: 8 }}>
-                  <span style={{ fontSize: 10, color: "#3b82f6", fontWeight: 600 }}>■ 전반</span>
-                  <span style={{ fontSize: 10, color: "#f97316", fontWeight: 600 }}>■ 후반</span>
-                </div>
-              </div>
-            </div>
-          )}
-
           {/* 키퍼 성적 */}
           {keepers.length > 0 && (
             <div style={ds.section}>
@@ -272,24 +238,31 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
 
   const [statSort, setStatSort] = useState("point");
   const statCols = [
-    { key: "rank", label: "#", w: 22 },
-    { key: "name", label: "선수", w: 52 },
-    { key: "games", label: "경기", w: 30 },
-    { key: "goals", label: "골", w: 26 },
-    { key: "assists", label: "어시", w: 30 },
-    { key: "ownGoals", label: "역주행", w: 34 },
-    { key: "cleanSheets", label: "CS", w: 24 },
-    { key: "conceded", label: "실점", w: 30 },
-    { key: "firstHalfPt", label: "전반", w: 28 },
-    { key: "secondHalfPt", label: "후반", w: 28 },
-    { key: "ppg", label: "PPG", w: 32 },
-    { key: "point", label: "PT", w: 30 },
+    { key: "name", label: "선수" },
+    { key: "games", label: "경기" },
+    { key: "goals", label: "골" },
+    { key: "assists", label: "어시" },
+    { key: "ownGoals", label: "자책" },
+    { key: "crova", label: "🍀" },
+    { key: "goguma", label: "🍠" },
+    { key: "point", label: "PT" },
+    { key: "cleanSheets", label: "CS" },
+    { key: "keeperGames", label: "GK" },
+    { key: "conceded", label: "실점" },
+    { key: "concededRate", label: "실점률" },
   ];
 
   const sortedMembers = [...members].sort((a, b) => {
     if (statSort === "name") return a.name.localeCompare(b.name, "ko");
     return (b[statSort] || 0) - (a[statSort] || 0);
   });
+
+  const rankBadge = (rank) => {
+    if (rank === 1) return <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 22, height: 22, borderRadius: "50%", background: "linear-gradient(135deg, #fbbf24, #f59e0b)", color: "#78350f", fontSize: 11, fontWeight: 800 }}>1</span>;
+    if (rank === 2) return <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 22, height: 22, borderRadius: "50%", background: "linear-gradient(135deg, #d1d5db, #9ca3af)", color: "#374151", fontSize: 11, fontWeight: 800 }}>2</span>;
+    if (rank === 3) return <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 22, height: 22, borderRadius: "50%", background: "linear-gradient(135deg, #d97706, #92400e)", color: "#fef3c7", fontSize: 11, fontWeight: 800 }}>3</span>;
+    return <span style={{ fontSize: 11, color: C.gray, fontWeight: 600, minWidth: 22, textAlign: "center", display: "inline-block" }}>{rank}</span>;
+  };
 
   const renderRoster = () => (
     <div style={ds.section}>
@@ -298,34 +271,40 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
         {membersLoading ? (
           <div style={{ textAlign: "center", color: C.gray, fontSize: 13, padding: 8 }}>불러오는 중...</div>
         ) : (
-          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 400 }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 480 }}>
             <thead>
               <tr>
+                <th style={ds.thStyle}>#</th>
                 {statCols.map(col => (
                   <th key={col.key} onClick={() => setStatSort(col.key)}
-                    style={{ ...ds.thStyle, cursor: "pointer", color: statSort === col.key ? C.accent : C.gray, minWidth: col.w }}>
+                    style={{ ...ds.thStyle, cursor: "pointer", color: statSort === col.key ? C.accent : C.gray }}>
                     {col.label}{statSort === col.key ? " ▼" : ""}
                   </th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {sortedMembers.map((p, i) => (
-                <tr key={i}>
-                  <td style={ds.tdStyle(false)}>{i + 1}</td>
-                  <td style={ds.tdStyle(true)}>{p.name}</td>
-                  <td style={ds.tdStyle(false)}>{p.games}</td>
-                  <td style={ds.tdStyle(p.goals > 0)}>{p.goals}</td>
-                  <td style={ds.tdStyle(p.assists > 0)}>{p.assists}</td>
-                  <td style={{ ...ds.tdStyle(p.ownGoals > 0), color: p.ownGoals > 0 ? C.red : undefined }}>{p.ownGoals}</td>
-                  <td style={ds.tdStyle(p.cleanSheets > 0)}>{p.cleanSheets}</td>
-                  <td style={ds.tdStyle(false)}>{p.conceded}</td>
-                  <td style={ds.tdStyle(false)}>{p.firstHalfPt}</td>
-                  <td style={ds.tdStyle(false)}>{p.secondHalfPt}</td>
-                  <td style={ds.tdStyle(false)}>{p.ppg}</td>
-                  <td style={{ ...ds.tdStyle(true), fontWeight: 800, color: C.accent }}>{p.point}</td>
-                </tr>
-              ))}
+              {sortedMembers.map((p, i) => {
+                const rank = i + 1;
+                const isTop3 = rank <= 3;
+                return (
+                  <tr key={i} style={{ background: isTop3 ? `${C.accent}08` : "transparent" }}>
+                    <td style={{ ...ds.tdStyle(false), padding: "6px 2px" }}>{rankBadge(rank)}</td>
+                    <td style={{ ...ds.tdStyle(true), textAlign: "left", paddingLeft: 4 }}>{p.name}</td>
+                    <td style={ds.tdStyle(false)}>{p.games}</td>
+                    <td style={ds.tdStyle(p.goals > 0)}>{p.goals}</td>
+                    <td style={ds.tdStyle(p.assists > 0)}>{p.assists}</td>
+                    <td style={{ ...ds.tdStyle(p.ownGoals > 0), color: p.ownGoals > 0 ? C.red : undefined }}>{p.ownGoals}</td>
+                    <td style={ds.tdStyle(p.crova > 0)}>{p.crova || 0}</td>
+                    <td style={{ ...ds.tdStyle(p.goguma > 0), color: p.goguma > 0 ? C.red : undefined }}>{p.goguma || 0}</td>
+                    <td style={{ ...ds.tdStyle(true), fontWeight: 800, color: C.accent }}>{p.point}</td>
+                    <td style={ds.tdStyle(p.cleanSheets > 0)}>{p.cleanSheets}</td>
+                    <td style={ds.tdStyle(false)}>{p.keeperGames}</td>
+                    <td style={ds.tdStyle(false)}>{p.conceded}</td>
+                    <td style={ds.tdStyle(false)}>{p.concededRate || "-"}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         )}
