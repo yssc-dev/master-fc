@@ -142,7 +142,7 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
             if (hot.length === 0 && cold.length === 0) return null;
             return (
               <div style={ds.section}>
-                <div style={ds.sectionTitle}>최근 변동</div>
+                <div style={ds.sectionTitle}>최근 변동 <span title="직전 경기 대비 포인트 변동 (골+어시+역주행+클린시트). 크로바/고구마 변동은 미포함" style={{ fontSize: 11, color: C.grayDark, cursor: "help", marginLeft: 2 }}>?</span></div>
                 <div style={{ display: "flex", gap: 8 }}>
                   {hot.length > 0 && (
                     <div style={{ flex: 1 }}>
