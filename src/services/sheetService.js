@@ -58,6 +58,7 @@ export async function fetchSheetData() {
   const players = parseCSV(text);
   if (players.length === 0) throw new Error("선수 데이터 없음");
   // 키퍼 섹션 파싱 (col 22~25, row 3+)
+  const lines = text.split('\n');
   const keepers = [];
   for (let i = 3; i < lines.length; i++) {
     const f = parseCSVLine(lines[i]);
