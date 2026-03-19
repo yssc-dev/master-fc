@@ -34,22 +34,61 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, onLogo
   // Load data on mount
   useEffect(() => {
     const team = teamContext?.team || "";
+
+    // 이어하기: Firebase 상태를 먼저 빠르게 복원, 나머지는 백그라운드
+    if (!isNewGame) {
+      FirebaseSync.loadState(team).then(fb => {
+        if (fb && fb.found && fb.state && fb.state.phase !== "setup") {
+          dispatch({ type: 'SET_FIELDS', fields: { dataLoading: false, dataSource: "restoring" } });
+          dispatch({ type: 'RESTORE_STATE', state: fb.state });
+          // 시트 데이터/누적보너스는 백그라운드로 로딩
+          _loadBackgroundData(team);
+          return;
+        }
+        // Firebase에 없으면 Apps Script에서 시도
+        return AppSync.loadState().then(saved => {
+          if (saved && saved.found && saved.state && saved.state.phase !== "setup") {
+            dispatch({ type: 'SET_FIELDS', fields: { dataLoading: false, dataSource: "restoring" } });
+            dispatch({ type: 'RESTORE_STATE', state: saved.state });
+            _loadBackgroundData(team);
+            return;
+          }
+          // 저장된 상태 없음 → 새 경기 취급
+          _loadAllData(team);
+        });
+      }).catch(() => _loadAllData(team));
+      return;
+    }
+
+    // 새 경기: 모든 데이터 병렬 로딩
+    _loadAllData(team);
+  }, []);
+
+  // 백그라운드로 시트 데이터 + 누적보너스 로딩 (이어하기 시)
+  const _loadBackgroundData = (team) => {
+    Promise.all([
+      fetchSheetData().catch(() => null),
+      AppSync.getCumulativeBonus().catch(() => ({ crova: {}, goguma: {} })),
+    ]).then(([sheetData, cumBonus]) => {
+      const fields = {};
+      if (sheetData) { fields.seasonPlayers = sheetData.players; fields.dataSource = "sheet"; }
+      if (cumBonus) { fields.seasonCrova = cumBonus.crova || {}; fields.seasonGoguma = cumBonus.goguma || {}; }
+      if (Object.keys(fields).length > 0) dispatch({ type: 'SET_FIELDS', fields });
+    });
+  };
+
+  // 전체 데이터 로딩 (새 경기/구글시트 연동)
+  const _loadAllData = (team) => {
     const loadPromises = [
       fetchSheetData().catch(err => { console.warn("시트 로딩 실패:", err.message); return null; }),
       AppSync.getCumulativeBonus().catch(err => { console.warn("누적보너스 로딩 실패:", err.message); return { crova: {}, goguma: {} }; }),
     ];
-    if (!isNewGame) {
-      loadPromises.push(
-        FirebaseSync.loadState(team).then(fb => fb || AppSync.loadState())
-      );
-    }
-    // 구글시트 연동 모드: 참석명단도 함께 로딩
     if (gameMode === "sheetSync") {
       loadPromises.push(
         fetchAttendanceData().catch(err => { console.warn("참석명단 로딩 실패:", err.message); return null; })
       );
     }
-    Promise.all(loadPromises).then(([sheetData, cumBonus, saved, attendanceData]) => {
+    Promise.all(loadPromises).then(([sheetData, cumBonus, attendanceData]) => {
       const fields = { dataLoading: false };
       let players = null;
       if (sheetData) {
@@ -65,11 +104,6 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, onLogo
       }
       dispatch({ type: 'SET_FIELDS', fields });
 
-      if (!isNewGame && saved && saved.found && saved.state && saved.state.phase !== "setup") {
-        dispatch({ type: 'RESTORE_STATE', state: saved.state });
-        return;
-      }
-
       // 구글시트 연동 모드: 참석명단 → 자동 팀편성 → 바로 경기
       if (gameMode === "sheetSync" && attendanceData && attendanceData.attendees.length > 0) {
         const sp = players || FALLBACK_DATA.players;
@@ -84,7 +118,6 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, onLogo
         const tNames = drafted.map(t => makeNameFromTeam(t));
         const tColors = Array.from({ length: sheetTeamCount }, (_, i) => i % TEAM_COLORS.length);
 
-        // 스케줄 생성 (기본: 2코트, 대진표 모드)
         const cc = 2;
         let sched = null;
         if (sheetTeamCount === 4) sched = generate4Team2Court();
@@ -118,7 +151,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, onLogo
         });
       }
     });
-  }, []);
+  };
 
   // Attendance sync
   const syncAttendance = () => {
