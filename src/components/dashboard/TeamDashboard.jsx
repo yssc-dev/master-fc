@@ -193,7 +193,7 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
           {/* 전후반 포인트 비중 */}
           {members.filter(p => (p.firstHalfPt || 0) + (p.secondHalfPt || 0) > 0).length > 0 && (
             <div style={ds.section}>
-              <div style={ds.sectionTitle}>전반 / 후반 포인트</div>
+              <div style={ds.sectionTitle}>포인트 전/후반 비중</div>
               <div style={ds.card}>
                 {[...members].filter(p => (p.firstHalfPt || 0) + (p.secondHalfPt || 0) > 0).slice(0, 15).map((p, i) => {
                   const fh = p.firstHalfPt || 0;
