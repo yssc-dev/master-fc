@@ -135,7 +135,8 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
 
           {/* 최근 핫/콜드 */}
           {activePlayers.length > 0 && (() => {
-            const withDelta = activePlayers.map(p => ({ ...p, totalDelta: (p.goalsDelta || 0) + (p.assistsDelta || 0) + (p.pointDelta || 0) }));
+            // pointDelta(S열) = 골+어시+역주행+클린시트 변동 합산 (크로바/고구마 변동은 시트에 없어 제외)
+            const withDelta = activePlayers.map(p => ({ ...p, totalDelta: p.pointDelta || 0 }));
             const hot = [...withDelta].sort((a, b) => b.totalDelta - a.totalDelta).slice(0, 3).filter(p => p.totalDelta > 0);
             const cold = [...withDelta].sort((a, b) => a.totalDelta - b.totalDelta).slice(0, 3).filter(p => p.totalDelta < 0);
             if (hot.length === 0 && cold.length === 0) return null;
@@ -148,11 +149,14 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
                       <div style={{ fontSize: 11, fontWeight: 700, color: "#22c55e", marginBottom: 6 }}>HOT</div>
                       {hot.map((p, i) => (
                         <div key={i} style={{ ...ds.card, marginBottom: 6, padding: 10 }}>
-                          <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 3 }}>{p.name}</div>
-                          <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-                            {p.goalsDelta > 0 && <DeltaBadge value={p.goalsDelta} />}
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            <span style={{ fontWeight: 700, fontSize: 13 }}>{p.name}</span>
+                            <DeltaBadge value={p.totalDelta} />
+                          </div>
+                          <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 3 }}>
+                            {p.goalsDelta > 0 && <span style={{ fontSize: 10, color: C.gray }}>골+{p.goalsDelta}</span>}
                             {p.assistsDelta > 0 && <span style={{ fontSize: 10, color: C.gray }}>어시+{p.assistsDelta}</span>}
-                            {p.pointDelta > 0 && <span style={{ fontSize: 10, color: C.gray }}>PT+{p.pointDelta}</span>}
+                            {p.cleanSheetsDelta > 0 && <span style={{ fontSize: 10, color: C.gray }}>CS+{p.cleanSheetsDelta}</span>}
                           </div>
                         </div>
                       ))}
@@ -163,10 +167,13 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
                       <div style={{ fontSize: 11, fontWeight: 700, color: "#ef4444", marginBottom: 6 }}>COLD</div>
                       {cold.map((p, i) => (
                         <div key={i} style={{ ...ds.card, marginBottom: 6, padding: 10 }}>
-                          <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 3 }}>{p.name}</div>
-                          <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-                            {p.pointDelta < 0 && <span style={{ fontSize: 10, padding: "1px 4px", borderRadius: 3, background: "#ef444422", color: "#ef4444", fontWeight: 700 }}>PT{p.pointDelta}</span>}
-                            {p.concededDelta < 0 && <span style={{ fontSize: 10, color: C.gray }}>실점{p.concededDelta}</span>}
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            <span style={{ fontWeight: 700, fontSize: 13 }}>{p.name}</span>
+                            <DeltaBadge value={p.totalDelta} />
+                          </div>
+                          <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 3 }}>
+                            {p.ownGoalsDelta > 0 && <span style={{ fontSize: 10, color: C.gray }}>역주행+{p.ownGoalsDelta}</span>}
+                            {p.concededDelta > 0 && <span style={{ fontSize: 10, color: C.gray }}>실점+{p.concededDelta}</span>}
                           </div>
                         </div>
                       ))}
