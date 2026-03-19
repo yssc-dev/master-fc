@@ -203,7 +203,7 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
               <div style={ds.section}>
                 <div style={ds.sectionTitle}>🧤 키퍼 성적 <span style={{ fontSize: 10, fontWeight: 400, color: C.gray }}>({Math.round(avgKG)}경기 이상)</span></div>
                 <div style={ds.card}>
-                  {qualified.map((p, i) => (
+                  {qualified.slice(0, 10).map((p, i) => (
                     <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0", borderBottom: i < qualified.length - 1 ? `1px solid ${C.borderColor}` : "none" }}>
                       <span style={{ fontSize: 12, fontWeight: 700, color: i < 3 ? C.orange : C.gray, minWidth: 14 }}>{i + 1}</span>
                       <span style={{ fontSize: 13, fontWeight: 600, flex: 1 }}>{p.name}</span>
