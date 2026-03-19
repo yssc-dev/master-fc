@@ -10,9 +10,9 @@ export default function ScheduleModal({ schedule, currentRoundIdx, viewingRoundI
     const tc = ci != null ? TEAM_COLORS[ci] : null;
     return {
       display: "inline-block", padding: "3px 8px", borderRadius: 12, fontSize: 12, fontWeight: 700,
-      background: tc ? `${tc.bg}33` : C.cardLight,
-      color: tc ? tc.bg : C.white,
-      border: tc ? `1px solid ${tc.bg}55` : "none",
+      background: tc ? `${tc.bg}55` : C.cardLight,
+      color: C.white,
+      border: tc ? `1px solid ${tc.bg}88` : "none",
       whiteSpace: "nowrap",
     };
   };
