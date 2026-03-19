@@ -205,10 +205,12 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
           { key: "games", label: "경기관리", badge: hasPendingGame },
         ].map(tab => (
           <button key={tab.key} onClick={() => setActiveTab(tab.key)} style={ds.mainTab(activeTab === tab.key)}>
-            {tab.label}
-            {tab.badge && (
-              <span style={{ position: "absolute", top: 6, right: "calc(50% - 20px)", width: 7, height: 7, borderRadius: "50%", background: "#22c55e" }} />
-            )}
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+              {tab.label}
+              {tab.badge && (
+                <span style={{ fontSize: 9, padding: "1px 5px", borderRadius: 4, background: "#22c55e22", color: "#22c55e", fontWeight: 700 }}>진행중</span>
+              )}
+            </span>
           </button>
         ))}
       </div>

@@ -140,19 +140,21 @@ export default function Root() {
   };
 
   const handleSwitchTeam = () => {
-    const groups = groupTeams(allTeams);
-    if (Object.keys(groups).length <= 1) {
+    if (allTeams.length === 0) {
+      // 팀 정보 없으면 (이전 형식 로그인) 로그아웃
       handleLogout();
-    } else {
-      setScreen("home");
-      setPendingRestore(null);
+      return;
     }
+    const groups = groupTeams(allTeams);
+    setTeamGroups(groups);
+    setScreen("home");
+    setPendingRestore(null);
   };
 
   if (screen === "login" || !authed) return <LoginScreen onLogin={handleLogin} />;
 
   if (screen === "home") {
-    return <HomeScreen authUser={authUser} teamGroups={teamGroups} onSelectTeam={(name, entries) => selectTeam(name, entries)} onLogout={handleLogout} />;
+    return <HomeScreen authUser={authUser} teamGroups={teamGroups} selectedTeamName={selectedTeamName} onSelectTeam={(name, entries) => selectTeam(name, entries)} onLogout={handleLogout} />;
   }
 
   if (screen === "dashboard") {
