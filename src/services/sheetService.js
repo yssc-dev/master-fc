@@ -82,48 +82,45 @@ export async function fetchAttendanceData() {
   const lines = text.split('\n');
 
   // CSV 구조 (참석명단 시트):
-  // col 6 = 시드 라벨 ("1번 시드", "2번 시드"...)
-  // col 7~11 = 팀 데이터 (G~K열 → 1팀~5팀, 최대 6팀)
-  // Row 0~1: "팀승훈 조승훈" (팀명+1번시드 합쳐짐, 헤더 병합)
-  // Row 2+: 2번 시드부터 선수명
+  // col 5 = F열: 시드 라벨 ("1번 시드", "2번 시드"...)
+  // col 6~11 = G~L열: 팀 데이터 (최대 6팀)
+  // Row 0 (1행): 팀명 (팀승훈, 팀재상, ...)
+  // Row 1~8 (2~9행): 선수 목록 (1번 시드부터 8번 시드)
   const prebuiltTeams = [];
   const prebuiltTeamNames = [];
   const allAttendees = [];
 
-  // Row 0 또는 1에서 팀 헤더 찾기 (팀명+캡틴)
-  // "팀승훈 조승훈" 형태의 셀이 있는 행을 찾음
+  // 1행(Row 0)에서 팀명 찾기 — G~L열 (col 6~11)
   let headerRow = -1;
-  for (let row = 0; row <= 1; row++) {
+  for (let row = 0; row <= 2; row++) {
     if (row >= lines.length) break;
     const f = parseCSVLine(lines[row]);
-    const cell = (f[7] || '').trim();
-    if (cell && cell.startsWith('팀')) { headerRow = row; break; }
+    // G~L열(col 6~11) 중 '팀'으로 시작하는 셀이 있으면 헤더행
+    for (let col = 6; col <= 11; col++) {
+      const cell = (f[col] || '').trim();
+      if (cell && cell.startsWith('팀')) { headerRow = row; break; }
+    }
+    if (headerRow >= 0) break;
   }
   if (headerRow < 0) return { attendees: [], teamCount: 0, prebuiltTeams: [], prebuiltTeamNames: [] };
 
+  // 팀명 파싱 (col 6~11)
   const headerFields = parseCSVLine(lines[headerRow]);
   const teamInfos = [];
-  for (let col = 7; col <= 12; col++) {
+  for (let col = 6; col <= 11; col++) {
     const cell = (headerFields[col] || '').trim();
     if (!cell) continue;
+    // "팀승훈" 또는 "팀승훈 조승훈" (팀명+캡틴 합쳐진 경우도 대응)
     const parts = cell.split(/\s+/);
     const teamName = parts[0] || cell;
-    const captain = parts[1] || null;
-    teamInfos.push({ teamName, captain, col });
+    teamInfos.push({ teamName, col });
   }
 
-  // 각 팀의 선수 구성
+  // 각 팀의 선수 구성 (헤더행 다음 줄부터 8행까지)
   for (let ti = 0; ti < teamInfos.length; ti++) {
     const info = teamInfos[ti];
     const members = [];
 
-    // 1번 시드(팀장)
-    if (info.captain) {
-      members.push(info.captain);
-      if (!allAttendees.includes(info.captain)) allAttendees.push(info.captain);
-    }
-
-    // 2번 시드부터: headerRow+1 이후, 같은 col
     for (let row = headerRow + 1; row <= headerRow + 8; row++) {
       if (row >= lines.length) break;
       const f = parseCSVLine(lines[row]);
