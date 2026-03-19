@@ -139,35 +139,46 @@ export async function fetchAttendanceData() {
   if (seedStartRow < 0) return { attendees: [], teamCount: 0, prebuiltTeams: [], prebuiltTeamNames: [] };
 
   // Step 3: 팀 컬럼 + 팀명 파싱
+  // ★ gviz CSV 특성: 시트 1행(팀명)과 2행(1번시드)이 "팀승훈 조승훈" 형태로 합쳐질 수 있음
   const teamCols = [];
-  // 팀명은 headerRow에서 가져오고, 없으면 1번 시드 이름에서 생성
-  const headerFields = headerRow >= 0 ? parseCSVLine(lines[headerRow]) : null;
-  const seedFields = parseCSVLine(lines[seedStartRow]);
+  const firstDataFields = parseCSVLine(lines[seedStartRow]);
 
   for (let col = 6; col <= 11; col++) {
-    const seedName = (seedFields[col] || '').trim();
-    if (!seedName || seedName.length < 2) continue;
+    const raw = (firstDataFields[col] || '').trim();
+    if (!raw || raw.length < 2) continue;
 
-    // 팀명: 헤더행에 있으면 그대로, 없으면 1번 시드 이름에서 생성
     let teamName = '';
-    if (headerFields) {
-      teamName = (headerFields[col] || '').trim();
-    }
-    if (!teamName || !teamName.startsWith('팀')) {
-      const gn = seedName.length >= 3 ? seedName.slice(-2) : seedName;
-      teamName = '팀 ' + gn;
+    let captain = '';
+
+    if (raw.startsWith('팀')) {
+      // "팀승훈 조승훈" → 팀명과 캡틴이 합쳐진 경우
+      const parts = raw.split(/\s+/);
+      teamName = parts[0];  // "팀승훈"
+      captain = parts[1] || '';  // "조승훈"
+    } else {
+      // 팀명 없이 선수명만 있는 경우 → 이름에서 팀명 생성
+      captain = raw;
+      const gn = raw.length >= 3 ? raw.slice(-2) : raw;
+      teamName = '팀' + gn;
     }
 
-    teamCols.push({ col, teamName });
+    teamCols.push({ col, teamName, captain });
   }
 
   if (teamCols.length === 0) return { attendees: [], teamCount: 0, prebuiltTeams: [], prebuiltTeamNames: [] };
 
-  // Step 4: 각 팀 선수 구성 (seedStartRow부터 8행)
+  // Step 4: 각 팀 선수 구성
   for (const tc of teamCols) {
     const members = [];
 
-    for (let row = seedStartRow; row <= seedStartRow + 7; row++) {
+    // 1번 시드(캡틴)가 있으면 먼저 추가
+    if (tc.captain) {
+      members.push(tc.captain);
+      if (!allAttendees.includes(tc.captain)) allAttendees.push(tc.captain);
+    }
+
+    // seedStartRow+1부터 나머지 시드 읽기 (2번 시드~)
+    for (let row = seedStartRow + 1; row <= seedStartRow + 7; row++) {
       if (row >= lines.length) break;
       const f = parseCSVLine(lines[row]);
       const name = (f[tc.col] || '').trim();
