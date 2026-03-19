@@ -99,22 +99,41 @@ export async function fetchAttendanceData() {
   }
 
   // G~L열(index 6~11): 시트에서 이미 편성된 팀 명단
-  // F열(index 5)은 시드 라벨, G=1팀, H=2팀, I=3팀, J=4팀, K=5팀, L=6팀
-  // Row 0 = 팀명(헤더), Row 1~ = 선수 (1번 시드=팀장부터)
+  // F열(index 5)은 시드 라벨
+  // Row 0 = 팀명 헤더 (CSV에서 1번 시드와 합쳐짐: "팀승훈" 형태)
+  // Row 1+ = 2번 시드부터 선수
+  // 1번 시드(팀장)는 CSV에서 누락되므로 팀명에서 추론하여 참석자 목록과 매칭
+  const teamNameRow = lines.length > 0 ? parseCSVLine(lines[0]) : [];
   const prebuiltTeams = [];
+  const prebuiltTeamNames = [];
+
   for (let col = 6; col <= 11; col++) {
+    const rawTeamName = (teamNameRow[col] || '').trim();
+    if (!rawTeamName) continue;
+    prebuiltTeamNames.push(rawTeamName);
+
     const members = [];
+
+    // 1번 시드(팀장) 복원: 팀명에서 "팀" 제거한 접미사로 참석자 매칭
+    // 예: "팀승훈" → "승훈" → 참석자 중 "승훈"으로 끝나는 사람 = "조승훈"
+    const suffix = rawTeamName.replace(/^팀\s*/, '');
+    if (suffix) {
+      const captain = attendees.find(a => a.endsWith(suffix));
+      if (captain) members.push(captain);
+    }
+
+    // 2번 시드부터 (Row 1+)
     for (let row = 1; row <= 8; row++) {
       if (row >= lines.length) break;
       const f = parseCSVLine(lines[row]);
       const name = (f[col] || '').trim();
-      if (name) members.push(name);
+      if (name && !members.includes(name)) members.push(name);
     }
+
     if (members.length > 0) prebuiltTeams.push(members);
   }
 
-  // 팀 수: prebuiltTeams 기준 (없으면 F열 값 사용)
   const sheetTeamCount = prebuiltTeams.length > 0 ? prebuiltTeams.length : teamCount;
 
-  return { attendees, teamCount: sheetTeamCount, prebuiltTeams };
+  return { attendees, teamCount: sheetTeamCount, prebuiltTeams, prebuiltTeamNames };
 }

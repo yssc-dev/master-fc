@@ -131,7 +131,11 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
           const firstName = top.length > 1 ? top.slice(1) : top;
           return `팀 ${firstName}`;
         };
-        const tNames = finalTeams.map(t => makeNameFromTeam(t));
+        // 시트에서 팀명을 가져왔으면 사용, 없으면 자동 생성
+        const sheetNames = attendanceData.prebuiltTeamNames || [];
+        const tNames = hasPrebuilt && sheetNames.length === finalTeams.length
+          ? sheetNames
+          : finalTeams.map(t => makeNameFromTeam(t));
         const tColors = Array.from({ length: sheetTeamCount }, (_, i) => i % TEAM_COLORS.length);
 
         const cc = 2;
