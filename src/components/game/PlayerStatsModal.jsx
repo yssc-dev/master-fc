@@ -10,9 +10,8 @@ export default function PlayerStatsModal({ attendees, calcPlayerPoints, onClose,
 
   const rows = attendees.map(p => {
     const pts = calcPlayerPoints(p);
-    if (pts.goals === 0 && pts.assists === 0 && pts.owngoals === 0 && pts.cleanSheets === 0 && pts.conceded === 0 && pts.crova === 0 && pts.goguma === 0) return null;
     return { name: p, ...pts };
-  }).filter(Boolean);
+  });
 
   const sorted = [...rows].sort((a, b) => {
     if (sortKey === "name") return a.name.localeCompare(b.name, "ko");
