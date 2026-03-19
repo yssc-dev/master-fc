@@ -185,7 +185,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
   const isSyncingRef = useRef(false);
   const gameState = useMemo(() => ({
     gameId: gameId || "legacy",
-    gameCreator: state.gameCreator || (isNewGame ? (authUser?.name || "알 수 없음") : "알 수 없음"),
+    gameCreator: state.gameCreator || authUser?.name || "알 수 없음",
     phase, teams, teamNames, teamColorIndices, gks, allEvents,
     completedMatches, schedule, currentRoundIdx, viewingRoundIdx, confirmedRounds, attendees,
     teamCount, courtCount, matchMode, isExtraRound, splitPhase, rotations,
