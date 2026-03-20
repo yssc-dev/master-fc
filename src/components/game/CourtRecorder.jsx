@@ -70,7 +70,6 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
   const { C } = useTheme();
   const [actionMode, setActionMode] = useState(null);
   const [pendingGoalPlayer, setPendingGoalPlayer] = useState(null);
-  const [pendingAssistPlayer, setPendingAssistPlayer] = useState(null);
   const [homeGk, setHomeGk] = useState(matchInfo.homeGk || null);
   const [awayGk, setAwayGk] = useState(matchInfo.awayGk || null);
   const [mercs, setMercs] = useState([]);
@@ -111,18 +110,6 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
       resetState();
       return;
     }
-    if (actionMode === "selectScorer" && pendingAssistPlayer) {
-      if (player === pendingAssistPlayer.player) return;
-      if (isHome !== pendingAssistPlayer.isHome) return;
-      onRecordEvent(courtLabel, {
-        type: "goal", matchId, player, assist: pendingAssistPlayer.player,
-        team: isHome ? homeTeam : awayTeam, scoringTeam: isHome ? homeTeam : awayTeam,
-        concedingTeam: isHome ? awayTeam : homeTeam, concedingGk: isHome ? awayGk : homeGk,
-        concedingGkLoss: 1, homeTeam, awayTeam,
-      });
-      resetState();
-      return;
-    }
   };
 
   /** ⚽ 인라인 버튼 — 바로 어시 선택 모드 진입 */
@@ -130,13 +117,6 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
     if (!checkGk()) return;
     setPendingGoalPlayer({ player, isHome });
     setActionMode("selectAssist");
-  };
-
-  /** 🅰️ 인라인 버튼 — 바로 득점자 선택 모드 진입 */
-  const handleInlineAssist = (player, isHome) => {
-    if (!checkGk()) return;
-    setPendingAssistPlayer({ player, isHome });
-    setActionMode("selectScorer");
   };
 
   /** 🔴 인라인 버튼 — 즉시 자책골 기록 */
@@ -168,7 +148,6 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
   const resetState = () => {
     setActionMode(null);
     setPendingGoalPlayer(null);
-    setPendingAssistPlayer(null);
   };
 
   const selectGk = (player, isHome) => {
@@ -192,11 +171,6 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
       else if (isHome === pendingGoalPlayer.isHome) extra = { boxShadow: `0 0 0 2px ${C.accent}`, transform: "scale(1.02)" };
       else extra = { opacity: 0.3 };
     }
-    if (actionMode === "selectScorer" && pendingAssistPlayer) {
-      if (player === pendingAssistPlayer.player) extra = { opacity: 0.3 };
-      else if (isHome === pendingAssistPlayer.isHome) extra = { boxShadow: `0 0 0 2px ${C.green}`, transform: "scale(1.02)" };
-      else extra = { opacity: 0.3 };
-    }
     return { ...s.matchBtn(color), width: "100%", marginBottom: 4, transition: "all 0.15s", ...extra };
   };
 
@@ -209,11 +183,11 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
     color: gk ? C.white : C.red,
   });
 
-  /** 인라인 액션 버튼 — 작고 반투명한 아이콘 버튼 */
+  /** 인라인 액션 버튼 */
   const inlineBtnStyle = (color) => ({
-    border: "none", borderRadius: 4, padding: "0 5px", fontSize: 9,
+    border: "none", borderRadius: 6, padding: "6px 8px", fontSize: 12,
     fontWeight: 700, cursor: "pointer", lineHeight: 1,
-    background: `${color}30`, color, letterSpacing: -0.5,
+    background: `${color}30`, color,
     transition: "background 0.1s", whiteSpace: "nowrap",
   });
 
@@ -229,15 +203,14 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
         return (
           <div key={p} style={{ display: "flex", gap: 3, marginBottom: 3, alignItems: "center" }}>
             <button onClick={() => handlePlayerTap(p, isHome)} style={{ ...getPlayerStyle(p, isHome), flex: 1, marginBottom: 0, minWidth: 0 }}>
-              {isGk && <span style={{ marginRight: 3, fontSize: 10 }}>🧤</span>}
+              {isGk && <span style={{ marginRight: 3, fontSize: 9, opacity: 0.8 }}>🧤GK</span>}
               {isMerc && <span style={{ marginRight: 2, fontSize: 8, color: C.orange }}>용</span>}
               <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p}</span>
             </button>
             {showInlineButtons && (
-              <div style={{ display: "flex", gap: 2, flexShrink: 0 }}>
-                <button onClick={() => handleInlineGoal(p, isHome)} style={inlineBtnStyle(C.green)} title="골">골</button>
-                <button onClick={() => handleInlineAssist(p, isHome)} style={inlineBtnStyle(C.accent)} title="어시">A</button>
-                <button onClick={() => handleInlineOwnGoal(p, isHome)} style={inlineBtnStyle(C.red)} title="자책골">자책</button>
+              <div style={{ display: "flex", gap: 3, flexShrink: 0 }}>
+                <button onClick={() => handleInlineGoal(p, isHome)} style={inlineBtnStyle(C.green)}>골</button>
+                <button onClick={() => handleInlineOwnGoal(p, isHome)} style={inlineBtnStyle(C.red)}>자책</button>
               </div>
             )}
             {isMerc && (
@@ -247,10 +220,6 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
           </div>
         );
       })}
-      <button onClick={() => setShowMercPicker(isHome ? "home" : "away")}
-        style={{ ...s.btnSm(C.grayDark, C.orange), width: "100%", marginTop: 4, fontSize: 11 }}>
-        + 선수추가
-      </button>
     </div>
   );
 
@@ -331,16 +300,18 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
           </div>
         </div>
       )}
-      {actionMode === "selectScorer" && (
-        <div style={{ textAlign: "center", padding: 8, background: `${C.green}22`, borderRadius: 8, marginBottom: 8, fontSize: 13, fontWeight: 600, color: C.white }}>
-          <div>🅰️ <b>{pendingAssistPlayer?.player}</b> 어시! 골 넣은 선수를 터치하세요</div>
-          <button onClick={resetState} style={{ ...s.btnSm(C.redDim), marginTop: 6, fontSize: 12 }}>취소</button>
-        </div>
-      )}
 
       <div style={{ display: "flex", gap: 8 }}>
         {renderPlayerList(homePlayers, true, homeMercs, homeTeam, homeColor)}
         {renderPlayerList(awayPlayers, false, awayMercs, awayTeam, awayColor)}
+      </div>
+
+      {/* 선수추가 버튼 — 양팀 정렬 */}
+      <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+        <button onClick={() => setShowMercPicker("home")}
+          style={{ ...s.btnSm(C.grayDark, C.orange), flex: 1, fontSize: 11 }}>+ 선수추가</button>
+        <button onClick={() => setShowMercPicker("away")}
+          style={{ ...s.btnSm(C.grayDark, C.orange), flex: 1, fontSize: 11 }}>+ 선수추가</button>
       </div>
 
       {showMercPicker && (

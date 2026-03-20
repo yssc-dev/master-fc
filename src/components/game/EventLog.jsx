@@ -109,7 +109,7 @@ export default function EventLog({ matchEvents, allEvents, matchId, homePlayers,
     <div style={{ marginTop: 10 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
         <span style={{ fontSize: 12, fontWeight: 700, color: C.gray }}>경기 기록 ({matchEvents.length}건)</span>
-        <span style={{ fontSize: 10, color: C.grayDark }}>← 밀어서 삭제</span>
+        <span style={{ fontSize: 10, color: C.grayDark }}>← 밀어서 삭제 | ✕ 버튼</span>
       </div>
       {matchEvents.map((e, localIdx) => {
         const globalIdx = e.id ? allEvents.findIndex(ae => ae.id === e.id) : allEvents.findIndex(ae => ae === e);
@@ -146,7 +146,15 @@ export default function EventLog({ matchEvents, allEvents, matchId, homePlayers,
                     <span style={{ color: C.gray, fontSize: 11 }}> / 실점: {e.concedingGk}{e.type === "owngoal" ? " (2점)" : ""}</span>
                   )}
                 </div>
-                <span style={{ color: e.scoringTeam === homeTeam ? homeColor?.bg : awayColor?.bg, fontSize: 11, fontWeight: 600 }}>{e.scoringTeam}</span>
+                <span style={{ color: e.scoringTeam === homeTeam ? homeColor?.bg : awayColor?.bg, fontSize: 11, fontWeight: 600, marginRight: 4 }}>{e.scoringTeam}</span>
+                <button
+                  onClick={(ev) => { ev.stopPropagation(); onDeleteEvent(globalIdx); setEditingEvent(null); }}
+                  style={{
+                    background: `${C.red}30`, border: "none", borderRadius: 4,
+                    color: C.red, fontSize: 10, fontWeight: 700, padding: "2px 6px",
+                    cursor: "pointer", flexShrink: 0, lineHeight: 1.2,
+                  }}
+                >✕</button>
               </div>
 
               {isEditing && (
