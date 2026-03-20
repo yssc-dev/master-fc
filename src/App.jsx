@@ -400,11 +400,25 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
     const isLastRound = roundIdx >= schedule.length - 1;
     const nextIdx = matchMode === "schedule" && !isExtraRound && !isLastRound ? roundIdx + 1 : null;
     if (matchMode === "schedule" && !isExtraRound && teamCount === 6 && courtCount === 2 && splitPhase === "first") {
+      // 6라운드 × 2코트 = 12경기 모두 완료 시 스플릿
       const cnt = completedMatches.filter(m => !m.isExtra).length + matchResults.length;
-      if (cnt >= 6) {
-        const standings = getTeamStandings();
-        // 순위대로 재매핑: [1위idx, 2위idx, ..., 6위idx]
-        const rankedIndices = standings.map(s => s.idx);
+      if (cnt >= 12) {
+        // 현재 라운드 결과까지 포함하여 순위 계산
+        const allMatches = [...completedMatches.filter(m => !m.isExtra), ...matchResults];
+        const stats = {};
+        teamNames.forEach((t, i) => { stats[t] = { idx: i, points: 0, gf: 0, ga: 0 }; });
+        allMatches.forEach(m => {
+          if (!stats[m.homeTeam] || !stats[m.awayTeam]) return;
+          stats[m.homeTeam].gf += m.homeScore; stats[m.homeTeam].ga += m.awayScore;
+          stats[m.awayTeam].gf += m.awayScore; stats[m.awayTeam].ga += m.homeScore;
+          if (m.homeScore > m.awayScore) { stats[m.homeTeam].points += 3; }
+          else if (m.awayScore > m.homeScore) { stats[m.awayTeam].points += 3; }
+          else { stats[m.homeTeam].points++; stats[m.awayTeam].points++; }
+        });
+        const ranked = Object.entries(stats)
+          .map(([, s]) => s)
+          .sort((a, b) => (b.points - a.points) || ((b.gf - b.ga) - (a.gf - a.ga)) || (b.gf - a.gf));
+        const rankedIndices = ranked.map(s => s.idx);
         const secondHalf = generate6TeamSecondHalf(rankedIndices);
         newSchedule = [...schedule, ...secondHalf];
         newSplitPhase = "second";
@@ -720,7 +734,6 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
           </div>
           <div style={{ display: "flex", gap: 6, justifyContent: "center", marginTop: 8, flexWrap: "wrap" }}>
             {matchMode === "schedule" && <button onClick={() => set('matchModal', 'schedule')} style={{ ...s.btnSm(C.grayDark, C.white), fontSize: 11 }}>대진표</button>}
-            <button onClick={() => set('matchModal', 'gameFormat')} style={{ ...s.btnSm(C.grayDark, C.white), fontSize: 11 }}>경기방식</button>
             <button onClick={() => set('matchModal', 'teamRoster')} style={{ ...s.btnSm(C.grayDark, C.white), fontSize: 11 }}>팀명단</button>
             <button onClick={() => set('matchModal', 'standings')} style={{ ...s.btnSm(C.grayDark, C.white), fontSize: 11 }}>팀순위</button>
             <button onClick={() => set('matchModal', 'playerStats')} style={{ ...s.btnSm(C.grayDark, C.white), fontSize: 11 }}>개인기록</button>
@@ -743,6 +756,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
           <ScheduleModal schedule={schedule} currentRoundIdx={currentRoundIdx} viewingRoundIdx={viewingRoundIdx}
             setViewingRoundIdx={(v) => set('viewingRoundIdx', v)} confirmedRounds={confirmedRounds}
             allEvents={allEvents} teamNames={teamNames} teamColorIndices={teamColorIndices} courtCount={courtCount}
+            splitPhase={splitPhase} teamCount={teamCount} matchMode={matchMode} rotations={rotations}
             onClose={() => set('matchModal', null)} styles={s} />
         )}
 
@@ -770,7 +784,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
           </Modal>
         )}
 
-        {matchModal === "standings" && <StandingsModal standings={getTeamStandings()} onClose={() => set('matchModal', null)} styles={s} />}
+        {matchModal === "standings" && <StandingsModal standings={getTeamStandings()} splitPhase={splitPhase} teamCount={teamCount} onClose={() => set('matchModal', null)} styles={s} />}
         {matchModal === "playerStats" && <PlayerStatsModal attendees={attendees} calcPlayerPoints={calcPlayerPoints} onClose={() => set('matchModal', null)} styles={s} />}
 
         {matchModal === "gameFormat" && (
@@ -809,7 +823,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
               teams={teams} teamNames={teamNames} teamColorIndices={teamColorIndices} gks={gks} gksHistory={gksHistory || {}}
               courtCount={courtCount} allEvents={allEvents} onRecordEvent={recordMatchEvent}
               onUndoEvent={undoMatchEvent} onDeleteEvent={deleteEvent} onEditEvent={editEvent}
-              completedMatches={completedMatches} attendees={attendees} onGkChange={handleGkChange} styles={s} />
+              completedMatches={completedMatches} attendees={attendees} onGkChange={handleGkChange} splitPhase={splitPhase} styles={s} />
           ) : (
             <FreeMatchView teams={teams} teamNames={teamNames} teamColorIndices={teamColorIndices} gks={gks}
               courtCount={courtCount} allEvents={allEvents} onRecordEvent={recordMatchEvent}

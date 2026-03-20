@@ -4,21 +4,16 @@ import { calcMatchScore } from '../../utils/scoring';
 import EventLog from './EventLog';
 
 /**
- * GK 선택 드롭다운 컴포넌트
- * - 기본: 해당 팀원만 표시
- * - [+ 외부] 버튼으로 다른 팀/외부 인원 확장
+ * GK 선택 드롭다운 — 팀 소속 선수 + 외부 인원 (1스텝 GK 지정)
+ * 외부 인원 선택 시 자동으로 용병 등록 + GK 지정
  */
-function GkDropdown({ currentGk, teamPlayers, allAttendees, teamColor, onSelect, onClose, C, s }) {
-  const [showExternal, setShowExternal] = useState(false);
-  // 외부 인원 = 전체 참석자 중 이 팀에 속하지 않은 선수
-  const externalPlayers = (allAttendees || []).filter(p => !teamPlayers.includes(p));
-
+function GkDropdown({ currentGk, teamPlayers, externalCandidates, opposingPlayers, onSelect, onSelectExternal, onClose, C, s }) {
   return (
     <div style={{
       position: "absolute", top: "100%", left: 0, right: 0, zIndex: 50,
       background: C.card, borderRadius: "0 0 10px 10px", padding: 8,
       boxShadow: "0 4px 12px rgba(0,0,0,0.3)", border: `1px solid ${C.grayDark}`,
-      borderTop: "none",
+      borderTop: "none", maxHeight: 240, overflowY: "auto",
     }}>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
         {teamPlayers.map(p => (
@@ -32,28 +27,28 @@ function GkDropdown({ currentGk, teamPlayers, allAttendees, teamColor, onSelect,
         ))}
       </div>
 
-      {!showExternal ? (
-        <button onClick={() => setShowExternal(true)}
-          style={{ ...s.btnSm(C.grayDarker, C.orange), marginTop: 6, fontSize: 10, width: "100%" }}>
-          + 외부인원
-        </button>
-      ) : externalPlayers.length > 0 ? (
-        <div style={{ marginTop: 6, paddingTop: 6, borderTop: `1px solid ${C.grayDarker}` }}>
-          <div style={{ fontSize: 10, color: C.orange, marginBottom: 4 }}>외부 인원</div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-            {externalPlayers.map(p => (
-              <button key={p} onClick={() => { onSelect(p); onClose(); }}
-                style={{
-                  ...s.btnSm(currentGk === p ? C.yellow : C.grayDarker, currentGk === p ? "#000" : C.gray),
-                  padding: "5px 8px", fontSize: 11,
-                }}>
-                {p}
-              </button>
-            ))}
+      {externalCandidates && externalCandidates.length > 0 && (
+        <>
+          <div style={{ fontSize: 10, color: C.orange, fontWeight: 700, marginTop: 8, marginBottom: 4, borderTop: `1px solid ${C.grayDark}`, paddingTop: 6 }}>
+            외부 인원 (선택 시 용병+GK 자동 등록)
           </div>
-        </div>
-      ) : (
-        <div style={{ marginTop: 6, fontSize: 10, color: C.grayDark, textAlign: "center" }}>외부 인원 없음</div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+            {externalCandidates.map(p => {
+              const isOpposing = opposingPlayers.includes(p);
+              return (
+                <button key={p} onClick={() => { onSelectExternal(p); onClose(); }}
+                  style={{
+                    ...s.btnSm(C.grayDarker, isOpposing ? C.orange : C.white),
+                    padding: "6px 10px", fontSize: 12,
+                    border: isOpposing ? `1px dashed ${C.orange}` : "none",
+                  }}>
+                  {isOpposing && <span style={{ fontSize: 8, marginRight: 3 }}>상대</span>}
+                  {p}
+                </button>
+              );
+            })}
+          </div>
+        </>
       )}
 
       {currentGk && (
@@ -62,6 +57,38 @@ function GkDropdown({ currentGk, teamPlayers, allAttendees, teamColor, onSelect,
           GK 해제
         </button>
       )}
+    </div>
+  );
+}
+
+/** 용병 선수 추가 피커 */
+function MercPicker({ side, candidates, opposingPlayers, teamName, onAdd, onClose, C, s }) {
+  return (
+    <div style={{ background: C.cardLight, borderRadius: 10, padding: 12, marginTop: 8 }}>
+      <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, color: C.orange }}>
+        {teamName}에 선수 추가
+      </div>
+      {candidates.length === 0 ? (
+        <div style={{ fontSize: 12, color: C.gray }}>추가 가능한 선수가 없습니다.</div>
+      ) : (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+          {candidates.map(p => {
+            const isOpposing = opposingPlayers.includes(p);
+            return (
+              <button key={p} onClick={() => onAdd(p, side)}
+                style={{
+                  ...s.btnSm(C.grayDarker, isOpposing ? C.orange : C.white),
+                  padding: "6px 10px",
+                  border: isOpposing ? `1px dashed ${C.orange}` : "none",
+                }}>
+                {isOpposing && <span style={{ fontSize: 8, marginRight: 3 }}>상대</span>}
+                {p}
+              </button>
+            );
+          })}
+        </div>
+      )}
+      <button onClick={onClose} style={{ ...s.btnSm(C.grayDark), marginTop: 8 }}>닫기</button>
     </div>
   );
 }
@@ -80,10 +107,14 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
 
   const homeMercs = mercs.filter(m => m.side === "home").map(m => m.player);
   const awayMercs = mercs.filter(m => m.side === "away").map(m => m.player);
-  const homePlayers = [...initHomePlayers, ...homeMercs];
-  const awayPlayers = [...initAwayPlayers, ...awayMercs];
+  const homePlayers = [...initHomePlayers, ...homeMercs].sort((a, b) => a.localeCompare(b, 'ko'));
+  const awayPlayers = [...initAwayPlayers, ...awayMercs].sort((a, b) => a.localeCompare(b, 'ko'));
 
-  const mercCandidates = (attendees || []).filter(p => !homePlayers.includes(p) && !awayPlayers.includes(p));
+  // 용병 후보: 해당 팀에 없는 모든 참석자 (상대팀 선수 포함)
+  const getMercCandidates = (side) => {
+    const myPlayers = side === "home" ? homePlayers : awayPlayers;
+    return (attendees || []).filter(p => !myPlayers.includes(p));
+  };
 
   const matchEvents = allEvents.filter(e => e.matchId === matchId);
   const homeScore = calcMatchScore(allEvents, matchId, homeTeam);
@@ -253,9 +284,10 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
             <GkDropdown
               currentGk={homeGk}
               teamPlayers={homePlayers}
-              allAttendees={attendees}
-              teamColor={homeColor}
+              externalCandidates={getMercCandidates("home")}
+              opposingPlayers={awayPlayers}
               onSelect={(p) => selectGk(p, true)}
+              onSelectExternal={(p) => { addMerc(p, "home"); selectGk(p, true); }}
               onClose={() => setGkDropdown(null)}
               C={C} s={s}
             />
@@ -273,9 +305,10 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
             <GkDropdown
               currentGk={awayGk}
               teamPlayers={awayPlayers}
-              allAttendees={attendees}
-              teamColor={awayColor}
+              externalCandidates={getMercCandidates("away")}
+              opposingPlayers={homePlayers}
               onSelect={(p) => selectGk(p, false)}
+              onSelectExternal={(p) => { addMerc(p, "away"); selectGk(p, false); }}
               onClose={() => setGkDropdown(null)}
               C={C} s={s}
             />
@@ -313,24 +346,14 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
       </div>
 
       {showMercPicker && (
-        <div style={{ background: C.cardLight, borderRadius: 10, padding: 12, marginTop: 8 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, color: C.orange }}>
-            {showMercPicker === "home" ? homeTeam : awayTeam}에 선수 추가
-          </div>
-          {mercCandidates.length === 0 ? (
-            <div style={{ fontSize: 12, color: C.gray }}>추가 가능한 선수가 없습니다.</div>
-          ) : (
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-              {mercCandidates.map(p => (
-                <button key={p} onClick={() => addMerc(p, showMercPicker)}
-                  style={{ ...s.btnSm(C.grayDarker, C.white), padding: "6px 10px" }}>
-                  {p}
-                </button>
-              ))}
-            </div>
-          )}
-          <button onClick={() => setShowMercPicker(null)} style={{ ...s.btnSm(C.grayDark), marginTop: 8 }}>닫기</button>
-        </div>
+        <MercPicker
+          side={showMercPicker}
+          candidates={getMercCandidates(showMercPicker)}
+          opposingPlayers={showMercPicker === "home" ? awayPlayers : homePlayers}
+          teamName={showMercPicker === "home" ? homeTeam : awayTeam}
+          onAdd={addMerc} onClose={() => setShowMercPicker(null)}
+          C={C} s={s}
+        />
       )}
 
       <EventLog

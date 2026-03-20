@@ -433,9 +433,11 @@ function _getHistory(team) {
   if (lastRow < 2) return { success: true, history: [] };
 
   var colCount = sheet.getLastColumn();
-  if (colCount < 6) return { success: true, history: [] };
+  if (colCount < 3) return { success: true, history: [] };
 
-  var data = sheet.getRange(2, 1, lastRow - 1, 6).getValues();
+  // 최소 3열(team, date, status)만 있으면 동작, 부족한 열은 빈값 처리
+  var readCols = Math.min(colCount, 6);
+  var data = sheet.getRange(2, 1, lastRow - 1, readCols).getValues();
   var history = [];
 
   for (var i = 0; i < data.length; i++) {
@@ -444,9 +446,9 @@ function _getHistory(team) {
         team: String(data[i][0]).trim(),
         gameDate: String(data[i][1]).trim(),
         status: "확정",
-        stateJson: String(data[i][3]),
+        stateJson: data[i][3] ? String(data[i][3]) : "",
         savedAt: data[i][4] ? String(data[i][4]) : null,
-        summary: String(data[i][5]) || "",
+        summary: data[i][5] ? String(data[i][5]) : "",
       });
     }
   }

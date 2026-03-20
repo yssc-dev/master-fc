@@ -4,7 +4,7 @@ import { useTheme } from '../../hooks/useTheme';
 import { calcMatchScore } from '../../utils/scoring';
 import CourtRecorder from './CourtRecorder';
 
-export default function ScheduleMatchView({ schedule, currentRoundIdx, viewingRoundIdx, setViewingRoundIdx, confirmedRounds, onConfirmRound, teams, teamNames, teamColorIndices, gks, gksHistory, courtCount, allEvents, onRecordEvent, onUndoEvent, onDeleteEvent, onEditEvent, completedMatches, attendees, onGkChange, styles: s }) {
+export default function ScheduleMatchView({ schedule, currentRoundIdx, viewingRoundIdx, setViewingRoundIdx, confirmedRounds, onConfirmRound, teams, teamNames, teamColorIndices, gks, gksHistory, courtCount, allEvents, onRecordEvent, onUndoEvent, onDeleteEvent, onEditEvent, completedMatches, attendees, onGkChange, splitPhase, styles: s }) {
   const { C } = useTheme();
   const round = schedule[viewingRoundIdx];
   const matches = round?.matches || [];
@@ -41,14 +41,45 @@ export default function ScheduleMatchView({ schedule, currentRoundIdx, viewingRo
           style={{ ...s.btnSm(C.grayDark), opacity: viewingRoundIdx >= currentRoundIdx ? 0.3 : 1 }}>▶</button>
       </div>
 
+      {/* 그룹 스플릿 배너: 7라운드 시작 시 표시 */}
+      {splitPhase === "second" && viewingRoundIdx === 6 && (
+        <div style={{
+          textAlign: "center", padding: "10px 12px", marginBottom: 10, borderRadius: 8,
+          background: `linear-gradient(135deg, ${C.accent}22, ${C.orange}22)`,
+          border: `1px solid ${C.accent}44`,
+        }}>
+          <div style={{ fontSize: 14, fontWeight: 800, color: C.white, marginBottom: 4 }}>그룹 스플릿</div>
+          <div style={{ fontSize: 11, color: C.gray }}>전반 6라운드 순위 기준으로 상위/하위 리그가 편성되었습니다</div>
+        </div>
+      )}
+
+      {/* 스플릿 후반 라운드 라벨 */}
+      {splitPhase === "second" && viewingRoundIdx >= 6 && courtCount === 2 && (
+        <div style={{ display: "flex", gap: 8, marginBottom: 6 }}>
+          <div style={{ flex: 1, textAlign: "center", fontSize: 11, fontWeight: 700, color: C.green, padding: "4px 0", background: `${C.green}15`, borderRadius: 6 }}>
+            🏆 상위 리그 (1~3위)
+          </div>
+          <div style={{ flex: 1, textAlign: "center", fontSize: 11, fontWeight: 700, color: C.orange, padding: "4px 0", background: `${C.orange}15`, borderRadius: 6 }}>
+            하위 리그 (4~6위)
+          </div>
+        </div>
+      )}
+
       <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
         {matchInfos.map((mi, i) => {
           const evts = allEvents.filter(e => e.matchId === mi.matchId);
           const hs = calcMatchScore(evts, mi.matchId, mi.homeTeam);
           const as_ = calcMatchScore(evts, mi.matchId, mi.awayTeam);
+          const isSecondHalf = splitPhase === "second" && viewingRoundIdx >= 6;
+          const courtLabel = isSecondHalf
+            ? (i === 0 ? "상위 리그" : "하위 리그")
+            : courtCount === 2 ? (i === 0 ? "A구장" : "B구장") : `경기${i + 1}`;
+          const courtColor = isSecondHalf
+            ? (i === 0 ? C.green : C.orange)
+            : (i === 0 ? C.accent : C.orange);
           return (
-            <div key={i} style={{ flex: 1, background: C.card, borderRadius: 10, padding: "8px 6px", textAlign: "center", borderTop: `3px solid ${i === 0 ? C.accent : C.orange}` }}>
-              <div style={{ fontSize: 10, color: i === 0 ? C.accent : C.orange, fontWeight: 700, marginBottom: 4 }}>{courtCount === 2 ? (i === 0 ? "A구장" : "B구장") : `경기${i + 1}`}</div>
+            <div key={i} style={{ flex: 1, background: C.card, borderRadius: 10, padding: "8px 6px", textAlign: "center", borderTop: `3px solid ${courtColor}` }}>
+              <div style={{ fontSize: 10, color: courtColor, fontWeight: 700, marginBottom: 4 }}>{courtLabel}</div>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
                 <span style={{ fontSize: 12, fontWeight: 600, color: hs > as_ ? C.green : C.white }}>{mi.homeTeam}</span>
                 <span style={{ fontSize: 18, fontWeight: 900, color: C.white }}>{hs} : {as_}</span>
@@ -59,10 +90,18 @@ export default function ScheduleMatchView({ schedule, currentRoundIdx, viewingRo
         })}
       </div>
 
-      {matchInfos.map((mi, i) => (
-        <div key={`${viewingRoundIdx}_${i}`} style={{ marginBottom: 16, borderLeft: `3px solid ${i === 0 ? C.accent : C.orange}`, paddingLeft: 8 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: i === 0 ? C.accent : C.orange, marginBottom: 6 }}>
-            {courtCount === 2 ? (i === 0 ? "A구장" : "B구장") : `경기 ${i + 1}`}
+      {matchInfos.map((mi, i) => {
+        const isSecondHalf = splitPhase === "second" && viewingRoundIdx >= 6;
+        const courtLabel = isSecondHalf
+          ? (i === 0 ? "🏆 상위 리그" : "하위 리그")
+          : courtCount === 2 ? (i === 0 ? "A구장" : "B구장") : `경기 ${i + 1}`;
+        const courtColor = isSecondHalf
+          ? (i === 0 ? C.green : C.orange)
+          : (i === 0 ? C.accent : C.orange);
+        return (
+        <div key={`${viewingRoundIdx}_${i}`} style={{ marginBottom: 16, borderLeft: `3px solid ${courtColor}`, paddingLeft: 8 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: courtColor, marginBottom: 6 }}>
+            {courtLabel}
           </div>
           <CourtRecorder
             matchInfo={mi}
@@ -76,11 +115,12 @@ export default function ScheduleMatchView({ schedule, currentRoundIdx, viewingRo
             onFinish={() => { }}
             onGkChange={onGkChange}
             styles={s}
-            courtLabel={courtCount === 2 ? (i === 0 ? "A구장" : "B구장") : ""}
+            courtLabel={courtLabel}
             attendees={attendees}
           />
         </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
