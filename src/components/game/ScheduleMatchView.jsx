@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { TEAM_COLORS } from '../../config/constants';
 import { useTheme } from '../../hooks/useTheme';
+import { calcMatchScore } from '../../utils/scoring';
 import CourtRecorder from './CourtRecorder';
 
 export default function ScheduleMatchView({ schedule, currentRoundIdx, viewingRoundIdx, setViewingRoundIdx, confirmedRounds, onConfirmRound, teams, teamNames, teamColorIndices, gks, gksHistory, courtCount, allEvents, onRecordEvent, onUndoEvent, onDeleteEvent, onEditEvent, completedMatches, attendees, onGkChange, styles: s }) {
@@ -43,8 +44,8 @@ export default function ScheduleMatchView({ schedule, currentRoundIdx, viewingRo
       <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
         {matchInfos.map((mi, i) => {
           const evts = allEvents.filter(e => e.matchId === mi.matchId);
-          const hs = evts.filter(e => e.scoringTeam === mi.homeTeam).reduce((s, e) => s + (e.type === "owngoal" ? 2 : 1), 0);
-          const as_ = evts.filter(e => e.scoringTeam === mi.awayTeam).reduce((s, e) => s + (e.type === "owngoal" ? 2 : 1), 0);
+          const hs = calcMatchScore(evts, mi.matchId, mi.homeTeam);
+          const as_ = calcMatchScore(evts, mi.matchId, mi.awayTeam);
           return (
             <div key={i} style={{ flex: 1, background: C.card, borderRadius: 10, padding: "8px 6px", textAlign: "center", borderTop: `3px solid ${i === 0 ? C.accent : C.orange}` }}>
               <div style={{ fontSize: 10, color: i === 0 ? C.accent : C.orange, fontWeight: 700, marginBottom: 4 }}>{courtCount === 2 ? (i === 0 ? "A구장" : "B구장") : `경기${i + 1}`}</div>

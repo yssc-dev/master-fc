@@ -81,13 +81,6 @@ export async function fetchAttendanceData() {
   const text = await resp.text();
   const lines = text.split('\n');
 
-  // ★ 디버그: CSV 원본 상위 5행 출력
-  console.log('[참석명단 CSV] 총 행수:', lines.length);
-  for (let i = 0; i < Math.min(5, lines.length); i++) {
-    const f = parseCSVLine(lines[i]);
-    console.log(`[참석명단 CSV] line[${i}]: F=${f[5]||''} | G=${f[6]||''} | H=${f[7]||''} | I=${f[8]||''} | J=${f[9]||''} | K=${f[10]||''}`);
-  }
-
   // CSV 구조 (참석명단 시트):
   // 1행: 팀명 헤더 — G~K열에 "팀승훈", "팀재상" 등 (col 6~11)
   // F열(col 5): 시드 라벨 — "1번 시드", "2번 시드"...
@@ -193,10 +186,6 @@ export async function fetchAttendanceData() {
       prebuiltTeamNames.push(tc.teamName);
     }
   }
-
-  // ★ 디버그: 파싱 결과 출력
-  console.log(`[참석명단] headerRow=${headerRow}, seedStartRow=${seedStartRow}, 팀수=${prebuiltTeams.length}`);
-  prebuiltTeams.forEach((t, i) => console.log(`[참석명단] ${prebuiltTeamNames[i]}: [${t.join(', ')}]`));
 
   return {
     attendees: allAttendees,

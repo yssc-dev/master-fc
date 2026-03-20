@@ -32,7 +32,11 @@ const AppSync = {
     if (!this.enabled()) return [];
     try {
       const team = this._getTeam();
-      const resp = await fetch(APPS_SCRIPT_URL + "?action=loadState&team=" + encodeURIComponent(team) + "&authToken=" + encodeURIComponent(this._getAuthToken()));
+      const resp = await fetch(APPS_SCRIPT_URL, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain" },
+        body: JSON.stringify({ action: "loadState", team, authToken: this._getAuthToken() }),
+      });
       const data = await resp.json();
       // 하위호환: 단일 결과 → 배열 변환
       if (data.games) return data.games;
@@ -70,7 +74,11 @@ const AppSync = {
     if (!this.enabled()) return [];
     try {
       const team = this._getTeam();
-      const resp = await fetch(APPS_SCRIPT_URL + "?action=getHistory&team=" + encodeURIComponent(team) + "&authToken=" + encodeURIComponent(this._getAuthToken()));
+      const resp = await fetch(APPS_SCRIPT_URL, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain" },
+        body: JSON.stringify({ action: "getHistory", team, authToken: this._getAuthToken() }),
+      });
       const data = await resp.json();
       return data.history || [];
     } catch (e) { console.warn("이력 조회 실패:", e.message); return []; }
@@ -118,7 +126,11 @@ const AppSync = {
     if (!this.enabled()) return { crova: {}, goguma: {} };
     try {
       const team = this._getTeam();
-      const resp = await fetch(APPS_SCRIPT_URL + "?action=getCumulativeBonus&team=" + encodeURIComponent(team) + "&authToken=" + encodeURIComponent(this._getAuthToken()));
+      const resp = await fetch(APPS_SCRIPT_URL, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain" },
+        body: JSON.stringify({ action: "getCumulativeBonus", team, authToken: this._getAuthToken() }),
+      });
       const data = await resp.json();
       return { crova: data.crova || {}, goguma: data.goguma || {} };
     } catch (e) { console.warn("누적 보너스 조회 실패:", e.message); return { crova: {}, goguma: {} }; }

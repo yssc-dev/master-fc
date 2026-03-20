@@ -1,11 +1,73 @@
 import { useState } from 'react';
 import { useTheme } from '../../hooks/useTheme';
-import PlayerActionModal from './PlayerActionModal';
+import { calcMatchScore } from '../../utils/scoring';
 import EventLog from './EventLog';
+
+/**
+ * GK 선택 드롭다운 컴포넌트
+ * - 기본: 해당 팀원만 표시
+ * - [+ 외부] 버튼으로 다른 팀/외부 인원 확장
+ */
+function GkDropdown({ currentGk, teamPlayers, allAttendees, teamColor, onSelect, onClose, C, s }) {
+  const [showExternal, setShowExternal] = useState(false);
+  // 외부 인원 = 전체 참석자 중 이 팀에 속하지 않은 선수
+  const externalPlayers = (allAttendees || []).filter(p => !teamPlayers.includes(p));
+
+  return (
+    <div style={{
+      position: "absolute", top: "100%", left: 0, right: 0, zIndex: 50,
+      background: C.card, borderRadius: "0 0 10px 10px", padding: 8,
+      boxShadow: "0 4px 12px rgba(0,0,0,0.3)", border: `1px solid ${C.grayDark}`,
+      borderTop: "none",
+    }}>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+        {teamPlayers.map(p => (
+          <button key={p} onClick={() => { onSelect(p); onClose(); }}
+            style={{
+              ...s.btnSm(currentGk === p ? C.yellow : C.grayDarker, currentGk === p ? "#000" : C.white),
+              padding: "6px 10px", fontSize: 12, fontWeight: currentGk === p ? 700 : 400,
+            }}>
+            {currentGk === p && "🧤 "}{p}
+          </button>
+        ))}
+      </div>
+
+      {!showExternal ? (
+        <button onClick={() => setShowExternal(true)}
+          style={{ ...s.btnSm(C.grayDarker, C.orange), marginTop: 6, fontSize: 10, width: "100%" }}>
+          + 외부인원
+        </button>
+      ) : externalPlayers.length > 0 ? (
+        <div style={{ marginTop: 6, paddingTop: 6, borderTop: `1px solid ${C.grayDarker}` }}>
+          <div style={{ fontSize: 10, color: C.orange, marginBottom: 4 }}>외부 인원</div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+            {externalPlayers.map(p => (
+              <button key={p} onClick={() => { onSelect(p); onClose(); }}
+                style={{
+                  ...s.btnSm(currentGk === p ? C.yellow : C.grayDarker, currentGk === p ? "#000" : C.gray),
+                  padding: "5px 8px", fontSize: 11,
+                }}>
+                {p}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div style={{ marginTop: 6, fontSize: 10, color: C.grayDark, textAlign: "center" }}>외부 인원 없음</div>
+      )}
+
+      {currentGk && (
+        <button onClick={() => { onSelect(null); onClose(); }}
+          style={{ ...s.btnSm(C.redDim, "#fff"), marginTop: 6, fontSize: 10, width: "100%" }}>
+          GK 해제
+        </button>
+      )}
+    </div>
+  );
+}
 
 export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers, awayPlayers: initAwayPlayers, allEvents, onRecordEvent, onUndoEvent, onDeleteEvent, onEditEvent, onFinish, onMatchInfoUpdate, onGkChange, styles: s, courtLabel, attendees }) {
   const { C } = useTheme();
-  const [selectedPlayer, setSelectedPlayer] = useState(null);
   const [actionMode, setActionMode] = useState(null);
   const [pendingGoalPlayer, setPendingGoalPlayer] = useState(null);
   const [pendingAssistPlayer, setPendingAssistPlayer] = useState(null);
@@ -13,6 +75,7 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
   const [awayGk, setAwayGk] = useState(matchInfo.awayGk || null);
   const [mercs, setMercs] = useState([]);
   const [showMercPicker, setShowMercPicker] = useState(null);
+  const [gkDropdown, setGkDropdown] = useState(null); // "home" | "away" | null
 
   const { homeIdx, awayIdx, matchId, homeTeam, awayTeam, homeColor, awayColor } = matchInfo;
 
@@ -24,13 +87,20 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
   const mercCandidates = (attendees || []).filter(p => !homePlayers.includes(p) && !awayPlayers.includes(p));
 
   const matchEvents = allEvents.filter(e => e.matchId === matchId);
-  const homeScore = matchEvents.filter(e => e.scoringTeam === homeTeam).reduce((s, e) => s + (e.type === "owngoal" ? 2 : 1), 0);
-  const awayScore = matchEvents.filter(e => e.scoringTeam === awayTeam).reduce((s, e) => s + (e.type === "owngoal" ? 2 : 1), 0);
+  const homeScore = calcMatchScore(allEvents, matchId, homeTeam);
+  const awayScore = calcMatchScore(allEvents, matchId, awayTeam);
 
+  const checkGk = () => {
+    if (!homeGk || !awayGk) { alert(`키퍼를 먼저 지정하세요: ${!homeGk ? homeTeam : ""}${!homeGk && !awayGk ? ", " : ""}${!awayGk ? awayTeam : ""}`); return false; }
+    return true;
+  };
+
+  /** 선수 이름 탭 — selectAssist/selectScorer 모드에서만 동작 */
   const handlePlayerTap = (player, isHome) => {
-    if (!homeGk || !awayGk) { alert(`키퍼를 먼저 지정하세요: ${!homeGk ? homeTeam : ""}${!homeGk && !awayGk ? ", " : ""}${!awayGk ? awayTeam : ""}`); return; }
     if (actionMode === "selectAssist" && pendingGoalPlayer) {
       if (player === pendingGoalPlayer.player) return;
+      // 같은 팀만 어시스트 가능
+      if (isHome !== pendingGoalPlayer.isHome) return;
       const gp = pendingGoalPlayer;
       onRecordEvent(courtLabel, {
         type: "goal", matchId, player: gp.player, assist: player,
@@ -43,52 +113,44 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
     }
     if (actionMode === "selectScorer" && pendingAssistPlayer) {
       if (player === pendingAssistPlayer.player) return;
-      const scorerIsHome = isHome;
+      if (isHome !== pendingAssistPlayer.isHome) return;
       onRecordEvent(courtLabel, {
-        type: "goal", matchId, player: player, assist: pendingAssistPlayer.player,
-        team: scorerIsHome ? homeTeam : awayTeam, scoringTeam: scorerIsHome ? homeTeam : awayTeam,
-        concedingTeam: scorerIsHome ? awayTeam : homeTeam, concedingGk: scorerIsHome ? awayGk : homeGk,
+        type: "goal", matchId, player, assist: pendingAssistPlayer.player,
+        team: isHome ? homeTeam : awayTeam, scoringTeam: isHome ? homeTeam : awayTeam,
+        concedingTeam: isHome ? awayTeam : homeTeam, concedingGk: isHome ? awayGk : homeGk,
         concedingGkLoss: 1, homeTeam, awayTeam,
       });
       resetState();
       return;
     }
-    setSelectedPlayer({ player, isHome });
-    setActionMode(null);
   };
 
-  const checkGk = () => {
-    if (!homeGk || !awayGk) { alert(`키퍼를 먼저 지정하세요: ${!homeGk ? homeTeam : ""}${!homeGk && !awayGk ? ", " : ""}${!awayGk ? awayTeam : ""}`); return false; }
-    return true;
-  };
-
-  const handleGoal = () => {
+  /** ⚽ 인라인 버튼 — 바로 어시 선택 모드 진입 */
+  const handleInlineGoal = (player, isHome) => {
     if (!checkGk()) return;
-    setPendingGoalPlayer(selectedPlayer);
+    setPendingGoalPlayer({ player, isHome });
     setActionMode("selectAssist");
-    setSelectedPlayer(null);
   };
 
-  const handleAssist = () => {
+  /** 🅰️ 인라인 버튼 — 바로 득점자 선택 모드 진입 */
+  const handleInlineAssist = (player, isHome) => {
     if (!checkGk()) return;
-    setPendingAssistPlayer(selectedPlayer);
+    setPendingAssistPlayer({ player, isHome });
     setActionMode("selectScorer");
-    setSelectedPlayer(null);
   };
 
-  const handleOwnGoal = () => {
+  /** 🔴 인라인 버튼 — 즉시 자책골 기록 */
+  const handleInlineOwnGoal = (player, isHome) => {
     if (!checkGk()) return;
-    const sp = selectedPlayer;
-    const ownTeam = sp.isHome ? homeTeam : awayTeam;
-    const scoringTeam = sp.isHome ? awayTeam : homeTeam;
-    const ownGk = sp.isHome ? homeGk : awayGk;
+    const ownTeam = isHome ? homeTeam : awayTeam;
+    const scoringTeam = isHome ? awayTeam : homeTeam;
+    const ownGk = isHome ? homeGk : awayGk;
     onRecordEvent(courtLabel, {
-      type: "owngoal", matchId, player: sp.player,
+      type: "owngoal", matchId, player,
       team: ownTeam, scoringTeam, concedingTeam: ownTeam,
       concedingGk: ownGk, concedingGkLoss: 2,
       assist: null, homeTeam, awayTeam,
     });
-    resetState();
   };
 
   const skipAssist = () => {
@@ -104,17 +166,18 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
   };
 
   const resetState = () => {
-    setSelectedPlayer(null);
     setActionMode(null);
     setPendingGoalPlayer(null);
     setPendingAssistPlayer(null);
   };
 
-  const toggleGk = (player, isHome) => {
+  const selectGk = (player, isHome) => {
     if (isHome) {
-      setHomeGk(prev => { const next = prev === player ? null : player; if (onGkChange) onGkChange(matchInfo.homeIdx, next); return next; });
+      setHomeGk(player);
+      if (onGkChange) onGkChange(matchInfo.homeIdx, player);
     } else {
-      setAwayGk(prev => { const next = prev === player ? null : player; if (onGkChange) onGkChange(matchInfo.awayIdx, next); return next; });
+      setAwayGk(player);
+      if (onGkChange) onGkChange(matchInfo.awayIdx, player);
     }
   };
 
@@ -137,25 +200,49 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
     return { ...s.matchBtn(color), width: "100%", marginBottom: 4, transition: "all 0.15s", ...extra };
   };
 
+  // GK 드롭다운 버튼 스타일
+  const gkBtnStyle = (gk, teamColor, side) => ({
+    flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 4,
+    padding: "6px 8px", borderRadius: 8, fontSize: 12, fontWeight: 600,
+    cursor: "pointer", border: "none", transition: "all 0.15s",
+    background: gk ? `${teamColor?.bg || C.accent}22` : `${C.red}22`,
+    color: gk ? C.white : C.red,
+  });
+
+  /** 인라인 액션 버튼 스타일 */
+  const inlineBtnStyle = (bg) => ({
+    border: "none", borderRadius: 6, padding: "6px 0", fontSize: 11,
+    fontWeight: 600, cursor: "pointer", lineHeight: 1, minWidth: 0,
+    background: bg, color: "#fff", flex: 1, textAlign: "center",
+    transition: "opacity 0.1s",
+  });
+
+  // selectAssist/selectScorer 모드에서는 인라인 버튼 숨김
+  const showInlineButtons = !actionMode;
+
   const renderPlayerList = (players, isHome, mercsArr, teamName, color) => (
     <div style={{ flex: 1 }}>
       <div style={{ fontSize: 10, color: C.gray, textAlign: "center", marginBottom: 4 }}>{teamName}</div>
       {players.map(p => {
         const isMerc = mercsArr.includes(p);
+        const isGk = (isHome ? homeGk : awayGk) === p;
         return (
-          <div key={p} style={{ display: "flex", gap: 3, marginBottom: 4, alignItems: "stretch" }}>
-            <button onClick={() => handlePlayerTap(p, isHome)} style={{ ...getPlayerStyle(p, isHome), flex: 1, marginBottom: 0 }}>
-              {(isHome ? homeGk : awayGk) === p && <span style={{ marginRight: 4, fontSize: 10 }}>🧤</span>}
-              {isMerc && <span style={{ marginRight: 2, fontSize: 9, color: C.orange }}>(용병)</span>}
-              {p}
+          <div key={p} style={{ display: "flex", gap: 2, marginBottom: 4, alignItems: "stretch" }}>
+            <button onClick={() => handlePlayerTap(p, isHome)} style={{ ...getPlayerStyle(p, isHome), flex: 1, marginBottom: 0, minWidth: 0 }}>
+              {isGk && <span style={{ marginRight: 3, fontSize: 10 }}>🧤</span>}
+              {isMerc && <span style={{ marginRight: 2, fontSize: 8, color: C.orange }}>용</span>}
+              <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p}</span>
             </button>
-            <button onClick={() => toggleGk(p, isHome)}
-              style={{ ...s.btnSm((isHome ? homeGk : awayGk) === p ? C.yellow : C.grayDarker, (isHome ? homeGk : awayGk) === p ? "#000" : C.gray), padding: "4px 6px", fontSize: 9, minWidth: 28 }}>
-              GK
-            </button>
+            {showInlineButtons && (
+              <>
+                <button onClick={() => handleInlineGoal(p, isHome)} style={inlineBtnStyle(C.green)} title="골">⚽</button>
+                <button onClick={() => handleInlineAssist(p, isHome)} style={inlineBtnStyle(C.accent)} title="어시">🅰️</button>
+                <button onClick={() => handleInlineOwnGoal(p, isHome)} style={inlineBtnStyle(C.red)} title="자책골">🔴</button>
+              </>
+            )}
             {isMerc && (
               <button onClick={() => removeMerc(p)}
-                style={{ ...s.btnSm(C.redDim), padding: "4px 6px", fontSize: 9, minWidth: 24 }}>X</button>
+                style={{ ...s.btnSm(C.redDim), padding: "4px 5px", fontSize: 8, minWidth: 20 }}>X</button>
             )}
           </div>
         );
@@ -183,27 +270,72 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
         </div>
       </div>
 
+      {/* GK 선택 영역 — 스코어보드 바로 아래 */}
+      <div style={{ display: "flex", gap: 6, marginBottom: 8, position: "relative" }}>
+        <div style={{ flex: 1, position: "relative" }}>
+          <button
+            onClick={() => setGkDropdown(gkDropdown === "home" ? null : "home")}
+            style={gkBtnStyle(homeGk, homeColor, "home")}
+          >
+            <span style={{ fontSize: 11 }}>🧤</span>
+            <span>{homeGk || "GK 선택"}</span>
+            <span style={{ fontSize: 9, opacity: 0.6 }}>▼</span>
+          </button>
+          {gkDropdown === "home" && (
+            <GkDropdown
+              currentGk={homeGk}
+              teamPlayers={homePlayers}
+              allAttendees={attendees}
+              teamColor={homeColor}
+              onSelect={(p) => selectGk(p, true)}
+              onClose={() => setGkDropdown(null)}
+              C={C} s={s}
+            />
+          )}
+        </div>
+        <div style={{ flex: 1, position: "relative" }}>
+          <button
+            onClick={() => setGkDropdown(gkDropdown === "away" ? null : "away")}
+            style={gkBtnStyle(awayGk, awayColor, "away")}
+          >
+            <span style={{ fontSize: 11 }}>🧤</span>
+            <span>{awayGk || "GK 선택"}</span>
+            <span style={{ fontSize: 9, opacity: 0.6 }}>▼</span>
+          </button>
+          {gkDropdown === "away" && (
+            <GkDropdown
+              currentGk={awayGk}
+              teamPlayers={awayPlayers}
+              allAttendees={attendees}
+              teamColor={awayColor}
+              onSelect={(p) => selectGk(p, false)}
+              onClose={() => setGkDropdown(null)}
+              C={C} s={s}
+            />
+          )}
+        </div>
+      </div>
+
+      {/* 드롭다운 열려있을 때 배경 클릭으로 닫기 */}
+      {gkDropdown && (
+        <div onClick={() => setGkDropdown(null)}
+          style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: 40 }} />
+      )}
+
       {actionMode === "selectAssist" && (
         <div style={{ textAlign: "center", padding: 8, background: `${C.accent}22`, borderRadius: 8, marginBottom: 8, fontSize: 13, fontWeight: 600, color: C.white }}>
-          <div>⚽ <b>{pendingGoalPlayer?.player}</b> 골! 어시스트 선수를 터치하세요</div>
-          <button onClick={skipAssist} style={{ ...s.btnSm(C.grayDark), marginTop: 6 }}>어시 없음 (스킵)</button>
+          <div>⚽ <b>{pendingGoalPlayer?.player}</b> 골! 같은 팀 선수를 터치하세요</div>
+          <div style={{ display: "flex", gap: 6, justifyContent: "center", marginTop: 6 }}>
+            <button onClick={skipAssist} style={{ ...s.btnSm(C.grayDark), fontSize: 12 }}>단독골 (어시 없음)</button>
+            <button onClick={resetState} style={{ ...s.btnSm(C.redDim), fontSize: 12 }}>취소</button>
+          </div>
         </div>
       )}
       {actionMode === "selectScorer" && (
         <div style={{ textAlign: "center", padding: 8, background: `${C.green}22`, borderRadius: 8, marginBottom: 8, fontSize: 13, fontWeight: 600, color: C.white }}>
-          <div>👟 <b>{pendingAssistPlayer?.player}</b> 어시스트! 골 넣은 선수를 터치하세요</div>
+          <div>🅰️ <b>{pendingAssistPlayer?.player}</b> 어시! 골 넣은 선수를 터치하세요</div>
+          <button onClick={resetState} style={{ ...s.btnSm(C.redDim), marginTop: 6, fontSize: 12 }}>취소</button>
         </div>
-      )}
-
-      {selectedPlayer && !actionMode && (
-        <PlayerActionModal
-          player={selectedPlayer.player}
-          onGoal={handleGoal}
-          onAssist={handleAssist}
-          onOwnGoal={handleOwnGoal}
-          onCancel={resetState}
-          styles={s}
-        />
       )}
 
       <div style={{ display: "flex", gap: 8 }}>

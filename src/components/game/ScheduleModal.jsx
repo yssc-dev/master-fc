@@ -1,5 +1,6 @@
 import { useTheme } from '../../hooks/useTheme';
 import { TEAM_COLORS } from '../../config/constants';
+import { calcMatchScore } from '../../utils/scoring';
 import Modal from '../common/Modal';
 
 export default function ScheduleModal({ schedule, currentRoundIdx, viewingRoundIdx, setViewingRoundIdx, confirmedRounds, allEvents, teamNames, teamColorIndices, courtCount, onClose, styles: s }) {
@@ -24,8 +25,8 @@ export default function ScheduleModal({ schedule, currentRoundIdx, viewingRoundI
     if (confirmed) {
       const matchId = `R${ri + 1}_C${ci}`;
       const evts = allEvents.filter(e => e.matchId === matchId);
-      const hs = evts.filter(e => e.scoringTeam === teamNames[pair[0]]).reduce((s, e) => s + (e.type === "owngoal" ? 2 : 1), 0);
-      const as_ = evts.filter(e => e.scoringTeam === teamNames[pair[1]]).reduce((s, e) => s + (e.type === "owngoal" ? 2 : 1), 0);
+      const hs = calcMatchScore(evts, matchId, teamNames[pair[0]]);
+      const as_ = calcMatchScore(evts, matchId, teamNames[pair[1]]);
       score = { home: hs, away: as_ };
     }
     return (

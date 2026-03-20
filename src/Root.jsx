@@ -9,30 +9,22 @@ import HistoryView from './components/history/HistoryView';
 import App from './App';
 
 export default function Root() {
-  const [authed, setAuthed] = useState(() => !!AuthUtil.getStored());
-  const [authUser, setAuthUser] = useState(() => {
-    const stored = AuthUtil.getStored();
-    return stored ? { name: stored.name, phone4: stored.phone4 } : null;
-  });
+  // AuthUtil.getStored()를 한 번만 호출하여 초기 상태 설정
+  const [initialStored] = useState(() => AuthUtil.getStored());
+  const [authed, setAuthed] = useState(() => !!initialStored);
+  const [authUser, setAuthUser] = useState(() =>
+    initialStored ? { name: initialStored.name, phone4: initialStored.phone4 } : null
+  );
   const [allTeams, setAllTeams] = useState([]);
   const [teamGroups, setTeamGroups] = useState({});
-  const [selectedTeamName, setSelectedTeamName] = useState(() => {
-    const stored = AuthUtil.getStored();
-    return stored?.team || null;
-  });
-  const [selectedTeamEntries, setSelectedTeamEntries] = useState(() => {
-    const stored = AuthUtil.getStored();
-    return stored?.team ? [{ mode: stored.mode || "풋살", role: stored.role || "멤버" }] : [];
-  });
-  const [teamContext, setTeamContext] = useState(() => {
-    const stored = AuthUtil.getStored();
-    return stored?.team ? { team: stored.team, mode: stored.mode || "풋살", role: stored.role || "멤버" } : null;
-  });
-
-  const [screen, setScreen] = useState(() => {
-    const stored = AuthUtil.getStored();
-    return stored?.team ? "dashboard" : "login";
-  });
+  const [selectedTeamName, setSelectedTeamName] = useState(() => initialStored?.team || null);
+  const [selectedTeamEntries, setSelectedTeamEntries] = useState(() =>
+    initialStored?.team ? [{ mode: initialStored.mode || "풋살", role: initialStored.role || "멤버" }] : []
+  );
+  const [teamContext, setTeamContext] = useState(() =>
+    initialStored?.team ? { team: initialStored.team, mode: initialStored.mode || "풋살", role: initialStored.role || "멤버" } : null
+  );
+  const [screen, setScreen] = useState(() => initialStored?.team ? "dashboard" : "login");
   // 다중 경기 지원: pendingGames = [{gameId, state, savedAt}, ...]
   const [pendingGames, setPendingGames] = useState([]);
   const [checkingPending, setCheckingPending] = useState(false);
@@ -49,6 +41,7 @@ export default function Root() {
     return groups;
   };
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- 마운트 시 1회만 실행 (저장된 팀이 있으면 pending 체크)
   useEffect(() => {
     if (screen === "dashboard" && selectedTeamName) {
       checkPendingGames(selectedTeamName);

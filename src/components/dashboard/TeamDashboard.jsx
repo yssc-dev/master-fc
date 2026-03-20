@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { fetchSheetData } from '../../services/sheetService';
 import { useTheme } from '../../hooks/useTheme';
 
@@ -19,7 +19,7 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
       .finally(() => setMembersLoading(false));
   }, []);
 
-  const ds = {
+  const ds = useMemo(() => ({
     container: { background: C.bg, minHeight: "100vh", color: C.white, fontFamily: "'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif", maxWidth: 500, margin: "0 auto" },
     header: { background: C.headerBg, padding: "16px 16px 12px", position: "sticky", top: 0, zIndex: 100 },
     section: { padding: "0 16px", marginBottom: 16 },
@@ -35,7 +35,7 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
       borderBottom: active ? `2px solid ${C.accent}` : "2px solid transparent",
       position: "relative",
     }),
-  };
+  }), [C]);
 
   const maxGames = members.length > 0 ? Math.max(...members.map(p => p.games)) : 1;
   const totalGoals = members.reduce((s, p) => s + (p.goals || 0), 0);

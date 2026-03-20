@@ -2,7 +2,7 @@ import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { TEAM_COLORS } from './config/constants';
 import { FALLBACK_DATA } from './config/fallbackData';
 import { useTheme } from './hooks/useTheme';
-import { getPlayerPoint, getPlayerData, teamPower } from './utils/scoring';
+import { getPlayerPoint, getPlayerData, teamPower, calcMatchScore } from './utils/scoring';
 import { snakeDraft } from './utils/draft';
 import { generateRoundRobin, generate4Team2Court, generate5Team2Court, generate6Team2Court, generate6TeamSecondHalf, generate1Court } from './utils/brackets';
 import { generateEventId } from './utils/idGenerator';
@@ -32,7 +32,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
 
   const set = (field, value) => dispatch({ type: 'SET_FIELD', field, value });
 
-  // Load data on mount
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- 마운트 시 1회: gameId/isNewGame는 props로 변경되지 않음
   useEffect(() => {
     const team = teamContext?.team || "";
 
@@ -200,25 +200,25 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
   const autoSave = useCallback(() => {
     if (isSyncingRef.current) return;
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-    saveTimerRef.current = setTimeout(() => {
+    saveTimerRef.current = setTimeout(async () => {
       set('syncStatus', 'saving');
       const team = teamContext?.team || "";
-      FirebaseSync.saveState(team, gameId || "legacy", gameState);
-      if (AppSync.enabled()) {
-        AppSync.saveState(gameState).then(() => {
-          set('syncStatus', 'saved');
-          setTimeout(() => set('syncStatus', ''), 2000);
-        }).catch(() => set('syncStatus', 'error'));
-      } else {
+      try {
+        await FirebaseSync.saveState(team, gameId || "legacy", gameState);
+        if (AppSync.enabled()) {
+          await AppSync.saveState(gameState);
+        }
         set('syncStatus', 'saved');
         setTimeout(() => set('syncStatus', ''), 2000);
+      } catch (e) {
+        console.warn("자동저장 실패:", e.message);
+        set('syncStatus', 'error');
       }
     }, 800);
   }, [gameState, teamContext]);
 
   useEffect(() => {
     if (phase !== "setup" && phase !== "") {
-      console.log('[autoSave trigger] gks:', JSON.stringify(gks));
       autoSave();
     }
   }, [allEvents, completedMatches, currentRoundIdx, phase, gks]);
@@ -423,8 +423,8 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
       return {
         homeIdx: pair[0], awayIdx: pair[1], matchId, homeTeam, awayTeam,
         homeGk: gks[pair[0]] || null, awayGk: gks[pair[1]] || null,
-        homeScore: evts.filter(e => e.scoringTeam === homeTeam).reduce((s, e) => s + (e.type === "owngoal" ? 2 : 1), 0),
-        awayScore: evts.filter(e => e.scoringTeam === awayTeam).reduce((s, e) => s + (e.type === "owngoal" ? 2 : 1), 0),
+        homeScore: calcMatchScore(evts, matchId, homeTeam),
+        awayScore: calcMatchScore(evts, matchId, awayTeam),
         court: courtCount === 2 ? (i === 0 ? "A구장" : "B구장") : "",
         mercenaries: [],
       };

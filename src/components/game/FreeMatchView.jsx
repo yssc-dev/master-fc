@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { TEAM_COLORS } from '../../config/constants';
 import { useTheme } from '../../hooks/useTheme';
+import { calcMatchScore } from '../../utils/scoring';
 import CourtRecorder from './CourtRecorder';
 
 export default function FreeMatchView({ teams, teamNames, teamColorIndices, gks, courtCount, allEvents, onRecordEvent, onUndoEvent, onDeleteEvent, onEditEvent, onFinishMatch, completedMatches, attendees, onGkChange, styles: s, isExtraRound }) {
@@ -45,8 +46,8 @@ export default function FreeMatchView({ teams, teamNames, teamColorIndices, gks,
       const mi = getMatchInfo(ci);
       if (!mi) continue;
       const evts = allEvents.filter(e => e.matchId === mi.matchId);
-      const homeScore = evts.filter(e => e.scoringTeam === mi.homeTeam).reduce((s, e) => s + (e.type === "owngoal" ? 2 : 1), 0);
-      const awayScore = evts.filter(e => e.scoringTeam === mi.awayTeam).reduce((s, e) => s + (e.type === "owngoal" ? 2 : 1), 0);
+      const homeScore = calcMatchScore(evts, mi.matchId, mi.homeTeam);
+      const awayScore = calcMatchScore(evts, mi.matchId, mi.awayTeam);
       results.push({ ...mi, homeScore, awayScore, court: courtCount2 ? (ci === 0 ? "A구장" : "B구장") : "", mercenaries: [] });
     }
     if (results.length === 0) { alert("진행 중인 경기가 없습니다"); return; }

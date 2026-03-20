@@ -138,6 +138,12 @@ function doPost(e) {
 
     if (action === "saveState") {
       return _jsonResponse(_saveGameState(body.state, body.team, body.gameId));
+    } else if (action === "loadState") {
+      return _jsonResponse(_loadGameState(requestTeam));
+    } else if (action === "getHistory") {
+      return _jsonResponse(_getHistory(requestTeam));
+    } else if (action === "getCumulativeBonus") {
+      return _jsonResponse(_getCumulativeBonus(requestTeam));
     } else if (action === "clearState") {
       return _jsonResponse(_clearGameState(body.team, body.gameId));
     } else if (action === "finalizeState") {

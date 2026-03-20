@@ -25,7 +25,10 @@ const FirebaseSync = {
         state: JSON.stringify(state),
         updatedAt: serverTimestamp(),
       });
-    } catch (e) { console.warn("Firebase 저장 실패:", e.message); }
+    } catch (e) {
+      console.warn("Firebase 저장 실패:", e.message);
+      throw e; // 호출부(autoSave)에서 syncStatus 'error' 표시
+    }
   },
 
   async loadAllActive(team) {

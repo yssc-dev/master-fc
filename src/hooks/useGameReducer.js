@@ -48,33 +48,34 @@ function gameReducer(state, action) {
     case 'RESTORE_STATE': {
       const s = action.state;
       const updates = {};
-      if (s.attendees) updates.attendees = s.attendees;
-      if (s.teamCount) updates.teamCount = s.teamCount;
-      if (s.courtCount) updates.courtCount = s.courtCount;
-      if (s.matchMode) updates.matchMode = s.matchMode;
-      if (s.rotations) updates.rotations = s.rotations;
-      if (s.teams) updates.teams = s.teams;
-      if (s.teamNames) updates.teamNames = s.teamNames;
-      if (s.teamColorIndices) updates.teamColorIndices = s.teamColorIndices;
-      if (s.gks) updates.gks = s.gks;
-      if (s.gksHistory) updates.gksHistory = s.gksHistory;
-      if (s.schedule) updates.schedule = s.schedule;
+      // 배열/객체 필드: != null 체크로 빈 배열([])과 빈 객체({})도 정상 복원
+      if (s.attendees != null) updates.attendees = s.attendees;
+      if (s.teamCount != null) updates.teamCount = s.teamCount;
+      if (s.courtCount != null) updates.courtCount = s.courtCount;
+      if (s.matchMode != null) updates.matchMode = s.matchMode;
+      if (s.rotations != null) updates.rotations = s.rotations;
+      if (s.teams != null) updates.teams = s.teams;
+      if (s.teamNames != null) updates.teamNames = s.teamNames;
+      if (s.teamColorIndices != null) updates.teamColorIndices = s.teamColorIndices;
+      if (s.gks != null) updates.gks = s.gks;
+      if (s.gksHistory != null) updates.gksHistory = s.gksHistory;
+      if (s.schedule != null) updates.schedule = s.schedule;
       if (s.currentRoundIdx != null) {
         // ★ 범위 보정: schedule 길이를 초과하면 마지막 라운드로 고정
         const maxIdx = (updates.schedule || s.schedule || state.schedule || []).length - 1;
         updates.currentRoundIdx = maxIdx >= 0 ? Math.min(s.currentRoundIdx, maxIdx) : s.currentRoundIdx;
       }
-      if (s.completedMatches) updates.completedMatches = s.completedMatches;
-      if (s.allEvents) updates.allEvents = s.allEvents;
+      if (s.completedMatches != null) updates.completedMatches = s.completedMatches;
+      if (s.allEvents != null) updates.allEvents = s.allEvents;
       if (s.isExtraRound != null) updates.isExtraRound = s.isExtraRound;
-      if (s.splitPhase) updates.splitPhase = s.splitPhase;
+      if (s.splitPhase != null) updates.splitPhase = s.splitPhase;
       if (s.viewingRoundIdx != null) {
         const maxIdx2 = (updates.schedule || s.schedule || state.schedule || []).length - 1;
         updates.viewingRoundIdx = maxIdx2 >= 0 ? Math.min(s.viewingRoundIdx, maxIdx2) : s.viewingRoundIdx;
       }
-      if (s.confirmedRounds) updates.confirmedRounds = s.confirmedRounds;
-      if (s.gameCreator) updates.gameCreator = s.gameCreator;
-      if (s.phase) updates.phase = s.phase;
+      if (s.confirmedRounds != null) updates.confirmedRounds = s.confirmedRounds;
+      if (s.gameCreator != null) updates.gameCreator = s.gameCreator;
+      if (s.phase != null) updates.phase = s.phase;
       return { ...state, ...updates };
     }
     case 'TOGGLE_ATTENDEE': {
