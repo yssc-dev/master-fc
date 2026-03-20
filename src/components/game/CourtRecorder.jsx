@@ -209,12 +209,12 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
     color: gk ? C.white : C.red,
   });
 
-  /** 인라인 액션 버튼 스타일 */
-  const inlineBtnStyle = (bg) => ({
-    border: "none", borderRadius: 6, padding: "6px 0", fontSize: 11,
-    fontWeight: 600, cursor: "pointer", lineHeight: 1, minWidth: 0,
-    background: bg, color: "#fff", flex: 1, textAlign: "center",
-    transition: "opacity 0.1s",
+  /** 인라인 액션 버튼 — 작고 반투명한 아이콘 버튼 */
+  const inlineBtnStyle = (color) => ({
+    border: "none", borderRadius: 4, padding: "0 5px", fontSize: 9,
+    fontWeight: 700, cursor: "pointer", lineHeight: 1,
+    background: `${color}30`, color, letterSpacing: -0.5,
+    transition: "background 0.1s", whiteSpace: "nowrap",
   });
 
   // selectAssist/selectScorer 모드에서는 인라인 버튼 숨김
@@ -227,22 +227,22 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
         const isMerc = mercsArr.includes(p);
         const isGk = (isHome ? homeGk : awayGk) === p;
         return (
-          <div key={p} style={{ display: "flex", gap: 2, marginBottom: 4, alignItems: "stretch" }}>
+          <div key={p} style={{ display: "flex", gap: 3, marginBottom: 3, alignItems: "center" }}>
             <button onClick={() => handlePlayerTap(p, isHome)} style={{ ...getPlayerStyle(p, isHome), flex: 1, marginBottom: 0, minWidth: 0 }}>
               {isGk && <span style={{ marginRight: 3, fontSize: 10 }}>🧤</span>}
               {isMerc && <span style={{ marginRight: 2, fontSize: 8, color: C.orange }}>용</span>}
               <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p}</span>
             </button>
             {showInlineButtons && (
-              <>
-                <button onClick={() => handleInlineGoal(p, isHome)} style={inlineBtnStyle(C.green)} title="골">⚽</button>
-                <button onClick={() => handleInlineAssist(p, isHome)} style={inlineBtnStyle(C.accent)} title="어시">🅰️</button>
-                <button onClick={() => handleInlineOwnGoal(p, isHome)} style={inlineBtnStyle(C.red)} title="자책골">🔴</button>
-              </>
+              <div style={{ display: "flex", gap: 2, flexShrink: 0 }}>
+                <button onClick={() => handleInlineGoal(p, isHome)} style={inlineBtnStyle(C.green)} title="골">골</button>
+                <button onClick={() => handleInlineAssist(p, isHome)} style={inlineBtnStyle(C.accent)} title="어시">A</button>
+                <button onClick={() => handleInlineOwnGoal(p, isHome)} style={inlineBtnStyle(C.red)} title="자책골">자책</button>
+              </div>
             )}
             {isMerc && (
               <button onClick={() => removeMerc(p)}
-                style={{ ...s.btnSm(C.redDim), padding: "4px 5px", fontSize: 8, minWidth: 20 }}>X</button>
+                style={{ ...s.btnSm(C.redDim), padding: "2px 4px", fontSize: 8, minWidth: 16, flexShrink: 0 }}>X</button>
             )}
           </div>
         );
