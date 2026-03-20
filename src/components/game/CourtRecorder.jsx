@@ -27,7 +27,7 @@ function GkDropdown({ currentGk, teamPlayers, allAttendees, teamColor, onSelect,
               ...s.btnSm(currentGk === p ? C.yellow : C.grayDarker, currentGk === p ? "#000" : C.white),
               padding: "6px 10px", fontSize: 12, fontWeight: currentGk === p ? 700 : 400,
             }}>
-            {currentGk === p && "🧤 "}{p}
+            {currentGk === p && "GK "}{p}
           </button>
         ))}
       </div>
@@ -203,13 +203,13 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
         return (
           <div key={p} style={{ display: "flex", gap: 3, marginBottom: 3, alignItems: "center" }}>
             <button onClick={() => handlePlayerTap(p, isHome)} style={{ ...getPlayerStyle(p, isHome), flex: 1, marginBottom: 0, minWidth: 0 }}>
-              {isGk && <span style={{ marginRight: 3, fontSize: 9, opacity: 0.8 }}>🧤GK</span>}
+              {isGk && <span style={{ marginRight: 3, fontSize: 9, opacity: 0.8 }}>GK</span>}
               {isMerc && <span style={{ marginRight: 2, fontSize: 8, color: C.orange }}>용</span>}
               <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p}</span>
             </button>
             {showInlineButtons && (
               <div style={{ display: "flex", gap: 3, flexShrink: 0 }}>
-                <button onClick={() => handleInlineGoal(p, isHome)} style={inlineBtnStyle(C.green)}>골</button>
+                <button onClick={() => handleInlineGoal(p, isHome)} style={inlineBtnStyle(C.green)}>⚽</button>
                 <button onClick={() => handleInlineOwnGoal(p, isHome)} style={inlineBtnStyle(C.red)}>자책</button>
               </div>
             )}
@@ -246,8 +246,7 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
             onClick={() => setGkDropdown(gkDropdown === "home" ? null : "home")}
             style={gkBtnStyle(homeGk, homeColor, "home")}
           >
-            <span style={{ fontSize: 11 }}>🧤</span>
-            <span>{homeGk || "GK 선택"}</span>
+            <span>{homeGk ? `GK ${homeGk}` : "GK 선택"}</span>
             <span style={{ fontSize: 9, opacity: 0.6 }}>▼</span>
           </button>
           {gkDropdown === "home" && (
@@ -267,8 +266,7 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
             onClick={() => setGkDropdown(gkDropdown === "away" ? null : "away")}
             style={gkBtnStyle(awayGk, awayColor, "away")}
           >
-            <span style={{ fontSize: 11 }}>🧤</span>
-            <span>{awayGk || "GK 선택"}</span>
+            <span>{awayGk ? `GK ${awayGk}` : "GK 선택"}</span>
             <span style={{ fontSize: 9, opacity: 0.6 }}>▼</span>
           </button>
           {gkDropdown === "away" && (
