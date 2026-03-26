@@ -340,6 +340,10 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
                   ? `${curRound}/${totalRounds} 라운드`
                   : `${completedCount}경기 완료`;
                 const attendeeCount = (gs.attendees || []).length;
+                // gameId = "g_1234567890" → 타임스탬프에서 날짜 추출
+                const gameTs = game.gameId?.startsWith("g_") ? parseInt(game.gameId.slice(2)) : null;
+                const gameDate = gameTs ? new Date(gameTs) : (game.savedAt ? new Date(game.savedAt) : null);
+                const dateFmt = gameDate ? `${gameDate.getMonth() + 1}/${gameDate.getDate()}` : "";
 
                 return (
                   <div key={game.gameId} style={{ ...ds.card, border: `1px solid ${C.green}44`, cursor: "pointer", marginBottom: 8 }}
@@ -347,6 +351,7 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                       <div style={{ flex: 1 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                          {dateFmt && <span style={{ fontSize: 12, color: C.gray, fontWeight: 600 }}>{dateFmt}</span>}
                           <span style={{ fontSize: 14, fontWeight: 700, color: C.white }}>{roundInfo}</span>
                           <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 4, background: "#22c55e22", color: "#22c55e", fontWeight: 600 }}>진행중</span>
                         </div>
