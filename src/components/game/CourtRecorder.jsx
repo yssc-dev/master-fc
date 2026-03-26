@@ -8,13 +8,16 @@ import EventLog from './EventLog';
  * 외부 인원 선택 시 자동으로 용병 등록 + GK 지정
  */
 function GkDropdown({ currentGk, teamPlayers, externalCandidates, opposingPlayers, onSelect, onSelectExternal, onClose, C, s }) {
+  const [showOpponent, setShowOpponent] = useState(false);
   return (
     <div style={{
       position: "absolute", top: "100%", left: 0, right: 0, zIndex: 50,
       background: C.card, borderRadius: "0 0 10px 10px", padding: 8,
       boxShadow: "0 4px 12px rgba(0,0,0,0.3)", border: `1px solid ${C.grayDark}`,
-      borderTop: "none", maxHeight: 240, overflowY: "auto",
+      borderTop: "none", maxHeight: 280, overflowY: "auto",
     }}>
+      {/* 우리 선수 */}
+      <div style={{ fontSize: 10, color: C.grayLight, fontWeight: 700, marginBottom: 4 }}>우리선수</div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
         {teamPlayers.map(p => (
           <button key={p} onClick={() => { onSelect(p); onClose(); }}
@@ -27,27 +30,34 @@ function GkDropdown({ currentGk, teamPlayers, externalCandidates, opposingPlayer
         ))}
       </div>
 
+      {/* 타팀선수 토글 */}
       {externalCandidates && externalCandidates.length > 0 && (
         <>
-          <div style={{ fontSize: 10, color: C.orange, fontWeight: 700, marginTop: 8, marginBottom: 4, borderTop: `1px solid ${C.grayDark}`, paddingTop: 6 }}>
-            외부 인원 (선택 시 용병+GK 자동 등록)
-          </div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-            {externalCandidates.map(p => {
-              const isOpposing = opposingPlayers.includes(p);
-              return (
-                <button key={p} onClick={() => { onSelectExternal(p); onClose(); }}
-                  style={{
-                    ...s.btnSm(C.grayDarker, isOpposing ? C.orange : C.white),
-                    padding: "6px 10px", fontSize: 12,
-                    border: isOpposing ? `1px dashed ${C.orange}` : "none",
-                  }}>
-                  {isOpposing && <span style={{ fontSize: 8, marginRight: 3 }}>상대</span>}
-                  {p}
-                </button>
-              );
-            })}
-          </div>
+          <button onClick={() => setShowOpponent(v => !v)}
+            style={{
+              ...s.btnSm(C.grayDarker, C.orange),
+              fontSize: 11, fontWeight: 700, marginTop: 8, width: "100%",
+              border: `1px dashed ${C.orange}`,
+            }}>
+            {showOpponent ? "- 타팀선수 닫기" : "+ 타팀선수"}
+          </button>
+          {showOpponent && (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 6 }}>
+              {externalCandidates.map(p => {
+                const isOpposing = opposingPlayers.includes(p);
+                return (
+                  <button key={p} onClick={() => { onSelectExternal(p); onClose(); }}
+                    style={{
+                      ...s.btnSm(C.grayDarker, C.orange),
+                      padding: "6px 10px", fontSize: 12,
+                      border: `1px dashed ${C.orange}`,
+                    }}>
+                    {p}{isOpposing ? "(상대팀)" : ""}
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </>
       )}
 
@@ -107,8 +117,9 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
 
   const homeMercs = mercs.filter(m => m.side === "home").map(m => m.player);
   const awayMercs = mercs.filter(m => m.side === "away").map(m => m.player);
-  const homePlayers = [...initHomePlayers, ...homeMercs].sort((a, b) => a.localeCompare(b, 'ko'));
-  const awayPlayers = [...initAwayPlayers, ...awayMercs].sort((a, b) => a.localeCompare(b, 'ko'));
+  // 상대팀 용병으로 간 선수는 원래 팀 명단에서 제외
+  const homePlayers = [...initHomePlayers.filter(p => !awayMercs.includes(p)), ...homeMercs].sort((a, b) => a.localeCompare(b, 'ko'));
+  const awayPlayers = [...initAwayPlayers.filter(p => !homeMercs.includes(p)), ...awayMercs].sort((a, b) => a.localeCompare(b, 'ko'));
 
   // 용병 후보: 해당 팀에 없는 모든 참석자 (상대팀 선수 포함)
   const getMercCandidates = (side) => {
