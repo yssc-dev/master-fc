@@ -145,6 +145,7 @@ function gameReducer(state, action) {
         completedMatches: newCompleted,
         currentRoundIdx: roundIdx,
         viewingRoundIdx: roundIdx,
+        earlyFinish: false,
       };
       // 6팀 스플릿 후 전반부 취소 시 스플릿 초기화
       if (state.splitPhase === "second") {

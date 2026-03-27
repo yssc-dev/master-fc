@@ -753,7 +753,9 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
               <button onClick={() => set('phase', 'summary')} style={{ ...s.btnSm(C.green, C.bg), fontSize: 11, fontWeight: 700 }}>경기마감</button>
             )}
             {matchMode === "schedule" && !allRoundsComplete && Object.keys(confirmedRounds).length > 0 && (
-              <button onClick={handleEarlyFinish} style={{ ...s.btnSm(C.orange, C.bg), fontSize: 11, fontWeight: 700 }}>조기마감</button>
+              earlyFinish
+                ? <button onClick={() => set('phase', 'summary')} style={{ ...s.btnSm(C.green, C.bg), fontSize: 11, fontWeight: 700 }}>최종집계</button>
+                : <button onClick={handleEarlyFinish} style={{ ...s.btnSm(C.orange, C.bg), fontSize: 11, fontWeight: 700 }}>조기마감</button>
             )}
             {teamContext?.role === "관리자" && (
               <button onClick={async () => {
