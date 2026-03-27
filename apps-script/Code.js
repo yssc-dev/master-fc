@@ -661,7 +661,7 @@ function _getPrevRankings(team) {
   // 최신 경기 제외하고 선수별 포인트 합산
   var stats = {};
   for (var j = 0; j < teamRows.length; j++) {
-    if (teamRows[j].date === latestDate) continue;
+    if (teamRows[j].date >= latestDate) continue;
     var r = teamRows[j].row;
     var name = String(r[1]).trim();
     if (!name) continue;
