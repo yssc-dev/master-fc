@@ -339,11 +339,9 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
         {membersLoading ? (
           <div style={{ textAlign: "center", color: C.gray, fontSize: 13, padding: 8 }}>불러오는 중...</div>
         ) : (
-          <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <colgroup>
-              <col style={{ width: 30 }} />
-              <col style={{ width: 70 }} />
-              {statCols.slice(1).map((_, i) => <col key={i} />)}
+              <col style={{ width: 28 }} />
             </colgroup>
             <thead>
               <tr>
