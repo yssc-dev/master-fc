@@ -350,15 +350,19 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
                 const gameDate = gameTs ? new Date(gameTs) : (game.savedAt ? new Date(game.savedAt) : null);
                 const dateFmt = gameDate ? `${gameDate.getMonth() + 1}/${gameDate.getDate()}` : "";
 
+                const isSummary = gs.phase === "summary";
                 return (
-                  <div key={game.gameId} style={{ ...ds.card, border: `1px solid ${C.green}44`, cursor: "pointer", marginBottom: 8 }}
+                  <div key={game.gameId} style={{ ...ds.card, border: `1px solid ${isSummary ? C.orange : C.green}44`, cursor: "pointer", marginBottom: 8 }}
                     onClick={() => onContinueGame(game.gameId)}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                       <div style={{ flex: 1 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
                           {dateFmt && <span style={{ fontSize: 12, color: C.gray, fontWeight: 600 }}>{dateFmt}</span>}
                           <span style={{ fontSize: 14, fontWeight: 700, color: C.white }}>{roundInfo}</span>
-                          <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 4, background: "#22c55e22", color: "#22c55e", fontWeight: 600 }}>진행중</span>
+                          {isSummary
+                            ? <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 4, background: `${C.orange}22`, color: C.orange, fontWeight: 600 }}>마감됨</span>
+                            : <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 4, background: "#22c55e22", color: "#22c55e", fontWeight: 600 }}>진행중</span>
+                          }
                         </div>
                         <div style={{ fontSize: 12, color: C.gray }}>
                           작성자: {creator} · {attendeeCount}명 · {gs.teamCount || "?"}팀

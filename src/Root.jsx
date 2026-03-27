@@ -54,7 +54,7 @@ export default function Root() {
 
     FirebaseSync.loadAllActive(teamName).then(fbGames => {
       if (fbGames.length > 0) {
-        const validGames = fbGames.filter(g => g.state && g.state.phase !== "setup" && g.state.phase !== "summary");
+        const validGames = fbGames.filter(g => g.state && g.state.phase !== "setup");
         if (validGames.length > 0) {
           setPendingGames(validGames);
           setCheckingPending(false);
@@ -63,7 +63,7 @@ export default function Root() {
       }
       // Firebase에 없으면 Apps Script에서 시도
       return AppSync.loadAllStates().then(appGames => {
-        const validGames = appGames.filter(g => g.state && g.state.phase !== "setup" && g.state.phase !== "summary");
+        const validGames = appGames.filter(g => g.state && g.state.phase !== "setup");
         setPendingGames(validGames);
       });
     }).catch(() => { }).finally(() => setCheckingPending(false));

@@ -143,7 +143,7 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
 
   /** 선수 이름 탭 — selectAssist/selectScorer 모드에서만 동작 */
   const handlePlayerTap = (player, isHome) => {
-    if (readOnly) { alert("확정된 라운드입니다. 수정하려면 확정취소를 먼저 진행해주세요."); return; }
+    if (readOnly) { readOnlyAlert(); return; }
     if (actionMode === "selectAssist" && pendingGoalPlayer) {
       if (player === pendingGoalPlayer.player) return;
       // 같은 팀만 어시스트 가능
@@ -160,8 +160,11 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
     }
   };
 
+  const readOnlyAlert = () => { alert("확정된 라운드입니다. 수정하려면 확정취소를 먼저 진행해주세요."); };
+
   /** ⚽ 인라인 버튼 — 바로 어시 선택 모드 진입 */
   const handleInlineGoal = (player, isHome) => {
+    if (readOnly) { readOnlyAlert(); return; }
     if (!checkGk()) return;
     setPendingGoalPlayer({ player, isHome });
     setActionMode("selectAssist");
@@ -169,6 +172,7 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
 
   /** 🔴 인라인 버튼 — 즉시 자책골 기록 */
   const handleInlineOwnGoal = (player, isHome) => {
+    if (readOnly) { readOnlyAlert(); return; }
     if (!checkGk()) return;
     const ownTeam = isHome ? homeTeam : awayTeam;
     const scoringTeam = isHome ? awayTeam : homeTeam;
@@ -291,7 +295,7 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
       <div style={{ display: "flex", gap: 6, marginBottom: 8, position: "relative" }}>
         <div style={{ flex: 1, position: "relative" }}>
           <button
-            onClick={() => setGkDropdown(gkDropdown === "home" ? null : "home")}
+            onClick={() => { if (readOnly) { readOnlyAlert(); return; } setGkDropdown(gkDropdown === "home" ? null : "home"); }}
             style={gkBtnStyle(homeGk, homeColor, "home")}
           >
             <span>{homeGk ? `GK ${homeGk}` : "GK 선택"}</span>
@@ -312,7 +316,7 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
         </div>
         <div style={{ flex: 1, position: "relative" }}>
           <button
-            onClick={() => setGkDropdown(gkDropdown === "away" ? null : "away")}
+            onClick={() => { if (readOnly) { readOnlyAlert(); return; } setGkDropdown(gkDropdown === "away" ? null : "away"); }}
             style={gkBtnStyle(awayGk, awayColor, "away")}
           >
             <span>{awayGk ? `GK ${awayGk}` : "GK 선택"}</span>
