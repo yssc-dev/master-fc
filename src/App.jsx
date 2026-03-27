@@ -926,7 +926,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
             return (
               <div key={i} style={{ ...s.card, background: m.isExtra ? `${C.orange}11` : C.card }}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                  <span style={{ fontSize: 11, color: C.gray }}>{m.matchId}{m.isExtra ? " (임시)" : ""}</span>
+                  <span style={{ fontSize: 11, color: C.gray }}>{(() => { const p = m.matchId.match(/^R(\d+)_C(\d+)$/); if (!p) return m.matchId; const court = courtCount === 2 ? (p[2] === "0" ? "A구장" : "B구장") : `매치${+p[2]+1}`; return `${p[1]}라운드 ${court}`; })()}{m.isExtra ? " (임시)" : ""}</span>
                   {m.court && <span style={{ fontSize: 10, color: C.gray }}>{m.court}</span>}
                 </div>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 12, fontSize: 16, fontWeight: 700 }}>
