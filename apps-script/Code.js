@@ -144,6 +144,8 @@ function doPost(e) {
       return _jsonResponse(_getHistory(requestTeam));
     } else if (action === "getCumulativeBonus") {
       return _jsonResponse(_getCumulativeBonus(requestTeam));
+    } else if (action === "getSheetList") {
+      return _jsonResponse(_getSheetList());
     } else if (action === "clearState") {
       return _jsonResponse(_clearGameState(body.team, body.gameId));
     } else if (action === "finalizeState") {
@@ -609,4 +611,17 @@ function _getCumulativeBonus(team) {
   }
 
   return { success: true, crova: crova, goguma: goguma };
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 시트 목록 조회
+// ═══════════════════════════════════════════════════════════════
+
+function _getSheetList() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheets = ss.getSheets();
+  var list = sheets.map(function(s) {
+    return { name: s.getName(), gid: s.getSheetId() };
+  });
+  return { success: true, sheets: list };
 }

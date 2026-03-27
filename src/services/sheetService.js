@@ -1,4 +1,6 @@
 import { SHEET_CONFIG } from '../config/constants';
+import { getSettings } from '../config/settings';
+import AuthUtil from './authUtil';
 
 function parseCSVLine(line) {
   const fields = [];
@@ -52,7 +54,9 @@ function parseCSV(text) {
 }
 
 export async function fetchSheetData() {
-  const resp = await fetch(SHEET_CONFIG.csvUrl(SHEET_CONFIG.dashboardGid));
+  const team = AuthUtil.getStored()?.team;
+  const s = getSettings(team);
+  const resp = await fetch(SHEET_CONFIG.csvUrlBySheet(s.sheetId, s.dashboardSheet));
   if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
   const text = await resp.text();
   const players = parseCSV(text);
@@ -76,7 +80,9 @@ export async function fetchSheetData() {
 }
 
 export async function fetchAttendanceData() {
-  const resp = await fetch(SHEET_CONFIG.csvUrl(SHEET_CONFIG.attendanceGid));
+  const team2 = AuthUtil.getStored()?.team;
+  const s2 = getSettings(team2);
+  const resp = await fetch(SHEET_CONFIG.csvUrlBySheet(s2.sheetId, s2.attendanceSheet));
   if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
   const text = await resp.text();
   const lines = text.split('\n');

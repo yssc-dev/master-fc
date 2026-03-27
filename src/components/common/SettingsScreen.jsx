@@ -1,12 +1,20 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTheme } from '../../hooks/useTheme';
 import { getSettings, saveSettings, getDefaults } from '../../config/settings';
+import AppSync from '../../services/appSync';
 
 export default function SettingsScreen({ teamName, onBack }) {
   const { C } = useTheme();
   const [settings, setSettings] = useState(() => getSettings(teamName));
   const defaults = getDefaults();
   const [saved, setSaved] = useState(false);
+  const [sheetList, setSheetList] = useState([]);
+  const [loadingSheets, setLoadingSheets] = useState(false);
+
+  useEffect(() => {
+    setLoadingSheets(true);
+    AppSync.getSheetList().then(list => setSheetList(list)).finally(() => setLoadingSheets(false));
+  }, []);
 
   const update = (key, value) => {
     setSettings(prev => ({ ...prev, [key]: value }));
@@ -31,23 +39,49 @@ export default function SettingsScreen({ teamName, onBack }) {
     header: { background: C.headerBg, padding: 16, textAlign: "center", position: "sticky", top: 0, zIndex: 100 },
     section: { padding: "0 16px", marginBottom: 20 },
     sectionTitle: { fontSize: 14, fontWeight: 700, color: C.white, marginBottom: 10, paddingTop: 16, borderTop: `1px solid ${C.grayDarker}` },
-    label: { fontSize: 12, color: C.gray, marginBottom: 4, display: "block" },
-    input: {
-      width: "100%", padding: "8px 10px", borderRadius: 8, border: `1px solid ${C.grayDark}`,
-      background: C.card, color: C.white, fontSize: 13, outline: "none", boxSizing: "border-box",
+    row: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, gap: 8 },
+    label: { fontSize: 12, color: C.gray, flex: 1 },
+    select: {
+      flex: 1, maxWidth: 200, padding: "8px 10px", borderRadius: 8, border: `1px solid ${C.grayDark}`,
+      background: C.card, color: C.white, fontSize: 12, outline: "none", appearance: "auto",
     },
-    row: { marginBottom: 12 },
-    numRow: { display: "flex", alignItems: "center", gap: 8, marginBottom: 10 },
+    input: {
+      flex: 1, maxWidth: 200, padding: "8px 10px", borderRadius: 8, border: `1px solid ${C.grayDark}`,
+      background: C.card, color: C.white, fontSize: 12, outline: "none", boxSizing: "border-box",
+    },
     numInput: {
       width: 70, padding: "6px 8px", borderRadius: 6, border: `1px solid ${C.grayDark}`,
       background: C.card, color: C.white, fontSize: 13, textAlign: "center", outline: "none",
     },
-    hint: { fontSize: 10, color: C.grayDark, marginTop: 2 },
+    hint: { fontSize: 10, color: C.grayDark },
     btn: (bg, color) => ({
       padding: "10px 16px", borderRadius: 8, border: "none", background: bg, color: color || C.white,
       fontSize: 14, fontWeight: 600, cursor: "pointer", width: "100%",
     }),
   };
+
+  const SheetSelect = ({ value, onChange, label }) => (
+    <div style={ss.row}>
+      <span style={ss.label}>{label}</span>
+      {sheetList.length > 0 ? (
+        <select style={ss.select} value={value} onChange={e => onChange(e.target.value)}>
+          {!sheetList.find(s => s.name === value) && <option value={value}>{value}</option>}
+          {sheetList.map(s => <option key={s.gid} value={s.name}>{s.name}</option>)}
+        </select>
+      ) : (
+        <input style={ss.input} value={value} onChange={e => onChange(e.target.value)}
+          placeholder={loadingSheets ? "불러오는 중..." : "시트 이름 입력"} />
+      )}
+    </div>
+  );
+
+  const NumRow = ({ label, value, onChange, defaultVal, suffix }) => (
+    <div style={ss.row}>
+      <span style={ss.label}>{label}</span>
+      <input type="number" style={ss.numInput} value={value} onChange={e => onChange(Number(e.target.value))} />
+      <span style={ss.hint}>기본: {defaultVal}{suffix || ""}</span>
+    </div>
+  );
 
   return (
     <div style={ss.container}>
@@ -59,71 +93,33 @@ export default function SettingsScreen({ teamName, onBack }) {
       <div style={ss.section}>
         <div style={ss.sectionTitle}>구글시트 설정</div>
 
-        <div style={ss.row}>
-          <label style={ss.label}>구글시트 ID</label>
-          <input style={ss.input} value={settings.sheetId} onChange={e => update("sheetId", e.target.value)} />
+        <div style={{ marginBottom: 12 }}>
+          <div style={{ fontSize: 12, color: C.gray, marginBottom: 4 }}>구글시트 ID</div>
+          <input style={{ ...ss.input, maxWidth: "100%", width: "100%" }} value={settings.sheetId}
+            onChange={e => update("sheetId", e.target.value)} />
           <div style={ss.hint}>구글시트 URL에서 /d/ 뒤의 값</div>
         </div>
 
-        <div style={ss.row}>
-          <label style={ss.label}>참석명단 시트 GID</label>
-          <input style={ss.input} value={settings.attendanceGid} onChange={e => update("attendanceGid", e.target.value)} />
-          <div style={ss.hint}>시트 탭 URL의 gid= 값</div>
-        </div>
-
-        <div style={ss.row}>
-          <label style={ss.label}>대시보드(선수별집계) 시트 GID</label>
-          <input style={ss.input} value={settings.dashboardGid} onChange={e => update("dashboardGid", e.target.value)} />
-        </div>
-
-        <div style={ss.row}>
-          <label style={ss.label}>포인트로그 저장 시트 이름</label>
-          <input style={ss.input} value={settings.pointLogSheet} onChange={e => update("pointLogSheet", e.target.value)} />
-          <div style={ss.hint}>Apps Script Code.js의 POINT_LOG_SHEET와 일치해야 함</div>
-        </div>
-
-        <div style={ss.row}>
-          <label style={ss.label}>선수별집계 저장 시트 이름</label>
-          <input style={ss.input} value={settings.playerLogSheet} onChange={e => update("playerLogSheet", e.target.value)} />
-          <div style={ss.hint}>Apps Script Code.js의 PLAYER_LOG_SHEET와 일치해야 함</div>
-        </div>
+        <SheetSelect label="참석명단 시트" value={settings.attendanceSheet} onChange={v => update("attendanceSheet", v)} />
+        <SheetSelect label="대시보드 시트" value={settings.dashboardSheet} onChange={v => update("dashboardSheet", v)} />
+        <SheetSelect label="포인트로그 시트" value={settings.pointLogSheet} onChange={v => update("pointLogSheet", v)} />
+        <SheetSelect label="선수별집계 시트" value={settings.playerLogSheet} onChange={v => update("playerLogSheet", v)} />
       </div>
 
       <div style={ss.section}>
         <div style={ss.sectionTitle}>경기규칙 설정</div>
+        <NumRow label="자책골 포인트" value={settings.ownGoalPoint} onChange={v => update("ownGoalPoint", v)} defaultVal={defaults.ownGoalPoint} />
+        <NumRow label="크로바(1위팀)" value={settings.crovaPoint} onChange={v => update("crovaPoint", v)} defaultVal={defaults.crovaPoint} />
+        <NumRow label="고구마(꼴찌팀)" value={settings.gogumaPoint} onChange={v => update("gogumaPoint", v)} defaultVal={defaults.gogumaPoint} />
+        <NumRow label="황금크로바/탄고구마" value={settings.bonusMultiplier} onChange={v => update("bonusMultiplier", v)} defaultVal={defaults.bonusMultiplier} suffix="배" />
 
-        <div style={ss.numRow}>
-          <label style={{ ...ss.label, flex: 1, marginBottom: 0 }}>자책골 포인트</label>
-          <input type="number" style={ss.numInput} value={settings.ownGoalPoint}
-            onChange={e => update("ownGoalPoint", Number(e.target.value))} />
-          <span style={{ fontSize: 10, color: C.grayDark }}>기본: {defaults.ownGoalPoint}</span>
-        </div>
-
-        <div style={ss.numRow}>
-          <label style={{ ...ss.label, flex: 1, marginBottom: 0 }}>크로바(1위팀) 포인트</label>
-          <input type="number" style={ss.numInput} value={settings.crovaPoint}
-            onChange={e => update("crovaPoint", Number(e.target.value))} />
-          <span style={{ fontSize: 10, color: C.grayDark }}>기본: {defaults.crovaPoint}</span>
-        </div>
-
-        <div style={ss.numRow}>
-          <label style={{ ...ss.label, flex: 1, marginBottom: 0 }}>고구마(꼴찌팀) 포인트</label>
-          <input type="number" style={ss.numInput} value={settings.gogumaPoint}
-            onChange={e => update("gogumaPoint", Number(e.target.value))} />
-          <span style={{ fontSize: 10, color: C.grayDark }}>기본: {defaults.gogumaPoint}</span>
-        </div>
-
-        <div style={ss.numRow}>
-          <label style={{ ...ss.label, flex: 1, marginBottom: 0 }}>황금크로바/탄고구마 배율</label>
-          <input type="number" style={ss.numInput} value={settings.bonusMultiplier}
-            onChange={e => update("bonusMultiplier", Number(e.target.value))} />
-          <span style={{ fontSize: 10, color: C.grayDark }}>기본: {defaults.bonusMultiplier}배</span>
-        </div>
-
-        <div style={{ fontSize: 11, color: C.gray, background: C.card, borderRadius: 8, padding: 10, marginTop: 4 }}>
-          시즌 누적 1위가 1위팀 소속 → 크로바 ×{settings.bonusMultiplier}<br/>
-          시즌 누적 꼴찌가 꼴찌팀 소속 → 고구마 ×{settings.bonusMultiplier}
-        </div>
+        <details style={{ fontSize: 11, color: C.gray, marginTop: 4 }}>
+          <summary style={{ cursor: "pointer", padding: "6px 0" }}>황금크로바 / 탄고구마 설명</summary>
+          <div style={{ background: C.card, borderRadius: 8, padding: 10, marginTop: 4 }}>
+            시즌 누적 크로바 1위가 꼴등팀 소속 → 고구마 ×{settings.bonusMultiplier}<br/>
+            시즌 누적 고구마 1위가 1등팀 소속 → 크로바 ×{settings.bonusMultiplier}
+          </div>
+        </details>
       </div>
 
       <div style={{ padding: "0 16px 24px", display: "flex", flexDirection: "column", gap: 8 }}>

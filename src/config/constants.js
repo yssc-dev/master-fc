@@ -24,10 +24,8 @@ export const C = {
 // - 시트 이름 변경 시: Code.js 상단 변수 수정 + Apps Script 재배포 필요
 export const SHEET_CONFIG = {
   sheetId: import.meta.env.VITE_SHEET_ID || "1cM4UhB-nL6smf4OIn_lqQ0on1AtYG2ff_haIXBvXnK0",
-  dashboardGid: import.meta.env.VITE_DASHBOARD_GID || "191499825",
-  attendanceGid: import.meta.env.VITE_ATTENDANCE_GID || "2005957412",
-  csvUrl(gid) {
-    return `https://docs.google.com/spreadsheets/d/${this.sheetId}/gviz/tq?tqx=out:csv&gid=${gid}`;
+  csvUrlBySheet(sheetId, sheetName) {
+    return `https://docs.google.com/spreadsheets/d/${sheetId}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
   },
 };
 

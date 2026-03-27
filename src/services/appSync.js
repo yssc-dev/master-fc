@@ -70,6 +70,19 @@ const AppSync = {
     } catch (e) { console.warn("상태 확정 실패:", e.message); return null; }
   },
 
+  async getSheetList() {
+    if (!this.enabled()) return [];
+    try {
+      const resp = await fetch(APPS_SCRIPT_URL, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain" },
+        body: JSON.stringify({ action: "getSheetList", team: this._getTeam(), authToken: this._getAuthToken() }),
+      });
+      const data = await resp.json();
+      return data.sheets || [];
+    } catch (e) { console.warn("시트 목록 조회 실패:", e.message); return []; }
+  },
+
   async getHistory() {
     if (!this.enabled()) return [];
     try {

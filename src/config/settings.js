@@ -5,8 +5,8 @@ const SETTINGS_KEY = "masterfc_settings";
 const DEFAULTS = {
   // 구글시트 설정
   sheetId: SHEET_CONFIG.sheetId,
-  attendanceGid: SHEET_CONFIG.attendanceGid,
-  dashboardGid: SHEET_CONFIG.dashboardGid,
+  attendanceSheet: "참석명단",
+  dashboardSheet: "마스터FC 대시보드",
   pointLogSheet: "포인트로그",
   playerLogSheet: "선수별집계기록로그",
   // 경기규칙 설정
@@ -30,7 +30,6 @@ export function getSettings(team) {
 }
 
 export function saveSettings(team, settings) {
-  // 기본값과 같은 필드는 저장하지 않음
   const toSave = {};
   for (const key of Object.keys(settings)) {
     if (settings[key] !== DEFAULTS[key]) {
