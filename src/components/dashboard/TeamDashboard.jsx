@@ -19,7 +19,7 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
       .then(data => { setMembers(data.players || []); setKeepers(data.keepers || []); })
       .catch(() => setMembers([]))
       .finally(() => setMembersLoading(false));
-    AppSync.getPrevRankings().then(r => setPrevRanks(r)).catch(() => {});
+    AppSync.getPrevRankings().then(r => { console.log("prevRanks:", r); setPrevRanks(r); }).catch(() => {});
   }, []);
 
   const ds = useMemo(() => ({
@@ -307,13 +307,15 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
                 return (
                   <tr key={i} style={{ background: isTop3 ? `${C.accent}08` : "transparent" }}>
                     <td style={{ ...ds.tdStyle(false), padding: "5px 1px" }}>{rankBadge(rank)}</td>
-                    <td style={{ ...ds.tdStyle(true), textAlign: "left", paddingLeft: 4, whiteSpace: "nowrap" }}>
-                      {p.name}
-                      {diff !== 0 && (
-                        <span style={{ fontSize: 8, fontWeight: 700, color: diff > 0 ? "#ef4444" : "#3b82f6", marginLeft: 3 }}>
-                          {diff > 0 ? `▲${diff}` : `▼${Math.abs(diff)}`}
-                        </span>
-                      )}
+                    <td style={{ ...ds.tdStyle(true), textAlign: "left", paddingLeft: 4 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <span>{p.name}</span>
+                        {diff !== 0 && (
+                          <span style={{ fontSize: 8, fontWeight: 700, color: diff > 0 ? "#ef4444" : "#3b82f6" }}>
+                            {diff > 0 ? `▲${diff}` : `▼${Math.abs(diff)}`}
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td style={ds.tdStyle(false)}>{p.games}</td>
                     <td style={ds.tdStyle(p.goals > 0)}>{p.goals}</td>
