@@ -277,7 +277,7 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
     });
     const map = {};
     prevMembers.forEach((p, i) => { map[p.name] = i + 1; });
-    console.log("prevRankMap:", map);
+    console.log("이전 랭킹:", Object.entries(map).sort((a, b) => a[1] - b[1]).map(([n, r]) => `${r}. ${n}`).join(", "));
     return map;
   }, [members, prevRanks]);
 
