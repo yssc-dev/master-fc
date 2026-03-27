@@ -297,11 +297,29 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
     { key: "concededRate", label: "실점률" },
   ];
 
+  // 포인트 기준 고정 랭킹 (대시보드 정렬과 동일)
+  const pointRankMap = useMemo(() => {
+    const sorted = [...members].sort((a, b) => {
+      if (b.point !== a.point) return b.point - a.point;
+      if (a.ownGoals !== b.ownGoals) return a.ownGoals - b.ownGoals;
+      if (a.goguma !== b.goguma) return a.goguma - b.goguma;
+      if (b.goals !== a.goals) return b.goals - a.goals;
+      if (b.assists !== a.assists) return b.assists - a.assists;
+      return b.cleanSheets - a.cleanSheets;
+    });
+    const map = {};
+    sorted.forEach((p, i) => { map[p.name] = i + 1; });
+    return map;
+  }, [members]);
+
   const sortedMembers = [...members].sort((a, b) => {
     if (statSort === "name") return a.name.localeCompare(b.name, "ko");
+    if (statSort === "point") {
+      // 포인트순은 대시보드 정렬과 동일
+      return (pointRankMap[a.name] || 999) - (pointRankMap[b.name] || 999);
+    }
     const primary = (b[statSort] || 0) - (a[statSort] || 0);
     if (primary !== 0) return primary;
-    if (statSort !== "point") { const d = (b.point || 0) - (a.point || 0); if (d !== 0) return d; }
     if (statSort !== "goals") { const d = (b.goals || 0) - (a.goals || 0); if (d !== 0) return d; }
     if (statSort !== "assists") { const d = (b.assists || 0) - (a.assists || 0); if (d !== 0) return d; }
     return a.name.localeCompare(b.name, "ko");
@@ -335,7 +353,7 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
             </thead>
             <tbody>
               {sortedMembers.map((p, i) => {
-                const rank = i + 1;
+                const rank = pointRankMap[p.name] || (i + 1);
                 const isTop3 = rank <= 3;
                 const prev = prevRankMap[p.name];
                 const diff = prev ? prev - rank : 0;
