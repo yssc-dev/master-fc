@@ -956,7 +956,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
           <button onClick={handleFinalize}
             style={{ ...s.btn(C.green), flex: 1, opacity: teamContext?.role === "관리자" ? 1 : 0.4 }}
             disabled={teamContext?.role !== "관리자"}>
-            {teamContext?.role === "관리자" ? "기록 확정" : "기록 확정 (관리자만)"}
+            {teamContext?.role === "관리자" ? "기록확정(구글시트로 데이터전송)" : "기록확정 (관리자만)"}
           </button>
         </div>
       </div>
