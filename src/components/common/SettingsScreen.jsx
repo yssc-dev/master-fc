@@ -77,9 +77,9 @@ export default function SettingsScreen({ teamName, onBack }) {
 
   const NumRow = ({ label, value, onChange, defaultVal, suffix }) => (
     <div style={ss.row}>
-      <span style={ss.label}>{label}</span>
+      <span style={{ ...ss.label, minWidth: 0 }}>{label}</span>
       <input type="number" style={ss.numInput} value={value} onChange={e => onChange(Number(e.target.value))} />
-      <span style={ss.hint}>기본: {defaultVal}{suffix || ""}</span>
+      <span style={{ ...ss.hint, width: 60, textAlign: "right", flexShrink: 0 }}>기본: {defaultVal}{suffix || ""}</span>
     </div>
   );
 
