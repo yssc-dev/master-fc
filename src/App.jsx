@@ -471,8 +471,14 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
     const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
     if (!confirm(`${d.getMonth() + 1}월 ${d.getDate()}일 풋살기록을 확정하시겠습니까?\n\n시트에 포인트로그 + 선수별집계를 저장합니다.`)) return;
 
+    const formatMatchId = (mid) => {
+      const p = mid?.match(/^R(\d+)_C(\d+)$/);
+      if (!p) return mid || "";
+      const court = courtCount === 2 ? (p[2] === "0" ? "A구장" : "B구장") : `매치${+p[2]+1}`;
+      return `${p[1]}라운드 ${court}`;
+    };
     const pointEvents = allEvents.filter(e => e.type === "goal" || e.type === "owngoal").map(e => ({
-      gameDate: dateStr, matchId: e.matchId || "",
+      gameDate: dateStr, matchId: formatMatchId(e.matchId),
       myTeam: e.team || "",
       opponentTeam: e.type === "goal" ? (e.concedingTeam || "") : (e.scoringTeam || ""),
       scorer: e.type === "goal" ? e.player : "", assist: e.assist || "",
