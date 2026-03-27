@@ -93,18 +93,30 @@ export default function HistoryView({ teamContext, onBack }) {
         {history.length === 0 ? (
           <div style={{ textAlign: "center", color: C.gray, padding: 40 }}>확정된 경기 기록이 없습니다</div>
         ) : (
-          history.map((h, i) => (
-            <div key={i} onClick={() => setSelectedGame(h)}
-              style={{ ...hs.card, cursor: "pointer", border: `1px solid ${C.grayDark}` }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <div>
-                  <div style={{ fontSize: 15, fontWeight: 700, color: C.white }}>{h.gameDate}</div>
-                  <div style={{ fontSize: 12, color: C.gray, marginTop: 2 }}>{h.summary || "경기 기록"}</div>
+          history.map((h, i) => {
+            // summary: "g_xxx | 작성자 | phase | 이벤트 N건 | 완료 M경기"
+            const parts = (h.summary || "").split("|").map(s => s.trim());
+            const creator = parts[1] || "";
+            const evtInfo = parts[3] || "";
+            const matchInfo = parts[4] || "";
+            // gameDate: "2026-03-27" → "2026/3/27"
+            const dateParts = (h.gameDate || "").split("-");
+            const dateFmt = dateParts.length === 3 ? `${dateParts[0]}/${+dateParts[1]}/${+dateParts[2]}` : h.gameDate;
+            return (
+              <div key={i} onClick={() => setSelectedGame(h)}
+                style={{ ...hs.card, cursor: "pointer", border: `1px solid ${C.grayDark}` }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div>
+                    <div style={{ fontSize: 15, fontWeight: 700, color: C.white }}>{dateFmt} 경기</div>
+                    <div style={{ fontSize: 12, color: C.gray, marginTop: 2 }}>
+                      {creator && `작성자: ${creator}`}{evtInfo && ` | ${evtInfo}`}{matchInfo && ` | ${matchInfo}`}
+                    </div>
+                  </div>
+                  <div style={{ fontSize: 12, color: C.accent, fontWeight: 600 }}>상세 ▶</div>
                 </div>
-                <div style={{ fontSize: 12, color: C.accent, fontWeight: 600 }}>상세 ▶</div>
               </div>
-            </div>
-          ))
+            );
+          })
         )}
         <button onClick={onBack}
           style={{ background: C.grayDark, color: C.white, border: "none", borderRadius: 8, padding: "10px 16px", fontSize: 14, fontWeight: 600, cursor: "pointer", width: "100%", marginTop: 12 }}>

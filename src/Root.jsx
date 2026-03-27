@@ -6,6 +6,7 @@ import LoginScreen from './components/auth/LoginScreen';
 import HomeScreen from './components/home/HomeScreen';
 import TeamDashboard from './components/dashboard/TeamDashboard';
 import HistoryView from './components/history/HistoryView';
+import SettingsScreen from './components/common/SettingsScreen';
 import App from './App';
 
 export default function Root() {
@@ -155,11 +156,15 @@ export default function Root() {
     return <TeamDashboard authUser={authUser} teamName={selectedTeamName} teamEntries={selectedTeamEntries}
       pendingGames={pendingGames} checkingPending={checkingPending}
       onStartGame={handleStartNew} onContinueGame={handleContinue}
-      onViewHistory={() => setScreen("history")} onSwitchTeam={handleSwitchTeam} onLogout={handleLogout} />;
+      onViewHistory={() => setScreen("history")} onSettings={() => setScreen("settings")} onSwitchTeam={handleSwitchTeam} onLogout={handleLogout} />;
   }
 
   if (screen === "history") {
     return <HistoryView teamContext={teamContext} onBack={() => setScreen("dashboard")} />;
+  }
+
+  if (screen === "settings") {
+    return <SettingsScreen teamName={selectedTeamName} onBack={() => setScreen("dashboard")} />;
   }
 
   return <App authUser={authUser} teamContext={teamContext} isNewGame={isNewGame} gameMode={gameMode} gameId={activeGameId}

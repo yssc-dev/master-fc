@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { fetchSheetData } from '../../services/sheetService';
 import { useTheme } from '../../hooks/useTheme';
 
-export default function TeamDashboard({ authUser, teamName, teamEntries, onStartGame, onContinueGame, onViewHistory, onSwitchTeam, onLogout, pendingGames = [], checkingPending }) {
+export default function TeamDashboard({ authUser, teamName, teamEntries, onStartGame, onContinueGame, onViewHistory, onSettings, onSwitchTeam, onLogout, pendingGames = [], checkingPending }) {
   const { C, mode, toggle } = useTheme();
   const [activeSport, setActiveSport] = useState(teamEntries[0]?.mode || "풋살");
   const [members, setMembers] = useState([]);
@@ -431,6 +431,9 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
             </button>
             <button onClick={onSwitchTeam} style={{ background: C.headerBtnBg, color: C.headerBtnColor, border: "none", borderRadius: 8, padding: "6px 12px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
               팀 전환
+            </button>
+            <button onClick={onSettings} style={{ background: C.headerBtnBg, color: C.headerBtnColor, border: "none", borderRadius: 8, padding: "6px 12px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+              설정
             </button>
             <button onClick={onLogout} style={{ background: "rgba(255,255,255,0.1)", color: C.headerBtnDimColor, border: "none", borderRadius: 8, padding: "6px 12px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
               로그아웃

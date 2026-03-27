@@ -10,6 +10,7 @@ import { fetchSheetData, fetchAttendanceData } from './services/sheetService';
 import AppSync from './services/appSync';
 import FirebaseSync from './services/firebaseSync';
 import { useGameReducer } from './hooks/useGameReducer';
+import { getSettings } from './config/settings';
 import { makeStyles } from './styles/theme';
 import PhaseIndicator from './components/common/PhaseIndicator';
 import Modal from './components/common/Modal';
@@ -20,6 +21,7 @@ import StandingsModal from './components/game/StandingsModal';
 import PlayerStatsModal from './components/game/PlayerStatsModal';
 
 export default function App({ authUser, teamContext, isNewGame, gameMode, gameId, onLogout, onBackToMenu }) {
+  const gameSettings = useMemo(() => getSettings(teamContext?.team), [teamContext?.team]);
   const [state, dispatch] = useGameReducer();
   const {
     phase, dataLoading, dataSource, seasonPlayers, seasonCrova, seasonGoguma,
@@ -308,20 +310,21 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
   const calcPlayerPoints = useCallback((player) => {
     const st = playerMatchStats[player];
     if (!st) return { total: 0, goals: 0, assists: 0, owngoals: 0, cleanSheets: 0, crova: 0, goguma: 0, conceded: 0, keeperGames: 0 };
-    let pts = st.goals + st.assists + st.owngoals * -2 + st.cleanSheets;
+    const { ownGoalPoint, crovaPoint, gogumaPoint, bonusMultiplier } = gameSettings;
+    let pts = st.goals + st.assists + st.owngoals * ownGoalPoint + st.cleanSheets;
     let crova = 0, goguma = 0;
     if ((allRoundsComplete || earlyFinish) && finalStandings.length > 0 && completedMatches.filter(m => !m.isExtra).length > 0) {
       const pt = getPlayerTeamName(player);
       const first = finalStandings[0], last = finalStandings[finalStandings.length - 1];
       const sgl = getSeasonLeader("goguma"), scl = getSeasonLeader("crova");
       let cm = 1, gm = 1;
-      if (sgl && getPlayerTeamName(sgl) === first.name) cm = 2;
-      if (scl && getPlayerTeamName(scl) === last.name) gm = 2;
-      if (pt === first.name) { crova = 2 * cm; pts += crova; }
-      if (pt === last.name) { goguma = -1 * gm; pts += goguma; }
+      if (sgl && getPlayerTeamName(sgl) === first.name) cm = bonusMultiplier;
+      if (scl && getPlayerTeamName(scl) === last.name) gm = bonusMultiplier;
+      if (pt === first.name) { crova = crovaPoint * cm; pts += crova; }
+      if (pt === last.name) { goguma = gogumaPoint * gm; pts += goguma; }
     }
     return { total: pts, goals: st.goals, assists: st.assists, owngoals: st.owngoals, cleanSheets: st.cleanSheets, crova, goguma, conceded: st.conceded, keeperGames: st.keeperGames };
-  }, [playerMatchStats, finalStandings, completedMatches, getPlayerTeamName, getSeasonLeader, allRoundsComplete, earlyFinish]);
+  }, [playerMatchStats, finalStandings, completedMatches, getPlayerTeamName, getSeasonLeader, allRoundsComplete, earlyFinish, gameSettings]);
 
   // Actions
   const handleGkChange = useCallback((teamIdx, player) => {
@@ -918,7 +921,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
                   <tr key={p.name}>
                     <td style={s.td(true)}>{p.name}<span style={{ fontSize: 10, color: C.gray, fontWeight: 400 }}>({p.team})</span></td>
                     <td style={s.td(p.goals > 0)}>{p.goals}</td><td style={s.td(p.assists > 0)}>{p.assists}</td>
-                    <td style={{ ...s.td(p.owngoals > 0), color: p.owngoals > 0 ? C.red : C.white }}>{p.owngoals > 0 ? p.owngoals * -2 : 0}</td>
+                    <td style={{ ...s.td(p.owngoals > 0), color: p.owngoals > 0 ? C.red : C.white }}>{p.owngoals > 0 ? p.owngoals * gameSettings.ownGoalPoint : 0}</td>
                     <td style={s.td(p.cleanSheets > 0)}>{p.cleanSheets}</td>
                     <td style={{ ...s.td(p.crova > 0), color: p.crova > 0 ? C.green : C.white }}>{p.crova || ""}</td>
                     <td style={{ ...s.td(p.goguma < 0), color: p.goguma < 0 ? C.red : C.white }}>{p.goguma || ""}</td>
