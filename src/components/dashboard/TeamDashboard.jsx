@@ -19,7 +19,10 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
       .then(data => { setMembers(data.players || []); setKeepers(data.keepers || []); })
       .catch(() => setMembers([]))
       .finally(() => setMembersLoading(false));
-    AppSync.getPrevRankings().then(r => { console.log("prevRanks:", r); setPrevRanks(r); }).catch(() => {});
+    AppSync.getLatestDeltas().then(deltas => {
+      console.log("latestDeltas:", deltas);
+      setPrevRanks(deltas); // store deltas, compute ranks in render
+    }).catch(() => {});
   }, []);
 
   const ds = useMemo(() => ({
@@ -245,6 +248,39 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
     </>
   );
 
+  // prevRanks에 저장된 deltas를 사용해 이전 랭킹 계산
+  const prevRankMap = useMemo(() => {
+    if (!prevRanks || Object.keys(prevRanks).length === 0 || members.length === 0) return {};
+    // 현재 대시보드 데이터에서 마지막 경기 증분을 빼서 이전 데이터 생성
+    const prevMembers = members.map(p => {
+      const d = prevRanks[p.name]; // delta from latest game
+      if (!d) return { ...p }; // no delta = no change in stats
+      return {
+        ...p,
+        goals: (p.goals || 0) - (d.goals || 0),
+        assists: (p.assists || 0) - (d.assists || 0),
+        ownGoals: (p.ownGoals || 0) - (d.ownGoals || 0),
+        cleanSheets: (p.cleanSheets || 0) - (d.cleanSheets || 0),
+        crova: (p.crova || 0) - (d.crova || 0),
+        goguma: (p.goguma || 0) - (d.goguma || 0),
+        point: (p.point || 0) - ((d.goals || 0) + (d.assists || 0) + (d.ownGoals || 0) * -2 + (d.cleanSheets || 0) + (d.crova || 0) + (d.goguma || 0)),
+      };
+    });
+    // 대시보드와 동일한 정렬: 포인트desc, 역주행asc, 고구마asc, 골desc, 어시desc, 클린시트desc
+    prevMembers.sort((a, b) => {
+      if (b.point !== a.point) return b.point - a.point;
+      if (a.ownGoals !== b.ownGoals) return a.ownGoals - b.ownGoals;
+      if (a.goguma !== b.goguma) return a.goguma - b.goguma;
+      if (b.goals !== a.goals) return b.goals - a.goals;
+      if (b.assists !== a.assists) return b.assists - a.assists;
+      return b.cleanSheets - a.cleanSheets;
+    });
+    const map = {};
+    prevMembers.forEach((p, i) => { map[p.name] = i + 1; });
+    console.log("prevRankMap:", map);
+    return map;
+  }, [members, prevRanks]);
+
   const [statSort, setStatSort] = useState("point");
   const statCols = [
     { key: "name", label: "선수" },
@@ -301,9 +337,8 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
               {sortedMembers.map((p, i) => {
                 const rank = i + 1;
                 const isTop3 = rank <= 3;
-                const prev = prevRanks[p.name];
-                const hasPrev = prev != null;
-                const diff = hasPrev ? prev - rank : 0;
+                const prev = prevRankMap[p.name];
+                const diff = prev ? prev - rank : 0;
                 return (
                   <tr key={i} style={{ background: isTop3 ? `${C.accent}08` : "transparent" }}>
                     <td style={{ ...ds.tdStyle(false), padding: "5px 1px" }}>{rankBadge(rank)}</td>

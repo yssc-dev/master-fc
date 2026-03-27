@@ -70,7 +70,7 @@ const AppSync = {
     } catch (e) { console.warn("상태 확정 실패:", e.message); return null; }
   },
 
-  async getPrevRankings() {
+  async getLatestDeltas() {
     if (!this.enabled()) return {};
     try {
       const team = this._getTeam();
@@ -80,8 +80,8 @@ const AppSync = {
         body: JSON.stringify({ action: "getPrevRankings", team, authToken: this._getAuthToken() }),
       });
       const data = await resp.json();
-      return data.prevRanks || {};
-    } catch (e) { console.warn("이전 랭킹 조회 실패:", e.message); return {}; }
+      return data.latestDeltas || {};
+    } catch (e) { console.warn("최신 증분 조회 실패:", e.message); return {}; }
   },
 
   async getSheetList() {
