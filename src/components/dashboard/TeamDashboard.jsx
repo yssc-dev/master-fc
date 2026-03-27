@@ -27,8 +27,8 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
     sectionTitle: { fontSize: 14, fontWeight: 700, color: C.gray, marginBottom: 8, display: "flex", alignItems: "center", gap: 6 },
     sportTab: (active) => ({ padding: "8px 16px", borderRadius: 20, fontSize: 13, fontWeight: 600, border: "none", cursor: "pointer", background: active ? C.accent : C.cardLight, color: active ? C.bg : C.gray }),
     btn: (bg, tc = "#fff") => ({ background: bg, color: tc, border: "none", borderRadius: 10, padding: "14px", fontSize: 15, fontWeight: 700, cursor: "pointer", width: "100%" }),
-    thStyle: { padding: "6px 3px", textAlign: "center", color: C.gray, borderBottom: `1px solid ${C.borderColor}`, fontWeight: 600, fontSize: 10, whiteSpace: "nowrap" },
-    tdStyle: (hl = false) => ({ padding: "6px 3px", textAlign: "center", borderBottom: `1px solid ${C.borderColor}`, fontWeight: hl ? 700 : 400, color: hl ? C.white : C.gray, fontSize: 11 }),
+    thStyle: { padding: "5px 2px", textAlign: "center", color: C.gray, borderBottom: `1px solid ${C.borderColor}`, fontWeight: 600, fontSize: 9, whiteSpace: "nowrap" },
+    tdStyle: (hl = false) => ({ padding: "5px 1px", textAlign: "center", borderBottom: `1px solid ${C.borderColor}`, fontWeight: hl ? 700 : 400, color: hl ? C.white : C.gray, fontSize: 10 }),
     mainTab: (active) => ({
       flex: 1, padding: "12px 8px", textAlign: "center", fontSize: 14, fontWeight: 700, border: "none", cursor: "pointer",
       background: active ? C.card : "transparent", color: active ? C.white : C.gray,
@@ -282,7 +282,7 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
         {membersLoading ? (
           <div style={{ textAlign: "center", color: C.gray, fontSize: 13, padding: 8 }}>불러오는 중...</div>
         ) : (
-          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 480 }}>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr>
                 <th style={ds.thStyle}>#</th>
