@@ -80,6 +80,7 @@ const AppSync = {
         body: JSON.stringify({ action: "getHistory", team, authToken: this._getAuthToken() }),
       });
       const data = await resp.json();
+      if (!data.success && data.error) console.warn("이력 조회 서버 오류:", data.error);
       return data.history || [];
     } catch (e) { console.warn("이력 조회 실패:", e.message); return []; }
   },

@@ -277,7 +277,14 @@ function _saveGameState(state, team, gameId) {
   if (!state) return { success: false, error: "state is empty" };
   if (!team) team = "기본팀";
   if (!gameId) gameId = state.gameId || "";
+  // 경기일자: gameId 타임스탬프(경기 생성 시점) 사용, 없으면 현재 날짜
   var gameDate = _kstDate();
+  if (gameId && gameId.indexOf("g_") === 0) {
+    try {
+      var ts = parseInt(gameId.substring(2), 10);
+      if (ts > 0) gameDate = Utilities.formatDate(new Date(ts), "Asia/Seoul", "yyyy-MM-dd");
+    } catch(e) {}
+  }
 
   var lock = LockService.getScriptLock();
   if (!lock.tryLock(10000)) return { success: false, error: "다른 저장이 진행 중입니다. 잠시 후 다시 시도하세요" };
