@@ -260,6 +260,7 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
         goals: (p.goals || 0) - (d.goals || 0),
         assists: (p.assists || 0) - (d.assists || 0),
         ownGoals: (p.ownGoals || 0) - (d.ownGoals || 0),
+        conceded: (p.conceded || 0) - (d.conceded || 0),
         cleanSheets: (p.cleanSheets || 0) - (d.cleanSheets || 0),
         crova: (p.crova || 0) - (d.crova || 0),
         goguma: (p.goguma || 0) - (d.goguma || 0),
