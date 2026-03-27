@@ -342,6 +342,7 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <colgroup>
               <col style={{ width: 28 }} />
+              <col style={{ width: 50 }} />
             </colgroup>
             <thead>
               <tr>
