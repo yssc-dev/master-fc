@@ -237,9 +237,6 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
             </div>
           )}
 
-          <div style={ds.section}>
-            <button onClick={onViewHistory} style={{ ...ds.btn(C.cardLight, C.white) }}>과거 경기 조회</button>
-          </div>
         </>
       )}
     </>
@@ -410,6 +407,10 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
           </div>
         </>
       )}
+
+      <div style={{ marginTop: 16 }}>
+        <button onClick={onViewHistory} style={{ ...ds.btn(C.cardLight, C.white), width: "100%" }}>과거 경기 조회</button>
+      </div>
     </div>
   );
 

@@ -467,9 +467,11 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
   };
 
   const handleFinalize = async () => {
-    const d = new Date();
-    const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-    if (!confirm(`${d.getMonth() + 1}월 ${d.getDate()}일 풋살기록을 확정하시겠습니까?\n\n시트에 포인트로그 + 선수별집계를 저장합니다.`)) return;
+    // 경기일자: 경기 생성 시점 (gameId = "g_timestamp")
+    const gameTs = gameId?.startsWith("g_") ? parseInt(gameId.slice(2)) : null;
+    const gameD = gameTs ? new Date(gameTs) : new Date();
+    const dateStr = `${gameD.getFullYear()}-${String(gameD.getMonth() + 1).padStart(2, "0")}-${String(gameD.getDate()).padStart(2, "0")}`;
+    if (!confirm(`${gameD.getMonth() + 1}월 ${gameD.getDate()}일 풋살기록을 확정하시겠습니까?\n\n시트에 포인트로그 + 선수별집계를 저장합니다.`)) return;
 
     const formatMatchId = (mid) => {
       const p = mid?.match(/^R(\d+)_C(\d+)$/);
@@ -477,6 +479,8 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
       const court = courtCount === 2 ? (p[2] === "0" ? "A구장" : "B구장") : `매치${+p[2]+1}`;
       return `${p[1]}라운드 ${court}`;
     };
+    // 입력시간: 구글시트로 데이터전송 시점
+    const inputTime = new Date().toLocaleString("ko-KR");
     const pointEvents = allEvents.filter(e => e.type === "goal" || e.type === "owngoal").map(e => ({
       gameDate: dateStr, matchId: formatMatchId(e.matchId),
       myTeam: e.team || "",
@@ -484,14 +488,13 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
       scorer: e.type === "goal" ? e.player : "", assist: e.assist || "",
       ownGoalPlayer: e.type === "owngoal" ? e.player : "",
       concedingGk: e.concedingGk || "",
-      inputTime: new Date(e.timestamp).toLocaleString("ko-KR"),
+      inputTime,
     }));
 
-    const now = new Date().toLocaleString("ko-KR");
     const playerData = attendees.map(p => {
       const pts = calcPlayerPoints(p);
       if (pts.goals === 0 && pts.assists === 0 && pts.owngoals === 0 && pts.conceded === 0 && pts.cleanSheets === 0 && pts.keeperGames === 0 && pts.crova === 0 && pts.goguma === 0) return null;
-      return { gameDate: dateStr, name: p, ...pts, inputTime: now };
+      return { gameDate: dateStr, name: p, ...pts, inputTime };
     }).filter(Boolean);
 
     try {
