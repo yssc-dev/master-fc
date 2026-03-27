@@ -192,10 +192,10 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
     gameCreator: state.gameCreator || authUser?.name || "알 수 없음",
     phase, teams, teamNames, teamColorIndices, gks, gksHistory, allEvents,
     completedMatches, schedule, currentRoundIdx, viewingRoundIdx, confirmedRounds, attendees,
-    teamCount, courtCount, matchMode, isExtraRound, splitPhase, rotations,
+    teamCount, courtCount, matchMode, isExtraRound, splitPhase, rotations, earlyFinish,
     lastEditor: authUser?.name || "알 수 없음",
     lastEditTime: Date.now(),
-  }), [phase, teams, teamNames, teamColorIndices, gks, gksHistory, allEvents, completedMatches, schedule, currentRoundIdx, viewingRoundIdx, confirmedRounds, attendees, teamCount, courtCount, matchMode, isExtraRound, splitPhase, rotations, authUser, gameId]);
+  }), [phase, teams, teamNames, teamColorIndices, gks, gksHistory, allEvents, completedMatches, schedule, currentRoundIdx, viewingRoundIdx, confirmedRounds, attendees, teamCount, courtCount, matchMode, isExtraRound, splitPhase, rotations, earlyFinish, authUser, gameId]);
 
   const autoSave = useCallback(() => {
     if (isSyncingRef.current) return;
@@ -909,7 +909,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
                   <tr key={p.name}>
                     <td style={s.td(true)}>{p.name}<span style={{ fontSize: 10, color: C.gray, fontWeight: 400 }}>({p.team})</span></td>
                     <td style={s.td(p.goals > 0)}>{p.goals}</td><td style={s.td(p.assists > 0)}>{p.assists}</td>
-                    <td style={{ ...s.td(p.owngoals > 0), color: p.owngoals > 0 ? C.red : C.white }}>{p.owngoals}</td>
+                    <td style={{ ...s.td(p.owngoals > 0), color: p.owngoals > 0 ? C.red : C.white }}>{p.owngoals > 0 ? p.owngoals * -2 : 0}</td>
                     <td style={s.td(p.cleanSheets > 0)}>{p.cleanSheets}</td>
                     <td style={{ ...s.td(p.crova > 0), color: p.crova > 0 ? C.green : C.white }}>{p.crova || ""}</td>
                     <td style={{ ...s.td(p.goguma < 0), color: p.goguma < 0 ? C.red : C.white }}>{p.goguma || ""}</td>
