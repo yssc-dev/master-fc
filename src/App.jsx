@@ -901,11 +901,11 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
           <div style={s.sectionTitle}>👤 선수별 기록</div>
           <div style={{ ...s.card, overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 480 }}>
-              <thead><tr>{["선수", "팀", "골", "어시", "역주행", "클린", "🍀", "🍠", "실점", "GK", "총점"].map(h => <th key={h} style={s.th}>{h}</th>)}</tr></thead>
+              <thead><tr>{["선수", "골", "어시", "역주행", "클린", "🍀", "🍠", "실점", "GK", "총점"].map(h => <th key={h} style={s.th}>{h}</th>)}</tr></thead>
               <tbody>
                 {playerRows.map(p => (
                   <tr key={p.name}>
-                    <td style={s.td(true)}>{p.name}</td><td style={s.td()}>{p.team}</td>
+                    <td style={s.td(true)}>{p.name}<span style={{ fontSize: 10, color: C.gray, fontWeight: 400 }}>({p.team})</span></td>
                     <td style={s.td(p.goals > 0)}>{p.goals}</td><td style={s.td(p.assists > 0)}>{p.assists}</td>
                     <td style={{ ...s.td(p.owngoals > 0), color: p.owngoals > 0 ? C.red : C.white }}>{p.owngoals}</td>
                     <td style={s.td(p.cleanSheets > 0)}>{p.cleanSheets}</td>
