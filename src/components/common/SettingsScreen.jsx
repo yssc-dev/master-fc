@@ -116,8 +116,8 @@ export default function SettingsScreen({ teamName, onBack }) {
         <details style={{ fontSize: 11, color: C.gray, marginTop: 4 }}>
           <summary style={{ cursor: "pointer", padding: "6px 0" }}>황금크로바 / 탄고구마 설명</summary>
           <div style={{ background: C.card, borderRadius: 8, padding: 10, marginTop: 4 }}>
-            시즌 누적 크로바 1위가 꼴등팀 소속 → 고구마 ×{settings.bonusMultiplier}<br/>
-            시즌 누적 고구마 1위가 1등팀 소속 → 크로바 ×{settings.bonusMultiplier}
+            시즌 누적 크로바 1위가 꼴등팀 소속 → 고구마 {settings.gogumaPoint} × {settings.bonusMultiplier} = {settings.gogumaPoint * settings.bonusMultiplier}<br/>
+            시즌 누적 고구마 1위가 1등팀 소속 → 크로바 {settings.crovaPoint} × {settings.bonusMultiplier} = {settings.crovaPoint * settings.bonusMultiplier}
           </div>
         </details>
       </div>
