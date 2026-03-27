@@ -306,17 +306,15 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
                 const diff = hasPrev ? prev - rank : 0;
                 return (
                   <tr key={i} style={{ background: isTop3 ? `${C.accent}08` : "transparent" }}>
-                    <td style={{ ...ds.tdStyle(false), padding: "5px 1px", whiteSpace: "nowrap" }}>
-                      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 1 }}>
-                        {rankBadge(rank)}
-                        {diff !== 0 && (
-                          <span style={{ fontSize: 8, fontWeight: 700, color: diff > 0 ? C.green : C.red }}>
-                            {diff > 0 ? `▲${diff}` : `▼${Math.abs(diff)}`}
-                          </span>
-                        )}
-                      </div>
+                    <td style={{ ...ds.tdStyle(false), padding: "5px 1px" }}>{rankBadge(rank)}</td>
+                    <td style={{ ...ds.tdStyle(true), textAlign: "left", paddingLeft: 4, whiteSpace: "nowrap" }}>
+                      {p.name}
+                      {diff !== 0 && (
+                        <span style={{ fontSize: 8, fontWeight: 700, color: diff > 0 ? C.green : C.red, marginLeft: 3 }}>
+                          {diff > 0 ? `▲${diff}` : `▼${Math.abs(diff)}`}
+                        </span>
+                      )}
                     </td>
-                    <td style={{ ...ds.tdStyle(true), textAlign: "left", paddingLeft: 4 }}>{p.name}</td>
                     <td style={ds.tdStyle(false)}>{p.games}</td>
                     <td style={ds.tdStyle(p.goals > 0)}>{p.goals}</td>
                     <td style={ds.tdStyle(p.assists > 0)}>{p.assists}</td>
