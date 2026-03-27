@@ -671,7 +671,6 @@ function _getPrevRankings(team) {
       goals: Number(data[j][2]) || 0,
       assists: Number(data[j][3]) || 0,
       ownGoals: Number(data[j][4]) || 0,
-      conceded: Number(data[j][5]) || 0,
       cleanSheets: Number(data[j][6]) || 0,
       crova: Number(data[j][7]) || 0,
       goguma: Number(data[j][8]) || 0,
