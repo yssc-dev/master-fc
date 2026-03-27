@@ -108,7 +108,7 @@ function MercPicker({ side, candidates, opposingPlayers, teamName, onAdd, onClos
   );
 }
 
-export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers, awayPlayers: initAwayPlayers, allEvents, onRecordEvent, onUndoEvent, onDeleteEvent, onEditEvent, onFinish, onMatchInfoUpdate, onGkChange, styles: s, courtLabel, attendees }) {
+export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers, awayPlayers: initAwayPlayers, allEvents, onRecordEvent, onUndoEvent, onDeleteEvent, onEditEvent, onFinish, onMatchInfoUpdate, onGkChange, styles: s, courtLabel, attendees, readOnly }) {
   const { C } = useTheme();
   const [actionMode, setActionMode] = useState(null);
   const [pendingGoalPlayer, setPendingGoalPlayer] = useState(null);
@@ -143,6 +143,7 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
 
   /** 선수 이름 탭 — selectAssist/selectScorer 모드에서만 동작 */
   const handlePlayerTap = (player, isHome) => {
+    if (readOnly) { alert("확정된 라운드입니다. 수정하려면 확정취소를 먼저 진행해주세요."); return; }
     if (actionMode === "selectAssist" && pendingGoalPlayer) {
       if (player === pendingGoalPlayer.player) return;
       // 같은 팀만 어시스트 가능
@@ -378,7 +379,7 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
         homeTeam={homeTeam} awayTeam={awayTeam}
         homeGk={homeGk} awayGk={awayGk}
         homeColor={homeColor} awayColor={awayColor}
-        onDeleteEvent={onDeleteEvent} onEditEvent={onEditEvent} styles={s}
+        onDeleteEvent={onDeleteEvent} onEditEvent={onEditEvent} styles={s} readOnly={readOnly}
       />
     </div>
   );

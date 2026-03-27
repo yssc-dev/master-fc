@@ -263,7 +263,12 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
 
   const sortedMembers = [...members].sort((a, b) => {
     if (statSort === "name") return a.name.localeCompare(b.name, "ko");
-    return (b[statSort] || 0) - (a[statSort] || 0);
+    const primary = (b[statSort] || 0) - (a[statSort] || 0);
+    if (primary !== 0) return primary;
+    if (statSort !== "point") { const d = (b.point || 0) - (a.point || 0); if (d !== 0) return d; }
+    if (statSort !== "goals") { const d = (b.goals || 0) - (a.goals || 0); if (d !== 0) return d; }
+    if (statSort !== "assists") { const d = (b.assists || 0) - (a.assists || 0); if (d !== 0) return d; }
+    return a.name.localeCompare(b.name, "ko");
   });
 
   const rankBadge = (rank) => {
@@ -338,7 +343,7 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
                 const completedCount = (gs.completedMatches || []).length;
                 const roundInfo = gs.matchMode === "schedule" && totalRounds > 0
                   ? `${curRound}/${totalRounds} 라운드`
-                  : `${completedCount}경기 완료`;
+                  : `${completedCount}매치 완료`;
                 const attendeeCount = (gs.attendees || []).length;
                 // gameId = "g_1234567890" → 타임스탬프에서 날짜 추출
                 const gameTs = game.gameId?.startsWith("g_") ? parseInt(game.gameId.slice(2)) : null;

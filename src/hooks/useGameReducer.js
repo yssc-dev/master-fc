@@ -34,6 +34,7 @@ const initialState = {
   isExtraRound: false,
   splitPhase: "first",
   gameCreator: "",
+  earlyFinish: false,
   matchModal: null,
   matchModal_sortKey: "total",
   playerSortMode: "point",
@@ -74,6 +75,7 @@ function gameReducer(state, action) {
         updates.viewingRoundIdx = maxIdx2 >= 0 ? Math.min(s.viewingRoundIdx, maxIdx2) : s.viewingRoundIdx;
       }
       if (s.confirmedRounds != null) updates.confirmedRounds = s.confirmedRounds;
+      if (s.earlyFinish != null) updates.earlyFinish = s.earlyFinish;
       if (s.gameCreator != null) updates.gameCreator = s.gameCreator;
       if (s.phase != null) updates.phase = s.phase;
       return { ...state, ...updates };
@@ -122,6 +124,36 @@ function gameReducer(state, action) {
       if (nextRoundIdx != null) {
         updates.currentRoundIdx = nextRoundIdx;
         updates.viewingRoundIdx = nextRoundIdx;
+      }
+      return { ...state, ...updates };
+    }
+    case 'UNCONFIRM_ROUND': {
+      const { roundIdx } = action;
+      const prefix = `R${roundIdx + 1}_`;
+      const newConfirmed = { ...state.confirmedRounds };
+      delete newConfirmed[roundIdx];
+      const restoredGks = state.gksHistory[roundIdx] || {};
+      const newGksHistory = { ...state.gksHistory };
+      delete newGksHistory[roundIdx];
+      const newCompleted = state.completedMatches.filter(
+        m => !m.matchId.startsWith(prefix) || m.isExtra
+      );
+      const updates = {
+        confirmedRounds: newConfirmed,
+        gks: restoredGks,
+        gksHistory: newGksHistory,
+        completedMatches: newCompleted,
+        currentRoundIdx: roundIdx,
+        viewingRoundIdx: roundIdx,
+      };
+      // 6팀 스플릿 후 전반부 취소 시 스플릿 초기화
+      if (state.splitPhase === "second") {
+        const firstHalfLen = state.teamCount === 6 && state.courtCount === 2 ? 6 : state.schedule.length;
+        const isFirstHalf = roundIdx < firstHalfLen;
+        if (isFirstHalf) {
+          updates.splitPhase = "first";
+          updates.schedule = state.schedule.slice(0, firstHalfLen);
+        }
       }
       return { ...state, ...updates };
     }

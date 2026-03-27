@@ -27,7 +27,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
     matchMode, rotations, draftMode, freeSelectTeam, teams, teamNames,
     teamColorIndices, gks, gksHistory, editingTeamName, moveSource, schedule, currentRoundIdx,
     viewingRoundIdx, confirmedRounds, completedMatches, allEvents, isExtraRound,
-    splitPhase, matchModal, matchModal_sortKey, playerSortMode,
+    splitPhase, earlyFinish, matchModal, matchModal_sortKey, playerSortMode,
   } = state;
 
   const set = (field, value) => dispatch({ type: 'SET_FIELD', field, value });
@@ -310,7 +310,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
     if (!st) return { total: 0, goals: 0, assists: 0, owngoals: 0, cleanSheets: 0, crova: 0, goguma: 0, conceded: 0, keeperGames: 0 };
     let pts = st.goals + st.assists + st.owngoals * -2 + st.cleanSheets;
     let crova = 0, goguma = 0;
-    if (allRoundsComplete && finalStandings.length > 0 && completedMatches.filter(m => !m.isExtra).length > 0) {
+    if ((allRoundsComplete || earlyFinish) && finalStandings.length > 0 && completedMatches.filter(m => !m.isExtra).length > 0) {
       const pt = getPlayerTeamName(player);
       const first = finalStandings[0], last = finalStandings[finalStandings.length - 1];
       const sgl = getSeasonLeader("goguma"), scl = getSeasonLeader("crova");
@@ -321,7 +321,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
       if (pt === last.name) { goguma = -1 * gm; pts += goguma; }
     }
     return { total: pts, goals: st.goals, assists: st.assists, owngoals: st.owngoals, cleanSheets: st.cleanSheets, crova, goguma, conceded: st.conceded, keeperGames: st.keeperGames };
-  }, [playerMatchStats, finalStandings, completedMatches, getPlayerTeamName, getSeasonLeader, allRoundsComplete]);
+  }, [playerMatchStats, finalStandings, completedMatches, getPlayerTeamName, getSeasonLeader, allRoundsComplete, earlyFinish]);
 
   // Actions
   const handleGkChange = useCallback((teamIdx, player) => {
@@ -452,6 +452,18 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
     const msg = results.map(r => `${r.court ? r.court + ": " : ""}${r.homeTeam} ${r.homeScore}:${r.awayScore} ${r.awayTeam}`).join("\n");
     if (!confirm(msg + "\n\n라운드 " + (viewingRoundIdx + 1) + " 결과를 확정하시겠습니까?")) return;
     confirmRound(viewingRoundIdx, results);
+  };
+
+  const handleUnconfirmRound = (roundIdx) => {
+    if (!confirm(`라운드 ${roundIdx + 1} 확정을 취소하시겠습니까?\n결과가 초기화되고 다시 수정할 수 있습니다.`)) return;
+    dispatch({ type: 'UNCONFIRM_ROUND', roundIdx });
+  };
+
+  const handleEarlyFinish = () => {
+    const confirmedCount = Object.keys(confirmedRounds).length;
+    if (!confirm(`${confirmedCount}/${schedule.length} 라운드만 진행되었습니다.\n확정된 라운드 결과로 경기를 마감하시겠습니까?`)) return;
+    dispatch({ type: 'SET_FIELD', field: 'earlyFinish', value: true });
+    set('phase', 'summary');
   };
 
   const handleFinalize = async () => {
@@ -725,7 +737,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
             <div style={s.title}>⚽ 경기 진행</div>
           </div>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-            <div style={s.subtitle}>{matchMode === "schedule" ? `${allRoundsComplete ? "전체 라운드 완료" : `라운드 ${currentRoundIdx + 1}/${schedule.length}`}` : `자유대전 · ${completedMatches.length}경기`}</div>
+            <div style={s.subtitle}>{matchMode === "schedule" ? `${allRoundsComplete ? "전체 라운드 완료" : `라운드 ${currentRoundIdx + 1}/${schedule.length}`}` : `자유대전 · ${completedMatches.length}매치`}</div>
             {AppSync.enabled() && syncStatus && (
               <div style={{ fontSize: 9, padding: "2px 6px", borderRadius: 4, background: syncStatus === "saved" ? "#22c55e22" : syncStatus === "saving" ? "#3b82f622" : "#ef444422", color: syncStatus === "saved" ? "#22c55e" : syncStatus === "saving" ? "#3b82f6" : "#ef4444", fontWeight: 600 }}>
                 {syncStatus === "saving" ? "저장 중..." : syncStatus === "saved" ? "저장됨" : "저장 실패"}
@@ -738,7 +750,10 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
             <button onClick={() => set('matchModal', 'standings')} style={{ ...s.btnSm(C.grayDark, C.white), fontSize: 11 }}>팀순위</button>
             <button onClick={() => set('matchModal', 'playerStats')} style={{ ...s.btnSm(C.grayDark, C.white), fontSize: 11 }}>개인기록</button>
             {(allRoundsComplete || matchMode === "free") && (
-              <button onClick={() => set('phase', 'summary')} style={{ ...s.btnSm(C.green, C.bg), fontSize: 11, fontWeight: 700 }}>게임마감</button>
+              <button onClick={() => set('phase', 'summary')} style={{ ...s.btnSm(C.green, C.bg), fontSize: 11, fontWeight: 700 }}>경기마감</button>
+            )}
+            {matchMode === "schedule" && !allRoundsComplete && Object.keys(confirmedRounds).length > 0 && (
+              <button onClick={handleEarlyFinish} style={{ ...s.btnSm(C.orange, C.bg), fontSize: 11, fontWeight: 700 }}>조기마감</button>
             )}
             {teamContext?.role === "관리자" && (
               <button onClick={async () => {
@@ -840,7 +855,11 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
                 라운드 {viewingRoundIdx + 1} 종료 확정
               </button>
             ) : viewRoundConfirmed ? (
-              <div style={{ flex: 1, textAlign: "center", color: C.green, fontWeight: 700, padding: 10 }}>라운드 {viewingRoundIdx + 1} 종료됨</div>
+              <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                <span style={{ color: C.green, fontWeight: 700, padding: 10 }}>라운드 {viewingRoundIdx + 1} 종료됨</span>
+                <button onClick={() => handleUnconfirmRound(viewingRoundIdx)}
+                  style={{ ...s.btnSm(C.orange, C.bg), fontSize: 11 }}>확정취소</button>
+              </div>
             ) : null}
           </div>
         )}
@@ -857,7 +876,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
       <div style={s.app}>
         <div style={s.header}>
           <div style={s.title}>📊 최종 집계</div>
-          <div style={s.subtitle}>{new Date().toLocaleDateString("ko-KR")} · {completedMatches.length}경기</div>
+          <div style={s.subtitle}>{new Date().toLocaleDateString("ko-KR")} · {completedMatches.length}매치</div>
         </div>
         <PhaseIndicator activeIndex={3} />
         <div style={s.section}>

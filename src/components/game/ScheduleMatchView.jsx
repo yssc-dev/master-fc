@@ -34,7 +34,7 @@ export default function ScheduleMatchView({ schedule, currentRoundIdx, viewingRo
         <div style={{ fontSize: 14, fontWeight: 700, color: C.white }}>
           라운드 {viewingRoundIdx + 1} / {schedule.length}
           <span style={{ fontSize: 11, marginLeft: 8, color: isConfirmed ? C.green : C.orange, fontWeight: 600 }}>
-            {isConfirmed ? "종료된게임" : "경기진행중"}
+            {isConfirmed ? "종료됨" : "진행중"}
           </span>
         </div>
         <button onClick={() => setViewingRoundIdx(Math.min(currentRoundIdx, viewingRoundIdx + 1))} disabled={viewingRoundIdx >= currentRoundIdx}
@@ -73,7 +73,7 @@ export default function ScheduleMatchView({ schedule, currentRoundIdx, viewingRo
           const isSecondHalf = splitPhase === "second" && viewingRoundIdx >= 6;
           const courtLabel = isSecondHalf
             ? (i === 0 ? "상위 리그" : "하위 리그")
-            : courtCount === 2 ? (i === 0 ? "A구장" : "B구장") : `경기${i + 1}`;
+            : courtCount === 2 ? (i === 0 ? "A구장" : "B구장") : `매치${i + 1}`;
           const courtColor = isSecondHalf
             ? (i === 0 ? C.green : C.orange)
             : (i === 0 ? C.accent : C.orange);
@@ -94,7 +94,7 @@ export default function ScheduleMatchView({ schedule, currentRoundIdx, viewingRo
         const isSecondHalf = splitPhase === "second" && viewingRoundIdx >= 6;
         const courtLabel = isSecondHalf
           ? (i === 0 ? "🏆 상위 리그" : "하위 리그")
-          : courtCount === 2 ? (i === 0 ? "A구장" : "B구장") : `경기 ${i + 1}`;
+          : courtCount === 2 ? (i === 0 ? "A구장" : "B구장") : `매치 ${i + 1}`;
         const courtColor = isSecondHalf
           ? (i === 0 ? C.green : C.orange)
           : (i === 0 ? C.accent : C.orange);
@@ -117,6 +117,7 @@ export default function ScheduleMatchView({ schedule, currentRoundIdx, viewingRo
             styles={s}
             courtLabel={courtLabel}
             attendees={attendees}
+            readOnly={isConfirmed}
           />
         </div>
         );

@@ -83,7 +83,7 @@ function SwipeableEvent({ children, onDelete, C }) {
   );
 }
 
-export default function EventLog({ matchEvents, allEvents, matchId, homePlayers, awayPlayers, homeTeam, awayTeam, homeGk, awayGk, homeColor, awayColor, onDeleteEvent, onEditEvent, styles: s }) {
+export default function EventLog({ matchEvents, allEvents, matchId, homePlayers, awayPlayers, homeTeam, awayTeam, homeGk, awayGk, homeColor, awayColor, onDeleteEvent, onEditEvent, styles: s, readOnly }) {
   const { C } = useTheme();
   const [editingEvent, setEditingEvent] = useState(null);
 
@@ -109,7 +109,8 @@ export default function EventLog({ matchEvents, allEvents, matchId, homePlayers,
     <div style={{ marginTop: 10 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
         <span style={{ fontSize: 12, fontWeight: 700, color: C.gray }}>경기 기록 ({matchEvents.length}건)</span>
-        <span style={{ fontSize: 10, color: C.grayDark }}>← 밀어서 삭제 | ✕ 버튼</span>
+        {!readOnly && <span style={{ fontSize: 10, color: C.grayDark }}>← 밀어서 삭제 | ✕ 버튼</span>}
+        {readOnly && <span style={{ fontSize: 10, color: C.orange }}>확정됨 (수정불가)</span>}
       </div>
       {matchEvents.map((e, localIdx) => {
         const globalIdx = e.id ? allEvents.findIndex(ae => ae.id === e.id) : allEvents.findIndex(ae => ae === e);
@@ -118,7 +119,10 @@ export default function EventLog({ matchEvents, allEvents, matchId, homePlayers,
         return (
           <SwipeableEvent
             key={localIdx}
-            onDelete={() => { onDeleteEvent(globalIdx); setEditingEvent(null); }}
+            onDelete={() => {
+              if (readOnly) { alert("확정된 라운드입니다. 수정하려면 확정취소를 먼저 진행해주세요."); return; }
+              onDeleteEvent(globalIdx); setEditingEvent(null);
+            }}
             C={C}
           >
             <div
@@ -129,7 +133,10 @@ export default function EventLog({ matchEvents, allEvents, matchId, homePlayers,
                 background: isEditing ? C.card : C.cardLight,
                 border: isEditing ? `1px solid ${C.accent}` : "none",
               }}
-              onClick={() => setEditingEvent(isEditing ? null : globalIdx)}
+              onClick={() => {
+                if (readOnly) { alert("확정된 라운드입니다. 수정하려면 확정취소를 먼저 진행해주세요."); return; }
+                setEditingEvent(isEditing ? null : globalIdx);
+              }}
             >
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                 <span style={{ fontSize: 14 }}>{e.type === "goal" ? "⚽" : "🔴"}</span>
@@ -147,14 +154,14 @@ export default function EventLog({ matchEvents, allEvents, matchId, homePlayers,
                   )}
                 </div>
                 <span style={{ color: e.scoringTeam === homeTeam ? homeColor?.bg : awayColor?.bg, fontSize: 11, fontWeight: 600, marginRight: 4 }}>{e.scoringTeam}</span>
-                <button
+                {!readOnly && <button
                   onClick={(ev) => { ev.stopPropagation(); onDeleteEvent(globalIdx); setEditingEvent(null); }}
                   style={{
                     background: `${C.red}30`, border: "none", borderRadius: 4,
                     color: C.red, fontSize: 10, fontWeight: 700, padding: "2px 6px",
                     cursor: "pointer", flexShrink: 0, lineHeight: 1.2,
                   }}
-                >✕</button>
+                >✕</button>}
               </div>
 
               {isEditing && (

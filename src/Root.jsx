@@ -163,5 +163,5 @@ export default function Root() {
   }
 
   return <App authUser={authUser} teamContext={teamContext} isNewGame={isNewGame} gameMode={gameMode} gameId={activeGameId}
-    onLogout={handleLogout} onBackToMenu={() => { setIsNewGame(false); setGameMode(null); setActiveGameId(null); setPendingGames([]); setScreen("dashboard"); }} />;
+    onLogout={handleLogout} onBackToMenu={() => { setIsNewGame(false); setGameMode(null); setActiveGameId(null); setScreen("dashboard"); if (selectedTeamName) checkPendingGames(selectedTeamName); else setPendingGames([]); }} />;
 }
