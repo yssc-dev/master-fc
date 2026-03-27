@@ -263,7 +263,7 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
         cleanSheets: (p.cleanSheets || 0) - (d.cleanSheets || 0),
         crova: (p.crova || 0) - (d.crova || 0),
         goguma: (p.goguma || 0) - (d.goguma || 0),
-        point: (p.point || 0) - ((d.goals || 0) + (d.assists || 0) + (d.ownGoals || 0) * -2 + (d.cleanSheets || 0) + (d.crova || 0) + (d.goguma || 0)),
+        point: (p.point || 0) - ((d.goals || 0) + (d.assists || 0) + (d.ownGoals || 0) + (d.cleanSheets || 0) + (d.crova || 0) + (d.goguma || 0)),
       };
     });
     // 대시보드와 동일한 정렬: 포인트desc, 역주행asc, 고구마asc, 골desc, 어시desc, 클린시트desc

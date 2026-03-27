@@ -497,7 +497,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
     const playerData = attendees.map(p => {
       const pts = calcPlayerPoints(p);
       if (pts.goals === 0 && pts.assists === 0 && pts.owngoals === 0 && pts.conceded === 0 && pts.cleanSheets === 0 && pts.keeperGames === 0 && pts.crova === 0 && pts.goguma === 0) return null;
-      return { gameDate: dateStr, name: p, ...pts, inputTime };
+      return { gameDate: dateStr, name: p, ...pts, owngoals: pts.owngoals * gameSettings.ownGoalPoint, inputTime };
     }).filter(Boolean);
 
     try {
