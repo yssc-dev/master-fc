@@ -302,7 +302,8 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
                 const rank = i + 1;
                 const isTop3 = rank <= 3;
                 const prev = prevRanks[p.name];
-                const diff = prev ? prev - rank : 0;
+                const hasPrev = prev != null;
+                const diff = hasPrev ? prev - rank : 0;
                 return (
                   <tr key={i} style={{ background: isTop3 ? `${C.accent}08` : "transparent" }}>
                     <td style={{ ...ds.tdStyle(false), padding: "5px 1px", whiteSpace: "nowrap" }}>

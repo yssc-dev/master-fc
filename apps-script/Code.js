@@ -643,13 +643,15 @@ function _getPrevRankings(team) {
   var data = sheet.getRange(2, 1, lastRow - 1, 12).getValues();
   // 열: 경기일자(0), 선수명(1), 골(2), 어시(3), 역주행(4), 실점(5), 클린시트(6), 크로바(7), 고구마(8), 키퍼경기수(9), 입력시간(10), 팀이름(11)
 
-  // 팀 필터 + 최신 경기일자 찾기
+  // 팀 필터 + 최신 경기일자 찾기 (Date 객체를 yyyy-MM-dd로 변환)
   var teamRows = [];
   var latestDate = "";
   for (var i = 0; i < data.length; i++) {
     var rowTeam = data[i][11] ? String(data[i][11]).trim() : "";
     if (rowTeam && rowTeam !== team) continue;
-    var dateStr = String(data[i][0]).trim();
+    var dateStr = data[i][0] instanceof Date
+      ? Utilities.formatDate(data[i][0], "Asia/Seoul", "yyyy-MM-dd")
+      : String(data[i][0]).trim();
     teamRows.push({ date: dateStr, row: data[i] });
     if (dateStr > latestDate) latestDate = dateStr;
   }
