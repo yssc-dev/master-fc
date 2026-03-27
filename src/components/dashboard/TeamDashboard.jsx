@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { fetchSheetData } from '../../services/sheetService';
+import AppSync from '../../services/appSync';
 import { useTheme } from '../../hooks/useTheme';
 
 export default function TeamDashboard({ authUser, teamName, teamEntries, onStartGame, onContinueGame, onViewHistory, onSettings, onSwitchTeam, onLogout, pendingGames = [], checkingPending }) {
@@ -8,6 +9,7 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
   const [members, setMembers] = useState([]);
   const [keepers, setKeepers] = useState([]);
   const [membersLoading, setMembersLoading] = useState(true);
+  const [prevRanks, setPrevRanks] = useState({});
   const [activeTab, setActiveTab] = useState("records");
 
   const activeEntry = teamEntries.find(e => e.mode === activeSport) || teamEntries[0];
@@ -17,6 +19,7 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
       .then(data => { setMembers(data.players || []); setKeepers(data.keepers || []); })
       .catch(() => setMembers([]))
       .finally(() => setMembersLoading(false));
+    AppSync.getPrevRankings().then(r => setPrevRanks(r)).catch(() => {});
   }, []);
 
   const ds = useMemo(() => ({
@@ -298,9 +301,20 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
               {sortedMembers.map((p, i) => {
                 const rank = i + 1;
                 const isTop3 = rank <= 3;
+                const prev = prevRanks[p.name];
+                const diff = prev ? prev - rank : 0;
                 return (
                   <tr key={i} style={{ background: isTop3 ? `${C.accent}08` : "transparent" }}>
-                    <td style={{ ...ds.tdStyle(false), padding: "6px 2px" }}>{rankBadge(rank)}</td>
+                    <td style={{ ...ds.tdStyle(false), padding: "5px 1px", whiteSpace: "nowrap" }}>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 1 }}>
+                        {rankBadge(rank)}
+                        {diff !== 0 && (
+                          <span style={{ fontSize: 8, fontWeight: 700, color: diff > 0 ? C.green : C.red }}>
+                            {diff > 0 ? `▲${diff}` : `▼${Math.abs(diff)}`}
+                          </span>
+                        )}
+                      </div>
+                    </td>
                     <td style={{ ...ds.tdStyle(true), textAlign: "left", paddingLeft: 4 }}>{p.name}</td>
                     <td style={ds.tdStyle(false)}>{p.games}</td>
                     <td style={ds.tdStyle(p.goals > 0)}>{p.goals}</td>

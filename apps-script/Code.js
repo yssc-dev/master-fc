@@ -146,6 +146,8 @@ function doPost(e) {
       return _jsonResponse(_getCumulativeBonus(requestTeam));
     } else if (action === "getSheetList") {
       return _jsonResponse(_getSheetList());
+    } else if (action === "getPrevRankings") {
+      return _jsonResponse(_getPrevRankings(requestTeam));
     } else if (action === "clearState") {
       return _jsonResponse(_clearGameState(body.team, body.gameId));
     } else if (action === "finalizeState") {
@@ -624,4 +626,72 @@ function _getSheetList() {
     return { name: s.getName(), gid: s.getSheetId() };
   });
   return { success: true, sheets: list };
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 이전 랭킹 계산 (마지막 경기 제외 누적 포인트 기반)
+// ═══════════════════════════════════════════════════════════════
+
+function _getPrevRankings(team) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(PLAYER_LOG_SHEET);
+  if (!sheet) return { success: true, prevRanks: {} };
+
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return { success: true, prevRanks: {} };
+
+  var data = sheet.getRange(2, 1, lastRow - 1, 12).getValues();
+  // 열: 경기일자(0), 선수명(1), 골(2), 어시(3), 역주행(4), 실점(5), 클린시트(6), 크로바(7), 고구마(8), 키퍼경기수(9), 입력시간(10), 팀이름(11)
+
+  // 팀 필터 + 최신 경기일자 찾기
+  var teamRows = [];
+  var latestDate = "";
+  for (var i = 0; i < data.length; i++) {
+    var rowTeam = data[i][11] ? String(data[i][11]).trim() : "";
+    if (rowTeam && rowTeam !== team) continue;
+    var dateStr = String(data[i][0]).trim();
+    teamRows.push({ date: dateStr, row: data[i] });
+    if (dateStr > latestDate) latestDate = dateStr;
+  }
+
+  if (!latestDate) return { success: true, prevRanks: {} };
+
+  // 최신 경기 제외하고 선수별 포인트 합산
+  var stats = {};
+  for (var j = 0; j < teamRows.length; j++) {
+    if (teamRows[j].date === latestDate) continue;
+    var r = teamRows[j].row;
+    var name = String(r[1]).trim();
+    if (!name) continue;
+    if (!stats[name]) stats[name] = { goals: 0, assists: 0, owngoals: 0, cleanSheets: 0, crova: 0, goguma: 0 };
+    stats[name].goals += Number(r[2]) || 0;
+    stats[name].assists += Number(r[3]) || 0;
+    stats[name].owngoals += Number(r[4]) || 0;
+    stats[name].cleanSheets += Number(r[6]) || 0;
+    stats[name].crova += Number(r[7]) || 0;
+    stats[name].goguma += Number(r[8]) || 0;
+  }
+
+  // 포인트 계산 및 정렬 (대시보드와 동일: 포인트 desc, 역주행 asc, 고구마 asc, 골 desc, 어시 desc, 클린시트 desc)
+  var ranked = Object.keys(stats).map(function(name) {
+    var s = stats[name];
+    var pt = s.goals + s.assists + s.owngoals * -2 + s.cleanSheets + s.crova + s.goguma;
+    return { name: name, point: pt, owngoals: s.owngoals, goguma: s.goguma, goals: s.goals, assists: s.assists, cleanSheets: s.cleanSheets };
+  });
+
+  ranked.sort(function(a, b) {
+    if (b.point !== a.point) return b.point - a.point;
+    if (a.owngoals !== b.owngoals) return a.owngoals - b.owngoals;
+    if (a.goguma !== b.goguma) return a.goguma - b.goguma;
+    if (b.goals !== a.goals) return b.goals - a.goals;
+    if (b.assists !== a.assists) return b.assists - a.assists;
+    return b.cleanSheets - a.cleanSheets;
+  });
+
+  var prevRanks = {};
+  for (var k = 0; k < ranked.length; k++) {
+    prevRanks[ranked[k].name] = k + 1;
+  }
+
+  return { success: true, prevRanks: prevRanks, latestDate: latestDate };
 }

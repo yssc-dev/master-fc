@@ -70,6 +70,20 @@ const AppSync = {
     } catch (e) { console.warn("상태 확정 실패:", e.message); return null; }
   },
 
+  async getPrevRankings() {
+    if (!this.enabled()) return {};
+    try {
+      const team = this._getTeam();
+      const resp = await fetch(APPS_SCRIPT_URL, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain" },
+        body: JSON.stringify({ action: "getPrevRankings", team, authToken: this._getAuthToken() }),
+      });
+      const data = await resp.json();
+      return data.prevRanks || {};
+    } catch (e) { console.warn("이전 랭킹 조회 실패:", e.message); return {}; }
+  },
+
   async getSheetList() {
     if (!this.enabled()) return [];
     try {
