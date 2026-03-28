@@ -711,7 +711,7 @@ function _getRankingHistory(team, allPlayers, customSheetName) {
 
     var dateStr = _toDateStr(data[i][0]);
     var name = String(data[i][1]).trim();
-    if (!name || !dateStr) continue;
+    if (!name || !dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) continue;
 
     if (!dateMap[dateStr]) dateMap[dateStr] = [];
     dateMap[dateStr].push({
