@@ -293,8 +293,13 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
       try {
         const allNames = members.map(m => m.name);
         const data = await AppSync.getRankingHistory(allNames);
-        console.log("rankingHistory dates:", data?.dates);
-        console.log("rankingHistory 서라현:", data?.players?.["서라현"]);
+        if (data) {
+          console.log("경기일자 목록:", data.dates);
+          console.log("총 선수수:", Object.keys(data.players || {}).length);
+          console.log("서라현 랭킹:", data.dates?.map((d, i) => `${d}→${data.players?.["서라현"]?.[i]}`).join(", "));
+        } else {
+          console.warn("rankingHistory: 데이터 없음");
+        }
         setRankingHistory(data);
       } catch (e) { console.warn("랭킹 히스토리 로드 실패:", e); }
       finally { setRankingLoading(false); }
