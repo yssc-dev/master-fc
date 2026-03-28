@@ -2,6 +2,8 @@ import { useState, useEffect, useMemo } from 'react';
 import { fetchSheetData } from '../../services/sheetService';
 import AppSync from '../../services/appSync';
 import { useTheme } from '../../hooks/useTheme';
+import Modal from '../common/Modal';
+import RankingCandlestickChart from './RankingCandlestickChart';
 
 export default function TeamDashboard({ authUser, teamName, teamEntries, onStartGame, onContinueGame, onViewHistory, onSettings, onSwitchTeam, onLogout, pendingGames = [], checkingPending }) {
   const { C, mode, toggle } = useTheme();
@@ -10,6 +12,9 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
   const [keepers, setKeepers] = useState([]);
   const [membersLoading, setMembersLoading] = useState(true);
   const [prevRanks, setPrevRanks] = useState({});
+  const [selectedPlayer, setSelectedPlayer] = useState(null);
+  const [rankingHistory, setRankingHistory] = useState(null);
+  const [rankingLoading, setRankingLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("records");
 
   const activeEntry = teamEntries.find(e => e.mode === activeSport) || teamEntries[0];
@@ -281,6 +286,18 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
     return map;
   }, [members, prevRanks]);
 
+  const handlePlayerClick = async (playerName) => {
+    setSelectedPlayer(playerName);
+    if (!rankingHistory) {
+      setRankingLoading(true);
+      try {
+        const data = await AppSync.getRankingHistory();
+        setRankingHistory(data);
+      } catch (e) { console.warn("랭킹 히스토리 로드 실패:", e); }
+      finally { setRankingLoading(false); }
+    }
+  };
+
   const [statSort, setStatSort] = useState("point");
   const statCols = [
     { key: "name", label: "선수" },
@@ -366,7 +383,8 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
                     <td style={{ ...ds.tdStyle(false), padding: "5px 1px" }}>{rankBadge(rank)}</td>
                     <td style={{ ...ds.tdStyle(true), textAlign: "left", paddingLeft: 4 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
-                        <span>{p.name}</span>
+                        <span onClick={() => handlePlayerClick(p.name)}
+                          style={{ cursor: "pointer", borderBottom: `1px dashed ${C.accent}44` }}>{p.name}</span>
                         {diff !== 0 && (
                           <span style={{ fontSize: 8, fontWeight: 700, color: diff > 0 ? "#ef4444" : "#3b82f6" }}>
                             {diff > 0 ? `▲${diff}` : `▼${Math.abs(diff)}`}
@@ -543,6 +561,23 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
         {activeTab === "roster" && renderRoster()}
         {activeTab === "games" && renderGames()}
       </div>
+
+      {selectedPlayer && (
+        <Modal onClose={() => setSelectedPlayer(null)} title={`${selectedPlayer} 랭킹 추이`}>
+          {rankingLoading ? (
+            <div style={{ textAlign: "center", padding: 20, color: C.gray }}>불러오는 중...</div>
+          ) : rankingHistory ? (
+            <RankingCandlestickChart
+              playerName={selectedPlayer}
+              rankingHistory={rankingHistory}
+              currentRank={pointRankMap[selectedPlayer]}
+              C={C}
+            />
+          ) : (
+            <div style={{ textAlign: "center", padding: 20, color: C.gray }}>데이터 없음</div>
+          )}
+        </Modal>
+      )}
     </div>
   );
 }

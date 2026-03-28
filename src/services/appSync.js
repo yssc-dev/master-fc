@@ -84,6 +84,20 @@ const AppSync = {
     } catch (e) { console.warn("최신 증분 조회 실패:", e.message); return {}; }
   },
 
+  async getRankingHistory() {
+    if (!this.enabled()) return null;
+    try {
+      const team = this._getTeam();
+      const resp = await fetch(APPS_SCRIPT_URL, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain" },
+        body: JSON.stringify({ action: "getRankingHistory", team, authToken: this._getAuthToken() }),
+      });
+      const data = await resp.json();
+      return data.rankingHistory || null;
+    } catch (e) { console.warn("랭킹 히스토리 조회 실패:", e.message); return null; }
+  },
+
   async getSheetList() {
     if (!this.enabled()) return [];
     try {

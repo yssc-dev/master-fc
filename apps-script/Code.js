@@ -148,6 +148,8 @@ function doPost(e) {
       return _jsonResponse(_getSheetList());
     } else if (action === "getPrevRankings") {
       return _jsonResponse(_getPrevRankings(requestTeam));
+    } else if (action === "getRankingHistory") {
+      return _jsonResponse(_getRankingHistory(requestTeam));
     } else if (action === "clearState") {
       return _jsonResponse(_clearGameState(body.team, body.gameId));
     } else if (action === "finalizeState") {
@@ -678,4 +680,104 @@ function _getPrevRankings(team) {
   }
 
   return { success: true, latestDeltas: deltas, latestDate: latestDate };
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 랭킹 히스토리 (캔들차트용 - 경기일자별 전체 선수 랭킹)
+// ═══════════════════════════════════════════════════════════════
+
+function _getRankingHistory(team) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(PLAYER_LOG_SHEET);
+  if (!sheet) return { success: true, rankingHistory: { dates: [], players: {} } };
+
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return { success: true, rankingHistory: { dates: [], players: {} } };
+
+  var data = sheet.getRange(2, 1, lastRow - 1, 12).getValues();
+
+  // 경기일자별 선수 데이터 그룹핑
+  var dateMap = {}; // { "2025-09-15": [ {name, goals, assists, ...} ] }
+  for (var i = 0; i < data.length; i++) {
+    var rowTeam = data[i][11] ? String(data[i][11]).trim() : "";
+    if (rowTeam && rowTeam !== team) continue;
+
+    var dateStr = data[i][0] instanceof Date
+      ? Utilities.formatDate(data[i][0], "Asia/Seoul", "yyyy-MM-dd")
+      : String(data[i][0]).trim();
+    var name = String(data[i][1]).trim();
+    if (!name || !dateStr) continue;
+
+    if (!dateMap[dateStr]) dateMap[dateStr] = [];
+    dateMap[dateStr].push({
+      name: name,
+      goals: Number(data[i][2]) || 0,
+      assists: Number(data[i][3]) || 0,
+      ownGoals: Number(data[i][4]) || 0,
+      cleanSheets: Number(data[i][6]) || 0,
+      crova: Number(data[i][7]) || 0,
+      goguma: Number(data[i][8]) || 0,
+    });
+  }
+
+  var sortedDates = Object.keys(dateMap).sort();
+  if (sortedDates.length === 0) return { success: true, rankingHistory: { dates: [], players: {} } };
+
+  // 경기일자별 누적 → 랭킹 계산
+  var cumulative = {}; // { name: { goals, assists, ownGoals, cleanSheets, crova, goguma } }
+  var resultDates = [];
+  var resultPlayers = {}; // { name: [rank1, rank2, ...] }
+
+  for (var d = 0; d < sortedDates.length; d++) {
+    var dt = sortedDates[d];
+    var rows = dateMap[dt];
+
+    // 해당 날짜 데이터 누적
+    for (var r = 0; r < rows.length; r++) {
+      var p = rows[r];
+      if (!cumulative[p.name]) cumulative[p.name] = { goals: 0, assists: 0, ownGoals: 0, cleanSheets: 0, crova: 0, goguma: 0 };
+      cumulative[p.name].goals += p.goals;
+      cumulative[p.name].assists += p.assists;
+      cumulative[p.name].ownGoals += p.ownGoals;
+      cumulative[p.name].cleanSheets += p.cleanSheets;
+      cumulative[p.name].crova += p.crova;
+      cumulative[p.name].goguma += p.goguma;
+    }
+
+    // 전체 선수 랭킹 계산
+    var ranked = Object.keys(cumulative).map(function(n) {
+      var s = cumulative[n];
+      var pt = s.goals + s.assists + s.ownGoals + s.cleanSheets + s.crova + s.goguma;
+      return { name: n, point: pt, ownGoals: s.ownGoals, goguma: s.goguma, goals: s.goals, assists: s.assists, cleanSheets: s.cleanSheets };
+    });
+
+    ranked.sort(function(a, b) {
+      if (b.point !== a.point) return b.point - a.point;
+      if (a.ownGoals !== b.ownGoals) return a.ownGoals - b.ownGoals;
+      if (a.goguma !== b.goguma) return a.goguma - b.goguma;
+      if (b.goals !== a.goals) return b.goals - a.goals;
+      if (b.assists !== a.assists) return b.assists - a.assists;
+      return b.cleanSheets - a.cleanSheets;
+    });
+
+    resultDates.push(dt);
+    for (var k = 0; k < ranked.length; k++) {
+      var nm = ranked[k].name;
+      if (!resultPlayers[nm]) {
+        // 첫 등장 전 날짜들은 null로 채움
+        resultPlayers[nm] = [];
+        for (var f = 0; f < resultDates.length - 1; f++) resultPlayers[nm].push(null);
+      }
+      resultPlayers[nm].push(k + 1);
+    }
+
+    // 이전에 존재했지만 이번 날짜에 랭킹 안 된 선수 (있을 수 없지만 안전장치)
+    for (var pn in resultPlayers) {
+      if (resultPlayers[pn].length < resultDates.length) {
+        resultPlayers[pn].push(resultPlayers[pn][resultPlayers[pn].length - 1]);
+      }
+    }
+  }
+
+  return { success: true, rankingHistory: { dates: resultDates, players: resultPlayers } };
 }
