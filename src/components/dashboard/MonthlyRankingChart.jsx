@@ -76,7 +76,8 @@ export default function MonthlyRankingChart({ rankingHistory, C }) {
   const maxRank = Math.max(...allRanks) + 1;
   const chartW = W - padLeft - padRight;
 
-  const xScale = (rank) => padLeft + ((rank - minRank) / (maxRank - minRank || 1)) * chartW;
+  // 1위가 우측(바깥), 낮은 순위가 좌측
+  const xScale = (rank) => padLeft + chartW - ((rank - minRank) / (maxRank - minRank || 1)) * chartW;
 
   const RED = "#ef4444", BLUE = "#3b82f6", GRAY = "#6b7280";
 
@@ -133,8 +134,8 @@ export default function MonthlyRankingChart({ rankingHistory, C }) {
               <rect x={bodyLeft} y={cy - candleH / 2} width={bodyW} height={candleH}
                 fill={color} rx={2} />
               {/* 종가 숫자 */}
-              <text x={xScale(c.close) + (c.close <= c.open ? 4 : -4)} y={cy + 3}
-                textAnchor={c.close <= c.open ? "start" : "end"} fontSize={7} fill={color} fontWeight={700}>
+              <text x={xScale(c.close) + (c.close <= c.open ? -4 : 4)} y={cy + 3}
+                textAnchor={c.close <= c.open ? "end" : "start"} fontSize={7} fill={color} fontWeight={700}>
                 {c.close}
               </text>
             </g>
@@ -151,7 +152,7 @@ export default function MonthlyRankingChart({ rankingHistory, C }) {
       <div style={{ display: "flex", justifyContent: "center", gap: 16, marginTop: 8, fontSize: 10, color: C.gray }}>
         <span><span style={{ color: RED }}>■</span> 상승</span>
         <span><span style={{ color: BLUE }}>■</span> 하락</span>
-        <span>좌=높은순위 우=낮은순위</span>
+        <span>우=1위 좌=하위</span>
       </div>
     </div>
   );
