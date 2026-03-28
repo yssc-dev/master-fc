@@ -293,6 +293,8 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
       try {
         const allNames = members.map(m => m.name);
         const data = await AppSync.getRankingHistory(allNames);
+        console.log("rankingHistory dates:", data?.dates);
+        console.log("rankingHistory 서라현:", data?.players?.["서라현"]);
         setRankingHistory(data);
       } catch (e) { console.warn("랭킹 히스토리 로드 실패:", e); }
       finally { setRankingLoading(false); }
