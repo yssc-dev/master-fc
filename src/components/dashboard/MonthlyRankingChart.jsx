@@ -129,9 +129,9 @@ export default function MonthlyRankingChart({ rankingHistory, C }) {
 
           return (
             <g key={c.name}>
-              {/* 순위 + 선수명 */}
+              {/* 선수명 */}
               <text x={padLeft - 4} y={cy + 4} textAnchor="end" fontSize={9} fill={C.white} fontWeight={600}>
-                <tspan fill={C.gray} fontSize={8}>{c.close} </tspan>{c.name}
+                {c.name}
               </text>
               {/* 심지 */}
               <line x1={xScale(c.high)} y1={cy} x2={xScale(c.low)} y2={cy}
@@ -139,10 +139,10 @@ export default function MonthlyRankingChart({ rankingHistory, C }) {
               {/* 몸통 */}
               <rect x={bodyLeft} y={cy - candleH / 2} width={bodyW} height={candleH}
                 fill={color} rx={2} />
-              {/* 종가 숫자 */}
-              <text x={xScale(c.close) + (c.close <= c.open ? -4 : 4)} y={cy + 3}
-                textAnchor={c.close <= c.open ? "end" : "start"} fontSize={7} fill={color} fontWeight={700}>
-                {c.close}
+              {/* 종가 숫자 - 캔들 우측 바깥 */}
+              <text x={xScale(Math.min(c.open, c.close, c.high)) + 6} y={cy + 3}
+                textAnchor="start" fontSize={9} fill={C.white} fontWeight={700}>
+                {c.close}위
               </text>
             </g>
           );
