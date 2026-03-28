@@ -67,7 +67,7 @@ export default function MonthlyRankingChart({ rankingHistory, C }) {
   const TOP_N = 20;
   const displayCandles = candles.slice(0, TOP_N);
 
-  const W = 320, padTop = 10, padBottom = 25, padLeft = 58, padRight = 10;
+  const W = 320, padTop = 20, padBottom = 5, padLeft = 58, padRight = 10;
   const rowH = 28;
   const H = padTop + displayCandles.length * rowH + padBottom;
 
@@ -114,7 +114,7 @@ export default function MonthlyRankingChart({ rankingHistory, C }) {
             <g key={r}>
               <line x1={xScale(r)} y1={padTop} x2={xScale(r)} y2={H - padBottom}
                 stroke={C.grayDarker || "#333"} strokeWidth={0.5} strokeDasharray="3,3" />
-              <text x={xScale(r)} y={H - 8} textAnchor="middle" fontSize={8} fill={C.gray}>{r}위</text>
+              <text x={xScale(r)} y={12} textAnchor="middle" fontSize={8} fill={C.gray}>{r}위</text>
             </g>
           ));
         })()}
