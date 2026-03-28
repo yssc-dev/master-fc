@@ -7,6 +7,7 @@ import HomeScreen from './components/home/HomeScreen';
 import TeamDashboard from './components/dashboard/TeamDashboard';
 import HistoryView from './components/history/HistoryView';
 import SettingsScreen from './components/common/SettingsScreen';
+import { loadSettingsFromFirebase } from './config/settings';
 import App from './App';
 
 export default function Root() {
@@ -46,6 +47,7 @@ export default function Root() {
   useEffect(() => {
     if (screen === "dashboard" && selectedTeamName) {
       checkPendingGames(selectedTeamName);
+      loadSettingsFromFirebase(selectedTeamName);
     }
   }, []);
 
@@ -96,6 +98,7 @@ export default function Root() {
     AuthUtil.save(u.name, u.phone4, teamName, first.mode, first.role);
     setScreen("dashboard");
     checkPendingGames(teamName);
+    loadSettingsFromFirebase(teamName);
   };
 
   const handleLogout = () => {

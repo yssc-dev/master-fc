@@ -21,16 +21,16 @@ export default function SettingsScreen({ teamName, onBack }) {
     setSaved(false);
   };
 
-  const handleSave = () => {
-    saveSettings(teamName, settings);
+  const handleSave = async () => {
+    await saveSettings(teamName, settings);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };
 
-  const handleReset = () => {
+  const handleReset = async () => {
     if (!confirm("모든 설정을 기본값으로 초기화하시겠습니까?")) return;
     setSettings({ ...defaults });
-    saveSettings(teamName, defaults);
+    await saveSettings(teamName, defaults);
     setSaved(true);
   };
 
