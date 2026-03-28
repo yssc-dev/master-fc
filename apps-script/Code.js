@@ -159,7 +159,7 @@ function doPost(e) {
     } else if (action === "getPrevRankings") {
       return _jsonResponse(_getPrevRankings(requestTeam));
     } else if (action === "getRankingHistory") {
-      return _jsonResponse(_getRankingHistory(requestTeam, body.allPlayers || []));
+      return _jsonResponse(_getRankingHistory(requestTeam, body.allPlayers || [], body.playerLogSheet || ""));
     } else if (action === "clearState") {
       return _jsonResponse(_clearGameState(body.team, body.gameId));
     } else if (action === "finalizeState") {
@@ -692,9 +692,10 @@ function _getPrevRankings(team) {
 // 랭킹 히스토리 (캔들차트용 - 경기일자별 전체 선수 랭킹)
 // ═══════════════════════════════════════════════════════════════
 
-function _getRankingHistory(team, allPlayers) {
+function _getRankingHistory(team, allPlayers, customSheetName) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var sheet = ss.getSheetByName(PLAYER_LOG_SHEET);
+  var sheetName = customSheetName || PLAYER_LOG_SHEET;
+  var sheet = ss.getSheetByName(sheetName);
   if (!sheet) return { success: true, rankingHistory: { dates: [], players: {} } };
 
   var lastRow = sheet.getLastRow();

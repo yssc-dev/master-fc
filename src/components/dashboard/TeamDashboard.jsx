@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { fetchSheetData } from '../../services/sheetService';
 import AppSync from '../../services/appSync';
+import { getSettings } from '../../config/settings';
 import { useTheme } from '../../hooks/useTheme';
 import Modal from '../common/Modal';
 import RankingCandlestickChart from './RankingCandlestickChart';
@@ -292,7 +293,8 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
       setRankingLoading(true);
       try {
         const allNames = members.map(m => m.name);
-        const data = await AppSync.getRankingHistory(allNames);
+        const s = getSettings(teamName);
+        const data = await AppSync.getRankingHistory(allNames, s.playerLogSheet);
         if (data) {
           console.log("경기일자 목록:", data.dates);
           console.log("총 선수수:", Object.keys(data.players || {}).length);

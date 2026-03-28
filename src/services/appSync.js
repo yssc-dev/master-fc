@@ -84,14 +84,14 @@ const AppSync = {
     } catch (e) { console.warn("최신 증분 조회 실패:", e.message); return {}; }
   },
 
-  async getRankingHistory(allPlayerNames) {
+  async getRankingHistory(allPlayerNames, playerLogSheet) {
     if (!this.enabled()) return null;
     try {
       const team = this._getTeam();
       const resp = await fetch(APPS_SCRIPT_URL, {
         method: "POST",
         headers: { "Content-Type": "text/plain" },
-        body: JSON.stringify({ action: "getRankingHistory", team, allPlayers: allPlayerNames || [], authToken: this._getAuthToken() }),
+        body: JSON.stringify({ action: "getRankingHistory", team, allPlayers: allPlayerNames || [], playerLogSheet: playerLogSheet || "", authToken: this._getAuthToken() }),
       });
       const data = await resp.json();
       if (data.debug) console.log("rankingHistory debug:", data.debug);
