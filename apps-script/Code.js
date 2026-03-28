@@ -20,6 +20,16 @@ function _kstDate() {
   return Utilities.formatDate(new Date(), "Asia/Seoul", "yyyy-MM-dd");
 }
 
+// 셀 값을 yyyy-MM-dd 문자열로 변환 (Date 객체, "2026. 1. 15", "2026-01-15" 등 모두 처리)
+function _toDateStr(val) {
+  if (val instanceof Date) return Utilities.formatDate(val, "Asia/Seoul", "yyyy-MM-dd");
+  var s = String(val).trim();
+  // "2026. 1. 15" or "2026.1.15" 형태 처리
+  var m = s.match(/(\d{4})\D+(\d{1,2})\D+(\d{1,2})/);
+  if (m) return m[1] + "-" + ("0" + m[2]).slice(-2) + "-" + ("0" + m[3]).slice(-2);
+  return s;
+}
+
 // ─── 공통 헬퍼 ───
 
 function _jsonResponse(data) {
@@ -650,9 +660,7 @@ function _getPrevRankings(team) {
   for (var i = 0; i < data.length; i++) {
     var rowTeam = data[i][11] ? String(data[i][11]).trim() : "";
     if (rowTeam && rowTeam !== team) continue;
-    var dateStr = data[i][0] instanceof Date
-      ? Utilities.formatDate(data[i][0], "Asia/Seoul", "yyyy-MM-dd")
-      : String(data[i][0]).trim();
+    var dateStr = _toDateStr(data[i][0]);
     if (dateStr > latestDate) latestDate = dateStr;
   }
 
@@ -663,9 +671,7 @@ function _getPrevRankings(team) {
   for (var j = 0; j < data.length; j++) {
     var rTeam = data[j][11] ? String(data[j][11]).trim() : "";
     if (rTeam && rTeam !== team) continue;
-    var ds = data[j][0] instanceof Date
-      ? Utilities.formatDate(data[j][0], "Asia/Seoul", "yyyy-MM-dd")
-      : String(data[j][0]).trim();
+    var ds = _toDateStr(data[j][0]);
     if (ds !== latestDate) continue;
     var name = String(data[j][1]).trim();
     if (!name) continue;
@@ -702,9 +708,7 @@ function _getRankingHistory(team) {
     var rowTeam = data[i][11] ? String(data[i][11]).trim() : "";
     if (rowTeam && rowTeam !== team) continue;
 
-    var dateStr = data[i][0] instanceof Date
-      ? Utilities.formatDate(data[i][0], "Asia/Seoul", "yyyy-MM-dd")
-      : String(data[i][0]).trim();
+    var dateStr = _toDateStr(data[i][0]);
     var name = String(data[i][1]).trim();
     if (!name || !dateStr) continue;
 
