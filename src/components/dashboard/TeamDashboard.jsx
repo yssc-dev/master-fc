@@ -291,7 +291,8 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
     if (!rankingHistory) {
       setRankingLoading(true);
       try {
-        const data = await AppSync.getRankingHistory();
+        const allNames = members.map(m => m.name);
+        const data = await AppSync.getRankingHistory(allNames);
         setRankingHistory(data);
       } catch (e) { console.warn("랭킹 히스토리 로드 실패:", e); }
       finally { setRankingLoading(false); }

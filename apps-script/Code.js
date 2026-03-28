@@ -159,7 +159,7 @@ function doPost(e) {
     } else if (action === "getPrevRankings") {
       return _jsonResponse(_getPrevRankings(requestTeam));
     } else if (action === "getRankingHistory") {
-      return _jsonResponse(_getRankingHistory(requestTeam));
+      return _jsonResponse(_getRankingHistory(requestTeam, body.allPlayers || []));
     } else if (action === "clearState") {
       return _jsonResponse(_clearGameState(body.team, body.gameId));
     } else if (action === "finalizeState") {
@@ -692,7 +692,7 @@ function _getPrevRankings(team) {
 // 랭킹 히스토리 (캔들차트용 - 경기일자별 전체 선수 랭킹)
 // ═══════════════════════════════════════════════════════════════
 
-function _getRankingHistory(team) {
+function _getRankingHistory(team, allPlayers) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName(PLAYER_LOG_SHEET);
   if (!sheet) return { success: true, rankingHistory: { dates: [], players: {} } };
@@ -729,6 +729,13 @@ function _getRankingHistory(team) {
 
   // 경기일자별 누적 → 랭킹 계산
   var cumulative = {}; // { name: { goals, assists, ownGoals, cleanSheets, crova, goguma } }
+  // 대시보드 전체 선수 목록으로 초기화 (0 스탯)
+  if (allPlayers && allPlayers.length > 0) {
+    for (var ap = 0; ap < allPlayers.length; ap++) {
+      var pn = String(allPlayers[ap]).trim();
+      if (pn) cumulative[pn] = { goals: 0, assists: 0, ownGoals: 0, cleanSheets: 0, crova: 0, goguma: 0 };
+    }
+  }
   var resultDates = [];
   var resultPlayers = {}; // { name: [rank1, rank2, ...] }
 
