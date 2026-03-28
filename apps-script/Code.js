@@ -725,7 +725,13 @@ function _getRankingHistory(team, allPlayers) {
   }
 
   var sortedDates = Object.keys(dateMap).sort();
-  if (sortedDates.length === 0) return { success: true, rankingHistory: { dates: [], players: {} } };
+  // 디버그: 처리된 행 수, 날짜 목록, 첫 5행 날짜 원본값
+  var debug = {
+    totalRows: data.length,
+    datesFound: sortedDates,
+    first5RawDates: data.slice(0, 5).map(function(r) { return { raw: String(r[0]), type: typeof r[0], isDate: r[0] instanceof Date, converted: _toDateStr(r[0]), name: String(r[1]).trim(), team: String(r[11] || "").trim() }; }),
+  };
+  if (sortedDates.length === 0) return { success: true, rankingHistory: { dates: [], players: {} }, debug: debug };
 
   // 경기일자별 누적 → 랭킹 계산
   var cumulative = {}; // { name: { goals, assists, ownGoals, cleanSheets, crova, goguma } }
@@ -790,5 +796,5 @@ function _getRankingHistory(team, allPlayers) {
     }
   }
 
-  return { success: true, rankingHistory: { dates: resultDates, players: resultPlayers } };
+  return { success: true, rankingHistory: { dates: resultDates, players: resultPlayers }, debug: debug };
 }

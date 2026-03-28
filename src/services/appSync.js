@@ -94,6 +94,7 @@ const AppSync = {
         body: JSON.stringify({ action: "getRankingHistory", team, allPlayers: allPlayerNames || [], authToken: this._getAuthToken() }),
       });
       const data = await resp.json();
+      if (data.debug) console.log("rankingHistory debug:", data.debug);
       return data.rankingHistory || null;
     } catch (e) { console.warn("랭킹 히스토리 조회 실패:", e.message); return null; }
   },
