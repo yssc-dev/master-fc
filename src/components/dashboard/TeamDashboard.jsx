@@ -5,6 +5,7 @@ import { getSettings } from '../../config/settings';
 import { useTheme } from '../../hooks/useTheme';
 import Modal from '../common/Modal';
 import RankingCandlestickChart from './RankingCandlestickChart';
+import MonthlyRankingChart from './MonthlyRankingChart';
 
 export default function TeamDashboard({ authUser, teamName, teamEntries, onStartGame, onContinueGame, onViewHistory, onSettings, onSwitchTeam, onLogout, pendingGames = [], checkingPending }) {
   const { C, mode, toggle } = useTheme();
@@ -14,6 +15,7 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
   const [membersLoading, setMembersLoading] = useState(true);
   const [prevRanks, setPrevRanks] = useState({});
   const [selectedPlayer, setSelectedPlayer] = useState(null);
+  const [showMonthlyChart, setShowMonthlyChart] = useState(false);
   const [rankingHistory, setRankingHistory] = useState(null);
   const [rankingLoading, setRankingLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("records");
@@ -287,25 +289,27 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
     return map;
   }, [members, prevRanks]);
 
+  const loadRankingHistory = async () => {
+    if (rankingHistory) return rankingHistory;
+    setRankingLoading(true);
+    try {
+      const allNames = members.map(m => m.name);
+      const s = getSettings(teamName);
+      const data = await AppSync.getRankingHistory(allNames, s.playerLogSheet);
+      setRankingHistory(data);
+      return data;
+    } catch (e) { console.warn("랭킹 히스토리 로드 실패:", e); return null; }
+    finally { setRankingLoading(false); }
+  };
+
   const handlePlayerClick = async (playerName) => {
     setSelectedPlayer(playerName);
-    if (!rankingHistory) {
-      setRankingLoading(true);
-      try {
-        const allNames = members.map(m => m.name);
-        const s = getSettings(teamName);
-        const data = await AppSync.getRankingHistory(allNames, s.playerLogSheet);
-        if (data) {
-          console.log("경기일자 목록:", data.dates);
-          console.log("총 선수수:", Object.keys(data.players || {}).length);
-          console.log("서라현 랭킹:", data.dates?.map((d, i) => `${d}→${data.players?.["서라현"]?.[i]}`).join(", "));
-        } else {
-          console.warn("rankingHistory: 데이터 없음");
-        }
-        setRankingHistory(data);
-      } catch (e) { console.warn("랭킹 히스토리 로드 실패:", e); }
-      finally { setRankingLoading(false); }
-    }
+    await loadRankingHistory();
+  };
+
+  const handleMonthlyChart = async () => {
+    setShowMonthlyChart(true);
+    await loadRankingHistory();
   };
 
   const [statSort, setStatSort] = useState("point");
@@ -361,7 +365,12 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
 
   const renderRoster = () => (
     <div style={ds.section}>
-      <div style={ds.sectionTitle}>개인 누적 기록 <span style={{ fontSize: 11, fontWeight: 400, color: C.gray }}>({members.length}명)</span></div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div style={ds.sectionTitle}>개인 누적 기록 <span style={{ fontSize: 11, fontWeight: 400, color: C.gray }}>({members.length}명)</span></div>
+        <button onClick={handleMonthlyChart} style={{ background: C.accent + "22", color: C.accent, border: "none", borderRadius: 6, padding: "4px 10px", fontSize: 10, fontWeight: 600, cursor: "pointer" }}>
+          월봉 차트
+        </button>
+      </div>
       <div style={{ ...ds.card, overflowX: "auto", padding: 8 }}>
         {membersLoading ? (
           <div style={{ textAlign: "center", color: C.gray, fontSize: 13, padding: 8 }}>불러오는 중...</div>
@@ -583,6 +592,18 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
               currentRank={pointRankMap[selectedPlayer]}
               C={C}
             />
+          ) : (
+            <div style={{ textAlign: "center", padding: 20, color: C.gray }}>데이터 없음</div>
+          )}
+        </Modal>
+      )}
+
+      {showMonthlyChart && (
+        <Modal onClose={() => setShowMonthlyChart(false)} title="전체 선수 월봉">
+          {rankingLoading ? (
+            <div style={{ textAlign: "center", padding: 20, color: C.gray }}>불러오는 중...</div>
+          ) : rankingHistory ? (
+            <MonthlyRankingChart rankingHistory={rankingHistory} C={C} />
           ) : (
             <div style={{ textAlign: "center", padding: 20, color: C.gray }}>데이터 없음</div>
           )}
