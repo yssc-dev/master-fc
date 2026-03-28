@@ -67,7 +67,7 @@ export default function MonthlyRankingChart({ rankingHistory, C }) {
   const TOP_N = 20;
   const displayCandles = candles.slice(0, TOP_N);
 
-  const W = 320, padTop = 10, padBottom = 25, padLeft = 50, padRight = 10;
+  const W = 320, padTop = 10, padBottom = 25, padLeft = 58, padRight = 10;
   const rowH = 28;
   const H = padTop + displayCandles.length * rowH + padBottom;
 
@@ -97,6 +97,12 @@ export default function MonthlyRankingChart({ rankingHistory, C }) {
         ))}
       </div>
 
+      <div style={{ display: "flex", justifyContent: "center", gap: 16, marginBottom: 8, fontSize: 10, color: C.gray }}>
+        <span><span style={{ color: RED }}>■</span> 상승</span>
+        <span><span style={{ color: BLUE }}>■</span> 하락</span>
+        <span>우=1위 좌=하위</span>
+      </div>
+
       {/* 가로 캔들차트 (선수별) */}
       <svg viewBox={`0 0 ${W} ${H}`} width="100%" style={{ display: "block" }}>
         {/* X축 눈금 */}
@@ -123,9 +129,9 @@ export default function MonthlyRankingChart({ rankingHistory, C }) {
 
           return (
             <g key={c.name}>
-              {/* 선수명 */}
+              {/* 순위 + 선수명 */}
               <text x={padLeft - 4} y={cy + 4} textAnchor="end" fontSize={9} fill={C.white} fontWeight={600}>
-                {c.name}
+                <tspan fill={C.gray} fontSize={8}>{c.close} </tspan>{c.name}
               </text>
               {/* 심지 */}
               <line x1={xScale(c.high)} y1={cy} x2={xScale(c.low)} y2={cy}
@@ -149,11 +155,6 @@ export default function MonthlyRankingChart({ rankingHistory, C }) {
         </div>
       )}
 
-      <div style={{ display: "flex", justifyContent: "center", gap: 16, marginTop: 8, fontSize: 10, color: C.gray }}>
-        <span><span style={{ color: RED }}>■</span> 상승</span>
-        <span><span style={{ color: BLUE }}>■</span> 하락</span>
-        <span>우=1위 좌=하위</span>
-      </div>
     </div>
   );
 }
