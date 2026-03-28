@@ -49,7 +49,7 @@ export default function MonthlyRankingChart({ rankingHistory, C }) {
   const months = useMemo(() => {
     if (!rankingHistory?.dates) return [];
     const set = new Set(rankingHistory.dates.map(d => d.substring(0, 7)));
-    return [...set].sort();
+    return [...set].filter(m => /^\d{4}-\d{2}$/.test(m)).sort();
   }, [rankingHistory]);
 
   const [selectedMonth, setSelectedMonth] = useState(() => months[months.length - 1] || "");
