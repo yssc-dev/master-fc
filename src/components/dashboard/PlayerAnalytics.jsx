@@ -74,19 +74,19 @@ function analyzeData(events) {
     .sort((a, b) => b.count - a.count)
     .slice(0, 15);
 
-  // 시즌 레이스 (누적 골 TOP 5)
+  // 시즌 레이스 (누적 포인트 TOP 5)
   const sortedDates = [...allDates].sort();
-  const goalTotals = {};
-  Object.keys(dateGoals).forEach(p => {
+  const pointTotals = {};
+  Object.keys(datePoints).forEach(p => {
     let cum = 0;
-    sortedDates.forEach(d => { cum += (dateGoals[p][d] || 0); });
-    goalTotals[p] = cum;
+    sortedDates.forEach(d => { cum += (datePoints[p][d] || 0); });
+    pointTotals[p] = cum;
   });
-  const top5Scorers = Object.entries(goalTotals).sort((a, b) => b[1] - a[1]).slice(0, 5).map(e => e[0]);
+  const top5Players = Object.entries(pointTotals).sort((a, b) => b[1] - a[1]).slice(0, 5).map(e => e[0]);
 
-  const goalRace = top5Scorers.map(name => {
+  const pointRace = top5Players.map(name => {
     let cum = 0;
-    const data = sortedDates.map(d => { cum += (dateGoals[name]?.[d] || 0); return cum; });
+    const data = sortedDates.map(d => { cum += (datePoints[name]?.[d] || 0); return cum; });
     return { name, data };
   });
 
@@ -106,7 +106,7 @@ function analyzeData(events) {
     .sort((a, b) => b.count - a.count)
     .slice(0, 15);
 
-  return { goldenCombos, keeperKillers, goalRace, sortedDates, topChemistry };
+  return { goldenCombos, keeperKillers, pointRace, sortedDates, topChemistry };
 }
 
 export default function PlayerAnalytics({ teamName, onClose }) {
@@ -190,11 +190,11 @@ export default function PlayerAnalytics({ teamName, onClose }) {
 
       {tab === "race" && (
         <div>
-          <div style={{ fontSize: 11, color: C.gray, marginBottom: 8 }}>누적 골 TOP 5 레이스</div>
+          <div style={{ fontSize: 11, color: C.gray, marginBottom: 8 }}>누적 포인트 TOP 5 레이스</div>
           <svg viewBox={`0 0 320 180`} width="100%" style={{ display: "block" }}>
             {(() => {
               const dates = analysis.sortedDates;
-              const maxGoal = Math.max(...analysis.goalRace.map(r => Math.max(...r.data)));
+              const maxGoal = Math.max(...analysis.pointRace.map(r => Math.max(...r.data)));
               const padL = 25, padR = 10, padT = 15, padB = 25;
               const cw = 320 - padL - padR, ch = 180 - padT - padB;
               const xS = (i) => padL + (i / (dates.length - 1 || 1)) * cw;
@@ -219,7 +219,7 @@ export default function PlayerAnalytics({ teamName, onClose }) {
                     return <text key={d} x={xS(idx)} y={180 - 6} textAnchor="middle" fontSize={7} fill={C.gray}>{d.slice(5)}</text>;
                   })}
                   {/* 선 */}
-                  {analysis.goalRace.map((r, ri) => (
+                  {analysis.pointRace.map((r, ri) => (
                     <g key={r.name}>
                       <polyline
                         points={r.data.map((v, i) => `${xS(i)},${yS(v)}`).join(' ')}
