@@ -227,6 +227,15 @@ export default function PlayerAnalytics({ teamName }) {
               );
             })()}
           </svg>
+          <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 10, marginTop: 8 }}>
+            {analysis.pointRace.map((r, ri) => (
+              <div key={r.name} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11 }}>
+                <div style={{ width: 12, height: 3, borderRadius: 2, background: COLORS[ri] }} />
+                <span style={{ color: C.white, fontWeight: 600 }}>{r.name}</span>
+                <span style={{ color: COLORS[ri], fontWeight: 700 }}>{r.data[r.data.length - 1]}</span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
