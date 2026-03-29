@@ -156,6 +156,8 @@ function doPost(e) {
       return _jsonResponse(_getCumulativeBonus(requestTeam));
     } else if (action === "getPointLog") {
       return _jsonResponse(_getPointLog(requestTeam, body.pointLogSheet || ""));
+    } else if (action === "getPlayerLog") {
+      return _jsonResponse(_getPlayerLog(requestTeam, body.playerLogSheet || ""));
     } else if (action === "getSheetList") {
       return _jsonResponse(_getSheetList());
     } else if (action === "getPrevRankings") {
@@ -838,4 +840,37 @@ function _getPointLog(team, customSheetName) {
   }
 
   return { success: true, events: events };
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 선수별집계기록로그 조회
+// ═══════════════════════════════════════════════════════════════
+
+function _getPlayerLog(team, customSheetName) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheetName = customSheetName || PLAYER_LOG_SHEET;
+  var sheet = ss.getSheetByName(sheetName);
+  if (!sheet) return { success: true, players: [] };
+
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return { success: true, players: [] };
+
+  var data = sheet.getRange(2, 1, lastRow - 1, 12).getValues();
+  var players = [];
+  for (var i = 0; i < data.length; i++) {
+    var rowTeam = data[i][11] ? String(data[i][11]).trim() : "";
+    if (rowTeam && rowTeam !== team) continue;
+    var dateStr = _toDateStr(data[i][0]);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) continue;
+    var name = String(data[i][1]).trim();
+    if (!name) continue;
+    players.push({
+      date: dateStr, name: name,
+      goals: Number(data[i][2]) || 0, assists: Number(data[i][3]) || 0,
+      ownGoals: Number(data[i][4]) || 0, conceded: Number(data[i][5]) || 0,
+      cleanSheets: Number(data[i][6]) || 0, crova: Number(data[i][7]) || 0,
+      goguma: Number(data[i][8]) || 0, keeperGames: Number(data[i][9]) || 0,
+    });
+  }
+  return { success: true, players: players };
 }

@@ -102,24 +102,77 @@ function analyzeData(events) {
   return { goldenCombos, keeperKillers, pointRace, sortedDates, topChemistry };
 }
 
+function analyzeTeams(playerLog) {
+  // 같은 날짜 + crova > 0인 선수 = 1위팀 동료
+  // 같은 날짜 + goguma < 0인 선수 = 꼴찌팀 동료
+  const crovaTeams = {}; // date → [names]
+  const gogumaTeams = {};
+
+  playerLog.forEach(p => {
+    if (p.crova > 0) {
+      if (!crovaTeams[p.date]) crovaTeams[p.date] = [];
+      crovaTeams[p.date].push(p.name);
+    }
+    if (p.goguma < 0) {
+      if (!gogumaTeams[p.date]) gogumaTeams[p.date] = [];
+      gogumaTeams[p.date].push(p.name);
+    }
+  });
+
+  // 쌍별 빈도
+  const countPairs = (teams) => {
+    const pairs = {};
+    Object.values(teams).forEach(names => {
+      for (let i = 0; i < names.length; i++)
+        for (let j = i + 1; j < names.length; j++) {
+          const pair = [names[i], names[j]].sort().join('+');
+          pairs[pair] = (pairs[pair] || 0) + 1;
+        }
+    });
+    return Object.entries(pairs).map(([pair, count]) => ({ pair, count })).sort((a, b) => b.count - a.count).slice(0, 10);
+  };
+
+  // 개인별 빈도
+  const countIndiv = (teams) => {
+    const counts = {};
+    Object.values(teams).forEach(names => names.forEach(n => { counts[n] = (counts[n] || 0) + 1; }));
+    return Object.entries(counts).map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count).slice(0, 10);
+  };
+
+  return {
+    crovaPairs: countPairs(crovaTeams),
+    gogumaPairs: countPairs(gogumaTeams),
+    crovaIndiv: countIndiv(crovaTeams),
+    gogumaIndiv: countIndiv(gogumaTeams),
+    crovaGames: Object.keys(crovaTeams).length,
+    gogumaGames: Object.keys(gogumaTeams).length,
+  };
+}
+
 export default function PlayerAnalytics({ teamName }) {
   const { C } = useTheme();
   const [events, setEvents] = useState(null);
+  const [playerLog, setPlayerLog] = useState(null);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState("combo");
 
   useEffect(() => {
     const s = getSettings(teamName);
-    AppSync.getPointLog(s.pointLogSheet).then(data => setEvents(data)).finally(() => setLoading(false));
+    Promise.all([
+      AppSync.getPointLog(s.pointLogSheet),
+      AppSync.getPlayerLog(s.playerLogSheet),
+    ]).then(([evts, plog]) => { setEvents(evts); setPlayerLog(plog); }).finally(() => setLoading(false));
   }, [teamName]);
 
   const analysis = useMemo(() => events ? analyzeData(events) : null, [events]);
+  const teamAnalysis = useMemo(() => playerLog ? analyzeTeams(playerLog) : null, [playerLog]);
 
   const tabs = [
     { key: "combo", label: "골든콤비" },
     { key: "killer", label: "키퍼킬러" },
     { key: "race", label: "시즌레이스" },
     { key: "chemistry", label: "케미" },
+    { key: "crovaguma", label: "🍀/🍠" },
   ];
 
   const RED = "#ef4444", BLUE = "#3b82f6", GREEN = "#22c55e", ORANGE = "#f97316", PURPLE = "#a855f7";
@@ -257,6 +310,67 @@ export default function PlayerAnalytics({ teamName }) {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {tab === "crovaguma" && teamAnalysis && (
+        <div>
+          <div style={{ display: "flex", gap: 12, marginBottom: 12 }}>
+            <div style={{ flex: 1, background: `${GREEN}15`, borderRadius: 8, padding: 10, textAlign: "center" }}>
+              <div style={{ fontSize: 18 }}>🍀</div>
+              <div style={{ fontSize: 11, color: C.gray }}>크로바 {teamAnalysis.crovaGames}회</div>
+            </div>
+            <div style={{ flex: 1, background: `${RED}15`, borderRadius: 8, padding: 10, textAlign: "center" }}>
+              <div style={{ fontSize: 18 }}>🍠</div>
+              <div style={{ fontSize: 11, color: C.gray }}>고구마 {teamAnalysis.gogumaGames}회</div>
+            </div>
+          </div>
+
+          <div style={{ fontSize: 12, fontWeight: 700, color: GREEN, marginBottom: 6 }}>🍀 크로바 단골 조합</div>
+          {teamAnalysis.crovaPairs.map((c, i) => {
+            const [p1, p2] = c.pair.split('+');
+            return (
+              <div key={i} style={{ display: "flex", alignItems: "center", padding: "4px 0", borderBottom: `1px solid ${C.grayDarker}`, gap: 6 }}>
+                <span style={{ width: 20, fontSize: 10, color: C.gray, textAlign: "center" }}>{i + 1}</span>
+                <span style={{ flex: 1, fontSize: 11, color: C.white }}>{p1} + {p2}</span>
+                <span style={{ fontSize: 12, fontWeight: 700, color: GREEN }}>{c.count}회</span>
+              </div>
+            );
+          })}
+
+          <div style={{ fontSize: 12, fontWeight: 700, color: RED, marginTop: 16, marginBottom: 6 }}>🍠 고구마 단골 조합</div>
+          {teamAnalysis.gogumaPairs.map((c, i) => {
+            const [p1, p2] = c.pair.split('+');
+            return (
+              <div key={i} style={{ display: "flex", alignItems: "center", padding: "4px 0", borderBottom: `1px solid ${C.grayDarker}`, gap: 6 }}>
+                <span style={{ width: 20, fontSize: 10, color: C.gray, textAlign: "center" }}>{i + 1}</span>
+                <span style={{ flex: 1, fontSize: 11, color: C.white }}>{p1} + {p2}</span>
+                <span style={{ fontSize: 12, fontWeight: 700, color: RED }}>{c.count}회</span>
+              </div>
+            );
+          })}
+
+          <div style={{ fontSize: 12, fontWeight: 700, color: C.white, marginTop: 16, marginBottom: 6 }}>개인 빈도</div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 10, color: GREEN, marginBottom: 4 }}>🍀 크로바 다빈도</div>
+              {teamAnalysis.crovaIndiv.map((c, i) => (
+                <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "2px 0", fontSize: 11 }}>
+                  <span style={{ color: C.white }}>{c.name}</span>
+                  <span style={{ color: GREEN, fontWeight: 700 }}>{c.count}</span>
+                </div>
+              ))}
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 10, color: RED, marginBottom: 4 }}>🍠 고구마 다빈도</div>
+              {teamAnalysis.gogumaIndiv.map((c, i) => (
+                <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "2px 0", fontSize: 11 }}>
+                  <span style={{ color: C.white }}>{c.name}</span>
+                  <span style={{ color: RED, fontWeight: 700 }}>{c.count}</span>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -98,6 +98,20 @@ const AppSync = {
     } catch (e) { console.warn("포인트로그 조회 실패:", e.message); return []; }
   },
 
+  async getPlayerLog(playerLogSheet) {
+    if (!this.enabled()) return [];
+    try {
+      const team = this._getTeam();
+      const resp = await fetch(APPS_SCRIPT_URL, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain" },
+        body: JSON.stringify({ action: "getPlayerLog", team, playerLogSheet: playerLogSheet || "", authToken: this._getAuthToken() }),
+      });
+      const data = await resp.json();
+      return data.players || [];
+    } catch (e) { console.warn("선수로그 조회 실패:", e.message); return []; }
+  },
+
   async getRankingHistory(allPlayerNames, playerLogSheet) {
     if (!this.enabled()) return null;
     try {
