@@ -6,6 +6,7 @@ import { useTheme } from '../../hooks/useTheme';
 import Modal from '../common/Modal';
 import RankingCandlestickChart from './RankingCandlestickChart';
 import MonthlyRankingChart from './MonthlyRankingChart';
+import PlayerAnalytics from './PlayerAnalytics';
 
 export default function TeamDashboard({ authUser, teamName, teamEntries, onStartGame, onContinueGame, onViewHistory, onSettings, onSwitchTeam, onLogout, pendingGames = [], checkingPending }) {
   const { C, mode, toggle } = useTheme();
@@ -16,6 +17,7 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
   const [prevRanks, setPrevRanks] = useState({});
   const [selectedPlayer, setSelectedPlayer] = useState(null);
   const [showMonthlyChart, setShowMonthlyChart] = useState(false);
+  const [showAnalytics, setShowAnalytics] = useState(false);
   const [rankingHistory, setRankingHistory] = useState(null);
   const [rankingLoading, setRankingLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("records");
@@ -367,9 +369,14 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
     <div style={ds.section}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div style={ds.sectionTitle}>개인 누적 기록 <span style={{ fontSize: 11, fontWeight: 400, color: C.gray }}>({members.length}명)</span></div>
-        <button onClick={handleMonthlyChart} style={{ background: C.accent + "22", color: C.accent, border: "none", borderRadius: 6, padding: "4px 10px", fontSize: 10, fontWeight: 600, cursor: "pointer" }}>
-          월봉 차트
-        </button>
+        <div style={{ display: "flex", gap: 4 }}>
+          <button onClick={() => setShowAnalytics(true)} style={{ background: C.orange + "22", color: C.orange, border: "none", borderRadius: 6, padding: "4px 10px", fontSize: 10, fontWeight: 600, cursor: "pointer" }}>
+            분석
+          </button>
+          <button onClick={handleMonthlyChart} style={{ background: C.accent + "22", color: C.accent, border: "none", borderRadius: 6, padding: "4px 10px", fontSize: 10, fontWeight: 600, cursor: "pointer" }}>
+            월봉
+          </button>
+        </div>
       </div>
       <div style={{ ...ds.card, overflowX: "auto", padding: 8 }}>
         {membersLoading ? (
@@ -595,6 +602,12 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
           ) : (
             <div style={{ textAlign: "center", padding: 20, color: C.gray }}>데이터 없음</div>
           )}
+        </Modal>
+      )}
+
+      {showAnalytics && (
+        <Modal onClose={() => setShowAnalytics(false)} title="선수 분석">
+          <PlayerAnalytics teamName={teamName} onClose={() => setShowAnalytics(false)} />
         </Modal>
       )}
 

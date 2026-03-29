@@ -154,6 +154,8 @@ function doPost(e) {
       return _jsonResponse(_getHistory(requestTeam));
     } else if (action === "getCumulativeBonus") {
       return _jsonResponse(_getCumulativeBonus(requestTeam));
+    } else if (action === "getPointLog") {
+      return _jsonResponse(_getPointLog(requestTeam, body.pointLogSheet || ""));
     } else if (action === "getSheetList") {
       return _jsonResponse(_getSheetList());
     } else if (action === "getPrevRankings") {
@@ -798,4 +800,42 @@ function _getRankingHistory(team, allPlayers, customSheetName) {
   }
 
   return { success: true, rankingHistory: { dates: resultDates, players: resultPlayers }, debug: debug };
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 포인트로그(골 이벤트) 조회
+// ═══════════════════════════════════════════════════════════════
+
+function _getPointLog(team, customSheetName) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheetName = customSheetName || POINT_LOG_SHEET;
+  var sheet = ss.getSheetByName(sheetName);
+  if (!sheet) return { success: true, events: [] };
+
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return { success: true, events: [] };
+
+  var data = sheet.getRange(2, 1, lastRow - 1, 10).getValues();
+  // 열: 경기일자(0), 경기번호(1), 내팀(2), 상대팀(3), 득점(4), 어시(5), 자책골(6), 실점키퍼(7), 입력시간(8), 팀이름(9)
+  var events = [];
+  for (var i = 0; i < data.length; i++) {
+    var rowTeam = data[i][9] ? String(data[i][9]).trim() : "";
+    if (rowTeam && rowTeam !== team) continue;
+
+    var dateStr = _toDateStr(data[i][0]);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) continue;
+
+    events.push({
+      date: dateStr,
+      matchId: String(data[i][1] || "").trim(),
+      myTeam: String(data[i][2] || "").trim(),
+      opponent: String(data[i][3] || "").trim(),
+      scorer: String(data[i][4] || "").trim(),
+      assist: String(data[i][5] || "").trim(),
+      ownGoal: String(data[i][6] || "").trim(),
+      concedingGk: String(data[i][7] || "").trim(),
+    });
+  }
+
+  return { success: true, events: events };
 }
