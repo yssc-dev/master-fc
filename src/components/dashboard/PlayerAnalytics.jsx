@@ -192,8 +192,8 @@ function analyzeTeams(playerLog) {
   });
 
   return {
-    crovaPairs: countPairs(crovaTeams),
-    gogumaPairs: countPairs(gogumaTeams),
+    crovaPairs,
+    gogumaPairs,
     crovaIndiv: countIndiv(crovaTeams),
     gogumaIndiv: countIndiv(gogumaTeams),
     crovaGames: Object.keys(crovaTeams).length,
