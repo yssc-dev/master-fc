@@ -56,20 +56,26 @@ function analyzeData(events) {
   // 골든콤비: 득점 상위 TOP5 → 각 어시 상위 3명
   const topScorers = Object.entries(scorerData).sort((a, b) => b[1].total - a[1].total).slice(0, 5);
   const goldenCombos = topScorers.map(([name, data]) => {
-    const assistEntries = Object.entries(data.assists).sort((a, b) => b[1] - a[1]).slice(0, 3);
-    const rows = [];
-    if (data.solo > 0) rows.push({ partner: "(단독)", count: data.solo, pct: (data.solo / data.total * 100).toFixed(1) });
-    assistEntries.forEach(([a, c]) => rows.push({ partner: a, count: c, pct: (c / data.total * 100).toFixed(1) }));
-    rows.sort((a, b) => b.count - a.count);
-    return { scorer: name, total: data.total, rows: rows.slice(0, 3) };
+    const assistEntries = Object.entries(data.assists).sort((a, b) => b[1] - a[1]);
+    const slices = [];
+    if (data.solo > 0) slices.push({ label: "단독", count: data.solo });
+    assistEntries.forEach(([a, c]) => slices.push({ label: a, count: c }));
+    slices.sort((a, b) => b.count - a.count);
+    // 상위 4개 + 나머지 기타
+    const top = slices.slice(0, 4);
+    const rest = slices.slice(4).reduce((s, r) => s + r.count, 0);
+    if (rest > 0) top.push({ label: "기타", count: rest });
+    return { scorer: name, total: data.total, slices: top };
   });
 
   // 키퍼킬러: 실점 상위 TOP5 키퍼 → 각 득점자 상위 3명
   const topKeepers = Object.entries(keeperData).sort((a, b) => b[1].total - a[1].total).slice(0, 5);
   const keeperKillers = topKeepers.map(([keeper, data]) => {
-    const scorerEntries = Object.entries(data.scorers).sort((a, b) => b[1] - a[1]).slice(0, 3);
-    const rows = scorerEntries.map(([s, c]) => ({ scorer: s, count: c, pct: (c / data.total * 100).toFixed(1) }));
-    return { keeper, total: data.total, rows };
+    const scorerEntries = Object.entries(data.scorers).sort((a, b) => b[1] - a[1]);
+    const top = scorerEntries.slice(0, 4).map(([s, c]) => ({ label: s, count: c }));
+    const rest = scorerEntries.slice(4).reduce((s, [, c]) => s + c, 0);
+    if (rest > 0) top.push({ label: "기타", count: rest });
+    return { keeper, total: data.total, slices: top };
   });
 
   // 시즌레이스: 누적 포인트 TOP 5
@@ -80,8 +86,8 @@ function analyzeData(events) {
     sortedDates.forEach(d => { cum += (datePoints[p][d] || 0); });
     pointTotals[p] = cum;
   });
-  const top5 = Object.entries(pointTotals).sort((a, b) => b[1] - a[1]).slice(0, 5).map(e => e[0]);
-  const pointRace = top5.map(name => {
+  const topN = Object.entries(pointTotals).sort((a, b) => b[1] - a[1]).slice(0, 20).map(e => e[0]);
+  const pointRace = topN.map(name => {
     let cum = 0;
     const data = sortedDates.map(d => { cum += (datePoints[name]?.[d] || 0); return cum; });
     return { name, data };
@@ -184,8 +190,8 @@ function analyzeTeams(playerLog) {
     sortedDates.forEach(d => { cum += (datePoints[name][d] || 0); });
     pointTotals[name] = cum;
   });
-  const top5 = Object.entries(pointTotals).sort((a, b) => b[1] - a[1]).slice(0, 5).map(e => e[0]);
-  const pointRace = top5.map(name => {
+  const topN = Object.entries(pointTotals).sort((a, b) => b[1] - a[1]).slice(0, 20).map(e => e[0]);
+  const pointRace = topN.map(name => {
     let cum = 0;
     const data = sortedDates.map(d => { cum += (datePoints[name]?.[d] || 0); return cum; });
     return { name, data };
@@ -230,7 +236,36 @@ export default function PlayerAnalytics({ teamName }) {
   ];
 
   const RED = "#ef4444", BLUE = "#3b82f6", GREEN = "#22c55e", ORANGE = "#f97316", PURPLE = "#a855f7";
-  const COLORS = [RED, BLUE, GREEN, ORANGE, PURPLE];
+  const COLORS = [RED, BLUE, GREEN, ORANGE, PURPLE, "#eab308", "#ec4899", "#8b5cf6", "#14b8a6", "#f97316", "#6366f1", "#84cc16", "#06b6d4", "#f43f5e", "#a3e635", "#fb923c", "#818cf8", "#34d399", "#f472b6", "#facc15"];
+  const PIE_COLORS = ["#22d3ee", "#f97316", "#22c55e", "#a855f7", "#6b7280"];
+
+  const DonutChart = ({ slices, total, size = 60 }) => {
+    const r = size / 2 - 2, cx = size / 2, cy = size / 2;
+    let angle = -90;
+    return (
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+        {slices.map((s, i) => {
+          const pct = s.count / total;
+          const sweep = pct * 360;
+          const startAngle = angle;
+          angle += sweep;
+          const endAngle = angle;
+          const largeArc = sweep > 180 ? 1 : 0;
+          const rad = Math.PI / 180;
+          const x1 = cx + r * Math.cos(startAngle * rad);
+          const y1 = cy + r * Math.sin(startAngle * rad);
+          const x2 = cx + r * Math.cos(endAngle * rad);
+          const y2 = cy + r * Math.sin(endAngle * rad);
+          return (
+            <path key={i} d={`M${cx},${cy} L${x1},${y1} A${r},${r} 0 ${largeArc} 1 ${x2},${y2} Z`}
+              fill={PIE_COLORS[i % PIE_COLORS.length]} />
+          );
+        })}
+        <circle cx={cx} cy={cy} r={r * 0.45} fill="#1e293b" />
+        <text x={cx} y={cy + 4} textAnchor="middle" fontSize={11} fill="#fff" fontWeight={800}>{total}</text>
+      </svg>
+    );
+  };
 
   if (loading) return <div style={{ textAlign: "center", padding: 30, color: C.gray }}>불러오는 중...</div>;
   if (!analysis) return <div style={{ textAlign: "center", padding: 30, color: C.gray }}>데이터 없음</div>;
@@ -251,53 +286,51 @@ export default function PlayerAnalytics({ teamName }) {
 
       {tab === "combo" && (
         <div>
-          <div style={{ fontSize: 11, color: C.gray, marginBottom: 6 }}>득점 상위 TOP5 케미</div>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead><tr>
-              <th style={headerCell}>득점자</th><th style={headerCell}>어시/단독</th><th style={{ ...headerCell, textAlign: "right" }}>횟수</th><th style={{ ...headerCell, textAlign: "right" }}>지분</th>
-            </tr></thead>
-            <tbody>
-              {analysis.goldenCombos.map((g, gi) => (
-                g.rows.map((r, ri) => (
-                  <tr key={`${gi}-${ri}`} style={{ background: gi % 2 === 0 ? "transparent" : `${C.grayDarker}33` }}>
-                    {ri === 0 && <td rowSpan={g.rows.length} style={{ ...cellStyle, fontWeight: 700, color: C.white, verticalAlign: "top" }}>{g.scorer}</td>}
-                    <td style={{ ...cellStyle, color: r.partner === "(단독)" ? C.gray : C.white }}>{r.partner}</td>
-                    <td style={{ ...cellStyle, textAlign: "right", fontWeight: 700, color: C.accent }}>{r.count}</td>
-                    <td style={{ ...cellStyle, textAlign: "right", color: C.gray }}>{r.pct}%</td>
-                  </tr>
-                ))
-              ))}
-            </tbody>
-          </table>
+          <div style={{ fontSize: 11, color: C.gray, marginBottom: 8 }}>득점 상위 TOP5 어시스트 분포</div>
+          {analysis.goldenCombos.map((g, gi) => (
+            <div key={gi} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: `1px solid ${C.grayDarker}` }}>
+              <DonutChart slices={g.slices} total={g.total} />
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: C.white, marginBottom: 4 }}>{g.scorer}</div>
+                {g.slices.map((s, si) => (
+                  <div key={si} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10, marginBottom: 1 }}>
+                    <div style={{ width: 8, height: 8, borderRadius: 2, background: PIE_COLORS[si], flexShrink: 0 }} />
+                    <span style={{ color: C.gray }}>{s.label}</span>
+                    <span style={{ color: C.white, fontWeight: 600 }}>{s.count}</span>
+                    <span style={{ color: C.grayDark }}>({(s.count / g.total * 100).toFixed(0)}%)</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
       {tab === "killer" && (
         <div>
-          <div style={{ fontSize: 11, color: C.gray, marginBottom: 6 }}>실점 상위 TOP5 키퍼</div>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead><tr>
-              <th style={headerCell}>키퍼</th><th style={headerCell}>득점자</th><th style={{ ...headerCell, textAlign: "right" }}>골</th><th style={{ ...headerCell, textAlign: "right" }}>지분</th>
-            </tr></thead>
-            <tbody>
-              {analysis.keeperKillers.map((k, ki) => (
-                k.rows.map((r, ri) => (
-                  <tr key={`${ki}-${ri}`} style={{ background: ki % 2 === 0 ? "transparent" : `${C.grayDarker}33` }}>
-                    {ri === 0 && <td rowSpan={k.rows.length} style={{ ...cellStyle, fontWeight: 700, color: C.white, verticalAlign: "top" }}>{k.keeper}</td>}
-                    <td style={{ ...cellStyle, color: C.white }}>{r.scorer}</td>
-                    <td style={{ ...cellStyle, textAlign: "right", fontWeight: 700, color: C.accent }}>{r.count}</td>
-                    <td style={{ ...cellStyle, textAlign: "right", color: C.gray }}>{r.pct}%</td>
-                  </tr>
-                ))
-              ))}
-            </tbody>
-          </table>
+          <div style={{ fontSize: 11, color: C.gray, marginBottom: 8 }}>실점 상위 TOP5 키퍼 득점자 분포</div>
+          {analysis.keeperKillers.map((k, ki) => (
+            <div key={ki} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: `1px solid ${C.grayDarker}` }}>
+              <DonutChart slices={k.slices} total={k.total} />
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: C.white, marginBottom: 4 }}>{k.keeper} <span style={{ fontSize: 10, color: C.gray }}>({k.total}실점)</span></div>
+                {k.slices.map((s, si) => (
+                  <div key={si} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10, marginBottom: 1 }}>
+                    <div style={{ width: 8, height: 8, borderRadius: 2, background: PIE_COLORS[si], flexShrink: 0 }} />
+                    <span style={{ color: C.gray }}>{s.label}</span>
+                    <span style={{ color: C.white, fontWeight: 600 }}>{s.count}</span>
+                    <span style={{ color: C.grayDark }}>({(s.count / k.total * 100).toFixed(0)}%)</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
       )}
 
       {tab === "race" && (
         <div>
-          <div style={{ fontSize: 11, color: C.gray, marginBottom: 8 }}>누적 포인트 TOP 5 레이스</div>
+          <div style={{ fontSize: 11, color: C.gray, marginBottom: 8 }}>누적 포인트 TOP 20 레이스</div>
           <svg viewBox="0 0 320 180" width="100%" style={{ display: "block" }}>
             {(() => {
               const dates = teamAnalysis?.sortedDates;
