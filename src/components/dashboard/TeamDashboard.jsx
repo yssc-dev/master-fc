@@ -5,7 +5,6 @@ import { getSettings } from '../../config/settings';
 import { useTheme } from '../../hooks/useTheme';
 import Modal from '../common/Modal';
 import RankingCandlestickChart from './RankingCandlestickChart';
-import MonthlyRankingChart from './MonthlyRankingChart';
 import PlayerAnalytics from './PlayerAnalytics';
 
 export default function TeamDashboard({ authUser, teamName, teamEntries, onStartGame, onContinueGame, onViewHistory, onSettings, onSwitchTeam, onLogout, pendingGames = [], checkingPending }) {
@@ -16,7 +15,6 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
   const [membersLoading, setMembersLoading] = useState(true);
   const [prevRanks, setPrevRanks] = useState({});
   const [selectedPlayer, setSelectedPlayer] = useState(null);
-  const [showMonthlyChart, setShowMonthlyChart] = useState(false);
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [rankingHistory, setRankingHistory] = useState(null);
   const [rankingLoading, setRankingLoading] = useState(false);
@@ -309,10 +307,6 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
     await loadRankingHistory();
   };
 
-  const handleMonthlyChart = async () => {
-    setShowMonthlyChart(true);
-    await loadRankingHistory();
-  };
 
   const [statSort, setStatSort] = useState("point");
   const statCols = [
@@ -580,10 +574,7 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
         {activeTab === "roster" && renderRoster()}
         {activeTab === "analytics" && (
           <div style={ds.section}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-              <div style={ds.sectionTitle}>선수 분석</div>
-              <button onClick={handleMonthlyChart} style={{ background: C.accent + "22", color: C.accent, border: "none", borderRadius: 6, padding: "4px 10px", fontSize: 10, fontWeight: 600, cursor: "pointer" }}>월봉 차트</button>
-            </div>
+            <div style={ds.sectionTitle}>선수 분석</div>
             <PlayerAnalytics teamName={teamName} />
           </div>
         )}
@@ -607,17 +598,6 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
         </Modal>
       )}
 
-      {showMonthlyChart && (
-        <Modal onClose={() => setShowMonthlyChart(false)} title="전체 선수 월봉">
-          {rankingLoading ? (
-            <div style={{ textAlign: "center", padding: 20, color: C.gray }}>불러오는 중...</div>
-          ) : rankingHistory ? (
-            <MonthlyRankingChart rankingHistory={rankingHistory} C={C} />
-          ) : (
-            <div style={{ textAlign: "center", padding: 20, color: C.gray }}>데이터 없음</div>
-          )}
-        </Modal>
-      )}
     </div>
   );
 }
