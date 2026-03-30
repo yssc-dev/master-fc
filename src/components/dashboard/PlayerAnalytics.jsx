@@ -150,6 +150,10 @@ function analyzeTeams(playerLog) {
   const crovaTop = buildPlayerTeammates(crovaTeams, crovaIndivCount);
   const gogumaTop = buildPlayerTeammates(gogumaTeams, gogumaIndivCount);
 
+  // 크로바/고구마 팀 최다 등장 선수 TOP 3
+  const crovaFrequent = Object.entries(crovaIndivCount).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([name, count]) => ({ name, count }));
+  const gogumaFrequent = Object.entries(gogumaIndivCount).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([name, count]) => ({ name, count }));
+
   // 개인별 빈도
   const countIndiv = (teams) => {
     const counts = {};
@@ -185,6 +189,8 @@ function analyzeTeams(playerLog) {
   return {
     crovaTop,
     gogumaTop,
+    crovaFrequent,
+    gogumaFrequent,
     crovaGames: Object.keys(crovaTeams).length,
     gogumaGames: Object.keys(gogumaTeams).length,
     pointRace,
@@ -393,6 +399,27 @@ export default function PlayerAnalytics({ teamName }) {
             <div style={{ flex: 1, background: `${RED}15`, borderRadius: 8, padding: 10, textAlign: "center" }}>
               <div style={{ fontSize: 18 }}>🍠</div>
               <div style={{ fontSize: 11, color: C.gray }}>고구마 {teamAnalysis.gogumaGames}회</div>
+            </div>
+          </div>
+
+          <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+            <div style={{ flex: 1, background: `${GREEN}15`, borderRadius: 8, padding: 10 }}>
+              <div style={{ fontSize: 10, color: GREEN, marginBottom: 4 }}>🍀 이 선수가 있으면 1위</div>
+              {teamAnalysis.crovaFrequent.map((c, i) => (
+                <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 11, padding: "1px 0" }}>
+                  <span style={{ color: C.white, fontWeight: 600 }}>{c.name}</span>
+                  <span style={{ color: GREEN, fontWeight: 700 }}>{c.count}회</span>
+                </div>
+              ))}
+            </div>
+            <div style={{ flex: 1, background: `${RED}15`, borderRadius: 8, padding: 10 }}>
+              <div style={{ fontSize: 10, color: RED, marginBottom: 4 }}>🍠 이 선수가 있으면 꼴찌</div>
+              {teamAnalysis.gogumaFrequent.map((c, i) => (
+                <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 11, padding: "1px 0" }}>
+                  <span style={{ color: C.white, fontWeight: 600 }}>{c.name}</span>
+                  <span style={{ color: RED, fontWeight: 700 }}>{c.count}회</span>
+                </div>
+              ))}
             </div>
           </div>
 
