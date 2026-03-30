@@ -103,7 +103,55 @@ function analyzeData(events) {
   });
   const topChemistry = Object.entries(pairCount).map(([pair, count]) => ({ pair, count })).sort((a, b) => b.count - a.count).slice(0, 15);
 
-  return { goldenCombos, keeperKillers, topChemistry };
+  // 키퍼일 때 우리팀 득점 분석
+  // 1. 각 매치별로 양팀 키퍼 파악 (실점 이벤트의 concedingGk)
+  const matchKeepers = {}; // "date_matchId_team" → keeper
+  const matchGoals = {};   // "date_matchId_team" → goals scored by that team
+  events.forEach(e => {
+    if (!e.date || !e.matchId) return;
+    if (e.scorer && e.myTeam) {
+      const key = `${e.date}_${e.matchId}_${e.myTeam}`;
+      matchGoals[key] = (matchGoals[key] || 0) + 1;
+    }
+    if (e.concedingGk && e.opponent) {
+      // concedingGk는 상대팀(opponent)의 키퍼
+      const key = `${e.date}_${e.matchId}_${e.opponent}`;
+      matchKeepers[key] = e.concedingGk;
+    }
+  });
+
+  // 2. 키퍼별: 키퍼일 때 우리팀 득점 vs 실점
+  const keeperImpact = {};
+  for (const [matchKey, keeper] of Object.entries(matchKeepers)) {
+    if (!keeperImpact[keeper]) keeperImpact[keeper] = { asKeeper: { games: 0, teamGoals: 0, conceded: 0 } };
+    const ki = keeperImpact[keeper].asKeeper;
+    ki.games++;
+    ki.teamGoals += matchGoals[matchKey] || 0;
+    // 실점: 같은 매치에서 상대팀 골 수
+    const parts = matchKey.split('_');
+    const date = parts[0], matchId = parts[1], myTeam = parts.slice(2).join('_');
+    // 상대팀 골 찾기
+    for (const [k, g] of Object.entries(matchGoals)) {
+      if (k.startsWith(`${date}_${matchId}_`) && k !== matchKey) {
+        ki.conceded += g;
+        break;
+      }
+    }
+  }
+
+  const keeperStats = Object.entries(keeperImpact)
+    .filter(([, v]) => v.asKeeper.games >= 2)
+    .map(([name, v]) => ({
+      name,
+      games: v.asKeeper.games,
+      teamGoals: v.asKeeper.teamGoals,
+      conceded: v.asKeeper.conceded,
+      avgTeamGoals: (v.asKeeper.teamGoals / v.asKeeper.games).toFixed(1),
+      avgConceded: (v.asKeeper.conceded / v.asKeeper.games).toFixed(1),
+    }))
+    .sort((a, b) => b.avgTeamGoals - a.avgTeamGoals);
+
+  return { goldenCombos, keeperKillers, keeperStats, topChemistry };
 }
 
 function analyzeTeams(playerLog) {
@@ -320,6 +368,31 @@ export default function PlayerAnalytics({ teamName }) {
               </div>
             </div>
           ))}
+
+          <div style={{ fontSize: 12, fontWeight: 700, color: C.white, marginTop: 16, marginBottom: 8 }}>내가 키퍼일 때 우리팀 득점 (2경기 이상)</div>
+          <div style={{ fontSize: 10, color: C.gray, marginBottom: 8 }}>평균 득점이 높을수록 → 필드에 없어도 팀이 잘함 🤔</div>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead><tr>
+              <th style={headerCell}>키퍼</th>
+              <th style={{ ...headerCell, textAlign: "right" }}>경기</th>
+              <th style={{ ...headerCell, textAlign: "right" }}>팀득점</th>
+              <th style={{ ...headerCell, textAlign: "right" }}>실점</th>
+              <th style={{ ...headerCell, textAlign: "right" }}>평균득</th>
+              <th style={{ ...headerCell, textAlign: "right" }}>평균실</th>
+            </tr></thead>
+            <tbody>
+              {analysis.keeperStats.map((k, i) => (
+                <tr key={i}>
+                  <td style={{ ...cellStyle, fontWeight: 600, color: C.white }}>{k.name}</td>
+                  <td style={{ ...cellStyle, textAlign: "right" }}>{k.games}</td>
+                  <td style={{ ...cellStyle, textAlign: "right", color: C.accent, fontWeight: 700 }}>{k.teamGoals}</td>
+                  <td style={{ ...cellStyle, textAlign: "right", color: RED }}>{k.conceded}</td>
+                  <td style={{ ...cellStyle, textAlign: "right", color: GREEN, fontWeight: 700 }}>{k.avgTeamGoals}</td>
+                  <td style={{ ...cellStyle, textAlign: "right", color: C.gray }}>{k.avgConceded}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
 
