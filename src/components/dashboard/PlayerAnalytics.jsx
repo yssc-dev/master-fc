@@ -504,44 +504,37 @@ export default function PlayerAnalytics({ teamName }) {
             </div>
           </div>
 
-          {[
-            { title: "🍀 크로바 TOP5 — 누가 팀원일 때 1위?", data: teamAnalysis.crovaTop, color: GREEN, emoji: "🍀" },
-            { title: "🍠 고구마 TOP5 — 누가 팀원일 때 꼴찌?", data: teamAnalysis.gogumaTop, color: RED, emoji: "🍠" },
-          ].map((section, si) => (
-            <div key={si} style={{ marginTop: si > 0 ? 16 : 0 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: section.color, marginBottom: 8 }}>{section.title}</div>
-              {section.data.map((p, i) => (
-                <div key={i} style={{ padding: "8px 0", borderBottom: `1px solid ${C.grayDarker}` }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
-                    <span style={{ fontSize: 13, fontWeight: 800, color: C.white }}>{p.name}</span>
-                    <span style={{ fontSize: 11, color: section.color, fontWeight: 700 }}>{section.emoji} {p.total}회</span>
-                  </div>
-                  {/* 스택 바 차트 */}
-                  <div style={{ display: "flex", height: 18, borderRadius: 4, overflow: "hidden", marginBottom: 4 }}>
-                    {p.mates.map((m, mi) => (
-                      <div key={mi} style={{
-                        width: `${m.count / p.total * 100}%`, minWidth: 20,
-                        background: PIE_COLORS[mi], display: "flex", alignItems: "center", justifyContent: "center",
-                        fontSize: 8, fontWeight: 700, color: "#fff",
-                      }}>{m.count}</div>
-                    ))}
-                    {(() => {
-                      const mateSum = p.mates.reduce((s, m) => s + m.count, 0);
-                      const rest = p.total * (p.mates.length > 0 ? p.mates.length : 1) - mateSum; // 팀원은 여러명
-                      return null; // 기타는 생략
-                    })()}
-                  </div>
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    {p.mates.map((m, mi) => (
-                      <span key={mi} style={{ fontSize: 10, display: "flex", alignItems: "center", gap: 2 }}>
-                        <span style={{ width: 8, height: 8, borderRadius: 2, background: PIE_COLORS[mi], display: "inline-block" }} />
-                        <span style={{ color: C.gray }}>{m.name}</span>
-                        <span style={{ color: section.color, fontWeight: 600 }}>{m.count}</span>
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              ))}
+          <div style={{ fontSize: 12, fontWeight: 700, color: GREEN, marginBottom: 8 }}>🍀 크로바 TOP5 — 누가 팀원일 때 1위?</div>
+          {teamAnalysis.crovaTop.map((p, i) => (
+            <div key={i} style={{ padding: "8px 0", borderBottom: `1px solid ${C.grayDarker}` }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                <span style={{ fontSize: 13, fontWeight: 800, color: C.white }}>{p.name}</span>
+                <span style={{ fontSize: 11, color: GREEN, fontWeight: 700 }}>🍀 {p.total}회</span>
+              </div>
+              <div style={{ display: "flex", gap: 8, paddingLeft: 8 }}>
+                {p.mates.map((m, mi) => (
+                  <span key={mi} style={{ fontSize: 10, color: C.gray }}>
+                    {m.name} <span style={{ color: GREEN, fontWeight: 600 }}>{m.count}회</span>
+                  </span>
+                ))}
+              </div>
+            </div>
+          ))}
+
+          <div style={{ fontSize: 12, fontWeight: 700, color: RED, marginTop: 16, marginBottom: 8 }}>🍠 고구마 TOP5 — 누가 팀원일 때 꼴찌?</div>
+          {teamAnalysis.gogumaTop.map((p, i) => (
+            <div key={i} style={{ padding: "8px 0", borderBottom: `1px solid ${C.grayDarker}` }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                <span style={{ fontSize: 13, fontWeight: 800, color: C.white }}>{p.name}</span>
+                <span style={{ fontSize: 11, color: RED, fontWeight: 700 }}>🍠 {p.total}회</span>
+              </div>
+              <div style={{ display: "flex", gap: 8, paddingLeft: 8 }}>
+                {p.mates.map((m, mi) => (
+                  <span key={mi} style={{ fontSize: 10, color: C.gray }}>
+                    {m.name} <span style={{ color: RED, fontWeight: 600 }}>{m.count}회</span>
+                  </span>
+                ))}
+              </div>
             </div>
           ))}
         </div>
