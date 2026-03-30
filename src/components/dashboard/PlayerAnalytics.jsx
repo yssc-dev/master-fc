@@ -87,15 +87,13 @@ function analyzeData(events) {
     return { name, data };
   });
 
-  // 케미
+  // 케미: 득점자+어시 조합 카운트 (날짜 무관)
   const pairCount = {};
-  Object.values(teammates).forEach(set => {
-    const players = [...set];
-    for (let i = 0; i < players.length; i++)
-      for (let j = i + 1; j < players.length; j++) {
-        const pair = [players[i], players[j]].sort().join('+');
-        pairCount[pair] = (pairCount[pair] || 0) + 1;
-      }
+  events.forEach(e => {
+    if (e.scorer && e.assist) {
+      const pair = [e.scorer, e.assist].sort().join('+');
+      pairCount[pair] = (pairCount[pair] || 0) + 1;
+    }
   });
   const topChemistry = Object.entries(pairCount).map(([pair, count]) => ({ pair, count })).sort((a, b) => b.count - a.count).slice(0, 15);
 
@@ -107,8 +105,13 @@ function analyzeTeams(playerLog) {
   // 같은 날짜 + goguma < 0인 선수 = 꼴찌팀 동료
   const crovaTeams = {}; // date → [names]
   const gogumaTeams = {};
+  // 같은 날짜의 전체 참가자 목록
+  const allTeamsByDate = {}; // date → Set(names)
 
   playerLog.forEach(p => {
+    if (!allTeamsByDate[p.date]) allTeamsByDate[p.date] = new Set();
+    allTeamsByDate[p.date].add(p.name);
+
     if (p.crova > 0) {
       if (!crovaTeams[p.date]) crovaTeams[p.date] = [];
       crovaTeams[p.date].push(p.name);
@@ -119,18 +122,42 @@ function analyzeTeams(playerLog) {
     }
   });
 
-  // 쌍별 빈도
-  const countPairs = (teams) => {
-    const pairs = {};
-    Object.values(teams).forEach(names => {
-      for (let i = 0; i < names.length; i++)
-        for (let j = i + 1; j < names.length; j++) {
-          const pair = [names[i], names[j]].sort().join('+');
-          pairs[pair] = (pairs[pair] || 0) + 1;
-        }
-    });
-    return Object.entries(pairs).map(([pair, count]) => ({ pair, count })).sort((a, b) => b.count - a.count).slice(0, 10);
-  };
+  // 쌍별 함께한 경기수 + 크로바/고구마 횟수 → 승률
+  const pairGames = {}; // pair → { together, crova, goguma }
+  const allDatesArr = Object.keys(allTeamsByDate);
+
+  // 크로바팀 쌍
+  Object.values(crovaTeams).forEach(names => {
+    for (let i = 0; i < names.length; i++)
+      for (let j = i + 1; j < names.length; j++) {
+        const pair = [names[i], names[j]].sort().join('+');
+        if (!pairGames[pair]) pairGames[pair] = { crova: 0, goguma: 0 };
+        pairGames[pair].crova++;
+      }
+  });
+  // 고구마팀 쌍
+  Object.values(gogumaTeams).forEach(names => {
+    for (let i = 0; i < names.length; i++)
+      for (let j = i + 1; j < names.length; j++) {
+        const pair = [names[i], names[j]].sort().join('+');
+        if (!pairGames[pair]) pairGames[pair] = { crova: 0, goguma: 0 };
+        pairGames[pair].goguma++;
+      }
+  });
+
+  // 크로바 승률 높은 조합 (최소 2회 이상 크로바)
+  const crovaPairs = Object.entries(pairGames)
+    .filter(([, v]) => v.crova >= 2)
+    .map(([pair, v]) => ({ pair, crova: v.crova, goguma: v.goguma }))
+    .sort((a, b) => b.crova - a.crova)
+    .slice(0, 10);
+
+  // 고구마 많은 조합 (최소 2회 이상)
+  const gogumaPairs = Object.entries(pairGames)
+    .filter(([, v]) => v.goguma >= 2)
+    .map(([pair, v]) => ({ pair, crova: v.crova, goguma: v.goguma }))
+    .sort((a, b) => b.goguma - a.goguma)
+    .slice(0, 10);
 
   // 개인별 빈도
   const countIndiv = (teams) => {
@@ -321,7 +348,7 @@ export default function PlayerAnalytics({ teamName }) {
 
       {tab === "chemistry" && (
         <div>
-          <div style={{ fontSize: 11, color: C.gray, marginBottom: 8 }}>같은 팀 골 관여 동료 (경기수 기준)</div>
+          <div style={{ fontSize: 11, color: C.gray, marginBottom: 8 }}>골+어시 함께 만든 조합 (전체 횟수)</div>
           {analysis.topChemistry.map((c, i) => {
             const [p1, p2] = c.pair.split('+');
             const maxC = analysis.topChemistry[0]?.count || 1;
@@ -353,26 +380,30 @@ export default function PlayerAnalytics({ teamName }) {
             </div>
           </div>
 
-          <div style={{ fontSize: 12, fontWeight: 700, color: GREEN, marginBottom: 6 }}>🍀 크로바 단골 조합</div>
+          <div style={{ fontSize: 12, fontWeight: 700, color: GREEN, marginBottom: 6 }}>🍀 크로바 단골 조합 (2회 이상)</div>
+          {teamAnalysis.crovaPairs.length === 0 && <div style={{ fontSize: 11, color: C.gray, padding: 8 }}>2회 이상 조합 없음</div>}
           {teamAnalysis.crovaPairs.map((c, i) => {
             const [p1, p2] = c.pair.split('+');
             return (
               <div key={i} style={{ display: "flex", alignItems: "center", padding: "4px 0", borderBottom: `1px solid ${C.grayDarker}`, gap: 6 }}>
                 <span style={{ width: 20, fontSize: 10, color: C.gray, textAlign: "center" }}>{i + 1}</span>
                 <span style={{ flex: 1, fontSize: 11, color: C.white }}>{p1} + {p2}</span>
-                <span style={{ fontSize: 12, fontWeight: 700, color: GREEN }}>{c.count}회</span>
+                <span style={{ fontSize: 11, fontWeight: 700, color: GREEN }}>🍀{c.crova}</span>
+                {c.goguma > 0 && <span style={{ fontSize: 11, fontWeight: 700, color: RED }}>🍠{c.goguma}</span>}
               </div>
             );
           })}
 
-          <div style={{ fontSize: 12, fontWeight: 700, color: RED, marginTop: 16, marginBottom: 6 }}>🍠 고구마 단골 조합</div>
+          <div style={{ fontSize: 12, fontWeight: 700, color: RED, marginTop: 16, marginBottom: 6 }}>🍠 고구마 단골 조합 (2회 이상)</div>
+          {teamAnalysis.gogumaPairs.length === 0 && <div style={{ fontSize: 11, color: C.gray, padding: 8 }}>2회 이상 조합 없음</div>}
           {teamAnalysis.gogumaPairs.map((c, i) => {
             const [p1, p2] = c.pair.split('+');
             return (
               <div key={i} style={{ display: "flex", alignItems: "center", padding: "4px 0", borderBottom: `1px solid ${C.grayDarker}`, gap: 6 }}>
                 <span style={{ width: 20, fontSize: 10, color: C.gray, textAlign: "center" }}>{i + 1}</span>
                 <span style={{ flex: 1, fontSize: 11, color: C.white }}>{p1} + {p2}</span>
-                <span style={{ fontSize: 12, fontWeight: 700, color: RED }}>{c.count}회</span>
+                <span style={{ fontSize: 11, fontWeight: 700, color: RED }}>🍠{c.goguma}</span>
+                {c.crova > 0 && <span style={{ fontSize: 11, fontWeight: 700, color: GREEN }}>🍀{c.crova}</span>}
               </div>
             );
           })}
