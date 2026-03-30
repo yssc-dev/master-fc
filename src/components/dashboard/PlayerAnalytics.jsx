@@ -99,7 +99,7 @@ function analyzeData(events) {
   });
   const topChemistry = Object.entries(pairCount).map(([pair, count]) => ({ pair, count })).sort((a, b) => b.count - a.count).slice(0, 15);
 
-  return { goldenCombos, keeperKillers, pointRace, sortedDates, topChemistry };
+  return { goldenCombos, keeperKillers, topChemistry };
 }
 
 function analyzeTeams(playerLog) {
@@ -139,6 +139,31 @@ function analyzeTeams(playerLog) {
     return Object.entries(counts).map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count).slice(0, 10);
   };
 
+  // 시즌 레이스: 선수별집계기록로그 기반 누적 포인트
+  // 포인트 = goals + assists + ownGoals + cleanSheets + crova + goguma
+  const datePoints = {};
+  const allDates = new Set();
+  playerLog.forEach(p => {
+    allDates.add(p.date);
+    if (!datePoints[p.name]) datePoints[p.name] = {};
+    const pt = p.goals + p.assists + p.ownGoals + p.cleanSheets + p.crova + p.goguma;
+    datePoints[p.name][p.date] = (datePoints[p.name][p.date] || 0) + pt;
+  });
+
+  const sortedDates = [...allDates].sort();
+  const pointTotals = {};
+  Object.keys(datePoints).forEach(name => {
+    let cum = 0;
+    sortedDates.forEach(d => { cum += (datePoints[name][d] || 0); });
+    pointTotals[name] = cum;
+  });
+  const top5 = Object.entries(pointTotals).sort((a, b) => b[1] - a[1]).slice(0, 5).map(e => e[0]);
+  const pointRace = top5.map(name => {
+    let cum = 0;
+    const data = sortedDates.map(d => { cum += (datePoints[name]?.[d] || 0); return cum; });
+    return { name, data };
+  });
+
   return {
     crovaPairs: countPairs(crovaTeams),
     gogumaPairs: countPairs(gogumaTeams),
@@ -146,6 +171,8 @@ function analyzeTeams(playerLog) {
     gogumaIndiv: countIndiv(gogumaTeams),
     crovaGames: Object.keys(crovaTeams).length,
     gogumaGames: Object.keys(gogumaTeams).length,
+    pointRace,
+    sortedDates,
   };
 }
 
@@ -246,9 +273,9 @@ export default function PlayerAnalytics({ teamName }) {
           <div style={{ fontSize: 11, color: C.gray, marginBottom: 8 }}>누적 포인트 TOP 5 레이스</div>
           <svg viewBox="0 0 320 180" width="100%" style={{ display: "block" }}>
             {(() => {
-              const dates = analysis.sortedDates;
+              const dates = teamAnalysis?.sortedDates;
               if (dates.length === 0) return null;
-              const maxPt = Math.max(...analysis.pointRace.map(r => Math.max(...r.data)));
+              const maxPt = Math.max(...teamAnalysis?.pointRace.map(r => Math.max(...r.data)));
               const padL = 25, padR = 10, padT = 15, padB = 25;
               const cw = 320 - padL - padR, ch = 180 - padT - padB;
               const xS = (i) => padL + (i / (dates.length - 1 || 1)) * cw;
@@ -268,7 +295,7 @@ export default function PlayerAnalytics({ teamName }) {
                     const idx = dates.indexOf(d);
                     return <text key={d} x={xS(idx)} y={178} textAnchor="middle" fontSize={7} fill={C.gray}>{d.slice(5)}</text>;
                   })}
-                  {analysis.pointRace.map((r, ri) => (
+                  {teamAnalysis?.pointRace.map((r, ri) => (
                     <g key={r.name}>
                       <polyline points={r.data.map((v, i) => `${xS(i)},${yS(v)}`).join(' ')} fill="none" stroke={COLORS[ri]} strokeWidth={1.5} />
                       <text x={xS(dates.length - 1) + 3} y={yS(r.data[r.data.length - 1]) + 3} fontSize={8} fill={COLORS[ri]} fontWeight={700}>
@@ -281,7 +308,7 @@ export default function PlayerAnalytics({ teamName }) {
             })()}
           </svg>
           <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 10, marginTop: 8 }}>
-            {analysis.pointRace.map((r, ri) => (
+            {teamAnalysis?.pointRace.map((r, ri) => (
               <div key={r.name} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11 }}>
                 <div style={{ width: 12, height: 3, borderRadius: 2, background: COLORS[ri] }} />
                 <span style={{ color: C.white, fontWeight: 600 }}>{r.name}</span>
