@@ -86,7 +86,7 @@ function analyzeData(events) {
     sortedDates.forEach(d => { cum += (datePoints[p][d] || 0); });
     pointTotals[p] = cum;
   });
-  const topN = Object.entries(pointTotals).sort((a, b) => b[1] - a[1]).slice(0, 20).map(e => e[0]);
+  const topN = Object.entries(pointTotals).sort((a, b) => b[1] - a[1]).slice(0, 10).map(e => e[0]);
   const pointRace = topN.map(name => {
     let cum = 0;
     const data = sortedDates.map(d => { cum += (datePoints[name]?.[d] || 0); return cum; });
@@ -179,7 +179,7 @@ function analyzeTeams(playerLog) {
     sortedDates.forEach(d => { cum += (datePoints[name][d] || 0); });
     pointTotals[name] = cum;
   });
-  const topN = Object.entries(pointTotals).sort((a, b) => b[1] - a[1]).slice(0, 20).map(e => e[0]);
+  const topN = Object.entries(pointTotals).sort((a, b) => b[1] - a[1]).slice(0, 10).map(e => e[0]);
   const pointRace = topN.map(name => {
     let cum = 0;
     const data = sortedDates.map(d => { cum += (datePoints[name]?.[d] || 0); return cum; });
@@ -228,7 +228,7 @@ export default function PlayerAnalytics({ teamName }) {
   const COLORS = [RED, BLUE, GREEN, ORANGE, PURPLE, "#eab308", "#ec4899", "#8b5cf6", "#14b8a6", "#f97316", "#6366f1", "#84cc16", "#06b6d4", "#f43f5e", "#a3e635", "#fb923c", "#818cf8", "#34d399", "#f472b6", "#facc15"];
   const PIE_COLORS = ["#22d3ee", "#f97316", "#22c55e", "#a855f7", "#6b7280"];
 
-  const DonutChart = ({ slices, total, size = 60 }) => {
+  const DonutChart = ({ slices, total, size = 90 }) => {
     const r = size / 2 - 2, cx = size / 2, cy = size / 2;
     let angle = -90;
     return (
@@ -277,18 +277,20 @@ export default function PlayerAnalytics({ teamName }) {
         <div>
           <div style={{ fontSize: 11, color: C.gray, marginBottom: 8 }}>득점 상위 TOP5 어시스트 분포</div>
           {analysis.goldenCombos.map((g, gi) => (
-            <div key={gi} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: `1px solid ${C.grayDarker}` }}>
-              <DonutChart slices={g.slices} total={g.total} />
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: C.white, marginBottom: 4 }}>{g.scorer}</div>
-                {g.slices.map((s, si) => (
-                  <div key={si} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10, marginBottom: 1 }}>
-                    <div style={{ width: 8, height: 8, borderRadius: 2, background: PIE_COLORS[si], flexShrink: 0 }} />
-                    <span style={{ color: C.gray }}>{s.label}</span>
-                    <span style={{ color: C.white, fontWeight: 600 }}>{s.count}</span>
-                    <span style={{ color: C.grayDark }}>({(s.count / g.total * 100).toFixed(0)}%)</span>
-                  </div>
-                ))}
+            <div key={gi} style={{ padding: "10px 0", borderBottom: `1px solid ${C.grayDarker}` }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: C.white, marginBottom: 6 }}>{g.scorer}</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                <DonutChart slices={g.slices} total={g.total} size={100} />
+                <div style={{ flex: 1 }}>
+                  {g.slices.map((s, si) => (
+                    <div key={si} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, marginBottom: 2 }}>
+                      <div style={{ width: 10, height: 10, borderRadius: 2, background: PIE_COLORS[si], flexShrink: 0 }} />
+                      <span style={{ color: C.white, fontWeight: 600 }}>{s.label}</span>
+                      <span style={{ color: C.accent, fontWeight: 700 }}>{s.count}</span>
+                      <span style={{ color: C.gray }}>({(s.count / g.total * 100).toFixed(0)}%)</span>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           ))}
@@ -299,18 +301,20 @@ export default function PlayerAnalytics({ teamName }) {
         <div>
           <div style={{ fontSize: 11, color: C.gray, marginBottom: 8 }}>실점 상위 TOP5 키퍼 득점자 분포</div>
           {analysis.keeperKillers.map((k, ki) => (
-            <div key={ki} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: `1px solid ${C.grayDarker}` }}>
-              <DonutChart slices={k.slices} total={k.total} />
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: C.white, marginBottom: 4 }}>{k.keeper} <span style={{ fontSize: 10, color: C.gray }}>({k.total}실점)</span></div>
-                {k.slices.map((s, si) => (
-                  <div key={si} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10, marginBottom: 1 }}>
-                    <div style={{ width: 8, height: 8, borderRadius: 2, background: PIE_COLORS[si], flexShrink: 0 }} />
-                    <span style={{ color: C.gray }}>{s.label}</span>
-                    <span style={{ color: C.white, fontWeight: 600 }}>{s.count}</span>
-                    <span style={{ color: C.grayDark }}>({(s.count / k.total * 100).toFixed(0)}%)</span>
-                  </div>
-                ))}
+            <div key={ki} style={{ padding: "10px 0", borderBottom: `1px solid ${C.grayDarker}` }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: C.white, marginBottom: 6 }}>{k.keeper} <span style={{ fontSize: 10, color: C.gray }}>({k.total}실점)</span></div>
+              <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                <DonutChart slices={k.slices} total={k.total} size={100} />
+                <div style={{ flex: 1 }}>
+                  {k.slices.map((s, si) => (
+                    <div key={si} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, marginBottom: 2 }}>
+                      <div style={{ width: 10, height: 10, borderRadius: 2, background: PIE_COLORS[si], flexShrink: 0 }} />
+                      <span style={{ color: C.white, fontWeight: 600 }}>{s.label}</span>
+                      <span style={{ color: C.accent, fontWeight: 700 }}>{s.count}</span>
+                      <span style={{ color: C.gray }}>({(s.count / k.total * 100).toFixed(0)}%)</span>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           ))}
@@ -319,7 +323,7 @@ export default function PlayerAnalytics({ teamName }) {
 
       {tab === "race" && (
         <div>
-          <div style={{ fontSize: 11, color: C.gray, marginBottom: 8 }}>누적 포인트 TOP 20 레이스</div>
+          <div style={{ fontSize: 11, color: C.gray, marginBottom: 8 }}>누적 포인트 TOP 10 레이스</div>
           <svg viewBox="0 0 320 180" width="100%" style={{ display: "block" }}>
             {(() => {
               const dates = teamAnalysis?.sortedDates;
