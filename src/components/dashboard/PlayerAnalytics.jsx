@@ -272,6 +272,7 @@ export default function PlayerAnalytics({ teamName }) {
     { key: "race", label: "시즌레이스" },
     { key: "chemistry", label: "케미" },
     { key: "crovaguma", label: "🍀/🍠" },
+    { key: "dualteam", label: "팀전" },
   ];
 
   const RED = "#ef4444", BLUE = "#3b82f6", GREEN = "#22c55e", ORANGE = "#f97316", PURPLE = "#a855f7";
@@ -539,6 +540,73 @@ export default function PlayerAnalytics({ teamName }) {
           ))}
         </div>
       )}
+
+      {tab === "dualteam" && playerLog && (() => {
+        const s = getSettings(teamName);
+        const teams = s.dualTeams || [];
+        const startDate = s.dualTeamStartDate || "2026-04-01";
+        const endDate = s.dualTeamEndDate || "2026-07-01";
+
+        if (teams.length === 0) return <div style={{ textAlign: "center", padding: 20, color: C.gray }}>설정에서 팀전 팀을 구성해주세요</div>;
+
+        // 기간 내 선수별 랭크스코어 + 크로바 + 고구마 합산
+        const playerScores = {};
+        playerLog.forEach(p => {
+          if (p.date < startDate || p.date >= endDate) return;
+          if (!playerScores[p.name]) playerScores[p.name] = { rankScore: 0, crova: 0, goguma: 0 };
+          playerScores[p.name].rankScore += p.rankScore || 0;
+          playerScores[p.name].crova += p.crova || 0;
+          playerScores[p.name].goguma += p.goguma || 0;
+        });
+
+        // 팀별 점수 합산
+        const teamScores = teams.map(t => {
+          let total = 0, detail = [];
+          t.members.forEach(m => {
+            const ps = playerScores[m] || { rankScore: 0, crova: 0, goguma: 0 };
+            const individual = ps.rankScore + ps.crova + ps.goguma;
+            total += individual;
+            detail.push({ name: m, rankScore: ps.rankScore, crova: ps.crova, goguma: ps.goguma, total: individual });
+          });
+          return { name: t.name, members: t.members, total, detail };
+        }).sort((a, b) => b.total - a.total);
+
+        const maxScore = teamScores[0]?.total || 1;
+
+        return (
+          <div>
+            <div style={{ fontSize: 11, color: C.gray, marginBottom: 8 }}>
+              기간: {startDate} ~ {endDate} (설정에서 변경 가능)
+            </div>
+
+            {teamScores.map((t, i) => (
+              <div key={i} style={{ padding: "10px 0", borderBottom: `1px solid ${C.grayDarker}` }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                  <span style={{ fontSize: 16, fontWeight: 900, color: i === 0 ? "#fbbf24" : i === 1 ? "#9ca3af" : i === 2 ? "#d97706" : C.gray, minWidth: 20 }}>{i + 1}</span>
+                  <span style={{ fontSize: 14, fontWeight: 800, color: C.white }}>{t.name}</span>
+                  <span style={{ fontSize: 16, fontWeight: 900, color: C.accent }}>{t.total}점</span>
+                </div>
+                {/* 점수 바 */}
+                <div style={{ height: 8, borderRadius: 4, background: C.grayDarker, marginBottom: 6 }}>
+                  <div style={{ height: 8, borderRadius: 4, background: i === 0 ? "#fbbf24" : C.accent, width: `${t.total / maxScore * 100}%`, minWidth: 2 }} />
+                </div>
+                {/* 멤버별 상세 */}
+                <div style={{ display: "flex", gap: 12, paddingLeft: 28 }}>
+                  {t.detail.map((d, di) => (
+                    <div key={di} style={{ fontSize: 10, color: C.gray }}>
+                      <span style={{ color: C.white, fontWeight: 600 }}>{d.name}</span>
+                      {" "}순위{d.rankScore}
+                      {d.crova !== 0 && <span style={{ color: GREEN }}> 🍀{d.crova}</span>}
+                      {d.goguma !== 0 && <span style={{ color: RED }}> 🍠{d.goguma}</span>}
+                      {" = "}<span style={{ color: C.accent, fontWeight: 700 }}>{d.total}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        );
+      })()}
     </div>
   );
 }

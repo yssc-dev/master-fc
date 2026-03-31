@@ -572,8 +572,8 @@ function _writePlayerLog(data) {
     var sheet = ss.getSheetByName(PLAYER_LOG_SHEET);
     if (!sheet) {
       sheet = ss.insertSheet(PLAYER_LOG_SHEET);
-      sheet.getRange("A1:L1").setValues([["경기일자","선수","골","어시","역주행","실점","클린시트","크로바","고구마","키퍼경기수","입력시간","팀이름"]]);
-      sheet.getRange("A1:L1").setFontWeight("bold");
+      sheet.getRange("A1:M1").setValues([["경기일자","선수","골","어시","역주행","실점","클린시트","크로바","고구마","키퍼경기수","입력시간","팀이름","팀순위점수"]]);
+      sheet.getRange("A1:M1").setFontWeight("bold");
     }
 
     var values = rows.map(function(p) {
@@ -582,12 +582,12 @@ function _writePlayerLog(data) {
         Number(p.goals) || 0, Number(p.assists) || 0, Number(p.owngoals) || 0,
         Number(p.conceded) || 0, Number(p.cleanSheets) || 0,
         Number(p.crova) || 0, Number(p.goguma) || 0, Number(p.keeperGames) || 0,
-        p.inputTime || _kstNow(), teamName,
+        p.inputTime || _kstNow(), teamName, Number(p.rankScore) || 0,
       ];
     });
 
     var lastRow = sheet.getLastRow();
-    sheet.getRange(lastRow + 1, 1, values.length, 12).setValues(values);
+    sheet.getRange(lastRow + 1, 1, values.length, 13).setValues(values);
     return { success: true, count: values.length };
   } finally {
     lock.releaseLock();
@@ -855,7 +855,7 @@ function _getPlayerLog(team, customSheetName) {
   var lastRow = sheet.getLastRow();
   if (lastRow < 2) return { success: true, players: [] };
 
-  var data = sheet.getRange(2, 1, lastRow - 1, 12).getValues();
+  var data = sheet.getRange(2, 1, lastRow - 1, 13).getValues();
   var players = [];
   for (var i = 0; i < data.length; i++) {
     var rowTeam = data[i][11] ? String(data[i][11]).trim() : "";
@@ -870,6 +870,7 @@ function _getPlayerLog(team, customSheetName) {
       ownGoals: Number(data[i][4]) || 0, conceded: Number(data[i][5]) || 0,
       cleanSheets: Number(data[i][6]) || 0, crova: Number(data[i][7]) || 0,
       goguma: Number(data[i][8]) || 0, keeperGames: Number(data[i][9]) || 0,
+      rankScore: Number(data[i][12]) || 0,
     });
   }
   return { success: true, players: players };

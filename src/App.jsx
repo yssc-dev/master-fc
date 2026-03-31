@@ -494,10 +494,16 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
       inputTime,
     }));
 
+    // 팀순위점수 계산: 1등팀 = teamCount점, 꼴찌팀 = 1점
+    const teamRankScore = {};
+    finalStandings.forEach((t, i) => { teamRankScore[t.name] = teamCount - i; });
+
     const playerData = attendees.map(p => {
       const pts = calcPlayerPoints(p);
-      if (pts.goals === 0 && pts.assists === 0 && pts.owngoals === 0 && pts.conceded === 0 && pts.cleanSheets === 0 && pts.keeperGames === 0 && pts.crova === 0 && pts.goguma === 0) return null;
-      return { gameDate: dateStr, name: p, ...pts, owngoals: pts.owngoals * gameSettings.ownGoalPoint, inputTime };
+      const playerTeam = getPlayerTeamName(p);
+      const rankScore = teamRankScore[playerTeam] || 0;
+      if (pts.goals === 0 && pts.assists === 0 && pts.owngoals === 0 && pts.conceded === 0 && pts.cleanSheets === 0 && pts.keeperGames === 0 && pts.crova === 0 && pts.goguma === 0 && rankScore === 0) return null;
+      return { gameDate: dateStr, name: p, ...pts, owngoals: pts.owngoals * gameSettings.ownGoalPoint, rankScore, inputTime };
     }).filter(Boolean);
 
     try {

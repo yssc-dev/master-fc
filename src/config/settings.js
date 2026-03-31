@@ -11,6 +11,16 @@ const DEFAULTS = {
   dashboardSheet: "마스터FC 대시보드",
   pointLogSheet: "포인트로그",
   playerLogSheet: "선수별집계기록로그",
+  // 팀전 설정
+  dualTeams: [
+    { name: "재상창호", members: ["조재상", "우창호"] },
+    { name: "라현동근", members: ["서라현", "정동근"] },
+    { name: "성환보영", members: ["김성환", "정보영"] },
+    { name: "홍익상운", members: ["김홍익", "우상운"] },
+    { name: "영문동규", members: ["이영문", "이동규"] },
+  ],
+  dualTeamStartDate: "2026-04-01",
+  dualTeamEndDate: "2026-07-01",
   // 경기규칙 설정
   ownGoalPoint: -2,
   crovaPoint: 2,
