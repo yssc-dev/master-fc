@@ -581,7 +581,7 @@ export default function PlayerAnalytics({ teamName, initialTab }) {
                   <th style={th}>순위</th>
                   <th style={th}>🍀</th>
                   <th style={th}>🍠</th>
-                  <th style={th}>합</th>
+                  <th style={th}>개인</th>
                   <th style={th}>팀점수</th>
                 </tr>
               </thead>
@@ -594,7 +594,7 @@ export default function PlayerAnalytics({ teamName, initialTab }) {
                           {i + 1}. {t.name}
                         </td>
                       )}
-                      <td style={{ ...tc, color: C.white, fontWeight: 600, textAlign: "left" }}>{d.name}</td>
+                      <td style={{ ...tc, color: C.white, fontWeight: 600 }}>{d.name}</td>
                       <td style={tc}>{d.rankScore}</td>
                       <td style={{ ...tc, color: d.crova > 0 ? GREEN : C.grayDark }}>{d.crova}</td>
                       <td style={{ ...tc, color: d.goguma < 0 ? RED : C.grayDark }}>{d.goguma}</td>
