@@ -576,6 +576,7 @@ export default function PlayerAnalytics({ teamName, initialTab }) {
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead>
                 <tr>
+                  <th style={th}>#</th>
                   <th style={th}>팀</th>
                   <th style={th}>선수</th>
                   <th style={th}>순위점</th>
@@ -590,8 +591,22 @@ export default function PlayerAnalytics({ teamName, initialTab }) {
                   t.detail.map((d, di) => (
                     <tr key={`${i}-${di}`} style={{ background: i % 2 === 0 ? "transparent" : `${C.grayDarker}22` }}>
                       {di === 0 && (
-                        <td rowSpan={t.detail.length} style={{ ...tc, fontWeight: 800, color: i === 0 ? "#fbbf24" : i === 1 ? "#9ca3af" : i === 2 ? "#d97706" : C.white, fontSize: 11, verticalAlign: "middle" }}>
-                          {i + 1}. {t.name}
+                        <td rowSpan={t.detail.length} style={{ ...tc, verticalAlign: "middle", padding: "4px 2px" }}>
+                          {i < 3 ? (
+                            <span style={{
+                              display: "inline-flex", alignItems: "center", justifyContent: "center",
+                              width: 22, height: 22, borderRadius: "50%", fontSize: 11, fontWeight: 800,
+                              background: i === 0 ? "linear-gradient(135deg, #fbbf24, #f59e0b)" : i === 1 ? "linear-gradient(135deg, #d1d5db, #9ca3af)" : "linear-gradient(135deg, #d97706, #92400e)",
+                              color: i === 0 ? "#78350f" : i === 1 ? "#374151" : "#fef3c7",
+                            }}>{i + 1}</span>
+                          ) : (
+                            <span style={{ fontSize: 11, color: C.gray, fontWeight: 600 }}>{i + 1}</span>
+                          )}
+                        </td>
+                      )}
+                      {di === 0 && (
+                        <td rowSpan={t.detail.length} style={{ ...tc, fontWeight: 800, color: C.white, fontSize: 11, verticalAlign: "middle" }}>
+                          {t.name}
                         </td>
                       )}
                       <td style={{ ...tc, color: C.white, fontWeight: 600 }}>{d.name}</td>
