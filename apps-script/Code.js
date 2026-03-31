@@ -811,6 +811,7 @@ function _getRankingHistory(team, allPlayers, customSheetName) {
 function _getPointLog(team, customSheetName) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sheetName = customSheetName || POINT_LOG_SHEET;
+  var useCustomSheet = !!customSheetName && customSheetName !== POINT_LOG_SHEET;
   var sheet = ss.getSheetByName(sheetName);
   if (!sheet) return { success: true, events: [] };
 
@@ -821,8 +822,10 @@ function _getPointLog(team, customSheetName) {
   // 열: 경기일자(0), 경기번호(1), 내팀(2), 상대팀(3), 득점(4), 어시(5), 자책골(6), 실점키퍼(7), 입력시간(8), 팀이름(9)
   var events = [];
   for (var i = 0; i < data.length; i++) {
-    var rowTeam = data[i][9] ? String(data[i][9]).trim() : "";
-    if (rowTeam && rowTeam !== team) continue;
+    if (!useCustomSheet) {
+      var rowTeam = data[i][9] ? String(data[i][9]).trim() : "";
+      if (rowTeam && rowTeam !== team) continue;
+    }
 
     var dateStr = _toDateStr(data[i][0]);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) continue;
@@ -849,6 +852,7 @@ function _getPointLog(team, customSheetName) {
 function _getPlayerLog(team, customSheetName) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sheetName = customSheetName || PLAYER_LOG_SHEET;
+  var useCustomSheet = !!customSheetName && customSheetName !== PLAYER_LOG_SHEET;
   var sheet = ss.getSheetByName(sheetName);
   if (!sheet) return { success: true, players: [] };
 
@@ -858,8 +862,11 @@ function _getPlayerLog(team, customSheetName) {
   var data = sheet.getRange(2, 1, lastRow - 1, 13).getValues();
   var players = [];
   for (var i = 0; i < data.length; i++) {
-    var rowTeam = data[i][11] ? String(data[i][11]).trim() : "";
-    if (rowTeam && rowTeam !== team) continue;
+    // 커스텀 시트면 팀 필터 생략 (사용자가 직접 지정한 시트)
+    if (!useCustomSheet) {
+      var rowTeam = data[i][11] ? String(data[i][11]).trim() : "";
+      if (rowTeam && rowTeam !== team) continue;
+    }
     var dateStr = _toDateStr(data[i][0]);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) continue;
     var name = String(data[i][1]).trim();
