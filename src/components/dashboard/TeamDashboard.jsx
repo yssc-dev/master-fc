@@ -422,6 +422,11 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
           </table>
         )}
       </div>
+
+      {/* 팀전 + 분석 */}
+      <div style={{ marginTop: 16 }}>
+        <PlayerAnalytics teamName={teamName} />
+      </div>
     </div>
   );
 
@@ -555,7 +560,6 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
         {[
           { key: "records", label: "대시보드" },
           { key: "roster", label: "개인기록" },
-          { key: "analytics", label: "분석" },
           { key: "games", label: "경기관리", badge: pendingGames.length > 0 },
         ].map(tab => (
           <button key={tab.key} onClick={() => setActiveTab(tab.key)} style={ds.mainTab(activeTab === tab.key)}>
@@ -572,12 +576,6 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
       <div style={{ padding: "16px 0" }}>
         {activeTab === "records" && renderRecords()}
         {activeTab === "roster" && renderRoster()}
-        {activeTab === "analytics" && (
-          <div style={ds.section}>
-            <div style={ds.sectionTitle}>선수 분석</div>
-            <PlayerAnalytics teamName={teamName} />
-          </div>
-        )}
         {activeTab === "games" && renderGames()}
       </div>
 
