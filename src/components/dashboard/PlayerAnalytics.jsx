@@ -264,7 +264,7 @@ export default function PlayerAnalytics({ teamName, initialTab }) {
     { key: "race", label: "시즌레이스" },
     { key: "chemistry", label: "케미" },
     { key: "crovaguma", label: "🍀/🍠" },
-    { key: "dualteam", label: "팀전" },
+    ...(initialTab === "dualteam" ? [{ key: "dualteam", label: "팀전" }] : []),
   ];
 
   const RED = "#ef4444", BLUE = "#3b82f6", GREEN = "#22c55e", ORANGE = "#f97316", PURPLE = "#a855f7";

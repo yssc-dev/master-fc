@@ -873,5 +873,17 @@ function _getPlayerLog(team, customSheetName) {
       rankScore: Number(data[i][12]) || 0,
     });
   }
-  return { success: true, players: players };
+  // 디버그: 첫 5행 원본 + 스킵된 행 수
+  var skippedTeam = 0, skippedDate = 0, skippedName = 0;
+  var first5 = data.slice(0, 5).map(function(r) {
+    return { rawDate: String(r[0]), converted: _toDateStr(r[0]), name: String(r[1]).trim(), team: String(r[11] || "").trim() };
+  });
+  for (var d = 0; d < data.length; d++) {
+    var rt = data[d][11] ? String(data[d][11]).trim() : "";
+    if (rt && rt !== team) { skippedTeam++; continue; }
+    var ds2 = _toDateStr(data[d][0]);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(ds2)) { skippedDate++; continue; }
+    if (!String(data[d][1]).trim()) { skippedName++; }
+  }
+  return { success: true, players: players, debug: { totalRows: data.length, returned: players.length, skippedTeam: skippedTeam, skippedDate: skippedDate, skippedName: skippedName, first5: first5, sheetName: sheetName } };
 }

@@ -108,6 +108,7 @@ const AppSync = {
         body: JSON.stringify({ action: "getPlayerLog", team, playerLogSheet: playerLogSheet || "", authToken: this._getAuthToken() }),
       });
       const data = await resp.json();
+      if (data.debug) console.log("playerLog debug:", data.debug);
       return data.players || [];
     } catch (e) { console.warn("선수로그 조회 실패:", e.message); return []; }
   },
