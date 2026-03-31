@@ -14,7 +14,7 @@ const DEFAULTS = {
   // 팀전 설정
   dualTeams: [
     { name: "창조", members: ["조재상", "우창호"] },
-    { name: "라동z", members: ["서라현", "정동근"] },
+    { name: "동서라북", members: ["서라현", "정동근"] },
     { name: "성환보영", members: ["김성환", "정보영"] },
     { name: "횡성홍우", members: ["김홍익", "우상운"] },
     { name: "영문동규", members: ["이영문", "이동규"] },
