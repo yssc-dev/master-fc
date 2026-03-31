@@ -243,6 +243,7 @@ export default function PlayerAnalytics({ teamName, initialTab }) {
 
   useEffect(() => {
     const s = getSettings(teamName);
+    console.log("분석 시트설정:", { pointLog: s.pointLogSheet, playerLog: s.playerLogSheet });
     Promise.all([
       AppSync.getPointLog(s.pointLogSheet),
       AppSync.getPlayerLog(s.playerLogSheet),
@@ -564,37 +565,50 @@ export default function PlayerAnalytics({ teamName, initialTab }) {
 
         const maxScore = teamScores[0]?.total || 1;
 
+        const tc = { padding: "5px 4px", borderBottom: `1px solid ${C.grayDarker}`, fontSize: 10, textAlign: "center" };
+        const th = { ...tc, fontWeight: 700, color: C.gray, fontSize: 9 };
+
         return (
           <div>
             <div style={{ fontSize: 11, color: C.gray, marginBottom: 8 }}>
               기간: {startDate} ~ {endDate} (설정에서 변경 가능)
             </div>
-
-            {teamScores.map((t, i) => (
-              <div key={i} style={{ padding: "10px 0", borderBottom: `1px solid ${C.grayDarker}` }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                  <span style={{ fontSize: 16, fontWeight: 900, color: i === 0 ? "#fbbf24" : i === 1 ? "#9ca3af" : i === 2 ? "#d97706" : C.gray, minWidth: 20 }}>{i + 1}</span>
-                  <span style={{ fontSize: 14, fontWeight: 800, color: C.white }}>{t.name}</span>
-                  <span style={{ fontSize: 16, fontWeight: 900, color: C.accent }}>{t.total}점</span>
-                </div>
-                {/* 점수 바 */}
-                <div style={{ height: 8, borderRadius: 4, background: C.grayDarker, marginBottom: 6 }}>
-                  <div style={{ height: 8, borderRadius: 4, background: i === 0 ? "#fbbf24" : C.accent, width: `${t.total / maxScore * 100}%`, minWidth: 2 }} />
-                </div>
-                {/* 멤버별 상세 */}
-                <div style={{ display: "flex", gap: 12, paddingLeft: 28 }}>
-                  {t.detail.map((d, di) => (
-                    <div key={di} style={{ fontSize: 10, color: C.gray }}>
-                      <span style={{ color: C.white, fontWeight: 600 }}>{d.name}</span>
-                      {" "}순위{d.rankScore}
-                      {d.crova !== 0 && <span style={{ color: GREEN }}> 🍀{d.crova}</span>}
-                      {d.goguma !== 0 && <span style={{ color: RED }}> 🍠{d.goguma}</span>}
-                      {" = "}<span style={{ color: C.accent, fontWeight: 700 }}>{d.total}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ))}
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead>
+                <tr>
+                  <th style={th}>팀</th>
+                  <th style={th}>선수</th>
+                  <th style={th}>순위</th>
+                  <th style={th}>🍀</th>
+                  <th style={th}>🍠</th>
+                  <th style={th}>합</th>
+                  <th style={th}>팀점수</th>
+                </tr>
+              </thead>
+              <tbody>
+                {teamScores.map((t, i) => (
+                  t.detail.map((d, di) => (
+                    <tr key={`${i}-${di}`} style={{ background: i % 2 === 0 ? "transparent" : `${C.grayDarker}22` }}>
+                      {di === 0 && (
+                        <td rowSpan={t.detail.length} style={{ ...tc, fontWeight: 800, color: i === 0 ? "#fbbf24" : i === 1 ? "#9ca3af" : i === 2 ? "#d97706" : C.white, fontSize: 11, verticalAlign: "middle" }}>
+                          {i + 1}. {t.name}
+                        </td>
+                      )}
+                      <td style={{ ...tc, color: C.white, fontWeight: 600, textAlign: "left" }}>{d.name}</td>
+                      <td style={tc}>{d.rankScore}</td>
+                      <td style={{ ...tc, color: d.crova > 0 ? GREEN : C.grayDark }}>{d.crova}</td>
+                      <td style={{ ...tc, color: d.goguma < 0 ? RED : C.grayDark }}>{d.goguma}</td>
+                      <td style={{ ...tc, color: C.accent, fontWeight: 700 }}>{d.total}</td>
+                      {di === 0 && (
+                        <td rowSpan={t.detail.length} style={{ ...tc, fontSize: 14, fontWeight: 900, color: C.accent, verticalAlign: "middle" }}>
+                          {t.total}
+                        </td>
+                      )}
+                    </tr>
+                  ))
+                ))}
+              </tbody>
+            </table>
           </div>
         );
       })()}
