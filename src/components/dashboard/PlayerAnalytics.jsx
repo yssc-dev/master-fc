@@ -78,20 +78,6 @@ function analyzeData(events) {
     return { keeper, total: data.total, slices: top };
   });
 
-  // 시즌레이스: 누적 포인트 TOP 5
-  const sortedDates = [...allDates].sort();
-  const pointTotals = {};
-  Object.keys(datePoints).forEach(p => {
-    let cum = 0;
-    sortedDates.forEach(d => { cum += (datePoints[p][d] || 0); });
-    pointTotals[p] = cum;
-  });
-  const topN = Object.entries(pointTotals).sort((a, b) => b[1] - a[1]).slice(0, 10).map(e => e[0]);
-  const pointRace = topN.map(name => {
-    let cum = 0;
-    const data = sortedDates.map(d => { cum += (datePoints[name]?.[d] || 0); return cum; });
-    return { name, data };
-  });
 
   // 케미: 득점자+어시 조합 카운트 (날짜 무관)
   const pairCount = {};
