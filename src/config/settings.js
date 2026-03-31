@@ -16,7 +16,7 @@ const DEFAULTS = {
     { name: "창조", members: ["조재상", "우창호"] },
     { name: "라현동근", members: ["서라현", "정동근"] },
     { name: "성환보영", members: ["김성환", "정보영"] },
-    { name: "홍익상운", members: ["김홍익", "우상운"] },
+    { name: "홍우", members: ["김홍익", "우상운"] },
     { name: "영문동규", members: ["이영문", "이동규"] },
   ],
   dualTeamStartDate: "2026-04-01",
