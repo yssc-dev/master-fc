@@ -15,6 +15,7 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
   const [membersLoading, setMembersLoading] = useState(true);
   const [prevRanks, setPrevRanks] = useState({});
   const [selectedPlayer, setSelectedPlayer] = useState(null);
+  const [showDualTeam, setShowDualTeam] = useState(false);
   const [showAnalytics, setShowAnalytics] = useState(false);
   const [rankingHistory, setRankingHistory] = useState(null);
   const [rankingLoading, setRankingLoading] = useState(false);
@@ -363,6 +364,7 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
     <div style={ds.section}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div style={ds.sectionTitle}>개인 누적 기록 <span style={{ fontSize: 11, fontWeight: 400, color: C.gray }}>({members.length}명)</span></div>
+        <button onClick={() => setShowDualTeam(true)} style={{ background: C.orange + "22", color: C.orange, border: "none", borderRadius: 6, padding: "4px 10px", fontSize: 10, fontWeight: 600, cursor: "pointer" }}>팀전</button>
       </div>
       <div style={{ ...ds.card, overflowX: "auto", padding: 8 }}>
         {membersLoading ? (
@@ -423,10 +425,6 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
         )}
       </div>
 
-      {/* 팀전 + 분석 */}
-      <div style={{ marginTop: 16 }}>
-        <PlayerAnalytics teamName={teamName} />
-      </div>
     </div>
   );
 
@@ -560,6 +558,7 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
         {[
           { key: "records", label: "대시보드" },
           { key: "roster", label: "개인기록" },
+          { key: "analytics", label: "분석" },
           { key: "games", label: "경기관리", badge: pendingGames.length > 0 },
         ].map(tab => (
           <button key={tab.key} onClick={() => setActiveTab(tab.key)} style={ds.mainTab(activeTab === tab.key)}>
@@ -576,6 +575,12 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
       <div style={{ padding: "16px 0" }}>
         {activeTab === "records" && renderRecords()}
         {activeTab === "roster" && renderRoster()}
+        {activeTab === "analytics" && (
+          <div style={ds.section}>
+            <div style={ds.sectionTitle}>선수 분석</div>
+            <PlayerAnalytics teamName={teamName} />
+          </div>
+        )}
         {activeTab === "games" && renderGames()}
       </div>
 
@@ -593,6 +598,12 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
           ) : (
             <div style={{ textAlign: "center", padding: 20, color: C.gray }}>데이터 없음</div>
           )}
+        </Modal>
+      )}
+
+      {showDualTeam && (
+        <Modal onClose={() => setShowDualTeam(false)} title="팀전 랭킹">
+          <PlayerAnalytics teamName={teamName} initialTab="dualteam" />
         </Modal>
       )}
 

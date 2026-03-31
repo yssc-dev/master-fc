@@ -234,12 +234,12 @@ function analyzeTeams(playerLog) {
   };
 }
 
-export default function PlayerAnalytics({ teamName }) {
+export default function PlayerAnalytics({ teamName, initialTab }) {
   const { C } = useTheme();
   const [events, setEvents] = useState(null);
   const [playerLog, setPlayerLog] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState("combo");
+  const [tab, setTab] = useState(initialTab || "combo");
 
   useEffect(() => {
     const s = getSettings(teamName);
@@ -250,7 +250,12 @@ export default function PlayerAnalytics({ teamName }) {
   }, [teamName]);
 
   const analysis = useMemo(() => events ? analyzeData(events) : null, [events]);
-  const teamAnalysis = useMemo(() => playerLog ? analyzeTeams(playerLog) : null, [playerLog]);
+  const teamAnalysis = useMemo(() => {
+    if (!playerLog) return null;
+    const dates = [...new Set(playerLog.map(p => p.date))].sort();
+    console.log("playerLog 날짜:", dates, "총", playerLog.length, "건");
+    return analyzeTeams(playerLog);
+  }, [playerLog]);
 
   const tabs = [
     { key: "combo", label: "골든콤비" },
