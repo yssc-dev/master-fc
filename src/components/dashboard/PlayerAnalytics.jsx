@@ -578,11 +578,11 @@ export default function PlayerAnalytics({ teamName, initialTab }) {
                 <tr>
                   <th style={th}>팀</th>
                   <th style={th}>선수</th>
-                  <th style={th}>순위</th>
+                  <th style={th}>순위점</th>
                   <th style={th}>🍀</th>
                   <th style={th}>🍠</th>
-                  <th style={th}>개인</th>
-                  <th style={th}>팀점수</th>
+                  <th style={th}>개인합</th>
+                  <th style={th}>팀합</th>
                 </tr>
               </thead>
               <tbody>
