@@ -13,7 +13,7 @@ const DEFAULTS = {
   playerLogSheet: "선수별집계기록로그",
   // 팀전 설정
   dualTeams: [
-    { name: "재상창호", members: ["조재상", "우창호"] },
+    { name: "창조", members: ["조재상", "우창호"] },
     { name: "라현동근", members: ["서라현", "정동근"] },
     { name: "성환보영", members: ["김성환", "정보영"] },
     { name: "홍익상운", members: ["김홍익", "우상운"] },
