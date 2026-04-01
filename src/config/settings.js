@@ -17,7 +17,7 @@ const DEFAULTS = {
     { name: "동서라북", members: ["서라현", "정동근"] },
     { name: "성환보영", members: ["김성환", "정보영"] },
     { name: "횡성홍우", members: ["김홍익", "우상운"] },
-    { name: "영문동규", members: ["이영문", "이동규"] },
+    { name: "투투", members: ["이영문", "이동규"] },
   ],
   dualTeamStartDate: "2026-04-01",
   dualTeamEndDate: "2026-07-01",
