@@ -603,7 +603,7 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
 
       {showDualTeam && (
         <Modal onClose={() => setShowDualTeam(false)} title="팀전 랭킹">
-          <PlayerAnalytics teamName={teamName} initialTab="dualteam" />
+          <PlayerAnalytics teamName={teamName} initialTab="dualteam" isAdmin={activeEntry?.role === "관리자"} />
         </Modal>
       )}
 

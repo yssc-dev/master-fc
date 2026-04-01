@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useTheme } from '../../hooks/useTheme';
 import AppSync from '../../services/appSync';
-import { getSettings } from '../../config/settings';
+import { getSettings, saveSettings, loadSettingsFromFirebase } from '../../config/settings';
 
 function analyzeData(events) {
   // 득점자별 데이터
@@ -234,12 +234,15 @@ function analyzeTeams(playerLog) {
   };
 }
 
-export default function PlayerAnalytics({ teamName, initialTab }) {
+export default function PlayerAnalytics({ teamName, initialTab, isAdmin }) {
   const { C } = useTheme();
   const [events, setEvents] = useState(null);
   const [playerLog, setPlayerLog] = useState(null);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState(initialTab || "combo");
+  const [editingTeamIdx, setEditingTeamIdx] = useState(null);
+  const [editingName, setEditingName] = useState("");
+  const [dualSettings, setDualSettings] = useState(null);
 
   useEffect(() => {
     const s = getSettings(teamName);
@@ -249,6 +252,12 @@ export default function PlayerAnalytics({ teamName, initialTab }) {
       AppSync.getPlayerLog(s.playerLogSheet),
     ]).then(([evts, plog]) => { setEvents(evts); setPlayerLog(plog); }).finally(() => setLoading(false));
   }, [teamName]);
+
+  useEffect(() => {
+    if (tab === "dualteam") {
+      loadSettingsFromFirebase(teamName).then(s => setDualSettings(s));
+    }
+  }, [tab, teamName]);
 
   const analysis = useMemo(() => events ? analyzeData(events) : null, [events]);
   const teamAnalysis = useMemo(() => {
@@ -533,8 +542,8 @@ export default function PlayerAnalytics({ teamName, initialTab }) {
         </div>
       )}
 
-      {tab === "dualteam" && playerLog && (() => {
-        const s = getSettings(teamName);
+      {tab === "dualteam" && playerLog && dualSettings && (() => {
+        const s = dualSettings;
         const teams = s.dualTeams || [];
         const startDate = s.dualTeamStartDate || "2026-04-01";
         const endDate = s.dualTeamEndDate || "2026-07-01";
@@ -552,7 +561,7 @@ export default function PlayerAnalytics({ teamName, initialTab }) {
         });
 
         // 팀별 점수 합산
-        const teamScores = teams.map(t => {
+        const teamScores = teams.map((t, origIdx) => {
           let total = 0, detail = [];
           t.members.forEach(m => {
             const ps = playerScores[m] || { rankScore: 0, crova: 0, goguma: 0 };
@@ -560,8 +569,17 @@ export default function PlayerAnalytics({ teamName, initialTab }) {
             total += individual;
             detail.push({ name: m, rankScore: ps.rankScore, crova: ps.crova, goguma: ps.goguma, total: individual });
           });
-          return { name: t.name, members: t.members, total, detail };
+          return { name: t.name, members: t.members, total, detail, origIdx };
         }).sort((a, b) => b.total - a.total);
+
+        const handleTeamNameSave = async (origIdx, newName) => {
+          const current = getSettings(teamName);
+          const updated = [...(current.dualTeams || [])];
+          updated[origIdx] = { ...updated[origIdx], name: newName };
+          await saveSettings(teamName, { ...current, dualTeams: updated });
+          setDualSettings({ ...current, dualTeams: updated });
+          setEditingTeamIdx(null);
+        };
 
         const maxScore = teamScores[0]?.total || 1;
 
@@ -606,7 +624,22 @@ export default function PlayerAnalytics({ teamName, initialTab }) {
                       )}
                       {di === 0 && (
                         <td rowSpan={t.detail.length} style={{ ...tc, fontWeight: 800, color: C.white, fontSize: 11, verticalAlign: "middle" }}>
-                          {t.name}
+                          {isAdmin && editingTeamIdx === t.origIdx ? (
+                            <form onSubmit={e => { e.preventDefault(); handleTeamNameSave(t.origIdx, editingName); }} style={{ display: "flex", gap: 2, alignItems: "center" }}>
+                              <input
+                                value={editingName}
+                                onChange={e => setEditingName(e.target.value)}
+                                autoFocus
+                                style={{ width: 50, fontSize: 11, fontWeight: 800, background: C.cardLight, color: C.white, border: `1px solid ${C.accent}`, borderRadius: 4, padding: "2px 4px", textAlign: "center" }}
+                                onBlur={() => setEditingTeamIdx(null)}
+                              />
+                              <button type="submit" onMouseDown={e => e.preventDefault()} style={{ fontSize: 10, background: C.accent, color: "#fff", border: "none", borderRadius: 4, padding: "2px 6px", cursor: "pointer" }}>OK</button>
+                            </form>
+                          ) : (
+                            <span onClick={() => { if (isAdmin) { setEditingTeamIdx(t.origIdx); setEditingName(t.name); } }} style={isAdmin ? { cursor: "pointer" } : undefined}>
+                              {t.name}
+                            </span>
+                          )}
                         </td>
                       )}
                       <td style={{ ...tc, color: C.white, fontWeight: 600 }}>{d.name}</td>
