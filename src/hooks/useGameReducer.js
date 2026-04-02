@@ -38,6 +38,7 @@ const initialState = {
   matchModal: null,
   matchModal_sortKey: "total",
   playerSortMode: "point",
+  pushState: null,
 };
 
 function gameReducer(state, action) {
@@ -76,6 +77,7 @@ function gameReducer(state, action) {
       }
       if (s.confirmedRounds != null) updates.confirmedRounds = s.confirmedRounds;
       if (s.earlyFinish != null) updates.earlyFinish = s.earlyFinish;
+      if (s.pushState != null) updates.pushState = s.pushState;
       if (s.gameCreator != null) updates.gameCreator = s.gameCreator;
       if (s.phase != null) updates.phase = s.phase;
       return { ...state, ...updates };
@@ -109,6 +111,16 @@ function gameReducer(state, action) {
       };
     case 'FINISH_MATCH':
       return { ...state, completedMatches: [...state.completedMatches, action.match] };
+    case 'CONFIRM_PUSH_ROUND': {
+      const { matchResult, newPushState } = action;
+      return {
+        ...state,
+        completedMatches: [...state.completedMatches, matchResult],
+        gksHistory: { ...state.gksHistory, [state.completedMatches.length]: { ...state.gks } },
+        gks: {},
+        pushState: newPushState,
+      };
+    }
     case 'CONFIRM_ROUND': {
       const { roundIdx, matchResults, nextRoundIdx, newSchedule, newSplitPhase } = action;
       const newCompleted = [...state.completedMatches, ...matchResults.map(r => ({ ...r, isExtra: state.isExtraRound }))];
@@ -168,7 +180,7 @@ function gameReducer(state, action) {
       return { ...state, teams, gks };
     }
     case 'START_MATCHES': {
-      const { schedule } = action;
+      const { schedule, pushState: initPushState } = action;
       return {
         ...state,
         schedule: schedule || [],
@@ -180,6 +192,7 @@ function gameReducer(state, action) {
         confirmedRounds: {},
         matchModal: null,
         phase: "match",
+        pushState: initPushState || null,
       };
     }
     default:
