@@ -575,7 +575,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
           <div style={s.card}>
             <div style={{ marginBottom: 12 }}>
               <div style={{ fontSize: 12, color: C.gray, marginBottom: 6 }}>팀 수</div>
-              <div style={s.row}>{[4, 5, 6].map(n => <button key={n} onClick={() => set('teamCount', n)} style={s.btn(teamCount === n ? C.accent : C.grayDark, teamCount === n ? C.bg : C.white)}>{n}팀</button>)}</div>
+              <div style={s.row}>{(matchMode === "push" ? [3, 4, 5, 6] : [4, 5, 6]).map(n => <button key={n} onClick={() => set('teamCount', n)} style={s.btn(teamCount === n ? C.accent : C.grayDark, teamCount === n ? C.bg : C.white)}>{n}팀</button>)}</div>
             </div>
             <div style={{ marginBottom: 12 }}>
               <div style={{ fontSize: 12, color: C.gray, marginBottom: 6 }}>구장 수</div>
@@ -969,7 +969,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
             return (
               <div key={i} style={{ ...s.card, background: m.isExtra ? `${C.orange}11` : C.card }}>
                 <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                  <span style={{ fontSize: 11, color: C.gray }}>{(() => { const p = m.matchId.match(/^R(\d+)_C(\d+)$/); if (!p) return m.matchId; const court = courtCount === 2 ? (p[2] === "0" ? "A구장" : "B구장") : `매치${+p[2]+1}`; return `${p[1]}라운드 ${court}`; })()}{m.isExtra ? " (임시)" : ""}</span>
+                  <span style={{ fontSize: 11, color: C.gray }}>{(() => { const pP = m.matchId.match(/^P(\d+)_C0$/); if (pP) return `${pP[1]}경기`; const pF = m.matchId.match(/^F(\d+)_C(\d+)$/); if (pF) { const ct = courtCount === 2 ? (pF[2] === "0" ? "A구장" : "B구장") : ""; return `${pF[1]}경기${ct ? " " + ct : ""}`; } const p = m.matchId.match(/^R(\d+)_C(\d+)$/); if (!p) return m.matchId; const court = courtCount === 2 ? (p[2] === "0" ? "A구장" : "B구장") : `매치${+p[2]+1}`; return `${p[1]}라운드 ${court}`; })()}{m.isExtra ? " (임시)" : ""}</span>
                   {m.court && <span style={{ fontSize: 10, color: C.gray }}>{m.court}</span>}
                 </div>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 12, fontSize: 16, fontWeight: 700 }}>

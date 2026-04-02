@@ -34,6 +34,8 @@ export function createInitialPushState(teamCount) {
 export function calcNextPushMatch(prevState, matchResult, teamCount, teamNames) {
   const { homeIdx, awayIdx, homeScore, awayScore } = matchResult;
 
+  const getScore = (idx) => idx === homeIdx ? homeScore : awayScore;
+
   // 1. 출전횟수, 득점 갱신
   const teamPlayCounts = { ...prevState.teamPlayCounts };
   const teamTotalGoals = { ...prevState.teamTotalGoals };
@@ -142,9 +144,4 @@ export function calcNextPushMatch(prevState, matchResult, teamCount, teamNames) 
     forcedRest,
     suggestedMatch,
   };
-
-  // 헬퍼: homeIdx/awayIdx에서 해당 팀 점수를 반환
-  function getScore(idx) {
-    return idx === homeIdx ? homeScore : awayScore;
-  }
 }
