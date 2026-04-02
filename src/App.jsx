@@ -16,6 +16,8 @@ import PhaseIndicator from './components/common/PhaseIndicator';
 import Modal from './components/common/Modal';
 import ScheduleMatchView from './components/game/ScheduleMatchView';
 import FreeMatchView from './components/game/FreeMatchView';
+import PushMatchView from './components/game/PushMatchView';
+import { createInitialPushState } from './utils/pushMatch';
 import ScheduleModal from './components/game/ScheduleModal';
 import StandingsModal from './components/game/StandingsModal';
 import PlayerStatsModal from './components/game/PlayerStatsModal';
@@ -29,7 +31,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
     matchMode, rotations, draftMode, freeSelectTeam, teams, teamNames,
     teamColorIndices, gks, gksHistory, editingTeamName, moveSource, schedule, currentRoundIdx,
     viewingRoundIdx, confirmedRounds, completedMatches, allEvents, isExtraRound,
-    splitPhase, earlyFinish, matchModal, matchModal_sortKey, playerSortMode,
+    splitPhase, earlyFinish, matchModal, matchModal_sortKey, playerSortMode, pushState,
   } = state;
 
   const set = (field, value) => dispatch({ type: 'SET_FIELD', field, value });
@@ -194,10 +196,10 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
     gameCreator: state.gameCreator || authUser?.name || "알 수 없음",
     phase, teams, teamNames, teamColorIndices, gks, gksHistory, allEvents,
     completedMatches, schedule, currentRoundIdx, viewingRoundIdx, confirmedRounds, attendees,
-    teamCount, courtCount, matchMode, isExtraRound, splitPhase, rotations, earlyFinish,
+    teamCount, courtCount, matchMode, isExtraRound, splitPhase, rotations, earlyFinish, pushState,
     lastEditor: authUser?.name || "알 수 없음",
     lastEditTime: Date.now(),
-  }), [phase, teams, teamNames, teamColorIndices, gks, gksHistory, allEvents, completedMatches, schedule, currentRoundIdx, viewingRoundIdx, confirmedRounds, attendees, teamCount, courtCount, matchMode, isExtraRound, splitPhase, rotations, earlyFinish, authUser, gameId]);
+  }), [phase, teams, teamNames, teamColorIndices, gks, gksHistory, allEvents, completedMatches, schedule, currentRoundIdx, viewingRoundIdx, confirmedRounds, attendees, teamCount, courtCount, matchMode, isExtraRound, splitPhase, rotations, earlyFinish, pushState, authUser, gameId]);
 
   const autoSave = useCallback(() => {
     if (isSyncingRef.current) return;
@@ -223,7 +225,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
     if (phase !== "setup" && phase !== "") {
       autoSave();
     }
-  }, [allEvents, completedMatches, currentRoundIdx, phase, gks]);
+  }, [allEvents, completedMatches, currentRoundIdx, phase, gks, pushState]);
 
   // Firebase listener
   const lastRemoteUpdateRef = useRef(0);
@@ -275,7 +277,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
       const lastIdx = schedule.length - 1;
       return confirmedRounds[lastIdx] === true;
     }
-    if (matchMode === "free") return phase === "summary";
+    if (matchMode === "free" || matchMode === "push") return phase === "summary";
     return false;
   }, [matchMode, schedule, confirmedRounds, phase]);
 
@@ -337,6 +339,9 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
   const editEvent = (globalIdx, updatedEvent) => dispatch({ type: 'EDIT_EVENT', index: globalIdx, event: updatedEvent });
 
   const finishMatch = (matchData) => dispatch({ type: 'FINISH_MATCH', match: { ...matchData, isExtra: isExtraRound } });
+  const confirmPushRound = (matchResult, newPushState) => {
+    dispatch({ type: 'CONFIRM_PUSH_ROUND', matchResult, newPushState });
+  };
 
   const makeTeamName = (members) => {
     const top = [...members].sort((a, b) => getPlayerPoint(b, seasonPlayers) - getPlayerPoint(a, seasonPlayers))[0];
@@ -388,14 +393,17 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
   const startMatches = () => {
     if (teams.some(t => t.length < 1)) { alert("모든 팀에 최소 1명"); return; }
     let sched = null;
+    let initPushState = null;
     if (matchMode === "schedule") {
       if (courtCount === 2) {
         if (teamCount === 4) sched = generate4Team2Court();
         else if (teamCount === 5) sched = generate5Team2Court();
         else if (teamCount === 6) { sched = generate6Team2Court().firstHalf; set('splitPhase', 'first'); }
       } else sched = generate1Court(teamCount, rotations);
+    } else if (matchMode === "push") {
+      initPushState = createInitialPushState(teamCount);
     }
-    dispatch({ type: 'START_MATCHES', schedule: sched });
+    dispatch({ type: 'START_MATCHES', schedule: sched, pushState: initPushState });
   };
 
   const confirmRound = (roundIdx, matchResults) => {
@@ -477,6 +485,13 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
     if (!confirm(`${gameD.getMonth() + 1}월 ${gameD.getDate()}일 풋살기록을 확정하시겠습니까?\n\n시트에 포인트로그 + 선수별집계를 저장합니다.`)) return;
 
     const formatMatchId = (mid) => {
+      const pPush = mid?.match(/^P(\d+)_C0$/);
+      if (pPush) return `${pPush[1]}경기`;
+      const pFree = mid?.match(/^F(\d+)_C(\d+)$/);
+      if (pFree) {
+        const court = courtCount === 2 ? (pFree[2] === "0" ? "A구장" : "B구장") : "";
+        return `${pFree[1]}경기${court ? " " + court : ""}`;
+      }
       const p = mid?.match(/^R(\d+)_C(\d+)$/);
       if (!p) return mid || "";
       const court = courtCount === 2 ? (p[2] === "0" ? "A구장" : "B구장") : `매치${+p[2]+1}`;
@@ -564,13 +579,14 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
             </div>
             <div style={{ marginBottom: 12 }}>
               <div style={{ fontSize: 12, color: C.gray, marginBottom: 6 }}>구장 수</div>
-              <div style={s.row}>{[1, 2].map(n => <button key={n} onClick={() => set('courtCount', n)} style={s.btn(courtCount === n ? C.accent : C.grayDark, courtCount === n ? C.bg : C.white)}>{n}코트</button>)}</div>
+              <div style={s.row}>{[1, 2].map(n => <button key={n} onClick={() => { if (matchMode !== "push") set('courtCount', n); }} disabled={matchMode === "push"} style={{ ...s.btn(courtCount === n ? C.accent : C.grayDark, courtCount === n ? C.bg : C.white), opacity: matchMode === "push" && n !== 1 ? 0.3 : 1 }}>{n}코트</button>)}</div>
             </div>
             <div style={{ marginBottom: 12 }}>
               <div style={{ fontSize: 12, color: C.gray, marginBottom: 6 }}>경기 모드</div>
               <div style={s.row}>
                 <button onClick={() => set('matchMode', 'schedule')} style={s.btn(matchMode === "schedule" ? C.accent : C.grayDark, matchMode === "schedule" ? C.bg : C.white)}>대진표</button>
                 <button onClick={() => set('matchMode', 'free')} style={s.btn(matchMode === "free" ? C.accent : C.grayDark, matchMode === "free" ? C.bg : C.white)}>자유대진</button>
+                <button onClick={() => { set('matchMode', 'push'); set('courtCount', 1); }} style={s.btn(matchMode === "push" ? C.accent : C.grayDark, matchMode === "push" ? C.bg : C.white)}>밀어내기</button>
               </div>
             </div>
             <div style={{ marginBottom: courtCount === 1 && matchMode === "schedule" ? 12 : 0 }}>
@@ -755,7 +771,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
             <div style={s.title}>⚽ 경기 진행</div>
           </div>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-            <div style={s.subtitle}>{matchMode === "schedule" ? `${allRoundsComplete ? "전체 라운드 완료" : `라운드 ${currentRoundIdx + 1}/${schedule.length}`}` : `자유대전 · ${completedMatches.length}매치`}</div>
+            <div style={s.subtitle}>{matchMode === "schedule" ? `${allRoundsComplete ? "전체 라운드 완료" : `라운드 ${currentRoundIdx + 1}/${schedule.length}`}` : matchMode === "push" ? `밀어내기 · ${completedMatches.length}경기` : `자유대전 · ${completedMatches.length}매치`}</div>
             {AppSync.enabled() && syncStatus && (
               <div style={{ fontSize: 9, padding: "2px 6px", borderRadius: 4, background: syncStatus === "saved" ? "#22c55e22" : syncStatus === "saving" ? "#3b82f622" : "#ef444422", color: syncStatus === "saved" ? "#22c55e" : syncStatus === "saving" ? "#3b82f6" : "#ef4444", fontWeight: 600 }}>
                 {syncStatus === "saving" ? "저장 중..." : syncStatus === "saved" ? "저장됨" : "저장 실패"}
@@ -767,7 +783,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
             <button onClick={() => set('matchModal', 'teamRoster')} style={{ ...s.btnSm(C.grayDark, C.white), fontSize: 11 }}>팀명단</button>
             <button onClick={() => set('matchModal', 'standings')} style={{ ...s.btnSm(C.grayDark, C.white), fontSize: 11 }}>팀순위</button>
             <button onClick={() => set('matchModal', 'playerStats')} style={{ ...s.btnSm(C.grayDark, C.white), fontSize: 11 }}>개인기록</button>
-            {(allRoundsComplete || matchMode === "free") && (
+            {(allRoundsComplete || matchMode === "free" || (matchMode === "push" && completedMatches.length > 0)) && (
               <button onClick={() => set('phase', 'summary')} style={{ ...s.btnSm(C.green, C.bg), fontSize: 11, fontWeight: 700 }}>경기마감</button>
             )}
             {matchMode === "schedule" && !allRoundsComplete && Object.keys(confirmedRounds).length > 0 && (
@@ -827,13 +843,14 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
             <div style={{ fontSize: 13, color: C.white, lineHeight: 1.7 }}>
               <div style={{ background: C.cardLight, borderRadius: 10, padding: 12, marginBottom: 10 }}>
                 <div style={{ fontWeight: 700, color: C.accent, marginBottom: 6 }}>현재 설정</div>
-                <div>{teamCount}팀 · {courtCount}코트 · {matchMode === "schedule" ? "대진표" : "자유대진"}{matchMode === "schedule" && courtCount === 1 ? ` · ${rotations}회전` : ""}</div>
+                <div>{teamCount}팀 · {courtCount}코트 · {matchMode === "schedule" ? "대진표" : matchMode === "push" ? "밀어내기" : "자유대진"}{matchMode === "schedule" && courtCount === 1 ? ` · ${rotations}회전` : ""}</div>
                 <div style={{ fontSize: 12, color: C.gray, marginTop: 4 }}>
                   {teamCount === 4 && courtCount === 2 && "동일팀 4번씩 경기 · 12라운드"}
                   {teamCount === 5 && courtCount === 2 && "동일팀 2번씩 경기 · 10라운드 · 매 라운드 1팀 휴식"}
                   {teamCount === 6 && courtCount === 2 && "조별리그 → 순위별 재편성 · 12라운드"}
                   {courtCount === 1 && matchMode === "schedule" && `모든 팀 순서대로 경기 × ${rotations}회전`}
                   {matchMode === "free" && "매 라운드 직접 대진 선택"}
+                  {matchMode === "push" && "승리팀 잔류, 패배팀 교체 · 2골 이상 승리 시 연장 · 3연승 후 휴식"}
                 </div>
               </div>
               <details style={{ marginBottom: 8 }}>
@@ -851,7 +868,13 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
         )}
 
         <div style={s.section}>
-          {matchMode === "schedule" && schedule.length > 0 && !isExtraRound ? (
+          {matchMode === "push" ? (
+            <PushMatchView teams={teams} teamNames={teamNames} teamColorIndices={teamColorIndices} gks={gks}
+              allEvents={allEvents} onRecordEvent={recordMatchEvent}
+              onUndoEvent={undoMatchEvent} onDeleteEvent={deleteEvent} onEditEvent={editEvent}
+              onConfirmPushRound={confirmPushRound} completedMatches={completedMatches}
+              attendees={attendees} onGkChange={handleGkChange} pushState={pushState} styles={s} />
+          ) : matchMode === "schedule" && schedule.length > 0 && !isExtraRound ? (
             <ScheduleMatchView schedule={schedule} currentRoundIdx={currentRoundIdx}
               viewingRoundIdx={viewingRoundIdx} setViewingRoundIdx={(v) => set('viewingRoundIdx', v)}
               confirmedRounds={confirmedRounds} onConfirmRound={confirmRound}
