@@ -234,9 +234,14 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
           <div style={{
             ...s.matchBtn(color), flex: 1, marginBottom: 0, minWidth: 0,
             opacity: pendingGoalPlayer && !isPendingGoal && !isPendingAssistMode ? 0.3 : 1,
+            display: "flex", alignItems: "center", justifyContent: "center", gap: 3,
           }}>
-            {isMerc && <span style={{ fontSize: 8, color: C.orange, marginRight: 2 }}>용</span>}
+            {isMerc && <span style={{ fontSize: 8, color: C.orange }}>용</span>}
             <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{player}</span>
+            {isMerc && (
+              <span onClick={(e) => { e.stopPropagation(); removeMerc(player); }}
+                style={{ fontSize: 9, color: C.red, fontWeight: 700, cursor: "pointer", marginLeft: 2 }}>✕</span>
+            )}
           </div>
           {!pendingGoalPlayer && !readOnly && (
             <button onClick={() => handleGoalTap(player, isHome)}
@@ -245,10 +250,6 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
                 fontWeight: 700, cursor: "pointer", background: `${C.green}30`, color: C.green,
                 flexShrink: 0,
               }}>⚽</button>
-          )}
-          {isMerc && (
-            <button onClick={() => removeMerc(player)}
-              style={{ ...s.btnSm(C.redDim), padding: "2px 4px", fontSize: 8, minWidth: 16, flexShrink: 0 }}>X</button>
           )}
         </div>
         {isPendingGoal && (
