@@ -869,7 +869,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
 
         <div style={s.section}>
           {matchMode === "push" ? (
-            <PushMatchView teams={teams} teamNames={teamNames} teamColorIndices={teamColorIndices} gks={gks}
+            <PushMatchView teams={teams} teamNames={teamNames} teamColorIndices={teamColorIndices} gks={gks} gksHistory={gksHistory || {}}
               allEvents={allEvents} onRecordEvent={recordMatchEvent}
               onUndoEvent={undoMatchEvent} onDeleteEvent={deleteEvent} onEditEvent={editEvent}
               onConfirmPushRound={confirmPushRound} completedMatches={completedMatches}

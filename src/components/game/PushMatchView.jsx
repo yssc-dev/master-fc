@@ -6,7 +6,7 @@ import { calcNextPushMatch } from '../../utils/pushMatch';
 import CourtRecorder from './CourtRecorder';
 
 export default function PushMatchView({
-  teams, teamNames, teamColorIndices, gks, allEvents,
+  teams, teamNames, teamColorIndices, gks, gksHistory, allEvents,
   onRecordEvent, onUndoEvent, onDeleteEvent, onEditEvent,
   onConfirmPushRound, completedMatches, attendees, onGkChange,
   pushState, styles: s,
@@ -17,23 +17,34 @@ export default function PushMatchView({
   );
   const [editingMatch, setEditingMatch] = useState(false);
   const [editSelection, setEditSelection] = useState({ home: null, away: null });
+  // viewingIdx: completedMatches.length = 현재(라이브), 0~length-1 = 과거 경기
+  const [viewingIdx, setViewingIdx] = useState(completedMatches.length);
 
   const [lastMatchCount, setLastMatchCount] = useState(completedMatches.length);
   if (completedMatches.length !== lastMatchCount) {
     setLastMatchCount(completedMatches.length);
+    setViewingIdx(completedMatches.length); // 새 경기 확정 시 라이브로 이동
     if (pushState?.suggestedMatch) {
       setCurrentMatch(pushState.suggestedMatch);
     }
   }
 
-  const matchId = `P${completedMatches.length + 1}_C0`;
-  const homeIdx = currentMatch.home;
-  const awayIdx = currentMatch.away;
+  const isLive = viewingIdx >= completedMatches.length;
+  const viewingPast = !isLive ? completedMatches[viewingIdx] : null;
+
+  // 라이브 경기 정보
+  const liveMatchId = `P${completedMatches.length + 1}_C0`;
+  const homeIdx = isLive ? currentMatch.home : viewingPast.homeIdx;
+  const awayIdx = isLive ? currentMatch.away : viewingPast.awayIdx;
+  const currentMatchId = isLive ? liveMatchId : viewingPast.matchId;
+
+  // 과거 경기면 gksHistory에서, 라이브면 gks에서
+  const viewGks = isLive ? gks : (gksHistory?.[viewingIdx] || {});
 
   const matchInfo = {
-    homeIdx, awayIdx, matchId,
+    homeIdx, awayIdx, matchId: currentMatchId,
     homeTeam: teamNames[homeIdx], awayTeam: teamNames[awayIdx],
-    homeGk: gks[homeIdx] || null, awayGk: gks[awayIdx] || null,
+    homeGk: viewGks[homeIdx] || null, awayGk: viewGks[awayIdx] || null,
     homeColor: TEAM_COLORS[teamColorIndices[homeIdx]],
     awayColor: TEAM_COLORS[teamColorIndices[awayIdx]],
     homePlayers: teams[homeIdx],
@@ -41,23 +52,23 @@ export default function PushMatchView({
   };
 
   const handleConfirmRound = () => {
-    const evts = allEvents.filter(e => e.matchId === matchId);
-    const homeScore = calcMatchScore(evts, matchId, matchInfo.homeTeam);
-    const awayScore = calcMatchScore(evts, matchId, matchInfo.awayTeam);
+    const evts = allEvents.filter(e => e.matchId === liveMatchId);
+    const homeScore = calcMatchScore(evts, liveMatchId, teamNames[currentMatch.home]);
+    const awayScore = calcMatchScore(evts, liveMatchId, teamNames[currentMatch.away]);
 
     const result = {
-      matchId, homeIdx, awayIdx,
-      homeTeam: matchInfo.homeTeam, awayTeam: matchInfo.awayTeam,
-      homeGk: gks[homeIdx] || "", awayGk: gks[awayIdx] || "",
+      matchId: liveMatchId, homeIdx: currentMatch.home, awayIdx: currentMatch.away,
+      homeTeam: teamNames[currentMatch.home], awayTeam: teamNames[currentMatch.away],
+      homeGk: gks[currentMatch.home] || "", awayGk: gks[currentMatch.away] || "",
       homeScore, awayScore,
       court: "", mercenaries: [], isExtra: false,
     };
 
-    const msg = `${matchInfo.homeTeam} ${homeScore}:${awayScore} ${matchInfo.awayTeam}`;
+    const msg = `${result.homeTeam} ${homeScore}:${awayScore} ${result.awayTeam}`;
     if (!confirm(msg + "\n\n경기결과를 확정하시겠습니까?")) return;
 
     const newPushState = calcNextPushMatch(
-      pushState, { homeIdx, awayIdx, homeScore, awayScore },
+      pushState, { homeIdx: currentMatch.home, awayIdx: currentMatch.away, homeScore, awayScore },
       teams.length, teamNames
     );
 
@@ -121,7 +132,7 @@ export default function PushMatchView({
       {/* 상단: 팀별 출전횟수 대시보드 */}
       <div style={{ display: "flex", gap: 4, marginBottom: 12, flexWrap: "wrap" }}>
         {teamNames.map((name, idx) => {
-          const isPlaying = idx === homeIdx || idx === awayIdx;
+          const isPlaying = isLive && (idx === homeIdx || idx === awayIdx);
           const isResting = pushState?.forcedRest === idx;
           const color = TEAM_COLORS[teamColorIndices[idx]];
           return (
@@ -148,22 +159,31 @@ export default function PushMatchView({
         })}
       </div>
 
-      {/* 경기 번호 + 연승 + 대진변경 (CourtRecorder 바로 위) */}
+      {/* 경기 네비게이션 + 대진변경 */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 6 }}>
-        <span style={{ fontSize: 15, fontWeight: 800, color: C.white }}>{completedMatches.length + 1}경기</span>
-        {streakInfo && (
+        <button onClick={() => setViewingIdx(Math.max(0, viewingIdx - 1))} disabled={viewingIdx === 0}
+          style={{ ...s.btnSm(C.grayDark), opacity: viewingIdx === 0 ? 0.3 : 1 }}>◀</button>
+        <span style={{ fontSize: 15, fontWeight: 800, color: C.white }}>
+          {viewingIdx + 1}경기{!isLive && <span style={{ fontSize: 11, marginLeft: 6, color: C.green, fontWeight: 600 }}>종료됨</span>}
+          {isLive && <span style={{ fontSize: 11, marginLeft: 6, color: C.orange, fontWeight: 600 }}>진행중</span>}
+        </span>
+        <button onClick={() => setViewingIdx(Math.min(completedMatches.length, viewingIdx + 1))} disabled={isLive}
+          style={{ ...s.btnSm(C.grayDark), opacity: isLive ? 0.3 : 1 }}>▶</button>
+        {isLive && streakInfo && (
           <span style={{ fontSize: 12, color: C.orange, fontWeight: 700 }}>
             {teamNames[streakInfo.teamIdx]} {streakInfo.count}연승
           </span>
         )}
-        <button onClick={handleStartEdit} style={{ ...s.btnSm(C.grayDark, C.white), fontSize: 10, marginLeft: 4 }}>
-          대진변경
-        </button>
+        {isLive && (
+          <button onClick={handleStartEdit} style={{ ...s.btnSm(C.grayDark, C.white), fontSize: 10 }}>
+            대진변경
+          </button>
+        )}
       </div>
 
       {/* 경기 기록 */}
       <CourtRecorder
-        key={`push_${completedMatches.length}_${homeIdx}_${awayIdx}`}
+        key={`push_${viewingIdx}_${homeIdx}_${awayIdx}`}
         matchInfo={matchInfo}
         homePlayers={matchInfo.homePlayers}
         awayPlayers={matchInfo.awayPlayers}
@@ -177,14 +197,17 @@ export default function PushMatchView({
         styles={s}
         courtLabel=""
         attendees={attendees}
+        readOnly={!isLive}
       />
 
-      {/* 경기 확정 버튼 */}
-      <div style={{ marginTop: 12 }}>
-        <button onClick={handleConfirmRound} style={{ ...s.btnFull(C.accent, C.bg) }}>
-          경기 확정
-        </button>
-      </div>
+      {/* 경기 확정 버튼 (라이브 경기만) */}
+      {isLive && (
+        <div style={{ marginTop: 12 }}>
+          <button onClick={handleConfirmRound} style={{ ...s.btnFull(C.accent, C.bg) }}>
+            경기 확정
+          </button>
+        </div>
+      )}
     </div>
   );
 }
