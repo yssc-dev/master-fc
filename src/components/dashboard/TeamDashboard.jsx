@@ -102,15 +102,19 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
             <div style={ds.section}>
               <div style={ds.sectionTitle}>포인트 TOP 5</div>
               <div style={ds.card}>
-                {members.slice(0, 5).map((p, i) => (
+                {members.slice(0, 5).map((p, i, arr) => {
+                  const rank = i === 0 ? 1 : (p.point === arr[i - 1].point ? (arr[i - 1]._rank || i) : i + 1);
+                  p._rank = rank;
+                  return (
                   <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 0", borderBottom: i < 4 ? `1px solid ${C.borderColor}` : "none" }}>
-                    <span style={{ fontSize: 12, fontWeight: 800, color: i < 3 ? C.orange : C.gray, minWidth: 18 }}>{i + 1}</span>
+                    <span style={{ fontSize: 12, fontWeight: 800, color: rank <= 3 ? C.orange : C.gray, minWidth: 18 }}>{rank}</span>
                     <span style={{ fontSize: 13, fontWeight: 600, minWidth: 52 }}>{p.name}</span>
                     <Bar value={p.point} max={maxPoint} color={C.accent} />
                     <span style={{ fontSize: 13, fontWeight: 700, color: C.accent, minWidth: 36, textAlign: "right" }}>{p.point}</span>
                     <DeltaBadge value={(p.goalsDelta || 0) + (p.assistsDelta || 0) - (p.ownGoalsDelta || 0) * 2 + (p.cleanSheetsDelta || 0)} />
                   </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
