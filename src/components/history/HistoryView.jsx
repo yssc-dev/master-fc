@@ -1,6 +1,55 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import AppSync from '../../services/appSync';
 import { useTheme } from '../../hooks/useTheme';
+import { TEAM_COLORS } from '../../config/constants';
+import { calcMatchScore } from '../../utils/scoring';
+
+function calcStandings(completedMatches, teamNames) {
+  const stats = {};
+  teamNames.forEach((t, i) => { stats[t] = { idx: i, games: 0, wins: 0, draws: 0, losses: 0, gf: 0, ga: 0, points: 0 }; });
+  completedMatches.forEach(m => {
+    if (m.isExtra || !stats[m.homeTeam] || !stats[m.awayTeam]) return;
+    stats[m.homeTeam].games++; stats[m.awayTeam].games++;
+    stats[m.homeTeam].gf += m.homeScore; stats[m.homeTeam].ga += m.awayScore;
+    stats[m.awayTeam].gf += m.awayScore; stats[m.awayTeam].ga += m.homeScore;
+    if (m.homeScore > m.awayScore) { stats[m.homeTeam].wins++; stats[m.homeTeam].points += 3; stats[m.awayTeam].losses++; }
+    else if (m.awayScore > m.homeScore) { stats[m.awayTeam].wins++; stats[m.awayTeam].points += 3; stats[m.homeTeam].losses++; }
+    else { stats[m.homeTeam].draws++; stats[m.awayTeam].draws++; stats[m.homeTeam].points++; stats[m.awayTeam].points++; }
+  });
+  return Object.entries(stats).map(([name, s]) => ({ name, ...s })).sort((a, b) => (b.points - a.points) || ((b.gf - b.ga) - (a.gf - a.ga)) || (b.gf - a.gf));
+}
+
+function calcPlayerStats(allEvents, completedMatches, attendees, teams, teamNames, ownGoalPoint) {
+  const pStats = {};
+  attendees.forEach(p => { pStats[p] = { goals: 0, assists: 0, owngoals: 0, conceded: 0, keeperGames: 0, cleanSheets: 0 }; });
+  allEvents.forEach(e => {
+    if (e.type === "goal") { if (pStats[e.player]) pStats[e.player].goals++; if (e.assist && pStats[e.assist]) pStats[e.assist].assists++; if (e.concedingGk && pStats[e.concedingGk]) pStats[e.concedingGk].conceded++; }
+    if (e.type === "owngoal") { if (pStats[e.player]) pStats[e.player].owngoals++; if (e.concedingGk && pStats[e.concedingGk]) pStats[e.concedingGk].conceded += 2; }
+  });
+  completedMatches.forEach(m => {
+    if (m.homeGk && pStats[m.homeGk]) { pStats[m.homeGk].keeperGames++; if (m.awayScore === 0) pStats[m.homeGk].cleanSheets++; }
+    if (m.awayGk && pStats[m.awayGk]) { pStats[m.awayGk].keeperGames++; if (m.homeScore === 0) pStats[m.awayGk].cleanSheets++; }
+  });
+  const getTeam = (player) => { for (let i = 0; i < teams.length; i++) { if (teams[i].includes(player)) return teamNames[i]; } return ""; };
+  return attendees.map(p => {
+    const st = pStats[p] || {};
+    const total = (st.goals || 0) + (st.assists || 0) + (st.owngoals || 0) * ownGoalPoint + (st.cleanSheets || 0);
+    return { name: p, team: getTeam(p), ...st, total };
+  }).sort((a, b) => {
+    const d = b.total - a.total;
+    if (d !== 0) return d;
+    const gd = b.goals - a.goals;
+    if (gd !== 0) return gd;
+    return b.assists - a.assists;
+  });
+}
+
+function formatDate(dateStr) {
+  if (!dateStr) return "";
+  const d = dateStr.split("-");
+  if (d.length === 3) return `${d[0]}/${+d[1]}/${+d[2]}`;
+  return dateStr;
+}
 
 export default function HistoryView({ teamContext, onBack }) {
   const { C } = useTheme();
@@ -18,6 +67,8 @@ export default function HistoryView({ teamContext, onBack }) {
     container: { background: C.bg, minHeight: "100vh", color: C.white, fontFamily: "'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif", maxWidth: 500, margin: "0 auto" },
     header: { background: C.headerBg, padding: "16px", textAlign: "center", position: "sticky", top: 0, zIndex: 100 },
     card: { background: C.card, borderRadius: 12, padding: 14, marginBottom: 10 },
+    th: { fontSize: 10, color: C.gray, fontWeight: 600, padding: "4px 3px", textAlign: "center", borderBottom: `1px solid ${C.grayDark}` },
+    td: (highlight) => ({ fontSize: 12, fontWeight: highlight ? 700 : 400, padding: "5px 3px", textAlign: "center", color: C.white }),
   };
 
   if (loading) {
@@ -29,48 +80,138 @@ export default function HistoryView({ teamContext, onBack }) {
   }
 
   if (selectedGame) {
-    let gameState = null;
-    try { gameState = JSON.parse(selectedGame.stateJson); } catch (e) { /* ignore */ }
+    let gs = null;
+    try { gs = JSON.parse(selectedGame.stateJson); } catch (e) { /* ignore */ }
+
+    const matches = gs?.completedMatches || [];
+    const events = gs?.allEvents || [];
+    const teamNames = gs?.teamNames || [];
+    const teams = gs?.teams || [];
+    const attendees = gs?.attendees || [];
+    const teamColorIndices = gs?.teamColorIndices || [];
+    const matchMode = gs?.matchMode || "schedule";
+    const isPush = matchMode === "push";
+
+    const standings = calcStandings(matches, teamNames);
+    const playerRows = calcPlayerStats(events, matches, attendees, teams, teamNames, -2);
 
     return (
       <div style={hs.container}>
         <div style={hs.header}>
-          <div style={{ fontSize: 18, fontWeight: 800, color: "#fff" }}>{selectedGame.gameDate} 경기 기록</div>
-          <div style={{ fontSize: 12, color: C.headerTextDim, marginTop: 2 }}>{teamContext.team} · 읽기전용</div>
+          <div style={{ fontSize: 18, fontWeight: 800, color: "#fff" }}>{formatDate(selectedGame.gameDate)} 경기 기록</div>
+          <div style={{ fontSize: 12, color: C.headerTextDim, marginTop: 2 }}>
+            {teamContext.team} · {isPush ? "밀어내기" : matchMode === "schedule" ? "대진표" : "자유대진"} · {matches.length}경기
+          </div>
         </div>
         <div style={{ padding: 16 }}>
-          <div style={{ fontSize: 12, color: C.gray, marginBottom: 8 }}>{selectedGame.summary}</div>
 
-          {gameState && gameState.completedMatches && gameState.completedMatches.map((m, i) => {
-            const evts = (gameState.allEvents || []).filter(e => e.matchId === m.matchId);
-            return (
-              <div key={i} style={{ ...hs.card, background: m.isExtra ? `${C.orange}11` : C.card }}>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                  <span style={{ fontSize: 11, color: C.gray }}>{m.matchId}{m.isExtra ? " (임시)" : ""}</span>
-                  {m.court && <span style={{ fontSize: 10, color: C.gray }}>{m.court}</span>}
-                </div>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 12, fontSize: 16, fontWeight: 700 }}>
-                  <span style={{ color: m.homeScore > m.awayScore ? C.green : C.white }}>{m.homeTeam}</span>
-                  <span style={{ fontSize: 24, fontWeight: 900 }}>{m.homeScore} : {m.awayScore}</span>
-                  <span style={{ color: m.awayScore > m.homeScore ? C.green : C.white }}>{m.awayTeam}</span>
-                </div>
-                {evts.length > 0 && (
-                  <div style={{ marginTop: 6 }}>
-                    {evts.map((e, ei) => (
-                      <div key={ei} style={{ display: "flex", alignItems: "center", padding: "4px 8px", borderRadius: 6, background: C.cardLight, marginBottom: 3, fontSize: 11, gap: 4, color: C.white }}>
-                        <span>{e.type === "goal" ? "⚽" : "🔴"}</span>
-                        <span style={{ fontWeight: 600 }}>{e.player}</span>
-                        <span style={{ color: C.gray }}>({e.type === "goal" ? "골" : "자책골"})</span>
-                        {e.assist && <span style={{ color: C.gray }}> ← {e.assist}(어시)</span>}
-                      </div>
-                    ))}
-                  </div>
-                )}
+          {/* 팀 순위 */}
+          {standings.length > 0 && (
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 14, fontWeight: 800, color: C.white, marginBottom: 8 }}>🏆 팀 순위</div>
+              <div style={hs.card}>
+                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <thead><tr>
+                    {["#", "팀", "경기", "승", "무", "패", "득", "실", "점"].map(h => <th key={h} style={hs.th}>{h}</th>)}
+                  </tr></thead>
+                  <tbody>
+                    {standings.map((t, i) => {
+                      const color = TEAM_COLORS[teamColorIndices[t.idx]];
+                      return (
+                        <tr key={i} style={{ background: i === 0 ? `${C.accent}08` : "transparent" }}>
+                          <td style={hs.td(true)}>{i + 1}</td>
+                          <td style={{ ...hs.td(true), color: color?.bg || C.white, textAlign: "left", paddingLeft: 4 }}>{t.name}</td>
+                          <td style={hs.td(false)}>{t.games}</td>
+                          <td style={hs.td(t.wins > 0)}>{t.wins}</td>
+                          <td style={hs.td(false)}>{t.draws}</td>
+                          <td style={hs.td(false)}>{t.losses}</td>
+                          <td style={hs.td(false)}>{t.gf}</td>
+                          <td style={hs.td(false)}>{t.ga}</td>
+                          <td style={{ ...hs.td(true), color: C.accent }}>{t.points}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
-            );
-          })}
+            </div>
+          )}
 
-          {(!gameState || !gameState.completedMatches || gameState.completedMatches.length === 0) && (
+          {/* 개인 기록 */}
+          {playerRows.length > 0 && (
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 14, fontWeight: 800, color: C.white, marginBottom: 8 }}>👤 선수별 기록</div>
+              <div style={hs.card}>
+                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <thead><tr>
+                    {["선수", "골", "어시", "역주행", "클린", "실점", "GK", "총점"].map(h => <th key={h} style={hs.th}>{h}</th>)}
+                  </tr></thead>
+                  <tbody>
+                    {playerRows.filter(p => p.total !== 0 || p.goals > 0 || p.assists > 0 || p.keeperGames > 0).map((p, i) => (
+                      <tr key={i}>
+                        <td style={{ ...hs.td(true), textAlign: "left", paddingLeft: 4 }}>
+                          {p.name}<span style={{ fontSize: 9, color: C.gray, fontWeight: 400 }}>({p.team})</span>
+                        </td>
+                        <td style={hs.td(p.goals > 0)}>{p.goals}</td>
+                        <td style={hs.td(p.assists > 0)}>{p.assists}</td>
+                        <td style={{ ...hs.td(p.owngoals > 0), color: p.owngoals > 0 ? C.red : C.white }}>{p.owngoals > 0 ? p.owngoals * -2 : 0}</td>
+                        <td style={hs.td(p.cleanSheets > 0)}>{p.cleanSheets}</td>
+                        <td style={hs.td(false)}>{p.conceded}</td>
+                        <td style={hs.td(false)}>{p.keeperGames}</td>
+                        <td style={{ ...hs.td(true), fontSize: 13, fontWeight: 800, color: p.total > 0 ? C.green : p.total < 0 ? C.red : C.white }}>{p.total}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* 경기 기록 */}
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ fontSize: 14, fontWeight: 800, color: C.white, marginBottom: 8 }}>📋 경기 기록</div>
+            {matches.map((m, i) => {
+              const evts = events.filter(e => e.matchId === m.matchId);
+              const courtCount = gs?.courtCount || 1;
+              const label = (() => {
+                const pP = m.matchId?.match(/^P(\d+)_C0$/);
+                if (pP) return `${pP[1]}경기`;
+                const pF = m.matchId?.match(/^F(\d+)_C(\d+)$/);
+                if (pF) { const ct = courtCount === 2 ? (pF[2] === "0" ? "A구장" : "B구장") : ""; return `${pF[1]}경기${ct ? " " + ct : ""}`; }
+                const p = m.matchId?.match(/^R(\d+)_C(\d+)$/);
+                if (!p) return m.matchId;
+                const court = courtCount === 2 ? (p[2] === "0" ? "A구장" : "B구장") : `매치${+p[2]+1}`;
+                return `${p[1]}라운드 ${court}`;
+              })();
+              return (
+                <div key={i} style={{ ...hs.card, background: m.isExtra ? `${C.orange}11` : C.card }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                    <span style={{ fontSize: 11, color: C.gray }}>{label}{m.isExtra ? " (임시)" : ""}</span>
+                    {m.court && <span style={{ fontSize: 10, color: C.gray }}>{m.court}</span>}
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 12, fontSize: 16, fontWeight: 700 }}>
+                    <span style={{ color: m.homeScore > m.awayScore ? C.green : C.white }}>{m.homeTeam}</span>
+                    <span style={{ fontSize: 24, fontWeight: 900 }}>{m.homeScore} : {m.awayScore}</span>
+                    <span style={{ color: m.awayScore > m.homeScore ? C.green : C.white }}>{m.awayTeam}</span>
+                  </div>
+                  {evts.length > 0 && (
+                    <div style={{ marginTop: 6 }}>
+                      {evts.map((e, ei) => (
+                        <div key={ei} style={{ display: "flex", alignItems: "center", padding: "4px 8px", borderRadius: 6, background: C.cardLight, marginBottom: 3, fontSize: 11, gap: 4, color: C.white }}>
+                          <span>{e.type === "goal" ? "⚽" : "🔴"}</span>
+                          <span style={{ fontWeight: 600 }}>{e.player}</span>
+                          <span style={{ color: C.gray }}>({e.type === "goal" ? "골" : "자책골"})</span>
+                          {e.assist && <span style={{ color: C.gray }}> ← {e.assist}(어시)</span>}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {matches.length === 0 && (
             <div style={{ textAlign: "center", color: C.gray, padding: 20 }}>상세 기록이 없습니다</div>
           )}
 
@@ -94,20 +235,16 @@ export default function HistoryView({ teamContext, onBack }) {
           <div style={{ textAlign: "center", color: C.gray, padding: 40 }}>확정된 경기 기록이 없습니다</div>
         ) : (
           history.map((h, i) => {
-            // summary: "g_xxx | 작성자 | phase | 이벤트 N건 | 완료 M경기"
             const parts = (h.summary || "").split("|").map(s => s.trim());
             const creator = parts[1] || "";
             const evtInfo = parts[3] || "";
             const matchInfo = parts[4] || "";
-            // gameDate: "2026-03-27" → "2026/3/27"
-            const dateParts = (h.gameDate || "").split("-");
-            const dateFmt = dateParts.length === 3 ? `${dateParts[0]}/${+dateParts[1]}/${+dateParts[2]}` : h.gameDate;
             return (
               <div key={i} onClick={() => setSelectedGame(h)}
                 style={{ ...hs.card, cursor: "pointer", border: `1px solid ${C.grayDark}` }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <div>
-                    <div style={{ fontSize: 15, fontWeight: 700, color: C.white }}>{dateFmt} 경기</div>
+                    <div style={{ fontSize: 15, fontWeight: 700, color: C.white }}>{formatDate(h.gameDate)} 경기</div>
                     <div style={{ fontSize: 12, color: C.gray, marginTop: 2 }}>
                       {creator && `작성자: ${creator}`}{evtInfo && ` | ${evtInfo}`}{matchInfo && ` | ${matchInfo}`}
                     </div>
