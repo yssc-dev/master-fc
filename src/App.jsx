@@ -955,9 +955,9 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
         </div>
         <div style={s.section}>
           <div style={s.sectionTitle}>👤 선수별 기록</div>
-          <div style={{ ...s.card, overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 480 }}>
-              <thead><tr>{["선수", "골", "어시", "역주행", "클린", "🍀", "🍠", "실점", "GK", "총점"].map(h => <th key={h} style={s.th}>{h}</th>)}</tr></thead>
+          <div style={s.card}>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead><tr>{(matchMode === "push" ? ["선수", "골", "어시", "역주행", "클린", "실점", "GK", "총점"] : ["선수", "골", "어시", "역주행", "클린", "🍀", "🍠", "실점", "GK", "총점"]).map(h => <th key={h} style={s.th}>{h}</th>)}</tr></thead>
               <tbody>
                 {playerRows.map(p => (
                   <tr key={p.name}>
@@ -965,8 +965,8 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
                     <td style={s.td(p.goals > 0)}>{p.goals}</td><td style={s.td(p.assists > 0)}>{p.assists}</td>
                     <td style={{ ...s.td(p.owngoals > 0), color: p.owngoals > 0 ? C.red : C.white }}>{p.owngoals > 0 ? p.owngoals * gameSettings.ownGoalPoint : 0}</td>
                     <td style={s.td(p.cleanSheets > 0)}>{p.cleanSheets}</td>
-                    <td style={{ ...s.td(p.crova > 0), color: p.crova > 0 ? C.green : C.white }}>{p.crova || ""}</td>
-                    <td style={{ ...s.td(p.goguma < 0), color: p.goguma < 0 ? C.red : C.white }}>{p.goguma || ""}</td>
+                    {matchMode !== "push" && <td style={{ ...s.td(p.crova > 0), color: p.crova > 0 ? C.green : C.white }}>{p.crova || ""}</td>}
+                    {matchMode !== "push" && <td style={{ ...s.td(p.goguma < 0), color: p.goguma < 0 ? C.red : C.white }}>{p.goguma || ""}</td>}
                     <td style={s.td()}>{p.conceded}</td><td style={s.td()}>{p.keeperGames}</td>
                     <td style={{ ...s.td(true), fontSize: 14, fontWeight: 800 }}>{p.total}</td>
                   </tr>
