@@ -70,14 +70,14 @@ const AppSync = {
     } catch (e) { console.warn("상태 확정 실패:", e.message); return null; }
   },
 
-  async getLatestDeltas() {
+  async getLatestDeltas(playerLogSheet) {
     if (!this.enabled()) return {};
     try {
       const team = this._getTeam();
       const resp = await fetch(APPS_SCRIPT_URL, {
         method: "POST",
         headers: { "Content-Type": "text/plain" },
-        body: JSON.stringify({ action: "getPrevRankings", team, authToken: this._getAuthToken() }),
+        body: JSON.stringify({ action: "getPrevRankings", team, playerLogSheet: playerLogSheet || "", authToken: this._getAuthToken() }),
       });
       const data = await resp.json();
       return data.latestDeltas || {};
@@ -194,14 +194,14 @@ const AppSync = {
     } catch (e) { return { success: false, message: "인증 서버 연결 실패" }; }
   },
 
-  async getCumulativeBonus() {
+  async getCumulativeBonus(playerLogSheet) {
     if (!this.enabled()) return { crova: {}, goguma: {} };
     try {
       const team = this._getTeam();
       const resp = await fetch(APPS_SCRIPT_URL, {
         method: "POST",
         headers: { "Content-Type": "text/plain" },
-        body: JSON.stringify({ action: "getCumulativeBonus", team, authToken: this._getAuthToken() }),
+        body: JSON.stringify({ action: "getCumulativeBonus", team, playerLogSheet: playerLogSheet || "", authToken: this._getAuthToken() }),
       });
       const data = await resp.json();
       return { crova: data.crova || {}, goguma: data.goguma || {} };

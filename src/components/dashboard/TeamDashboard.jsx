@@ -28,7 +28,7 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
       .then(data => { setMembers(data.players || []); setKeepers(data.keepers || []); })
       .catch(() => setMembers([]))
       .finally(() => setMembersLoading(false));
-    AppSync.getLatestDeltas().then(deltas => {
+    AppSync.getLatestDeltas(getSettings(teamName).playerLogSheet).then(deltas => {
       console.log("latestDeltas:", deltas);
       setPrevRanks(deltas); // store deltas, compute ranks in render
     }).catch(() => {});

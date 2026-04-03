@@ -153,7 +153,7 @@ function doPost(e) {
     } else if (action === "getHistory") {
       return _jsonResponse(_getHistory(requestTeam));
     } else if (action === "getCumulativeBonus") {
-      return _jsonResponse(_getCumulativeBonus(requestTeam));
+      return _jsonResponse(_getCumulativeBonus(requestTeam, body.playerLogSheet || ""));
     } else if (action === "getPointLog") {
       return _jsonResponse(_getPointLog(requestTeam, body.pointLogSheet || ""));
     } else if (action === "getPlayerLog") {
@@ -161,7 +161,7 @@ function doPost(e) {
     } else if (action === "getSheetList") {
       return _jsonResponse(_getSheetList());
     } else if (action === "getPrevRankings") {
-      return _jsonResponse(_getPrevRankings(requestTeam));
+      return _jsonResponse(_getPrevRankings(requestTeam, body.playerLogSheet || ""));
     } else if (action === "getRankingHistory") {
       return _jsonResponse(_getRankingHistory(requestTeam, body.allPlayers || [], body.playerLogSheet || ""));
     } else if (action === "clearState") {
@@ -600,9 +600,9 @@ function _writePlayerLog(data, sheetName) {
 // 누적 크로바/고구마 조회
 // ═══════════════════════════════════════════════════════════════
 
-function _getCumulativeBonus(team) {
+function _getCumulativeBonus(team, sheetName) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var sheet = ss.getSheetByName(PLAYER_LOG_SHEET);
+  var sheet = ss.getSheetByName(sheetName || PLAYER_LOG_SHEET);
   if (!sheet) return { success: true, crova: {}, goguma: {} };
 
   var lastRow = sheet.getLastRow();
@@ -650,9 +650,9 @@ function _getSheetList() {
 // 이전 랭킹 계산 (마지막 경기 제외 누적 포인트 기반)
 // ═══════════════════════════════════════════════════════════════
 
-function _getPrevRankings(team) {
+function _getPrevRankings(team, sheetName) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var sheet = ss.getSheetByName(PLAYER_LOG_SHEET);
+  var sheet = ss.getSheetByName(sheetName || PLAYER_LOG_SHEET);
   if (!sheet) return { success: true, latestDeltas: {} };
 
   var lastRow = sheet.getLastRow();

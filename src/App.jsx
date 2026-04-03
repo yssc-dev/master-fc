@@ -72,7 +72,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
   const _loadBackgroundData = (team) => {
     Promise.all([
       fetchSheetData().catch(() => null),
-      AppSync.getCumulativeBonus().catch(() => ({ crova: {}, goguma: {} })),
+      AppSync.getCumulativeBonus(gameSettings.playerLogSheet).catch(() => ({ crova: {}, goguma: {} })),
     ]).then(([sheetData, cumBonus]) => {
       const fields = {};
       if (sheetData) { fields.seasonPlayers = sheetData.players; fields.dataSource = "sheet"; }
@@ -85,7 +85,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
   const _loadAllData = (team) => {
     const loadPromises = [
       fetchSheetData().catch(err => { console.warn("시트 로딩 실패:", err.message); return null; }),
-      AppSync.getCumulativeBonus().catch(err => { console.warn("누적보너스 로딩 실패:", err.message); return { crova: {}, goguma: {} }; }),
+      AppSync.getCumulativeBonus(gameSettings.playerLogSheet).catch(err => { console.warn("누적보너스 로딩 실패:", err.message); return { crova: {}, goguma: {} }; }),
     ];
     if (gameMode === "sheetSync") {
       loadPromises.push(
