@@ -175,9 +175,10 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
                             <DeltaBadge value={p.totalDelta} />
                           </div>
                           <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 3 }}>
-                            {p.goalsDelta > 0 && <span style={{ fontSize: 10, color: C.gray }}>골+{p.goalsDelta}</span>}
-                            {p.assistsDelta > 0 && <span style={{ fontSize: 10, color: C.gray }}>어시+{p.assistsDelta}</span>}
-                            {p.cleanSheetsDelta > 0 && <span style={{ fontSize: 10, color: C.gray }}>CS+{p.cleanSheetsDelta}</span>}
+                            {p.goalsDelta !== 0 && <span style={{ fontSize: 10, color: C.gray }}>골{p.goalsDelta > 0 ? "+" : ""}{p.goalsDelta}</span>}
+                            {p.assistsDelta !== 0 && <span style={{ fontSize: 10, color: C.gray }}>어시{p.assistsDelta > 0 ? "+" : ""}{p.assistsDelta}</span>}
+                            {p.ownGoalsDelta !== 0 && <span style={{ fontSize: 10, color: C.gray }}>역주행{p.ownGoalsDelta > 0 ? "+" : ""}{p.ownGoalsDelta}</span>}
+                            {p.cleanSheetsDelta !== 0 && <span style={{ fontSize: 10, color: C.gray }}>CS{p.cleanSheetsDelta > 0 ? "+" : ""}{p.cleanSheetsDelta}</span>}
                           </div>
                         </div>
                       ))}
@@ -193,8 +194,10 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
                             <DeltaBadge value={p.totalDelta} />
                           </div>
                           <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 3 }}>
-                            {p.ownGoalsDelta > 0 && <span style={{ fontSize: 10, color: C.gray }}>역주행+{p.ownGoalsDelta}</span>}
-                            {p.concededDelta > 0 && <span style={{ fontSize: 10, color: C.gray }}>실점+{p.concededDelta}</span>}
+                            {p.goalsDelta !== 0 && <span style={{ fontSize: 10, color: C.gray }}>골{p.goalsDelta > 0 ? "+" : ""}{p.goalsDelta}</span>}
+                            {p.assistsDelta !== 0 && <span style={{ fontSize: 10, color: C.gray }}>어시{p.assistsDelta > 0 ? "+" : ""}{p.assistsDelta}</span>}
+                            {p.ownGoalsDelta !== 0 && <span style={{ fontSize: 10, color: C.gray }}>역주행{p.ownGoalsDelta > 0 ? "+" : ""}{p.ownGoalsDelta}</span>}
+                            {p.cleanSheetsDelta !== 0 && <span style={{ fontSize: 10, color: C.gray }}>CS{p.cleanSheetsDelta > 0 ? "+" : ""}{p.cleanSheetsDelta}</span>}
                           </div>
                         </div>
                       ))}
