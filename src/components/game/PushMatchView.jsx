@@ -148,31 +148,20 @@ export default function PushMatchView({
         })}
       </div>
 
-      {/* 중단: 대진 + 연승 정보 */}
-      <div style={{ ...s.card, marginBottom: 12, textAlign: "center" }}>
-        <div style={{ fontSize: 12, color: C.gray, marginBottom: 4 }}>
-          {completedMatches.length + 1}경기
-          {streakInfo && (
-            <span style={{ marginLeft: 8, color: C.orange, fontWeight: 700 }}>
-              {teamNames[streakInfo.teamIdx]} {streakInfo.count}연승 중
-            </span>
-          )}
-        </div>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 12, marginBottom: 8 }}>
-          <span style={{ fontSize: 16, fontWeight: 800, color: TEAM_COLORS[teamColorIndices[homeIdx]]?.bg || C.white }}>
-            {teamNames[homeIdx]}
+      {/* 경기 번호 + 연승 + 대진변경 (CourtRecorder 바로 위) */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 6 }}>
+        <span style={{ fontSize: 15, fontWeight: 800, color: C.white }}>{completedMatches.length + 1}경기</span>
+        {streakInfo && (
+          <span style={{ fontSize: 12, color: C.orange, fontWeight: 700 }}>
+            {teamNames[streakInfo.teamIdx]} {streakInfo.count}연승
           </span>
-          <span style={{ fontSize: 14, color: C.gray, fontWeight: 900 }}>VS</span>
-          <span style={{ fontSize: 16, fontWeight: 800, color: TEAM_COLORS[teamColorIndices[awayIdx]]?.bg || C.white }}>
-            {teamNames[awayIdx]}
-          </span>
-        </div>
-        <button onClick={handleStartEdit} style={{ ...s.btnSm(C.grayDark, C.white), fontSize: 11 }}>
-          대진 변경
+        )}
+        <button onClick={handleStartEdit} style={{ ...s.btnSm(C.grayDark, C.white), fontSize: 10, marginLeft: 4 }}>
+          대진변경
         </button>
       </div>
 
-      {/* 하단: 경기 기록 */}
+      {/* 경기 기록 */}
       <CourtRecorder
         key={`push_${completedMatches.length}_${homeIdx}_${awayIdx}`}
         matchInfo={matchInfo}

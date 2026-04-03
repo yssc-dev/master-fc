@@ -16,7 +16,11 @@ export default function PlayerStatsModal({ attendees, calcPlayerPoints, onClose,
 
   const sorted = [...rows].sort((a, b) => {
     if (sortKey === "name") return a.name.localeCompare(b.name, "ko");
-    return (b[sortKey] || 0) - (a[sortKey] || 0);
+    const diff = (b[sortKey] || 0) - (a[sortKey] || 0);
+    if (diff !== 0) return diff;
+    const goalDiff = (b.goals || 0) - (a.goals || 0);
+    if (goalDiff !== 0) return goalDiff;
+    return (b.assists || 0) - (a.assists || 0);
   });
 
   return (
