@@ -233,7 +233,6 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
           </button>
           <div style={{
             ...s.matchBtn(color), flex: 1, marginBottom: 0, minWidth: 0,
-            opacity: pendingGoalPlayer && !isPendingGoal && !isPendingAssistMode ? 0.3 : 1,
             display: "flex", alignItems: "center", justifyContent: "center", gap: 3,
           }}>
             {isMerc && <span style={{ fontSize: 8, color: C.orange }}>용</span>}
@@ -243,7 +242,7 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
                 style={{ fontSize: 9, color: C.red, fontWeight: 700, cursor: "pointer", marginLeft: 2 }}>✕</span>
             )}
           </div>
-          {!pendingGoalPlayer && !readOnly && (
+          {!readOnly && (
             <button onClick={() => handleGoalTap(player, isHome)}
               style={{
                 border: "none", borderRadius: 6, padding: "6px 8px", fontSize: 12,
@@ -252,39 +251,58 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
               }}>⚽</button>
           )}
         </div>
-        {isPendingGoal && (
-          <div style={{
-            display: "flex", gap: 3, flexWrap: "wrap", padding: "6px 4px",
-            background: `${C.accent}15`, borderRadius: 8, marginTop: 3,
-          }}>
-            <span style={{ fontSize: 10, color: C.gray, width: "100%", marginBottom: 2 }}>어시:</span>
-            {(isHome ? homePlayers : awayPlayers).filter(p => p !== player).map(p => (
-              <button key={p} onClick={() => handleAssistSelect(p)}
-                style={{
-                  border: "none", borderRadius: 6, padding: "5px 8px", fontSize: 11,
-                  fontWeight: 600, cursor: "pointer", background: C.grayDarker, color: C.white,
-                }}>{p}</button>
-            ))}
-            <button onClick={handleNoAssist}
-              style={{ border: "none", borderRadius: 6, padding: "5px 8px", fontSize: 11, fontWeight: 600, cursor: "pointer", background: C.grayDark, color: C.gray }}>
-              어시없음
-            </button>
-            <button onClick={handleOwnGoalFromInline}
-              style={{ border: "none", borderRadius: 6, padding: "5px 8px", fontSize: 11, fontWeight: 600, cursor: "pointer", background: `${C.red}30`, color: C.red }}>
-              자책골
-            </button>
-            <button onClick={() => setPendingGoalPlayer(null)}
-              style={{ border: "none", borderRadius: 6, padding: "5px 8px", fontSize: 11, fontWeight: 600, cursor: "pointer", background: `${C.red}20`, color: C.red }}>
-              취소
-            </button>
-          </div>
-        )}
       </div>
     );
   };
 
   return (
-    <div style={{ ...s.card, border: `1px solid ${C.grayDark}` }}>
+    <div style={{ ...s.card, border: `1px solid ${C.grayDark}`, position: "relative" }}>
+
+      {/* 어시 선택 모달 */}
+      {pendingGoalPlayer && (
+        <div style={{
+          position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: 200,
+          background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center",
+          padding: 16,
+        }} onClick={() => setPendingGoalPlayer(null)}>
+          <div style={{
+            background: C.card, borderRadius: 16, padding: 20, maxWidth: 360, width: "100%",
+            maxHeight: "80vh", overflowY: "auto",
+          }} onClick={e => e.stopPropagation()}>
+            <div style={{ textAlign: "center", marginBottom: 14 }}>
+              <div style={{ fontSize: 16, fontWeight: 800, color: C.white }}>
+                ⚽ {pendingGoalPlayer.player} 골!
+              </div>
+              <div style={{ fontSize: 12, color: C.gray, marginTop: 4 }}>어시스트 선수를 선택하세요</div>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {(pendingGoalPlayer.isHome ? homePlayers : awayPlayers).filter(p => p !== pendingGoalPlayer.player).map(p => (
+                <button key={p} onClick={() => handleAssistSelect(p)}
+                  style={{
+                    border: "none", borderRadius: 10, padding: "10px 14px", fontSize: 14,
+                    fontWeight: 600, cursor: "pointer", background: C.grayDarker, color: C.white,
+                    textAlign: "center",
+                  }}>{p}</button>
+              ))}
+            </div>
+            <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+              <button onClick={handleNoAssist}
+                style={{ flex: 1, border: "none", borderRadius: 10, padding: "10px 0", fontSize: 13, fontWeight: 700, cursor: "pointer", background: C.grayDark, color: C.gray }}>
+                어시없음
+              </button>
+              <button onClick={handleOwnGoalFromInline}
+                style={{ flex: 1, border: "none", borderRadius: 10, padding: "10px 0", fontSize: 13, fontWeight: 700, cursor: "pointer", background: `${C.red}30`, color: C.red }}>
+                자책골
+              </button>
+            </div>
+            <button onClick={() => setPendingGoalPlayer(null)}
+              style={{ width: "100%", border: "none", borderRadius: 10, padding: "10px 0", fontSize: 13, fontWeight: 600, cursor: "pointer", background: `${C.grayDarker}`, color: C.grayLight, marginTop: 8 }}>
+              취소
+            </button>
+          </div>
+        </div>
+      )}
+
       {courtLabel && <div style={{ fontSize: 11, color: C.gray, marginBottom: 6, textAlign: "center" }}>{courtLabel}</div>}
 
       <div style={s.scoreboard}>
