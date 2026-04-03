@@ -158,7 +158,7 @@ export default function HistoryView({ teamContext, onBack }) {
                     {["선수", "골", "어시", "역주행", "클린", "실점", "GK", "총점"].map(h => <th key={h} style={hs.th}>{h}</th>)}
                   </tr></thead>
                   <tbody>
-                    {playerRows.filter(p => p.total !== 0 || p.goals > 0 || p.assists > 0 || p.keeperGames > 0).map((p, i) => (
+                    {playerRows.map((p, i) => (
                       <tr key={i}>
                         <td style={{ ...hs.td(true), textAlign: "left", paddingLeft: 4 }}>
                           {p.name}<span style={{ fontSize: 9, color: C.gray, fontWeight: 400 }}>({p.team})</span>
