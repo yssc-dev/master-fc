@@ -121,6 +121,21 @@ function gameReducer(state, action) {
         pushState: newPushState,
       };
     }
+    case 'UNCONFIRM_PUSH_ROUND': {
+      const { prevPushState } = action;
+      const newCompleted = state.completedMatches.slice(0, -1);
+      const lastIdx = state.completedMatches.length - 1;
+      const restoredGks = state.gksHistory[lastIdx] || {};
+      const newGksHistory = { ...state.gksHistory };
+      delete newGksHistory[lastIdx];
+      return {
+        ...state,
+        completedMatches: newCompleted,
+        gks: restoredGks,
+        gksHistory: newGksHistory,
+        pushState: prevPushState,
+      };
+    }
     case 'CONFIRM_ROUND': {
       const { roundIdx, matchResults, nextRoundIdx, newSchedule, newSplitPhase } = action;
       const newCompleted = [...state.completedMatches, ...matchResults.map(r => ({ ...r, isExtra: state.isExtraRound }))];

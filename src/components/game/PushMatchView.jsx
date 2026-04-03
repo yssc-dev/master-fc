@@ -8,7 +8,7 @@ import CourtRecorder from './CourtRecorder';
 export default function PushMatchView({
   teams, teamNames, teamColorIndices, gks, gksHistory, allEvents,
   onRecordEvent, onUndoEvent, onDeleteEvent, onEditEvent,
-  onConfirmPushRound, completedMatches, attendees, onGkChange,
+  onConfirmPushRound, onUnconfirmLastRound, completedMatches, attendees, onGkChange,
   pushState, styles: s,
 }) {
   const { C } = useTheme();
@@ -200,14 +200,18 @@ export default function PushMatchView({
         readOnly={!isLive}
       />
 
-      {/* 경기 확정 버튼 (라이브 경기만) */}
-      {isLive && (
-        <div style={{ marginTop: 12 }}>
+      {/* 하단 버튼 */}
+      <div style={{ marginTop: 12 }}>
+        {isLive ? (
           <button onClick={handleConfirmRound} style={{ ...s.btnFull(C.accent, C.bg) }}>
             경기 확정
           </button>
-        </div>
-      )}
+        ) : viewingIdx === completedMatches.length - 1 ? (
+          <button onClick={onUnconfirmLastRound} style={{ ...s.btnFull(C.orange, C.bg) }}>
+            {viewingIdx + 1}경기 확정취소
+          </button>
+        ) : null}
+      </div>
     </div>
   );
 }

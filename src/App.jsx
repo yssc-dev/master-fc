@@ -17,7 +17,7 @@ import Modal from './components/common/Modal';
 import ScheduleMatchView from './components/game/ScheduleMatchView';
 import FreeMatchView from './components/game/FreeMatchView';
 import PushMatchView from './components/game/PushMatchView';
-import { createInitialPushState } from './utils/pushMatch';
+import { createInitialPushState, calcNextPushMatch } from './utils/pushMatch';
 import ScheduleModal from './components/game/ScheduleModal';
 import StandingsModal from './components/game/StandingsModal';
 import PlayerStatsModal from './components/game/PlayerStatsModal';
@@ -341,6 +341,19 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
   const finishMatch = (matchData) => dispatch({ type: 'FINISH_MATCH', match: { ...matchData, isExtra: isExtraRound } });
   const confirmPushRound = (matchResult, newPushState) => {
     dispatch({ type: 'CONFIRM_PUSH_ROUND', matchResult, newPushState });
+  };
+
+  const unconfirmLastPushRound = () => {
+    if (completedMatches.length === 0) return;
+    const last = completedMatches[completedMatches.length - 1];
+    if (!confirm(`${last.homeTeam} ${last.homeScore}:${last.awayScore} ${last.awayTeam}\n\n이 경기의 확정을 취소하시겠습니까?`)) return;
+    // pushState를 이전 상태로 되돌리기: 마지막 경기 결과를 제외하고 처음부터 재계산
+    let prevPushState = createInitialPushState(teamCount);
+    for (let i = 0; i < completedMatches.length - 1; i++) {
+      const m = completedMatches[i];
+      prevPushState = calcNextPushMatch(prevPushState, { homeIdx: m.homeIdx, awayIdx: m.awayIdx, homeScore: m.homeScore, awayScore: m.awayScore }, teamCount, teamNames);
+    }
+    dispatch({ type: 'UNCONFIRM_PUSH_ROUND', prevPushState });
   };
 
   const makeTeamName = (members) => {
@@ -872,7 +885,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
             <PushMatchView teams={teams} teamNames={teamNames} teamColorIndices={teamColorIndices} gks={gks} gksHistory={gksHistory || {}}
               allEvents={allEvents} onRecordEvent={recordMatchEvent}
               onUndoEvent={undoMatchEvent} onDeleteEvent={deleteEvent} onEditEvent={editEvent}
-              onConfirmPushRound={confirmPushRound} completedMatches={completedMatches}
+              onConfirmPushRound={confirmPushRound} onUnconfirmLastRound={unconfirmLastPushRound} completedMatches={completedMatches}
               attendees={attendees} onGkChange={handleGkChange} pushState={pushState} styles={s} />
           ) : matchMode === "schedule" && schedule.length > 0 && !isExtraRound ? (
             <ScheduleMatchView schedule={schedule} currentRoundIdx={currentRoundIdx}
