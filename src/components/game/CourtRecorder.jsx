@@ -12,7 +12,12 @@ function MercPicker({ side, candidates, opposingPlayers, teamName, onAdd, onClos
         <div style={{ fontSize: 12, color: C.gray }}>추가 가능한 선수가 없습니다.</div>
       ) : (
         <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-          {candidates.map(p => {
+          {[...candidates].sort((a, b) => {
+            const aOpp = opposingPlayers.includes(a) ? 1 : 0;
+            const bOpp = opposingPlayers.includes(b) ? 1 : 0;
+            if (aOpp !== bOpp) return aOpp - bOpp;
+            return a.localeCompare(b, 'ko');
+          }).map(p => {
             const isOpposing = opposingPlayers.includes(p);
             return (
               <button key={p} onClick={() => onAdd(p, side)}
