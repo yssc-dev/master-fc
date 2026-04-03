@@ -169,9 +169,9 @@ function doPost(e) {
     } else if (action === "finalizeState") {
       return _jsonResponse(_finalizeGameState(body.team, body.gameId));
     } else if (action === "writePointLog") {
-      return _jsonResponse(_writePointLog(body.data));
+      return _jsonResponse(_writePointLog(body.data, body.pointLogSheet || ""));
     } else if (action === "writePlayerLog") {
-      return _jsonResponse(_writePlayerLog(body.data));
+      return _jsonResponse(_writePlayerLog(body.data, body.playerLogSheet || ""));
     }
 
     return _errorResponse("Unknown action: " + action);
@@ -508,7 +508,7 @@ function _validatePlayerLogEntry(p, idx) {
   return errors;
 }
 
-function _writePointLog(data) {
+function _writePointLog(data, sheetName) {
   if (!data) return { success: false, error: "data 누락" };
   var teamName = data.team || "";
   var rows = data.events || [];
@@ -527,7 +527,8 @@ function _writePointLog(data) {
 
   try {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
-    var sheet = ss.getSheetByName(POINT_LOG_SHEET);
+    var targetName = sheetName || POINT_LOG_SHEET;
+    var sheet = ss.getSheetByName(targetName);
     if (!sheet) {
       sheet = ss.insertSheet(POINT_LOG_SHEET);
       sheet.getRange("A1:J1").setValues([["경기일자","경기번호","내팀","상대팀","득점선수","어시선수","자책골","실점키퍼명","입력시간","팀이름"]]);
@@ -550,7 +551,7 @@ function _writePointLog(data) {
   }
 }
 
-function _writePlayerLog(data) {
+function _writePlayerLog(data, sheetName) {
   if (!data) return { success: false, error: "data 누락" };
   var teamName = data.team || "";
   var rows = data.players || [];
@@ -569,10 +570,11 @@ function _writePlayerLog(data) {
 
   try {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
-    var sheet = ss.getSheetByName(PLAYER_LOG_SHEET);
+    var targetName = sheetName || PLAYER_LOG_SHEET;
+    var sheet = ss.getSheetByName(targetName);
     if (!sheet) {
       sheet = ss.insertSheet(PLAYER_LOG_SHEET);
-      sheet.getRange("A1:M1").setValues([["경기일자","선수","골","어시","역주행","실점","클린시트","크로바","고구마","키퍼경기수","입력시간","팀이름","팀순위점수"]]);
+      sheet.getRange("A1:M1").setValues([["경기일자","선수명","골","어시","역주행","실점","클린시트","크로바","고구마","키퍼경기수","팀순위점수","입력시간","소속팀"]]);
       sheet.getRange("A1:M1").setFontWeight("bold");
     }
 
@@ -582,7 +584,7 @@ function _writePlayerLog(data) {
         Number(p.goals) || 0, Number(p.assists) || 0, Number(p.owngoals) || 0,
         Number(p.conceded) || 0, Number(p.cleanSheets) || 0,
         Number(p.crova) || 0, Number(p.goguma) || 0, Number(p.keeperGames) || 0,
-        p.inputTime || _kstNow(), teamName, Number(p.rankScore) || 0,
+        Number(p.rankScore) || 0, p.inputTime || _kstNow(), teamName,
       ];
     });
 
@@ -613,8 +615,8 @@ function _getCumulativeBonus(team) {
   var goguma = {};
 
   for (var i = 0; i < data.length; i++) {
-    if (team && colCount >= 12) {
-      var rowTeam = String(data[i][11]).trim();
+    if (team && colCount >= 13) {
+      var rowTeam = String(data[i][12]).trim();
       if (rowTeam && rowTeam !== team) continue;
     }
 
@@ -656,13 +658,13 @@ function _getPrevRankings(team) {
   var lastRow = sheet.getLastRow();
   if (lastRow < 2) return { success: true, latestDeltas: {} };
 
-  var data = sheet.getRange(2, 1, lastRow - 1, 12).getValues();
-  // 열: 경기일자(0), 선수명(1), 골(2), 어시(3), 역주행(4), 실점(5), 클린시트(6), 크로바(7), 고구마(8), 키퍼경기수(9), 입력시간(10), 팀이름(11)
+  var data = sheet.getRange(2, 1, lastRow - 1, 13).getValues();
+  // 열: 경기일자(0), 선수명(1), 골(2), 어시(3), 역주행(4), 실점(5), 클린시트(6), 크로바(7), 고구마(8), 키퍼경기수(9), 팀순위점수(10), 입력시간(11), 소속팀(12)
 
   // 팀 필터 + 최신 경기일자 찾기
   var latestDate = "";
   for (var i = 0; i < data.length; i++) {
-    var rowTeam = data[i][11] ? String(data[i][11]).trim() : "";
+    var rowTeam = data[i][12] ? String(data[i][12]).trim() : "";
     if (rowTeam && rowTeam !== team) continue;
     var dateStr = _toDateStr(data[i][0]);
     if (dateStr > latestDate) latestDate = dateStr;
@@ -673,7 +675,7 @@ function _getPrevRankings(team) {
   // 최신 경기일자의 선수별 증분만 추출
   var deltas = {};
   for (var j = 0; j < data.length; j++) {
-    var rTeam = data[j][11] ? String(data[j][11]).trim() : "";
+    var rTeam = data[j][12] ? String(data[j][12]).trim() : "";
     if (rTeam && rTeam !== team) continue;
     var ds = _toDateStr(data[j][0]);
     if (ds !== latestDate) continue;
@@ -705,12 +707,12 @@ function _getRankingHistory(team, allPlayers, customSheetName) {
   var lastRow = sheet.getLastRow();
   if (lastRow < 2) return { success: true, rankingHistory: { dates: [], players: {} } };
 
-  var data = sheet.getRange(2, 1, lastRow - 1, 12).getValues();
+  var data = sheet.getRange(2, 1, lastRow - 1, 13).getValues();
 
   // 경기일자별 선수 데이터 그룹핑
   var dateMap = {}; // { "2025-09-15": [ {name, goals, assists, ...} ] }
   for (var i = 0; i < data.length; i++) {
-    var rowTeam = data[i][11] ? String(data[i][11]).trim() : "";
+    var rowTeam = data[i][12] ? String(data[i][12]).trim() : "";
     if (rowTeam && rowTeam !== team) continue;
 
     var dateStr = _toDateStr(data[i][0]);
@@ -734,7 +736,7 @@ function _getRankingHistory(team, allPlayers, customSheetName) {
   var debug = {
     totalRows: data.length,
     datesFound: sortedDates,
-    first5RawDates: data.slice(0, 5).map(function(r) { return { raw: String(r[0]), type: typeof r[0], isDate: r[0] instanceof Date, converted: _toDateStr(r[0]), name: String(r[1]).trim(), team: String(r[11] || "").trim() }; }),
+    first5RawDates: data.slice(0, 5).map(function(r) { return { raw: String(r[0]), type: typeof r[0], isDate: r[0] instanceof Date, converted: _toDateStr(r[0]), name: String(r[1]).trim(), team: String(r[12] || "").trim() }; }),
   };
   if (sortedDates.length === 0) return { success: true, rankingHistory: { dates: [], players: {} }, debug: debug };
 
@@ -864,7 +866,7 @@ function _getPlayerLog(team, customSheetName) {
   for (var i = 0; i < data.length; i++) {
     // 커스텀 시트면 팀 필터 생략 (사용자가 직접 지정한 시트)
     if (!useCustomSheet) {
-      var rowTeam = data[i][11] ? String(data[i][11]).trim() : "";
+      var rowTeam = data[i][12] ? String(data[i][12]).trim() : "";
       if (rowTeam && rowTeam !== team) continue;
     }
     var dateStr = _toDateStr(data[i][0]);
@@ -877,14 +879,14 @@ function _getPlayerLog(team, customSheetName) {
       ownGoals: Number(data[i][4]) || 0, conceded: Number(data[i][5]) || 0,
       cleanSheets: Number(data[i][6]) || 0, crova: Number(data[i][7]) || 0,
       goguma: Number(data[i][8]) || 0, keeperGames: Number(data[i][9]) || 0,
-      rankScore: Number(data[i][12]) || 0,
+      rankScore: Number(data[i][10]) || 0,
     });
   }
   // 디버그: 첫 5행 원본 + 스킵된 행 수
   // 스킵된 팀이름 샘플 수집
   var skippedTeamNames = {};
   for (var d = 0; d < data.length; d++) {
-    var rt = data[d][11] ? String(data[d][11]).trim() : "";
+    var rt = data[d][12] ? String(data[d][12]).trim() : "";
     if (rt && rt !== team) {
       skippedTeamNames[rt] = (skippedTeamNames[rt] || 0) + 1;
     }

@@ -536,8 +536,8 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
 
     try {
       const [r1, r2] = await Promise.all([
-        AppSync.writePointLog({ events: pointEvents }),
-        AppSync.writePlayerLog({ players: playerData }),
+        AppSync.writePointLog({ events: pointEvents }, gameSettings.pointLogSheet),
+        AppSync.writePlayerLog({ players: playerData }, gameSettings.playerLogSheet),
       ]);
       await AppSync.finalizeState(gameId);
       await FirebaseSync.clearState(teamContext?.team, gameId);

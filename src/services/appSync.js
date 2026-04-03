@@ -156,27 +156,27 @@ const AppSync = {
     } catch (e) { console.warn("이력 조회 실패:", e.message); return []; }
   },
 
-  async writePointLog(data) {
+  async writePointLog(data, pointLogSheet) {
     if (!this.enabled()) return null;
     try {
       const team = this._getTeam();
       const resp = await fetch(APPS_SCRIPT_URL, {
         method: "POST",
         headers: { "Content-Type": "text/plain" },
-        body: JSON.stringify({ action: "writePointLog", data: { ...data, team }, authToken: this._getAuthToken() }),
+        body: JSON.stringify({ action: "writePointLog", data: { ...data, team }, pointLogSheet: pointLogSheet || "", authToken: this._getAuthToken() }),
       });
       return await resp.json();
     } catch (e) { console.warn("포인트로그 저장 실패:", e.message); return null; }
   },
 
-  async writePlayerLog(data) {
+  async writePlayerLog(data, playerLogSheet) {
     if (!this.enabled()) return null;
     try {
       const team = this._getTeam();
       const resp = await fetch(APPS_SCRIPT_URL, {
         method: "POST",
         headers: { "Content-Type": "text/plain" },
-        body: JSON.stringify({ action: "writePlayerLog", data: { ...data, team }, authToken: this._getAuthToken() }),
+        body: JSON.stringify({ action: "writePlayerLog", data: { ...data, team }, playerLogSheet: playerLogSheet || "", authToken: this._getAuthToken() }),
       });
       return await resp.json();
     } catch (e) { console.warn("선수별집계 저장 실패:", e.message); return null; }
