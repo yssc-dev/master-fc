@@ -70,7 +70,12 @@ export default function HistoryView({ teamContext, onBack }) {
 
   useEffect(() => {
     AppSync.getHistory().then(data => {
-      setHistory([...data].reverse());
+      const sorted = [...data].sort((a, b) => {
+        const da = new Date(a.gameDate), db = new Date(b.gameDate);
+        if (!isNaN(da) && !isNaN(db)) return db - da;
+        return String(b.gameDate || "").localeCompare(String(a.gameDate || ""));
+      });
+      setHistory(sorted);
     }).finally(() => setLoading(false));
   }, []);
 
