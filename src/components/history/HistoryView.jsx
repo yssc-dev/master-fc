@@ -46,9 +46,20 @@ function calcPlayerStats(allEvents, completedMatches, attendees, teams, teamName
 
 function formatDate(dateStr) {
   if (!dateStr) return "";
-  const d = dateStr.split("-");
+  // Date 객체인 경우
+  if (dateStr instanceof Date || (typeof dateStr === "object" && dateStr.getFullYear)) {
+    return `${dateStr.getFullYear()}/${dateStr.getMonth() + 1}/${dateStr.getDate()}`;
+  }
+  const s = String(dateStr);
+  // "Fri Mar 27 2026 ..." 같은 raw Date string
+  const parsed = new Date(s);
+  if (!isNaN(parsed.getTime()) && s.length > 10) {
+    return `${parsed.getFullYear()}/${parsed.getMonth() + 1}/${parsed.getDate()}`;
+  }
+  // "2026-04-03" 형식
+  const d = s.split("-");
   if (d.length === 3) return `${d[0]}/${+d[1]}/${+d[2]}`;
-  return dateStr;
+  return s;
 }
 
 export default function HistoryView({ teamContext, onBack }) {
