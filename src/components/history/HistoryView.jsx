@@ -70,7 +70,7 @@ export default function HistoryView({ teamContext, onBack }) {
 
   useEffect(() => {
     AppSync.getHistory().then(data => {
-      setHistory(data);
+      setHistory([...data].reverse());
     }).finally(() => setLoading(false));
   }, []);
 
