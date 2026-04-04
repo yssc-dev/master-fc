@@ -65,7 +65,7 @@ export function parseVoiceText(text, allPlayerNames) {
   const raw = normalized;
 
   const ownGoalIdx = findKeywordIndex(normalized, ["자책골", "자책"]);
-  const goalIdx = findKeywordIndex(normalized, ["골", "goal"]);
+  const goalIdx = findKeywordIndex(normalized, ["골", "꼴", "goal"]);
   const assistIdx = findKeywordIndex(normalized, ["어시스트", "어시", "어싯"]);
 
   if (ownGoalIdx !== -1) {
@@ -109,12 +109,26 @@ export function fuzzyMatchPlayer(query, allPlayerNames) {
   if (!query) return [];
   const q = query.trim();
 
+  // 1. 정확 매칭
   const exact = allPlayerNames.filter(n => n === q);
   if (exact.length > 0) return exact;
 
+  // 2. 이름에 query가 포함 (예: "재상" → "조재상")
   const contains = allPlayerNames.filter(n => n.includes(q));
   if (contains.length > 0) return contains;
 
+  // 3. 이름(성 제외) 매칭: "보영" → "정보영", "진옥" → "차진옥"
+  const firstNameMatch = allPlayerNames.filter(n => {
+    const firstName = n.length >= 3 ? n.slice(1) : n.length === 2 ? n.slice(1) : n;
+    return firstName === q;
+  });
+  if (firstNameMatch.length > 0) return firstNameMatch;
+
+  // 4. 이름(성 제외) 부분 매칭: "보영" 이 이름 끝부분에 포함
+  const endMatch = allPlayerNames.filter(n => n.length >= 2 && n.endsWith(q));
+  if (endMatch.length > 0) return endMatch;
+
+  // 5. query가 이름에 포함
   const partial = allPlayerNames.filter(n => q.includes(n));
   if (partial.length > 0) return partial;
 
