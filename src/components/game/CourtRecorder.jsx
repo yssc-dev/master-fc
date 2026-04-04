@@ -41,6 +41,7 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
   const [mercs, setMercs] = useState([]);
   const [showMercPicker, setShowMercPicker] = useState(null);
   const [isListening, setIsListening] = useState(false);
+  const [interimText, setInterimText] = useState("");
   const [voiceResult, setVoiceResult] = useState(null);
   const [speechRef, setSpeechRef] = useState(null);
 
@@ -150,8 +151,9 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
     if (!checkGk()) return;
     if (!isSpeechSupported()) { alert("이 브라우저에서는 음성 인식이 지원되지 않습니다."); return; }
     setVoiceResult(null);
+    setInterimText("");
     setIsListening(true);
-    const { recognition, promise } = startListening();
+    const { recognition, promise } = startListening((text) => setInterimText(text));
     setSpeechRef(recognition);
     promise.then(text => {
       setIsListening(false);
@@ -354,6 +356,11 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
             }}>
             {isListening ? "🎤 듣는 중..." : "🎤 꾹 눌러서 말하기"}
           </button>
+          {isListening && interimText && (
+            <div style={{ marginTop: 6, fontSize: 13, color: C.white, fontWeight: 600 }}>
+              "{interimText}"
+            </div>
+          )}
         </div>
       )}
 

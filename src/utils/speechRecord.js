@@ -8,29 +8,42 @@ export function isSpeechSupported() {
 }
 
 /**
- * 음성 인식 세션을 시작한다. Promise로 결과 텍스트를 반환.
+ * 음성 인식 세션을 시작한다.
+ * @param {function} onInterim - interim 결과 콜백 (실시간 텍스트 표시용)
  * @returns {{ recognition, promise }}
  */
-export function startListening() {
+export function startListening(onInterim) {
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   const recognition = new SR();
   recognition.lang = "ko-KR";
-  recognition.interimResults = false;
+  recognition.interimResults = true;
+  recognition.continuous = true;
   recognition.maxAlternatives = 1;
+
+  let finalText = null;
+  let resolved = false;
 
   const promise = new Promise((resolve, reject) => {
     recognition.onresult = (event) => {
-      const text = event.results[0][0].transcript;
-      resolve(text);
+      let interim = "";
+      for (let i = 0; i < event.results.length; i++) {
+        const result = event.results[i];
+        if (result.isFinal) {
+          finalText = (finalText || "") + result[0].transcript;
+        } else {
+          interim += result[0].transcript;
+        }
+      }
+      if (onInterim) onInterim(finalText || interim || "");
     };
     recognition.onerror = (event) => {
-      reject(new Error(event.error));
+      if (!resolved) { resolved = true; reject(new Error(event.error)); }
     };
     recognition.onnomatch = () => {
-      reject(new Error("nomatch"));
+      if (!resolved) { resolved = true; reject(new Error("nomatch")); }
     };
     recognition.onend = () => {
-      resolve(null);
+      if (!resolved) { resolved = true; resolve(finalText); }
     };
   });
 
