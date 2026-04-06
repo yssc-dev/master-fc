@@ -242,6 +242,7 @@ export default function PlayerAnalytics({ teamName, initialTab, isAdmin }) {
   const [tab, setTab] = useState(initialTab || "combo");
   const [editingTeamIdx, setEditingTeamIdx] = useState(null);
   const [editingName, setEditingName] = useState("");
+  const [detailPlayer, setDetailPlayer] = useState(null); // 개인합 상세 보기용
   const [dualSettings, setDualSettings] = useState(null);
 
   useEffect(() => {
@@ -552,13 +553,21 @@ export default function PlayerAnalytics({ teamName, initialTab, isAdmin }) {
 
         // 기간 내 선수별 승점 + 크로바 + 고구마 + 개인Pt 합산
         const playerScores = {};
+        const playerDateDetails = {}; // { name: [{ date, rankScore, personalPt, crova, goguma }] }
         playerLog.forEach(p => {
           if (p.date < startDate || p.date >= endDate) return;
           if (!playerScores[p.name]) playerScores[p.name] = { rankScore: 0, crova: 0, goguma: 0, personalPt: 0 };
           playerScores[p.name].rankScore += p.rankScore || 0;
           playerScores[p.name].crova += p.crova || 0;
           playerScores[p.name].goguma += p.goguma || 0;
-          playerScores[p.name].personalPt += (p.goals || 0) + (p.assists || 0) + (p.ownGoals || 0) + (p.cleanSheets || 0);
+          const pPt = (p.goals || 0) + (p.assists || 0) + (p.ownGoals || 0) + (p.cleanSheets || 0);
+          playerScores[p.name].personalPt += pPt;
+          if (!playerDateDetails[p.name]) playerDateDetails[p.name] = [];
+          playerDateDetails[p.name].push({
+            date: p.date, rankScore: p.rankScore || 0, personalPt: pPt,
+            goals: p.goals || 0, assists: p.assists || 0, ownGoals: p.ownGoals || 0, cleanSheets: p.cleanSheets || 0,
+            crova: p.crova || 0, goguma: p.goguma || 0,
+          });
         });
 
         // 팀별 점수 합산
@@ -650,7 +659,8 @@ export default function PlayerAnalytics({ teamName, initialTab, isAdmin }) {
                       <td style={{ ...tc, color: d.personalPt > 0 ? C.white : d.personalPt < 0 ? RED : C.grayDark }}>{d.personalPt}</td>
                       <td style={{ ...tc, color: d.crova > 0 ? GREEN : C.grayDark }}>{d.crova}</td>
                       <td style={{ ...tc, color: d.goguma < 0 ? RED : C.grayDark }}>{d.goguma}</td>
-                      <td style={{ ...tc, color: C.accent, fontWeight: 700 }}>{d.total}</td>
+                      <td onClick={() => setDetailPlayer(detailPlayer === d.name ? null : d.name)}
+                        style={{ ...tc, color: C.accent, fontWeight: 700, cursor: "pointer", textDecoration: "underline", textDecorationStyle: "dashed" }}>{d.total}</td>
                       {di === 0 && (
                         <td rowSpan={t.detail.length} style={{ ...tc, fontSize: 14, fontWeight: 900, color: C.accent, verticalAlign: "middle" }}>
                           {t.total}
@@ -661,6 +671,46 @@ export default function PlayerAnalytics({ teamName, initialTab, isAdmin }) {
                 ))}
               </tbody>
             </table>
+
+            {/* 개인합 상세 */}
+            {detailPlayer && playerDateDetails[detailPlayer] && (
+              <div style={{ marginTop: 12, background: C.cardLight, borderRadius: 10, padding: 12 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                  <span style={{ fontSize: 13, fontWeight: 800, color: C.white }}>{detailPlayer} 상세</span>
+                  <button onClick={() => setDetailPlayer(null)} style={{ background: "transparent", border: "none", color: C.gray, fontSize: 12, cursor: "pointer" }}>닫기</button>
+                </div>
+                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <thead>
+                    <tr>
+                      <th style={th}>날짜</th>
+                      <th style={th}>승점</th>
+                      <th style={th}>골</th>
+                      <th style={th}>어시</th>
+                      <th style={th}>역주행</th>
+                      <th style={th}>CS</th>
+                      <th style={th}>개인Pt</th>
+                      <th style={th}>🍀</th>
+                      <th style={th}>🍠</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {playerDateDetails[detailPlayer].sort((a, b) => a.date.localeCompare(b.date)).map((dd, di) => (
+                      <tr key={di}>
+                        <td style={{ ...tc, fontSize: 9 }}>{dd.date.slice(5)}</td>
+                        <td style={tc}>{dd.rankScore}</td>
+                        <td style={tc}>{dd.goals}</td>
+                        <td style={tc}>{dd.assists}</td>
+                        <td style={{ ...tc, color: dd.ownGoals < 0 ? RED : C.grayDark }}>{dd.ownGoals}</td>
+                        <td style={tc}>{dd.cleanSheets}</td>
+                        <td style={{ ...tc, fontWeight: 700 }}>{dd.personalPt}</td>
+                        <td style={{ ...tc, color: dd.crova > 0 ? GREEN : C.grayDark }}>{dd.crova}</td>
+                        <td style={{ ...tc, color: dd.goguma < 0 ? RED : C.grayDark }}>{dd.goguma}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         );
       })()}
