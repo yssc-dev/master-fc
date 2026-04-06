@@ -550,27 +550,29 @@ export default function PlayerAnalytics({ teamName, initialTab, isAdmin }) {
 
         if (teams.length === 0) return <div style={{ textAlign: "center", padding: 20, color: C.gray }}>설정에서 팀전 팀을 구성해주세요</div>;
 
-        // 기간 내 선수별 랭크스코어 + 크로바 + 고구마 합산
+        // 기간 내 선수별 승점 + 크로바 + 고구마 + 개인Pt 합산
         const playerScores = {};
         playerLog.forEach(p => {
           if (p.date < startDate || p.date >= endDate) return;
-          if (!playerScores[p.name]) playerScores[p.name] = { rankScore: 0, crova: 0, goguma: 0 };
+          if (!playerScores[p.name]) playerScores[p.name] = { rankScore: 0, crova: 0, goguma: 0, personalPt: 0 };
           playerScores[p.name].rankScore += p.rankScore || 0;
           playerScores[p.name].crova += p.crova || 0;
           playerScores[p.name].goguma += p.goguma || 0;
+          playerScores[p.name].personalPt += (p.goals || 0) + (p.assists || 0) + (p.ownGoals || 0) + (p.cleanSheets || 0);
         });
 
         // 팀별 점수 합산
         const teamScores = teams.map((t, origIdx) => {
-          let total = 0, detail = [];
+          let total = 0, totalPersonalPt = 0, detail = [];
           t.members.forEach(m => {
-            const ps = playerScores[m] || { rankScore: 0, crova: 0, goguma: 0 };
+            const ps = playerScores[m] || { rankScore: 0, crova: 0, goguma: 0, personalPt: 0 };
             const individual = ps.rankScore + ps.crova + ps.goguma;
             total += individual;
-            detail.push({ name: m, rankScore: ps.rankScore, crova: ps.crova, goguma: ps.goguma, total: individual });
+            totalPersonalPt += ps.personalPt;
+            detail.push({ name: m, rankScore: ps.rankScore, personalPt: ps.personalPt, crova: ps.crova, goguma: ps.goguma, total: individual });
           });
-          return { name: t.name, members: t.members, total, detail, origIdx };
-        }).sort((a, b) => b.total - a.total);
+          return { name: t.name, members: t.members, total, totalPersonalPt, detail, origIdx };
+        }).sort((a, b) => (b.total - a.total) || (b.totalPersonalPt - a.totalPersonalPt));
 
         const handleTeamNameSave = async (origIdx, newName) => {
           const current = getSettings(teamName);
@@ -597,7 +599,8 @@ export default function PlayerAnalytics({ teamName, initialTab, isAdmin }) {
                   <th style={th}>#</th>
                   <th style={th}>팀</th>
                   <th style={th}>선수</th>
-                  <th style={th}>순위점</th>
+                  <th style={th}>승점</th>
+                  <th style={th}>개인Pt</th>
                   <th style={th}>🍀</th>
                   <th style={th}>🍠</th>
                   <th style={th}>개인합</th>
@@ -644,6 +647,7 @@ export default function PlayerAnalytics({ teamName, initialTab, isAdmin }) {
                       )}
                       <td style={{ ...tc, color: C.white, fontWeight: 600 }}>{d.name}</td>
                       <td style={tc}>{d.rankScore}</td>
+                      <td style={{ ...tc, color: d.personalPt > 0 ? C.white : d.personalPt < 0 ? RED : C.grayDark }}>{d.personalPt}</td>
                       <td style={{ ...tc, color: d.crova > 0 ? GREEN : C.grayDark }}>{d.crova}</td>
                       <td style={{ ...tc, color: d.goguma < 0 ? RED : C.grayDark }}>{d.goguma}</td>
                       <td style={{ ...tc, color: C.accent, fontWeight: 700 }}>{d.total}</td>
