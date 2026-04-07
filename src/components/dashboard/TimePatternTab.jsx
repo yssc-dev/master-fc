@@ -14,7 +14,7 @@ export default function TimePatternTab({ timeStats, C }) {
   return (
     <div>
       <div style={{ fontSize: 11, color: C.gray, marginBottom: 10 }}>
-        각 경기의 골을 시간순으로 전반/후반 절반으로 분류
+        경기 시작 후 1시간 기준 전반/후반 분류 (2시간 경기 기준)
       </div>
       <div style={{ display: "flex", gap: 4, marginBottom: 8, fontSize: 10, color: C.gray }}>
         <span style={{ flex: 1 }}>선수</span>

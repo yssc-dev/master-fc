@@ -120,34 +120,18 @@ export function calcSynergy(gameRecords) {
 }
 
 export function calcTimePattern(gameRecords) {
+  const SPLIT_MS = 60 * 60 * 1000; // 1시간
   const stats = {};
   for (const gr of gameRecords) {
-    // matchId별 골 이벤트를 시간순 정렬 후, 중간 지점 기준으로 전반/후반 분류
-    const matchGoals = {};
-    for (const e of gr.events) {
-      if (e.type !== "goal" || !e.player || !e.timestamp) continue;
-      if (!matchGoals[e.matchId]) matchGoals[e.matchId] = [];
-      matchGoals[e.matchId].push(e);
-    }
-    for (const goals of Object.values(matchGoals)) {
-      if (goals.length < 2) {
-        // 골이 1개면 전반으로 분류
-        if (goals.length === 1) {
-          const p = goals[0].player;
-          if (!stats[p]) stats[p] = { early: 0, late: 0, total: 0 };
-          stats[p].early++;
-          stats[p].total++;
-        }
-        continue;
-      }
-      goals.sort((a, b) => a.timestamp - b.timestamp);
-      const midIdx = Math.floor(goals.length / 2);
-      goals.forEach((e, i) => {
-        if (!stats[e.player]) stats[e.player] = { early: 0, late: 0, total: 0 };
-        if (i < midIdx) stats[e.player].early++;
-        else stats[e.player].late++;
-        stats[e.player].total++;
-      });
+    // 해당 경기일의 모든 이벤트에서 가장 빠른 시간 = 경기 시작 시점
+    const allGoals = gr.events.filter(e => e.type === "goal" && e.player && e.timestamp);
+    if (allGoals.length === 0) continue;
+    const gameStart = Math.min(...allGoals.map(e => e.timestamp));
+    for (const e of allGoals) {
+      if (!stats[e.player]) stats[e.player] = { early: 0, late: 0, total: 0 };
+      if (e.timestamp - gameStart < SPLIT_MS) stats[e.player].early++;
+      else stats[e.player].late++;
+      stats[e.player].total++;
     }
   }
   return stats;
