@@ -39,6 +39,10 @@ const initialState = {
   matchModal_sortKey: "total",
   playerSortMode: "point",
   pushState: null,
+  // 축구 전용
+  soccerMatches: [],
+  currentMatchIdx: -1,
+  opponents: [],
 };
 
 function gameReducer(state, action) {
@@ -78,6 +82,9 @@ function gameReducer(state, action) {
       if (s.confirmedRounds != null) updates.confirmedRounds = s.confirmedRounds;
       if (s.earlyFinish != null) updates.earlyFinish = s.earlyFinish;
       if (s.pushState != null) updates.pushState = s.pushState;
+      if (s.soccerMatches != null) updates.soccerMatches = s.soccerMatches;
+      if (s.currentMatchIdx != null) updates.currentMatchIdx = s.currentMatchIdx;
+      if (s.opponents != null) updates.opponents = s.opponents;
       if (s.gameCreator != null) updates.gameCreator = s.gameCreator;
       if (s.phase != null) updates.phase = s.phase;
       return { ...state, ...updates };
@@ -208,7 +215,65 @@ function gameReducer(state, action) {
         matchModal: null,
         phase: "match",
         pushState: initPushState || null,
+        soccerMatches: [],
+        currentMatchIdx: -1,
       };
+    }
+    case 'CREATE_SOCCER_MATCH': {
+      const { opponent, lineup, gk, defenders } = action;
+      const newMatch = {
+        matchIdx: state.soccerMatches.length,
+        opponent, lineup, gk, defenders,
+        events: [],
+        startedAt: Date.now(),
+        ourScore: 0, opponentScore: 0,
+        status: "playing",
+      };
+      return {
+        ...state,
+        soccerMatches: [...state.soccerMatches, newMatch],
+        currentMatchIdx: state.soccerMatches.length,
+      };
+    }
+    case 'ADD_SOCCER_EVENT': {
+      const { matchIdx, event } = action;
+      const matches = state.soccerMatches.map((m, i) => {
+        if (i !== matchIdx) return m;
+        const events = [...m.events, { ...event, id: event.id || Date.now().toString(), timestamp: event.timestamp || Date.now() }];
+        let ourScore = 0, opponentScore = 0;
+        for (const ev of events) {
+          if (ev.type === "goal") ourScore++;
+          else if (ev.type === "owngoal") opponentScore++;
+          else if (ev.type === "opponentGoal") opponentScore++;
+        }
+        return { ...m, events, ourScore, opponentScore };
+      });
+      return { ...state, soccerMatches: matches };
+    }
+    case 'DELETE_SOCCER_EVENT': {
+      const { matchIdx, eventId } = action;
+      const matches = state.soccerMatches.map((m, i) => {
+        if (i !== matchIdx) return m;
+        const events = m.events.filter(e => e.id !== eventId);
+        let ourScore = 0, opponentScore = 0;
+        for (const ev of events) {
+          if (ev.type === "goal") ourScore++;
+          else if (ev.type === "owngoal") opponentScore++;
+          else if (ev.type === "opponentGoal") opponentScore++;
+        }
+        return { ...m, events, ourScore, opponentScore };
+      });
+      return { ...state, soccerMatches: matches };
+    }
+    case 'FINISH_SOCCER_MATCH': {
+      const { matchIdx } = action;
+      const matches = state.soccerMatches.map((m, i) =>
+        i === matchIdx ? { ...m, status: "finished" } : m
+      );
+      return { ...state, soccerMatches: matches, currentMatchIdx: -1 };
+    }
+    case 'SET_OPPONENTS': {
+      return { ...state, opponents: action.opponents };
     }
     default:
       return state;
