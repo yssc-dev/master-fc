@@ -26,6 +26,10 @@ const DEFAULTS = {
   crovaPoint: 2,
   gogumaPoint: -1,
   bonusMultiplier: 2,
+  // 축구 전용
+  eventLogSheet: "",
+  cleanSheetPoint: 1,
+  opponents: [],
 };
 
 function _key(team) {
