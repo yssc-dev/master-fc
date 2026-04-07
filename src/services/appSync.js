@@ -182,6 +182,45 @@ const AppSync = {
     } catch (e) { console.warn("선수별집계 저장 실패:", e.message); return null; }
   },
 
+  async writeEventLog(data, eventLogSheet) {
+    if (!this.enabled()) return null;
+    try {
+      const team = this._getTeam();
+      const resp = await fetch(APPS_SCRIPT_URL, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain" },
+        body: JSON.stringify({ action: "writeEventLog", data: { ...data, team }, eventLogSheet: eventLogSheet || "", authToken: this._getAuthToken() }),
+      });
+      return await resp.json();
+    } catch (e) { console.warn("이벤트로그 저장 실패:", e.message); return null; }
+  },
+
+  async writeSoccerPointLog(data, pointLogSheet) {
+    if (!this.enabled()) return null;
+    try {
+      const team = this._getTeam();
+      const resp = await fetch(APPS_SCRIPT_URL, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain" },
+        body: JSON.stringify({ action: "writeSoccerPointLog", data: { ...data, team }, pointLogSheet: pointLogSheet || "", authToken: this._getAuthToken() }),
+      });
+      return await resp.json();
+    } catch (e) { console.warn("축구 포인트로그 저장 실패:", e.message); return null; }
+  },
+
+  async writeSoccerPlayerLog(data, playerLogSheet) {
+    if (!this.enabled()) return null;
+    try {
+      const team = this._getTeam();
+      const resp = await fetch(APPS_SCRIPT_URL, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain" },
+        body: JSON.stringify({ action: "writeSoccerPlayerLog", data: { ...data, team }, playerLogSheet: playerLogSheet || "", authToken: this._getAuthToken() }),
+      });
+      return await resp.json();
+    } catch (e) { console.warn("축구 선수별집계 저장 실패:", e.message); return null; }
+  },
+
   async verifyAuth(name, phone4) {
     if (!this.enabled()) return { success: false, message: "서버 연결 불가" };
     try {

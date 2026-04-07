@@ -173,6 +173,12 @@ function doPost(e) {
       return _jsonResponse(_writePointLog(body.data, body.pointLogSheet || ""));
     } else if (action === "writePlayerLog") {
       return _jsonResponse(_writePlayerLog(body.data, body.playerLogSheet || ""));
+    } else if (action === "writeEventLog") {
+      return _jsonResponse(_writeEventLog(body.data, body.eventLogSheet || ""));
+    } else if (action === "writeSoccerPointLog") {
+      return _jsonResponse(_writeSoccerPointLog(body.data, body.pointLogSheet || ""));
+    } else if (action === "writeSoccerPlayerLog") {
+      return _jsonResponse(_writeSoccerPlayerLog(body.data, body.playerLogSheet || ""));
     }
 
     return _errorResponse("Unknown action: " + action);
@@ -591,6 +597,128 @@ function _writePlayerLog(data, sheetName) {
 
     var lastRow = sheet.getLastRow();
     sheet.getRange(lastRow + 1, 1, values.length, 13).setValues(values);
+    return { success: true, count: values.length };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 축구 이벤트로그 쓰기
+// 컬럼: 경기일자, 경기번호, 상대팀명, 이벤트, 선수, 관련선수, 포지션, 입력시간
+// ═══════════════════════════════════════════════════════════════
+
+function _writeEventLog(data, sheetName) {
+  if (!data) return { success: false, error: "data 누락" };
+  var teamName = data.team || "";
+  var rows = data.events || [];
+  if (rows.length === 0) return { success: true, message: "이벤트 없음", count: 0 };
+
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(15000)) return { success: false, error: "잠금 획득 실패" };
+
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var targetName = sheetName || "축구_이벤트로그";
+    var sheet = ss.getSheetByName(targetName);
+    if (!sheet) {
+      sheet = ss.insertSheet(targetName);
+      sheet.getRange("A1:H1").setValues([["경기일자","경기번호","상대팀명","이벤트","선수","관련선수","포지션","입력시간"]]);
+      sheet.getRange("A1:H1").setFontWeight("bold");
+    }
+
+    var values = rows.map(function(e) {
+      return [
+        e.gameDate, e.matchNum || "", e.opponent || "",
+        e.event || "", e.player || "", e.relatedPlayer || "",
+        e.position || "", e.inputTime || _kstNow(),
+      ];
+    });
+
+    var lastRow = sheet.getLastRow();
+    sheet.getRange(lastRow + 1, 1, values.length, 8).setValues(values);
+    return { success: true, count: values.length };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 축구 포인트로그 쓰기
+// 컬럼: 경기일자, 경기번호, 상대팀명, 득점, 어시, 실점, 자책골, 입력시간
+// ═══════════════════════════════════════════════════════════════
+
+function _writeSoccerPointLog(data, sheetName) {
+  if (!data) return { success: false, error: "data 누락" };
+  var teamName = data.team || "";
+  var rows = data.events || [];
+  if (rows.length === 0) return { success: true, message: "이벤트 없음", count: 0 };
+
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(15000)) return { success: false, error: "잠금 획득 실패" };
+
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var targetName = sheetName || "축구_포인트로그";
+    var sheet = ss.getSheetByName(targetName);
+    if (!sheet) {
+      sheet = ss.insertSheet(targetName);
+      sheet.getRange("A1:H1").setValues([["경기일자","경기번호","상대팀명","득점","어시","실점","자책골","입력시간"]]);
+      sheet.getRange("A1:H1").setFontWeight("bold");
+    }
+
+    var values = rows.map(function(e) {
+      return [
+        e.gameDate, e.matchId || "", e.opponent || "",
+        e.scorer || "", e.assist || "", e.conceded || "",
+        e.ownGoalPlayer || "", e.inputTime || _kstNow(),
+      ];
+    });
+
+    var lastRow = sheet.getLastRow();
+    sheet.getRange(lastRow + 1, 1, values.length, 8).setValues(values);
+    return { success: true, count: values.length };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 축구 선수별집계기록 쓰기
+// 컬럼: 경기일자, 선수명, 전체경기, 필드경기, 키퍼경기, 골, 어시, 클린시트, 실점, 자책골, 입력시간
+// ═══════════════════════════════════════════════════════════════
+
+function _writeSoccerPlayerLog(data, sheetName) {
+  if (!data) return { success: false, error: "data 누락" };
+  var teamName = data.team || "";
+  var rows = data.players || [];
+  if (rows.length === 0) return { success: true, message: "선수 데이터 없음", count: 0 };
+
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(15000)) return { success: false, error: "잠금 획득 실패" };
+
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var targetName = sheetName || "축구_선수별집계기록로그";
+    var sheet = ss.getSheetByName(targetName);
+    if (!sheet) {
+      sheet = ss.insertSheet(targetName);
+      sheet.getRange("A1:K1").setValues([["경기일자","선수명","전체경기","필드경기","키퍼경기","골","어시","클린시트","실점","자책골","입력시간"]]);
+      sheet.getRange("A1:K1").setFontWeight("bold");
+    }
+
+    var values = rows.map(function(p) {
+      return [
+        p.gameDate, p.name,
+        Number(p.games) || 0, Number(p.fieldGames) || 0, Number(p.keeperGames) || 0,
+        Number(p.goals) || 0, Number(p.assists) || 0, Number(p.cleanSheets) || 0,
+        Number(p.conceded) || 0, Number(p.owngoals) || 0,
+        p.inputTime || _kstNow(),
+      ];
+    });
+
+    var lastRow = sheet.getLastRow();
+    sheet.getRange(lastRow + 1, 1, values.length, 11).setValues(values);
     return { success: true, count: values.length };
   } finally {
     lock.releaseLock();
