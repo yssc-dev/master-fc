@@ -56,6 +56,13 @@ function getPlayerType(values) {
   return { label: "", color: "" };
 }
 
+function getChaosBadge(chaosScore) {
+  if (chaosScore >= 80) return { emoji: "💣", label: "돌발왕", color: "#ef4444" };
+  if (chaosScore >= 50) return { emoji: "⚡", label: "돌발주의", color: "#f97316" };
+  if (chaosScore <= 10) return { emoji: "🧊", label: "냉정", color: "#3b82f6" };
+  return null;
+}
+
 export default function PlayerCardTab({ playerLog, members, defenseStats, winStats, C }) {
   const [selectedPlayer, setSelectedPlayer] = useState(null);
 
@@ -143,6 +150,7 @@ export default function PlayerCardTab({ playerLog, members, defenseStats, winSta
   const pd = selected ? getPlayerData(selected) : { values: [50, 50, 50, 50, 50, 50, 50], raw: {}, detail: {} };
   const values = pd.values;
   const type = getPlayerType(values);
+  const chaos = getChaosBadge(values[6]);
 
   return (
     <div>
@@ -154,10 +162,13 @@ export default function PlayerCardTab({ playerLog, members, defenseStats, winSta
       </div>
       {selected && (
         <div style={{ textAlign: "center" }}>
-          <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 8, marginBottom: 8 }}>
+          <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
             <span style={{ fontSize: 18, fontWeight: 800, color: C.white }}>{selected}</span>
             {type.label && (
               <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 4, background: type.color + "22", color: type.color }}>{type.label}</span>
+            )}
+            {chaos && (
+              <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 4, background: chaos.color + "22", color: chaos.color }}>{chaos.emoji} {chaos.label}</span>
             )}
           </div>
           <RadarChart values={values} C={C} />
