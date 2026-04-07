@@ -2,6 +2,10 @@ import { useState, useEffect, useMemo } from 'react';
 import { useTheme } from '../../hooks/useTheme';
 import AppSync from '../../services/appSync';
 import { getSettings, saveSettings, loadSettingsFromFirebase } from '../../config/settings';
+import { parseGameHistory, calcDefenseStats, calcWinContribution, calcSynergy, calcTimePattern } from '../../utils/gameStateAnalyzer';
+import PlayerCardTab from './PlayerCardTab';
+import SynergyTab from './SynergyTab';
+import TimePatternTab from './TimePatternTab';
 
 function analyzeData(events) {
   // 득점자별 데이터
@@ -243,6 +247,8 @@ export default function PlayerAnalytics({ teamName, initialTab, isAdmin }) {
   const [editingTeamIdx, setEditingTeamIdx] = useState(null);
   const [editingName, setEditingName] = useState("");
   const [detailPlayer, setDetailPlayer] = useState(null); // 개인합 상세 보기용
+  const [gameRecords, setGameRecords] = useState(null);
+  const [gameRecordsLoading, setGameRecordsLoading] = useState(false);
   const [dualSettings, setDualSettings] = useState(null);
 
   useEffect(() => {
@@ -260,6 +266,20 @@ export default function PlayerAnalytics({ teamName, initialTab, isAdmin }) {
     }
   }, [tab, teamName]);
 
+  useEffect(() => {
+    if (tab === "playercard" || tab === "synergy" || tab === "timepattern") {
+      if (!gameRecords && !gameRecordsLoading) {
+        setGameRecordsLoading(true);
+        AppSync.getHistory().then(history => {
+          setGameRecords(parseGameHistory(history));
+        }).catch(err => {
+          console.warn("상태JSON 로드 실패:", err);
+          setGameRecords([]);
+        }).finally(() => setGameRecordsLoading(false));
+      }
+    }
+  }, [tab, gameRecords, gameRecordsLoading]);
+
   const analysis = useMemo(() => events ? analyzeData(events) : null, [events]);
   const teamAnalysis = useMemo(() => {
     if (!playerLog) return null;
@@ -268,12 +288,20 @@ export default function PlayerAnalytics({ teamName, initialTab, isAdmin }) {
     return analyzeTeams(playerLog);
   }, [playerLog]);
 
+  const defenseStats = useMemo(() => gameRecords ? calcDefenseStats(gameRecords) : {}, [gameRecords]);
+  const winStats = useMemo(() => gameRecords ? calcWinContribution(gameRecords) : {}, [gameRecords]);
+  const synergyData = useMemo(() => gameRecords ? calcSynergy(gameRecords) : {}, [gameRecords]);
+  const timeStats = useMemo(() => gameRecords ? calcTimePattern(gameRecords) : {}, [gameRecords]);
+
   const tabs = [
     { key: "combo", label: "골든콤비" },
     { key: "killer", label: "키퍼킬러" },
     { key: "race", label: "시즌레이스" },
     { key: "chemistry", label: "케미" },
     { key: "crovaguma", label: "🍀/🍠" },
+    { key: "playercard", label: "선수카드" },
+    { key: "synergy", label: "시너지" },
+    { key: "timepattern", label: "시간대" },
     ...(initialTab === "dualteam" ? [{ key: "dualteam", label: "팀전" }] : []),
   ];
 
@@ -541,6 +569,22 @@ export default function PlayerAnalytics({ teamName, initialTab, isAdmin }) {
             </div>
           ))}
         </div>
+      )}
+
+      {tab === "playercard" && (
+        gameRecordsLoading ? <div style={{ textAlign: "center", padding: 20, color: C.gray }}>경기 데이터 로딩 중...</div> :
+        playerLog ? <PlayerCardTab playerLog={playerLog} defenseStats={defenseStats} winStats={winStats} C={C} /> :
+        <div style={{ textAlign: "center", padding: 20, color: C.gray }}>데이터 없음</div>
+      )}
+
+      {tab === "synergy" && (
+        gameRecordsLoading ? <div style={{ textAlign: "center", padding: 20, color: C.gray }}>경기 데이터 로딩 중...</div> :
+        <SynergyTab synergyData={synergyData} playerLog={playerLog} C={C} />
+      )}
+
+      {tab === "timepattern" && (
+        gameRecordsLoading ? <div style={{ textAlign: "center", padding: 20, color: C.gray }}>경기 데이터 로딩 중...</div> :
+        <TimePatternTab timeStats={timeStats} C={C} />
       )}
 
       {tab === "dualteam" && playerLog && dualSettings && (() => {
