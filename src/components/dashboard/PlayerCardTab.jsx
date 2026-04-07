@@ -9,7 +9,6 @@ const AXES = [
   { key: "keeping", label: "키퍼" },
   { key: "attendance", label: "참석률" },
   { key: "winRate", label: "승리기여" },
-  { key: "stability", label: "안정성" },
 ];
 
 function RadarChart({ values, size = 200, C }) {
@@ -56,9 +55,9 @@ function getPlayerType(values) {
   return { label: "", color: "" };
 }
 
-function getChaosBadge(stabilityScore) {
-  if (stabilityScore <= 20) return { emoji: "💣", label: "돌발왕", color: "#ef4444" };
-  if (stabilityScore <= 40) return { emoji: "⚡", label: "돌발주의", color: "#f97316" };
+function getChaosBadge(chaosRate) {
+  if (chaosRate >= 0.3) return { emoji: "💣", label: "돌발왕", color: "#ef4444" };
+  if (chaosRate >= 0.1) return { emoji: "⚡", label: "돌발주의", color: "#f97316" };
   return null;
 }
 
@@ -95,7 +94,7 @@ export default function PlayerCardTab({ playerLog, members, defenseStats, winSta
   const maxGames = useMemo(() => Math.max(...Object.values(playerSummary).map(s => s.games), 1), [playerSummary]);
 
   const allRawValues = useMemo(() => {
-    const scoring = [], creativity = [], defense = [], keeping = [], attendance = [], winRate = [], chaos = [];
+    const scoring = [], creativity = [], defense = [], keeping = [], attendance = [], winRate = [];
     players.forEach(name => {
       const s = playerSummary[name];
       const d = defenseStats[name];
@@ -106,16 +105,16 @@ export default function PlayerCardTab({ playerLog, members, defenseStats, winSta
       keeping.push(s.keeperGames > 0 ? s.conceded / s.keeperGames : 999);
       attendance.push(s.games / maxGames);
       winRate.push(w ? w.winRate : 0);
-      chaos.push(s.games > 0 ? Math.abs(s.ownGoals || 0) / s.games : 0);
     });
-    return { scoring, creativity, defense, keeping, attendance, winRate, chaos };
+    return { scoring, creativity, defense, keeping, attendance, winRate };
   }, [players, playerSummary, defenseStats, winStats, maxGames]);
 
   const getPlayerData = (name) => {
     const s = playerSummary[name];
     const d = defenseStats[name];
     const w = winStats[name];
-    if (!s) return { values: [50, 50, 50, 50, 50, 50, 50], raw: {} };
+    if (!s) return { values: [50, 50, 50, 50, 50, 50], raw: {} };
+    const chaosRate = s.games > 0 ? Math.abs(s.ownGoals || 0) / s.games : 0;
     const raw = {
       scoring: s.games > 0 ? s.goals / s.games : 0,
       creativity: s.games > 0 ? s.assists / s.games : 0,
@@ -123,7 +122,7 @@ export default function PlayerCardTab({ playerLog, members, defenseStats, winSta
       keeping: s.keeperGames > 0 ? s.conceded / s.keeperGames : 999,
       attendance: s.games / maxGames,
       winRate: w ? w.winRate : 0,
-      chaos: s.games > 0 ? Math.abs(s.ownGoals || 0) / s.games : 0,
+      chaosRate,
     };
     const detail = {
       goals: s.goals, assists: s.assists, games: s.games, ownGoals: Math.abs(s.ownGoals || 0),
@@ -139,17 +138,16 @@ export default function PlayerCardTab({ playerLog, members, defenseStats, winSta
         percentile(allRawValues.keeping, raw.keeping, true),
         percentile(allRawValues.attendance, raw.attendance),
         percentile(allRawValues.winRate, raw.winRate),
-        percentile(allRawValues.chaos, raw.chaos, true),
       ],
       raw, detail,
     };
   };
 
   const selected = selectedPlayer || players[0];
-  const pd = selected ? getPlayerData(selected) : { values: [50, 50, 50, 50, 50, 50, 50], raw: {}, detail: {} };
+  const pd = selected ? getPlayerData(selected) : { values: [50, 50, 50, 50, 50, 50], raw: {}, detail: {} };
   const values = pd.values;
   const type = getPlayerType(values);
-  const chaos = getChaosBadge(values[6]);
+  const chaos = getChaosBadge(pd.raw?.chaosRate || 0);
 
   return (
     <div>
@@ -182,7 +180,6 @@ export default function PlayerCardTab({ playerLog, members, defenseStats, winSta
                     { label: "키퍼", score: values[3], desc: pd.detail.keeperGames > 0 ? `${pd.detail.keeperGames}경기, ${pd.detail.conceded}실점 = 경기당 ${pd.raw.keeping?.toFixed(2)}실점` : "키퍼 경기 없음" },
                     { label: "참석률", score: values[4], desc: `${pd.detail.games} / ${maxGames}경기 = ${Math.round(pd.raw.attendance * 100)}%` },
                     { label: "승리기여", score: values[5], desc: `${pd.detail.totalMatches}경기 ${pd.detail.wins}승 ${pd.detail.draws}무 ${pd.detail.losses}패 = 승률 ${Math.round(pd.raw.winRate * 100)}%` },
-                    { label: "안정성", score: values[6], desc: `${pd.detail.ownGoals}자책 / ${pd.detail.games}경기 = 경기당 ${pd.raw.chaos?.toFixed(2)}회 (적을수록 높음)` },
                   ].map(row => (
                     <tr key={row.label} style={{ borderBottom: `1px solid ${C.grayDarker}` }}>
                       <td style={{ padding: "5px 4px", color: C.gray, fontWeight: 600, width: 60 }}>{row.label}</td>
