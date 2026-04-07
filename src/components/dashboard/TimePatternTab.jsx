@@ -14,7 +14,7 @@ export default function TimePatternTab({ timeStats, C }) {
   return (
     <div>
       <div style={{ fontSize: 11, color: C.gray, marginBottom: 10 }}>
-        첫 골 시점 기준 10분 전후로 전반/후반 분류 (참고용)
+        각 경기의 골을 시간순으로 전반/후반 절반으로 분류
       </div>
       <div style={{ display: "flex", gap: 4, marginBottom: 8, fontSize: 10, color: C.gray }}>
         <span style={{ flex: 1 }}>선수</span>
@@ -36,8 +36,8 @@ export default function TimePatternTab({ timeStats, C }) {
         </div>
       ))}
       <div style={{ display: "flex", gap: 12, justifyContent: "center", marginTop: 8, fontSize: 10, color: C.gray }}>
-        <span><span style={{ color: "#3b82f6" }}>■</span> 전반 (0~10분)</span>
-        <span><span style={{ color: "#f97316" }}>■</span> 후반 (10분~)</span>
+        <span><span style={{ color: "#3b82f6" }}>■</span> 전반</span>
+        <span><span style={{ color: "#f97316" }}>■</span> 후반</span>
       </div>
     </div>
   );
