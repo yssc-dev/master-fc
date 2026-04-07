@@ -150,5 +150,5 @@ export function percentile(values, value, lowerIsBetter = false) {
   let rank = sorted.findIndex(v => v >= value);
   if (rank === -1) rank = sorted.length;
   const pct = (rank / sorted.length) * 100;
-  return lowerIsBetter ? pct : 100 - pct;
+  return lowerIsBetter ? 100 - pct : pct;
 }
