@@ -10,6 +10,7 @@ export default function SettingsScreen({ teamName, onBack }) {
   const [saved, setSaved] = useState(false);
   const [sheetList, setSheetList] = useState([]);
   const [loadingSheets, setLoadingSheets] = useState(false);
+  const [newOpponent, setNewOpponent] = useState("");
 
   useEffect(() => {
     setLoadingSheets(true);
@@ -120,6 +121,46 @@ export default function SettingsScreen({ teamName, onBack }) {
             시즌 누적 고구마 1위가 1등팀 소속 → 크로바 {settings.crovaPoint} × {settings.bonusMultiplier} = {settings.crovaPoint * settings.bonusMultiplier}
           </div>
         </details>
+      </div>
+
+      <div style={ss.section}>
+        <div style={ss.sectionTitle}>상대팀 관리</div>
+        {/* 상대팀 관리 */}
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ fontSize: 12, color: C.gray, marginBottom: 6 }}>등록된 상대팀</div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 8 }}>
+            {(settings.opponents || []).map(name => (
+              <div key={name} style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 10px", borderRadius: 6, background: C.cardLight, fontSize: 12, color: C.white }}>
+                <span>{name}</span>
+                <span onClick={() => {
+                  const next = (settings.opponents || []).filter(n => n !== name);
+                  update("opponents", next);
+                }} style={{ fontSize: 10, color: C.red, cursor: "pointer", fontWeight: 700 }}>✕</span>
+              </div>
+            ))}
+            {(settings.opponents || []).length === 0 && <span style={{ fontSize: 12, color: C.grayDark }}>없음</span>}
+          </div>
+          <div style={{ display: "flex", gap: 6 }}>
+            <input placeholder="새 상대팀 이름" value={newOpponent} onChange={e => setNewOpponent(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === "Enter") {
+                  const name = newOpponent.trim();
+                  if (name && !(settings.opponents || []).includes(name)) {
+                    update("opponents", [...(settings.opponents || []), name]);
+                    setNewOpponent("");
+                  }
+                }
+              }}
+              style={{ flex: 1, padding: "8px 12px", borderRadius: 8, fontSize: 13, background: C.cardLight, color: C.white, border: `1px solid ${C.grayDark}` }} />
+            <button onClick={() => {
+              const name = newOpponent.trim();
+              if (name && !(settings.opponents || []).includes(name)) {
+                update("opponents", [...(settings.opponents || []), name]);
+                setNewOpponent("");
+              }
+            }} style={{ padding: "8px 14px", borderRadius: 8, background: C.accent, color: C.bg, border: "none", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>추가</button>
+          </div>
+        </div>
       </div>
 
       <div style={{ padding: "0 16px 24px", display: "flex", flexDirection: "column", gap: 8 }}>
