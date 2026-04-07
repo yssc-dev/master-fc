@@ -9,7 +9,7 @@ const AXES = [
   { key: "keeping", label: "키퍼" },
   { key: "attendance", label: "참석률" },
   { key: "winRate", label: "승리기여" },
-  { key: "chaos", label: "돌발행동" },
+  { key: "stability", label: "안정성" },
 ];
 
 function RadarChart({ values, size = 200, C }) {
@@ -56,10 +56,9 @@ function getPlayerType(values) {
   return { label: "", color: "" };
 }
 
-function getChaosBadge(chaosScore) {
-  if (chaosScore >= 80) return { emoji: "💣", label: "돌발왕", color: "#ef4444" };
-  if (chaosScore >= 50) return { emoji: "⚡", label: "돌발주의", color: "#f97316" };
-  if (chaosScore <= 10) return { emoji: "🧊", label: "냉정", color: "#3b82f6" };
+function getChaosBadge(stabilityScore) {
+  if (stabilityScore <= 20) return { emoji: "💣", label: "돌발왕", color: "#ef4444" };
+  if (stabilityScore <= 40) return { emoji: "⚡", label: "돌발주의", color: "#f97316" };
   return null;
 }
 
@@ -140,7 +139,7 @@ export default function PlayerCardTab({ playerLog, members, defenseStats, winSta
         percentile(allRawValues.keeping, raw.keeping, true),
         percentile(allRawValues.attendance, raw.attendance),
         percentile(allRawValues.winRate, raw.winRate),
-        percentile(allRawValues.chaos, raw.chaos),
+        percentile(allRawValues.chaos, raw.chaos, true),
       ],
       raw, detail,
     };
@@ -183,7 +182,7 @@ export default function PlayerCardTab({ playerLog, members, defenseStats, winSta
                     { label: "키퍼", score: values[3], desc: pd.detail.keeperGames > 0 ? `${pd.detail.keeperGames}경기, ${pd.detail.conceded}실점 = 경기당 ${pd.raw.keeping?.toFixed(2)}실점` : "키퍼 경기 없음" },
                     { label: "참석률", score: values[4], desc: `${pd.detail.games} / ${maxGames}경기 = ${Math.round(pd.raw.attendance * 100)}%` },
                     { label: "승리기여", score: values[5], desc: `${pd.detail.totalMatches}경기 ${pd.detail.wins}승 ${pd.detail.draws}무 ${pd.detail.losses}패 = 승률 ${Math.round(pd.raw.winRate * 100)}%` },
-                    { label: "돌발행동", score: values[6], desc: `${pd.detail.ownGoals}자책 / ${pd.detail.games}경기 = 경기당 ${pd.raw.chaos?.toFixed(2)}회` },
+                    { label: "안정성", score: values[6], desc: `${pd.detail.ownGoals}자책 / ${pd.detail.games}경기 = 경기당 ${pd.raw.chaos?.toFixed(2)}회 (적을수록 높음)` },
                   ].map(row => (
                     <tr key={row.label} style={{ borderBottom: `1px solid ${C.grayDarker}` }}>
                       <td style={{ padding: "5px 4px", color: C.gray, fontWeight: 600, width: 60 }}>{row.label}</td>
