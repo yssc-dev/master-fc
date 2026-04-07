@@ -90,11 +90,11 @@ export default function PlayerCardTab({ playerLog, defenseStats, winStats, C }) 
     return { scoring, creativity, defense, keeping, attendance, winRate };
   }, [players, playerSummary, defenseStats, winStats, maxGames]);
 
-  const getPlayerValues = (name) => {
+  const getPlayerData = (name) => {
     const s = playerSummary[name];
     const d = defenseStats[name];
     const w = winStats[name];
-    if (!s) return [50, 50, 50, 50, 50, 50];
+    if (!s) return { values: [50, 50, 50, 50, 50, 50], raw: {} };
     const raw = {
       scoring: s.games > 0 ? s.goals / s.games : 0,
       creativity: s.games > 0 ? s.assists / s.games : 0,
@@ -103,18 +103,28 @@ export default function PlayerCardTab({ playerLog, defenseStats, winStats, C }) 
       attendance: s.games / maxGames,
       winRate: w ? w.winRate : 0,
     };
-    return [
-      percentile(allRawValues.scoring, raw.scoring),
-      percentile(allRawValues.creativity, raw.creativity),
-      percentile(allRawValues.defense, raw.defense, true),
-      percentile(allRawValues.keeping, raw.keeping, true),
-      percentile(allRawValues.attendance, raw.attendance),
-      percentile(allRawValues.winRate, raw.winRate),
-    ];
+    const detail = {
+      goals: s.goals, assists: s.assists, games: s.games,
+      keeperGames: s.keeperGames, conceded: s.conceded,
+      fieldMatches: d?.fieldMatches || 0, fieldConceded: d?.totalConceded || 0,
+      wins: w?.wins || 0, draws: w?.draws || 0, losses: w?.losses || 0, totalMatches: w?.matches || 0,
+    };
+    return {
+      values: [
+        percentile(allRawValues.scoring, raw.scoring),
+        percentile(allRawValues.creativity, raw.creativity),
+        percentile(allRawValues.defense, raw.defense, true),
+        percentile(allRawValues.keeping, raw.keeping, true),
+        percentile(allRawValues.attendance, raw.attendance),
+        percentile(allRawValues.winRate, raw.winRate),
+      ],
+      raw, detail,
+    };
   };
 
   const selected = selectedPlayer || players[0];
-  const values = selected ? getPlayerValues(selected) : [50, 50, 50, 50, 50, 50];
+  const pd = selected ? getPlayerData(selected) : { values: [50, 50, 50, 50, 50, 50], raw: {}, detail: {} };
+  const values = pd.values;
   const type = getPlayerType(values);
 
   return (
@@ -134,13 +144,28 @@ export default function PlayerCardTab({ playerLog, defenseStats, winStats, C }) 
             )}
           </div>
           <RadarChart values={values} C={C} />
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, justifyContent: "center", marginTop: 8 }}>
-            {AXES.map((axis, i) => (
-              <div key={axis.key} style={{ fontSize: 11, color: C.gray }}>
-                {axis.label}: <span style={{ fontWeight: 700, color: C.white }}>{Math.round(values[i])}</span>
-              </div>
-            ))}
-          </div>
+          {pd.detail && (
+            <div style={{ marginTop: 12, textAlign: "left" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
+                <tbody>
+                  {[
+                    { label: "득점력", score: values[0], desc: `${pd.detail.goals}골 / ${pd.detail.games}경기 = 경기당 ${pd.raw.scoring?.toFixed(2)}골` },
+                    { label: "창의력", score: values[1], desc: `${pd.detail.assists}어시 / ${pd.detail.games}경기 = 경기당 ${pd.raw.creativity?.toFixed(2)}어시` },
+                    { label: "수비력", score: values[2], desc: `필드 ${pd.detail.fieldMatches}경기, 팀실점 ${pd.detail.fieldConceded} = 경기당 ${pd.raw.defense === 999 ? "-" : pd.raw.defense?.toFixed(2)}실점` },
+                    { label: "키퍼", score: values[3], desc: pd.detail.keeperGames > 0 ? `${pd.detail.keeperGames}경기, ${pd.detail.conceded}실점 = 경기당 ${pd.raw.keeping?.toFixed(2)}실점` : "키퍼 경기 없음" },
+                    { label: "참석률", score: values[4], desc: `${pd.detail.games} / ${maxGames}경기 = ${Math.round(pd.raw.attendance * 100)}%` },
+                    { label: "승리기여", score: values[5], desc: `${pd.detail.totalMatches}경기 ${pd.detail.wins}승 ${pd.detail.draws}무 ${pd.detail.losses}패 = 승률 ${Math.round(pd.raw.winRate * 100)}%` },
+                  ].map(row => (
+                    <tr key={row.label} style={{ borderBottom: `1px solid ${C.grayDarker}` }}>
+                      <td style={{ padding: "5px 4px", color: C.gray, fontWeight: 600, width: 60 }}>{row.label}</td>
+                      <td style={{ padding: "5px 4px", color: C.accent, fontWeight: 700, width: 30, textAlign: "center" }}>{Math.round(row.score)}</td>
+                      <td style={{ padding: "5px 4px", color: C.grayLight, fontSize: 10 }}>{row.desc}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
     </div>
