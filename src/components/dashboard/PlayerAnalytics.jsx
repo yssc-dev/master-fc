@@ -298,6 +298,11 @@ export default function PlayerAnalytics({ teamName, initialTab, isAdmin }) {
   const winStats = useMemo(() => gameRecords ? calcWinContribution(gameRecords) : {}, [gameRecords]);
   const synergyData = useMemo(() => gameRecords ? calcSynergy(gameRecords) : {}, [gameRecords]);
   const timeStats = useMemo(() => gameRecords ? calcTimePattern(gameRecords) : {}, [gameRecords]);
+  const gameRecordsSummary = useMemo(() => {
+    if (!gameRecords || gameRecords.length === 0) return null;
+    const dates = gameRecords.map(g => g.gameDate).filter(Boolean).sort();
+    return { count: gameRecords.length, from: dates[0], to: dates[dates.length - 1] };
+  }, [gameRecords]);
 
   const tabs = [
     { key: "combo", label: "골든콤비" },
@@ -574,6 +579,12 @@ export default function PlayerAnalytics({ teamName, initialTab, isAdmin }) {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {(tab === "playercard" || tab === "synergy" || tab === "timepattern") && gameRecordsSummary && (
+        <div style={{ fontSize: 10, color: C.gray, textAlign: "center", marginBottom: 8, padding: "4px 8px", background: `${C.grayDarker}44`, borderRadius: 6 }}>
+          앱 기록 {gameRecordsSummary.count}경기 기준 ({gameRecordsSummary.from} ~ {gameRecordsSummary.to}) · 수비력/승리기여/시너지는 앱 기록 경기만 분석
         </div>
       )}
 
