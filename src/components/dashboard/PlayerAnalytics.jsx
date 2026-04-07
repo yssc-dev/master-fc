@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useTheme } from '../../hooks/useTheme';
 import AppSync from '../../services/appSync';
+import { fetchSheetData } from '../../services/sheetService';
 import { getSettings, saveSettings, loadSettingsFromFirebase } from '../../config/settings';
 import { parseGameHistory, calcDefenseStats, calcWinContribution, calcSynergy, calcTimePattern } from '../../utils/gameStateAnalyzer';
 import PlayerCardTab from './PlayerCardTab';
@@ -242,6 +243,7 @@ export default function PlayerAnalytics({ teamName, initialTab, isAdmin }) {
   const { C } = useTheme();
   const [events, setEvents] = useState(null);
   const [playerLog, setPlayerLog] = useState(null);
+  const [members, setMembers] = useState(null);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState(initialTab || "combo");
   const [editingTeamIdx, setEditingTeamIdx] = useState(null);
@@ -257,7 +259,11 @@ export default function PlayerAnalytics({ teamName, initialTab, isAdmin }) {
     Promise.all([
       AppSync.getPointLog(s.pointLogSheet),
       AppSync.getPlayerLog(s.playerLogSheet),
-    ]).then(([evts, plog]) => { setEvents(evts); setPlayerLog(plog); }).finally(() => setLoading(false));
+      fetchSheetData().catch(() => null),
+    ]).then(([evts, plog, sheetData]) => {
+      setEvents(evts); setPlayerLog(plog);
+      if (sheetData) setMembers(sheetData.players);
+    }).finally(() => setLoading(false));
   }, [teamName]);
 
   useEffect(() => {
@@ -573,7 +579,7 @@ export default function PlayerAnalytics({ teamName, initialTab, isAdmin }) {
 
       {tab === "playercard" && (
         gameRecordsLoading ? <div style={{ textAlign: "center", padding: 20, color: C.gray }}>경기 데이터 로딩 중...</div> :
-        playerLog ? <PlayerCardTab playerLog={playerLog} defenseStats={defenseStats} winStats={winStats} C={C} /> :
+        playerLog ? <PlayerCardTab playerLog={playerLog} members={members} defenseStats={defenseStats} winStats={winStats} C={C} /> :
         <div style={{ textAlign: "center", padding: 20, color: C.gray }}>데이터 없음</div>
       )}
 

@@ -55,21 +55,34 @@ function getPlayerType(values) {
   return { label: "", color: "" };
 }
 
-export default function PlayerCardTab({ playerLog, defenseStats, winStats, C }) {
+export default function PlayerCardTab({ playerLog, members, defenseStats, winStats, C }) {
   const [selectedPlayer, setSelectedPlayer] = useState(null);
 
+  // 대시보드 members 데이터 우선 사용 (전체 누적), 없으면 playerLog에서 집계
   const playerSummary = useMemo(() => {
+    if (members && members.length > 0) {
+      const map = {};
+      members.forEach(m => {
+        map[m.name] = {
+          games: m.games || 0, goals: m.goals || 0, assists: m.assists || 0,
+          keeperGames: m.keeperGames || 0, conceded: m.conceded || 0,
+          ownGoals: m.ownGoals || 0,
+        };
+      });
+      return map;
+    }
     const map = {};
     playerLog.forEach(p => {
-      if (!map[p.name]) map[p.name] = { games: 0, goals: 0, assists: 0, keeperGames: 0, conceded: 0 };
+      if (!map[p.name]) map[p.name] = { games: 0, goals: 0, assists: 0, keeperGames: 0, conceded: 0, ownGoals: 0 };
       map[p.name].games++;
       map[p.name].goals += p.goals || 0;
       map[p.name].assists += p.assists || 0;
       map[p.name].keeperGames += p.keeperGames || 0;
       map[p.name].conceded += p.conceded || 0;
+      map[p.name].ownGoals += p.ownGoals || 0;
     });
     return map;
-  }, [playerLog]);
+  }, [playerLog, members]);
 
   const players = useMemo(() => Object.keys(playerSummary).filter(n => playerSummary[n].games >= 3).sort((a, b) => a.localeCompare(b, "ko")), [playerSummary]);
   const maxGames = useMemo(() => Math.max(...Object.values(playerSummary).map(s => s.games), 1), [playerSummary]);
