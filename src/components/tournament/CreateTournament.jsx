@@ -68,8 +68,17 @@ export default function CreateTournament({ ourTeamName, onSubmit, onCancel }) {
               style={{ padding: "8px 14px", borderRadius: 8, border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer", background: format === f.key ? C.accent : C.grayDark, color: format === f.key ? C.bg : C.white }}>{f.label}</button>
           ))}
         </div>
-        {format === "manual" && <div style={{ marginTop: 8 }}><label style={is.label}>경기 수</label><input type="number" value={matchCount} onChange={e => setMatchCount(Number(e.target.value) || 1)} min={1} style={{ ...is.input, width: 80 }} /></div>}
-        {format === "fullLeague" && teams.length >= 2 && <div style={{ marginTop: 6, fontSize: 11, color: C.gray }}>{teams.length}팀 풀리그 = {teams.length * (teams.length - 1) / 2}경기</div>}
+        {format === "manual" && (
+          <div style={{ marginTop: 8 }}>
+            <label style={is.label}>총 경기 수 (대진은 수동 입력)</label>
+            <input type="number" value={matchCount} onChange={e => setMatchCount(Number(e.target.value) || 1)} min={1} style={{ ...is.input, width: 80 }} />
+          </div>
+        )}
+        <div style={{ marginTop: 6, fontSize: 11, color: C.gray }}>
+          {format === "fullLeague" && teams.length >= 2 && `${teams.length}팀 풀리그 = ${teams.length * (teams.length - 1) / 2}경기 (각 팀 1번씩)`}
+          {format === "knockout" && teams.length >= 2 && `${teams.length}팀 녹아웃 = ${teams.length - 1}경기 (단판 토너먼트)`}
+          {format === "manual" && `자유 대진: ${matchCount}경기 생성 후 홈/원정팀 직접 편집`}
+        </div>
       </div>
       <div style={{ display: "flex", gap: 8, marginTop: 20 }}>
         <button onClick={onCancel} style={{ flex: 1, padding: "12px 0", borderRadius: 10, border: "none", fontSize: 14, fontWeight: 600, cursor: "pointer", background: C.grayDark, color: C.grayLight }}>취소</button>
