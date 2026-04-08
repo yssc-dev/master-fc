@@ -117,7 +117,7 @@ export default function TournamentMatchManager({ tournament, schedule, ourTeamNa
               <div key={m.matchNum} onClick={() => { setSelectedMatch(m); setPhase("lineup"); }}
                 style={{ display: "flex", justifyContent: "space-between", padding: "10px 12px", background: `${C.accent}11`, borderRadius: 8, marginBottom: 4, cursor: "pointer", borderLeft: `3px solid ${C.accent}` }}>
                 <span style={{ fontSize: 13, fontWeight: 600, color: C.white }}>제{m.matchNum}경기 vs {opponent}</span>
-                <span style={{ fontSize: 11, color: C.gray }}>{m.date} · {m.round}</span>
+                <span style={{ fontSize: 11, color: C.gray }}>{m.date || "미정"}</span>
               </div>
             );
           })}

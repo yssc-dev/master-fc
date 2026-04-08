@@ -102,7 +102,7 @@ export default function TournamentSchedule({ schedule, ourTeamName, teams, onUpd
             return (
               <div key={m.matchNum} onClick={() => isAdmin && startEdit(m)}
                 style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 10px", marginBottom: 3, background: isOurs ? `${C.accent}11` : C.cardLight, borderRadius: 8, borderLeft: isOurs ? `3px solid ${C.accent}` : "3px solid transparent", cursor: isAdmin ? "pointer" : "default" }}>
-                <span style={{ fontSize: 10, color: C.grayDark, minWidth: 24 }}>#{m.matchNum}</span>
+                <span style={{ fontSize: 10, color: C.grayDark, minWidth: 20 }}>#{m.matchNum}</span>
                 <span style={{ flex: 1, fontSize: 12, fontWeight: isOurs ? 700 : 400, color: C.white, textAlign: "right" }}>{m.home || "미정"}</span>
                 <div style={{ minWidth: 50, textAlign: "center" }}>
                   {isFinished ? <span style={{ fontSize: 14, fontWeight: 700, color: C.white }}>{m.homeScore}:{m.awayScore}</span>
