@@ -15,7 +15,7 @@ export default function TournamentSchedule({ schedule, ourTeamName, teams, onUpd
     });
   };
 
-  const saveEdit = (matchNum) => {
+  const saveEdit = async (matchNum) => {
     const updates = {};
     const orig = schedule.find(m => m.matchNum === matchNum);
     if (editData.date !== (orig.date || "")) updates.date = editData.date;
@@ -29,16 +29,18 @@ export default function TournamentSchedule({ schedule, ourTeamName, teams, onUpd
 
     if (Object.keys(updates).length > 0 && onUpdateMatch) {
       updates.ourTeam = ourTeamName;
-      onUpdateMatch(matchNum, updates);
+      await onUpdateMatch(matchNum, updates);
     }
     if (hasScore && (h !== orig.homeScore || a !== orig.awayScore)) {
-      onUpdateScore(matchNum, h, a);
+      await onUpdateScore(matchNum, h, a);
     }
     setEditingMatch(null);
   };
 
+  // 우리팀 경기만 표시
+  const ourSchedule = schedule.filter(m => m.isOurs);
   const grouped = {};
-  schedule.forEach(m => { const key = m.date || "미정"; if (!grouped[key]) grouped[key] = []; grouped[key].push(m); });
+  ourSchedule.forEach(m => { const key = m.date || "미정"; if (!grouped[key]) grouped[key] = []; grouped[key].push(m); });
   // 날짜순 정렬
   const sortedEntries = Object.entries(grouped).sort((a, b) => {
     if (a[0] === "미정") return 1;
