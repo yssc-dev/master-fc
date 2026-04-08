@@ -1,14 +1,15 @@
 import { useState } from 'react';
 import { useTheme } from '../../hooks/useTheme';
 
-export default function SubstitutionModal({ currentLineup, bench, currentGk, currentDefenders, onConfirm, onClose }) {
+export default function SubstitutionModal({ currentLineup, bench, currentGk, currentDefenders, positionMap, onConfirm, onClose }) {
   const { C } = useTheme();
   const [playerOut, setPlayerOut] = useState(null);
   const [playerIn, setPlayerIn] = useState(null);
 
   const getPosition = (name) => {
+    if (positionMap && positionMap[name]) return positionMap[name];
     if (name === currentGk) return "GK";
-    if (currentDefenders.includes(name)) return "DF";
+    if (currentDefenders?.includes(name)) return "DF";
     return "FW";
   };
 
