@@ -137,6 +137,71 @@ export function calcTimePattern(gameRecords) {
   return stats;
 }
 
+/**
+ * 포인트로그에서 승리기여 추출 (stateJSON 없을 때 대체용)
+ * 골/어시 기록이 있는 선수만 해당 경기 참여로 간주
+ */
+export function calcWinStatsFromPointLog(events) {
+  // 경기별(date+matchId) 스코어 재구성
+  const matches = {};
+  for (const e of events) {
+    if (!e.date || !e.matchId) continue;
+    const key = `${e.date}_${e.matchId}`;
+    if (!matches[key]) matches[key] = { ourGoals: 0, opponentGoals: 0, players: new Set() };
+    if (e.scorer && e.scorer !== "OG") {
+      matches[key].ourGoals++;
+      matches[key].players.add(e.scorer);
+    }
+    if (e.assist) matches[key].players.add(e.assist);
+    if (e.ownGoal) {
+      matches[key].opponentGoals++;
+      matches[key].players.add(e.ownGoal);
+    }
+    // 실점(상대골) — concedingGk가 있고 scorer가 없는 이벤트
+    if (e.concedingGk && !e.scorer) {
+      matches[key].opponentGoals++;
+      matches[key].players.add(e.concedingGk);
+    }
+  }
+  const stats = {};
+  for (const m of Object.values(matches)) {
+    const isWin = m.ourGoals > m.opponentGoals;
+    const isDraw = m.ourGoals === m.opponentGoals;
+    for (const p of m.players) {
+      if (!stats[p]) stats[p] = { matches: 0, wins: 0, draws: 0, losses: 0 };
+      stats[p].matches++;
+      if (isWin) stats[p].wins++;
+      else if (isDraw) stats[p].draws++;
+      else stats[p].losses++;
+    }
+  }
+  Object.values(stats).forEach(s => {
+    s.winRate = s.matches > 0 ? (s.wins + s.draws * 0.5) / s.matches : 0;
+  });
+  return stats;
+}
+
+/**
+ * 대시보드 members에서 수비력 추출 (stateJSON 없을 때 대체용)
+ * 클린시트/전체경기 비율을 avgConceded 역수 형태로 변환
+ */
+export function calcDefenseFromMembers(members) {
+  const stats = {};
+  for (const m of members) {
+    if (!m.name || !m.games) continue;
+    const csRate = m.games > 0 ? m.cleanSheets / m.games : 0;
+    // avgConceded 근사: (1 - csRate) * 보정값. 클린시트 비율이 높을수록 실점이 낮음
+    stats[m.name] = {
+      fieldMatches: m.games - (m.keeperGames || 0),
+      totalConceded: m.conceded || 0,
+      avgConceded: (m.games - (m.keeperGames || 0)) > 0
+        ? (m.conceded || 0) / (m.games - (m.keeperGames || 0))
+        : 0,
+    };
+  }
+  return stats;
+}
+
 export function percentile(values, value, lowerIsBetter = false) {
   if (values.length === 0) return 50;
   const sorted = [...values].sort((a, b) => a - b);

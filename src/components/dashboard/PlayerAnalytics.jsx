@@ -3,7 +3,7 @@ import { useTheme } from '../../hooks/useTheme';
 import AppSync from '../../services/appSync';
 import { fetchSheetData } from '../../services/sheetService';
 import { getSettings, saveSettings, loadSettingsFromFirebase } from '../../config/settings';
-import { parseGameHistory, calcDefenseStats, calcWinContribution, calcSynergy, calcTimePattern } from '../../utils/gameStateAnalyzer';
+import { parseGameHistory, calcDefenseStats, calcWinContribution, calcSynergy, calcTimePattern, calcWinStatsFromPointLog, calcDefenseFromMembers } from '../../utils/gameStateAnalyzer';
 import PlayerCardTab from './PlayerCardTab';
 import SynergyTab from './SynergyTab';
 import TimePatternTab from './TimePatternTab';
@@ -295,8 +295,18 @@ export default function PlayerAnalytics({ teamName, teamMode, initialTab, isAdmi
     return analyzeTeams(playerLog);
   }, [playerLog]);
 
-  const defenseStats = useMemo(() => gameRecords ? calcDefenseStats(gameRecords) : {}, [gameRecords]);
-  const winStats = useMemo(() => gameRecords ? calcWinContribution(gameRecords) : {}, [gameRecords]);
+  const defenseStats = useMemo(() => {
+    if (gameRecords && gameRecords.length > 0) return calcDefenseStats(gameRecords);
+    // stateJSON 없으면 대시보드 members에서 수비력 추출
+    if (isSoccer && members && members.length > 0) return calcDefenseFromMembers(members);
+    return {};
+  }, [gameRecords, isSoccer, members]);
+  const winStats = useMemo(() => {
+    if (gameRecords && gameRecords.length > 0) return calcWinContribution(gameRecords);
+    // stateJSON 없으면 포인트로그에서 승리기여 추출 (골/어시 기록 있는 선수만)
+    if (isSoccer && events && events.length > 0) return calcWinStatsFromPointLog(events);
+    return {};
+  }, [gameRecords, isSoccer, events]);
   const synergyData = useMemo(() => gameRecords ? calcSynergy(gameRecords) : {}, [gameRecords]);
   const timeStats = useMemo(() => gameRecords ? calcTimePattern(gameRecords) : {}, [gameRecords]);
   const gameRecordsSummary = useMemo(() => {
