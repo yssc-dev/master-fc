@@ -548,6 +548,15 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
             <button onClick={onLogout} style={{ background: "rgba(255,255,255,0.1)", color: C.headerBtnDimColor, border: "none", borderRadius: 8, padding: "6px 12px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
               로그아웃
             </button>
+            {tournamentActive && (
+              <button onClick={() => {
+                if (!confirm("대회 모드에서 홈 화면으로 이동하시겠습니까?")) return;
+                setTournamentActive(false);
+                setActiveTab("records");
+              }} style={{ background: C.accent, color: C.bg, border: "none", borderRadius: 8, padding: "6px 12px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+                홈
+              </button>
+            )}
           </div>
         </div>
         <div style={{ display: "flex", gap: 8, marginTop: 12, overflowX: "auto" }}>
@@ -595,6 +604,11 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
             attendees={members.map(m => m.name)}
             gameSettings={getSettings(teamName)}
             onTournamentView={setTournamentActive}
+            onGoHome={() => {
+              if (!confirm("대회 모드에서 홈 화면으로 이동하시겠습니까?")) return;
+              setTournamentActive(false);
+              setActiveTab("records");
+            }}
           />
         )}
       </div>

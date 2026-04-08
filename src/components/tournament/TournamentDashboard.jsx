@@ -6,7 +6,7 @@ import TournamentSchedule from './TournamentSchedule';
 import TournamentPlayerRecords from './TournamentPlayerRecords';
 import TournamentMatchManager from './TournamentMatchManager';
 
-export default function TournamentDashboard({ tournament, ourTeamName, gameSettings, isAdmin, onBack }) {
+export default function TournamentDashboard({ tournament, ourTeamName, gameSettings, isAdmin, onBack, onGoHome }) {
   const { C } = useTheme();
   const [tab, setTab] = useState("dashboard");
   const [schedule, setSchedule] = useState([]);
@@ -56,7 +56,6 @@ export default function TournamentDashboard({ tournament, ourTeamName, gameSetti
         <div style={{ fontSize: 11, color: C.gray }}>{tournament.startDate} ~ {tournament.endDate} · {tournament.teams.length}팀</div>
       </div>
       <div style={{ display: "flex", background: C.bg, borderBottom: `1px solid ${C.grayDarker}`, marginBottom: 12 }}>
-        <button onClick={onBack} style={{ ...tabStyle(false), flex: "none", padding: "10px 12px", fontSize: 12 }}>← 목록</button>
         {[{ key: "dashboard", label: "대시보드" }, { key: "players", label: "개인기록" }, { key: "manage", label: "경기관리" }].map(t => (
           <button key={t.key} onClick={() => setTab(t.key)} style={tabStyle(tab === t.key)}>{t.label}</button>
         ))}

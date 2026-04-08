@@ -4,7 +4,7 @@ import AppSync from '../../services/appSync';
 import CreateTournament from './CreateTournament';
 import TournamentDashboard from './TournamentDashboard';
 
-export default function TournamentListTab({ teamName, ourTeamName, isAdmin, attendees, gameSettings, onTournamentView }) {
+export default function TournamentListTab({ teamName, ourTeamName, isAdmin, attendees, gameSettings, onTournamentView, onGoHome }) {
   const { C } = useTheme();
   const [tournaments, setTournaments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -31,7 +31,7 @@ export default function TournamentListTab({ teamName, ourTeamName, isAdmin, atte
 
   if (selectedTournament) {
     return <TournamentDashboard tournament={selectedTournament} ourTeamName={ourTeamName} gameSettings={gameSettings} isAdmin={isAdmin}
-      onBack={() => { setSelectedTournament(null); loadList(); }} />;
+      onBack={() => { setSelectedTournament(null); loadList(); }} onGoHome={onGoHome} />;
   }
 
   if (creating) {
