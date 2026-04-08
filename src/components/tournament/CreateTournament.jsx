@@ -56,7 +56,7 @@ export default function CreateTournament({ ourTeamName, onSubmit, onCancel }) {
           ))}
         </div>
         <div style={{ display: "flex", gap: 6 }}>
-          <input value={teamInput} onChange={e => setTeamInput(e.target.value)} onKeyDown={e => e.key === "Enter" && addTeam()} placeholder="상대팀 이름" style={{ ...is.input, flex: 1 }} />
+          <input value={teamInput} onChange={e => setTeamInput(e.target.value)} onKeyDown={e => e.key === "Enter" && !e.nativeEvent.isComposing && addTeam()} placeholder="상대팀 이름" style={{ ...is.input, flex: 1 }} />
           <button onClick={addTeam} style={{ padding: "8px 14px", borderRadius: 8, background: C.accent, color: C.bg, border: "none", fontWeight: 700, fontSize: 13, cursor: "pointer", whiteSpace: "nowrap" }}>추가</button>
         </div>
       </div>
