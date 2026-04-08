@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useTheme } from '../../hooks/useTheme';
 
-export default function TournamentSchedule({ schedule, ourTeamName, teams, onUpdateScore, onUpdateMatch, isAdmin }) {
+export default function TournamentSchedule({ schedule, ourTeamName, teams, onUpdateScore, onUpdateMatch, isAdmin, defaultDate }) {
   const { C } = useTheme();
   const [editingMatch, setEditingMatch] = useState(null);
   const [editData, setEditData] = useState({});
@@ -9,7 +9,7 @@ export default function TournamentSchedule({ schedule, ourTeamName, teams, onUpd
   const startEdit = (m) => {
     setEditingMatch(m.matchNum);
     setEditData({
-      date: m.date || "", home: m.home || "", away: m.away || "",
+      date: m.date || defaultDate || new Date().toISOString().slice(0, 10), home: m.home || "", away: m.away || "",
       homeScore: m.homeScore !== null ? String(m.homeScore) : "",
       awayScore: m.awayScore !== null ? String(m.awayScore) : "",
     });
