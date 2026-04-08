@@ -28,6 +28,9 @@ dist-ssr
 *.jpg
 *.jpeg
 
+# Superpowers
+.superpowers/
+
 # Environment
 .env
 .env.local

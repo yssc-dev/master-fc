@@ -233,6 +233,24 @@ const AppSync = {
     } catch (e) { console.warn("대회 생성 실패:", e.message); return null; }
   },
 
+  async deleteTournament(tournamentId) {
+    if (!this.enabled()) return null;
+    try {
+      const resp = await fetch(APPS_SCRIPT_URL, { method: "POST", headers: { "Content-Type": "text/plain" },
+        body: JSON.stringify({ action: "deleteTournament", tournamentId, team: this._getTeam(), authToken: this._getAuthToken() }) });
+      return await resp.json();
+    } catch (e) { console.warn("대회 삭제 실패:", e.message); return null; }
+  },
+
+  async updateTournamentMatch(tournamentId, matchNum, updates) {
+    if (!this.enabled()) return null;
+    try {
+      const resp = await fetch(APPS_SCRIPT_URL, { method: "POST", headers: { "Content-Type": "text/plain" },
+        body: JSON.stringify({ action: "updateTournamentMatch", tournamentId, matchNum, updates, team: this._getTeam(), authToken: this._getAuthToken() }) });
+      return await resp.json();
+    } catch (e) { console.warn("경기 정보 업데이트 실패:", e.message); return null; }
+  },
+
   async getTournamentList() {
     if (!this.enabled()) return [];
     try {

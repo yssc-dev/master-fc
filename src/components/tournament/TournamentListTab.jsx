@@ -20,8 +20,16 @@ export default function TournamentListTab({ teamName, ourTeamName, isAdmin, atte
     else { alert("대회 생성 실패: " + (result?.error || "알 수 없는 오류")); }
   };
 
+  const handleDelete = async (t, e) => {
+    e.stopPropagation();
+    if (!confirm(`"${t.name}" 대회를 삭제하시겠습니까?\n관련 시트(일정/이벤트로그/선수기록)도 함께 삭제됩니다.`)) return;
+    if (!confirm("정말 삭제하시겠습니까? 되돌릴 수 없습니다.")) return;
+    await AppSync.deleteTournament(t.id);
+    loadList();
+  };
+
   if (selectedTournament) {
-    return <TournamentDashboard tournament={selectedTournament} ourTeamName={ourTeamName} attendees={attendees} gameSettings={gameSettings}
+    return <TournamentDashboard tournament={selectedTournament} ourTeamName={ourTeamName} attendees={attendees} gameSettings={gameSettings} isAdmin={isAdmin}
       onBack={() => { setSelectedTournament(null); loadList(); }} />;
   }
 
@@ -51,9 +59,12 @@ export default function TournamentListTab({ teamName, ourTeamName, isAdmin, atte
             <div style={{ marginBottom: 16 }}>
               <div style={{ fontSize: 12, color: C.gray, fontWeight: 600, marginBottom: 6 }}>진행중</div>
               {active.map(t => (
-                <div key={t.id} onClick={() => setSelectedTournament(t)} style={{ padding: "12px 14px", background: C.card, borderRadius: 10, marginBottom: 6, cursor: "pointer", borderLeft: `3px solid ${C.green}` }}>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: C.white }}>{t.name}</div>
-                  <div style={{ fontSize: 11, color: C.gray, marginTop: 2 }}>{t.startDate} ~ {t.endDate} · {t.teams.length}팀 · {t.format}</div>
+                <div key={t.id} onClick={() => setSelectedTournament(t)} style={{ padding: "12px 14px", background: C.card, borderRadius: 10, marginBottom: 6, cursor: "pointer", borderLeft: `3px solid ${C.green}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: C.white }}>{t.name}</div>
+                    <div style={{ fontSize: 11, color: C.gray, marginTop: 2 }}>{t.startDate} ~ {t.endDate} · {t.teams.length}팀 · {t.format}</div>
+                  </div>
+                  {isAdmin && <button onClick={(e) => handleDelete(t, e)} style={{ padding: "4px 8px", borderRadius: 6, background: `${C.red}20`, color: C.red, border: "none", fontSize: 10, fontWeight: 700, cursor: "pointer", flexShrink: 0 }}>삭제</button>}
                 </div>
               ))}
             </div>

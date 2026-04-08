@@ -6,7 +6,7 @@ import TournamentSchedule from './TournamentSchedule';
 import TournamentPlayerRecords from './TournamentPlayerRecords';
 import TournamentMatchManager from './TournamentMatchManager';
 
-export default function TournamentDashboard({ tournament, ourTeamName, attendees, gameSettings, onBack }) {
+export default function TournamentDashboard({ tournament, ourTeamName, attendees, gameSettings, isAdmin, onBack }) {
   const { C } = useTheme();
   const [tab, setTab] = useState("dashboard");
   const [schedule, setSchedule] = useState([]);
@@ -27,6 +27,11 @@ export default function TournamentDashboard({ tournament, ourTeamName, attendees
 
   const handleUpdateScore = async (matchNum, homeScore, awayScore) => {
     await AppSync.updateTournamentMatchScore(tournament.id, matchNum, homeScore, awayScore);
+    loadSchedule();
+  };
+
+  const handleUpdateMatch = async (matchNum, updates) => {
+    await AppSync.updateTournamentMatch(tournament.id, matchNum, updates);
     loadSchedule();
   };
 
@@ -55,7 +60,7 @@ export default function TournamentDashboard({ tournament, ourTeamName, attendees
       {tab === "dashboard" && (
         <div style={{ padding: "0 4px" }}>
           <TournamentStandings schedule={schedule} ourTeamName={ourTeamName} />
-          <div style={{ marginTop: 16 }}><TournamentSchedule schedule={schedule} ourTeamName={ourTeamName} onUpdateScore={handleUpdateScore} /></div>
+          <div style={{ marginTop: 16 }}><TournamentSchedule schedule={schedule} ourTeamName={ourTeamName} teams={tournament.teams} onUpdateScore={handleUpdateScore} onUpdateMatch={handleUpdateMatch} isAdmin={isAdmin} /></div>
           {(topPlayers.goals.length > 0 || topPlayers.assists.length > 0) && (
             <div style={{ marginTop: 16 }}>
               <div style={{ fontSize: 13, fontWeight: 700, color: C.white, marginBottom: 8 }}>개인 TOP</div>

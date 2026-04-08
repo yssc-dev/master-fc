@@ -14,7 +14,7 @@
 | 상대팀 | 이름만 관리 (선수 정보 없음), 설정에서 등록/선택 |
 | 점수 | 골+1, 어시스트+1, 자책골-1, 클린시트+1 (GK+전체DF) |
 | 보너스 | 없음 (크로바/고구마 제외) |
-| 시간 | 분 단위 기록, 전후반 구분 없음 |
+| 시간 | 이벤트 입력 시 자동 timestamp (수동 분 입력 없음) |
 | 경기 구성 | 하루에 1~N경기, 경기마다 상대팀이 다를 수 있음 |
 | 저장소 | 기존 Google Sheets에 축구용 시트 탭 추가 |
 | 아키텍처 | 축구 전용 컴포넌트 분리, 기존 서비스/유틸 재사용 |
@@ -66,11 +66,12 @@
       gk: "박수비",                              // 골키퍼
       defenders: ["이수비", "김수비", ...],       // 수비수 목록
       events: [
-        { type: "goal", player: "김철수", assist: "이영희", minute: 23, id: "..." },
-        { type: "owngoal", player: "박수비", minute: 45, id: "..." },
-        { type: "opponentGoal", minute: 67, id: "..." },
-        { type: "sub", playerOut: "김철수", playerIn: "최공격", minute: 60, id: "..." },
+        { type: "goal", player: "김철수", assist: "이영희", timestamp: 1704506595000, id: "..." },
+        { type: "owngoal", player: "박수비", timestamp: 1704507900000, id: "..." },
+        { type: "opponentGoal", currentGk: "박수비", timestamp: 1704509220000, id: "..." },
+        { type: "sub", playerOut: "김철수", playerIn: "최공격", position: "FW", timestamp: 1704508860000, id: "..." },
       ],
+      startedAt: 1704506400000,  // 경기 시작 timestamp
       ourScore: 2,        // 우리팀 득점 (자동 계산)
       opponentScore: 1,   // 상대팀 득점 (자동 계산)
       status: "playing" | "finished",
@@ -85,10 +86,10 @@
 
 | type | 설명 | 필드 |
 |------|------|------|
-| `goal` | 우리팀 골 | player, assist(선택), minute |
-| `owngoal` | 자책골 | player, minute |
-| `opponentGoal` | 상대팀 골 | minute |
-| `sub` | 교체 | playerOut, playerIn, minute |
+| `goal` | 우리팀 골 | player, assist(선택), timestamp |
+| `owngoal` | 자책골 | player, timestamp |
+| `opponentGoal` | 상대팀 골 | currentGk, timestamp |
+| `sub` | 교체 | playerOut, playerIn, position(승계포지션), timestamp |
 
 ### 스코어 자동 계산
 
@@ -125,20 +126,18 @@
 1. 득점자 선택 (현재 피치 위 선수 목록)
 2. 어시스트 선택 ("없음" 옵션 포함)
 3. 자책골 토글 (ON 시 상대팀 스코어에 반영)
-4. 분(minute) 숫자 입력
-5. 확인
+4. 확인 → timestamp 자동 저장
 
 #### 상대골 입력
 
-1. 분(minute) 숫자 입력
-2. 확인 → opponentScore +1
+1. 버튼 탭 → 즉시 기록 (현재 GK 자동 연결)
+2. opponentScore +1
 
 #### 교체 입력 모달
 
 1. 나가는 선수 선택 (현재 피치 위 11명)
 2. 들어오는 선수 선택 (벤치 = 참석명단 - 현재 피치)
-3. 분 입력
-4. 확인 → lineup 자동 업데이트 (피치 명단 교체)
+3. 확인 → lineup 자동 업데이트, 포지션 승계, timestamp 자동 저장
 
 ### Step 4: 경기 종료
 
@@ -179,40 +178,71 @@
 
 ## 데이터 저장
 
-### Google Sheets (기존 문서에 시트 탭 추가)
+### 3종 로그 (앱에서 모두 쌓기)
 
-| 시트명 (기본값) | 용도 |
-|----------------|------|
-| `축구_참석명단` | 참석자 명단 |
-| `축구_대시보드` | 선수별 누적 통계 (CSV 대시보드) |
-| `축구_선수별집계기록로그` | 경기별 선수 기록 로그 |
+| 시트명 (기본값) | 용도 | 비고 |
+|----------------|------|------|
+| `축구_이벤트로그` | 로우데이터 (모든 이벤트) | **신규** |
+| `축구_포인트로그` | 경기별 이벤트 요약 | 현행 유지 |
+| `축구_선수별집계기록로그` | 선수별 경기 집계 | 현행 유지 |
+| `축구_참석명단` | 참석자 명단 | 기존 |
+| `축구_대시보드` | 선수별 누적 통계 (CSV) | 기존 |
 
 시트명은 팀 설정에서 변경 가능.
 
-### 선수별집계기록로그 컬럼
+### 이벤트로그 컬럼 (로우데이터)
 
 | 컬럼 | 설명 |
 |------|------|
-| 이름 | 선수명 |
-| 경기수 | 출전 경기 수 |
+| 경기일자 | 경기 날짜 |
+| 경기번호 | 해당일 N번째 경기 |
+| 상대팀명 | 상대팀 이름 |
+| 이벤트 | 출전/골/자책골/실점/교체 |
+| 선수 | 주체 선수 (출전자, 득점자, 실점GK, 교체IN) |
+| 관련선수 | 어시스트, 교체OUT 선수 |
+| 포지션 | GK/DF/FW (출전, 교체 시 승계포지션) |
+| 입력시간 | 이벤트 발생 timestamp |
+
+### 포인트로그 컬럼 (현행)
+
+| 컬럼 | 설명 |
+|------|------|
+| 경기일자 | 경기 날짜 |
+| 경기번호 | 해당일 N번째 경기 |
+| 상대팀명 | 상대팀 이름 |
+| 득점 | 득점자 이름 (또는 OG) |
+| 어시 | 어시스트 선수 |
+| 실점 | 실점 여부 |
+| 자책골 | 자책골 선수 |
+| 입력시간 | 기록 시간 |
+
+### 선수별집계기록로그 컬럼 (현행)
+
+| 컬럼 | 설명 |
+|------|------|
+| 경기일자 | 경기 날짜 |
+| 선수명 | 선수 이름 |
+| 전체경기 | 출전 경기 수 |
+| 필드경기 | 필드 출전 수 |
+| 키퍼경기 | GK 출전 수 |
 | 골 | 득점 수 |
-| 어시스트 | 어시스트 수 |
-| 자책골 | 자책골 수 |
+| 어시 | 어시스트 수 |
 | 클린시트 | 클린시트 횟수 |
-| 포인트 | 총 포인트 |
-| 상대팀 | 해당 경기 상대팀 이름 |
+| 실점 | 실점 수 (GK일 때) |
+| 자책골 | 자책골 수 |
 | 입력시간 | 기록 시간 |
 
 ### Firebase
 
 ```
 games/{팀이름_축구}/active/{gameId}: { state: JSON, updatedAt: ... }
-settings/{팀이름_축구}: { sheetId, attendanceSheet, dashboardSheet, playerLogSheet, opponents: [...], ... }
+settings/{팀이름_축구}: { sheetId, attendanceSheet, dashboardSheet, playerLogSheet, eventLogSheet, pointLogSheet, opponents: [...], ... }
 ```
 
 ### Apps Script (Code.js)
 
 - 기존 함수 재사용 (시트명 파라미터 전달 구조)
+- `writeEventLog` 신규 추가 (이벤트로그 로우 쓰기)
 - `writePlayerLog` 에 클린시트 컬럼 추가 지원
 - 축구/풋살 구분은 시트명으로 자연스럽게 분리
 
@@ -228,8 +258,10 @@ settings/{팀이름_축구}: { sheetId, attendanceSheet, dashboardSheet, playerL
   attendanceSheet: "축구_참석명단",
   dashboardSheet: "축구_대시보드",
   playerLogSheet: "축구_선수별집계기록로그",
+  pointLogSheet: "축구_포인트로그",
 
   // 축구 전용
+  eventLogSheet: "축구_이벤트로그",  // 로우데이터
   ownGoalPoint: -1,        // 풋살은 -2
   cleanSheetPoint: 1,      // 풋살에는 없음
   opponents: ["FC서울", "동네팀A"],  // 등록된 상대팀 목록

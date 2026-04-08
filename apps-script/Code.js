@@ -181,6 +181,10 @@ function doPost(e) {
       return _jsonResponse(_writeSoccerPlayerLog(body.data, body.playerLogSheet || ""));
     } else if (action === "createTournament") {
       return _jsonResponse(_createTournament(body.data));
+    } else if (action === "deleteTournament") {
+      return _jsonResponse(_deleteTournament(body.tournamentId));
+    } else if (action === "updateTournamentMatch") {
+      return _jsonResponse(_updateTournamentMatch(body.tournamentId, body.matchNum, body.updates || {}));
     } else if (action === "getTournamentList") {
       return _jsonResponse(_getTournamentList(requestTeam));
     } else if (action === "getTournamentSchedule") {
@@ -1130,6 +1134,54 @@ function _createTournament(data) {
   playerSheet.getRange("A1:J1").setValues([["선수명","전체경기","필드경기","키퍼경기","골","어시","클린시트","실점","자책골","포인트"]]);
   playerSheet.getRange("A1:J1").setFontWeight("bold");
   return { success: true, id: data.id };
+}
+
+function _deleteTournament(tournamentId) {
+  if (!tournamentId) return { success: false, error: "대회ID 누락" };
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  // 관련 시트 삭제
+  ["_일정", "_이벤트로그", "_선수기록"].forEach(function(suffix) {
+    var sheet = ss.getSheetByName("대회_" + tournamentId + suffix);
+    if (sheet) ss.deleteSheet(sheet);
+  });
+  // 대회_목록에서 행 삭제
+  var listSheet = ss.getSheetByName("대회_목록");
+  if (listSheet) {
+    var lastRow = listSheet.getLastRow();
+    if (lastRow >= 2) {
+      var data = listSheet.getRange(2, 1, lastRow - 1, 1).getValues();
+      for (var i = data.length - 1; i >= 0; i--) {
+        if (String(data[i][0]) === tournamentId) listSheet.deleteRow(i + 2);
+      }
+    }
+  }
+  return { success: true };
+}
+
+function _updateTournamentMatch(tournamentId, matchNum, updates) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName("대회_" + tournamentId + "_일정");
+  if (!sheet) return { success: false, error: "일정 시트 없음" };
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return { success: false, error: "데이터 없음" };
+  var data = sheet.getRange(2, 1, lastRow - 1, 9).getValues();
+  for (var i = 0; i < data.length; i++) {
+    if (Number(data[i][0]) === matchNum) {
+      if (updates.date !== undefined) sheet.getRange(i + 2, 2).setValue(updates.date);
+      if (updates.home !== undefined) sheet.getRange(i + 2, 4).setValue(updates.home);
+      if (updates.away !== undefined) sheet.getRange(i + 2, 5).setValue(updates.away);
+      if (updates.round !== undefined) sheet.getRange(i + 2, 3).setValue(updates.round);
+      // 우리팀여부 재계산
+      var ourTeam = updates.ourTeam || "";
+      if (ourTeam) {
+        var home = updates.home !== undefined ? updates.home : String(data[i][3]);
+        var away = updates.away !== undefined ? updates.away : String(data[i][4]);
+        sheet.getRange(i + 2, 8).setValue((home === ourTeam || away === ourTeam) ? "Y" : "N");
+      }
+      return { success: true };
+    }
+  }
+  return { success: false, error: "경기번호 " + matchNum + " 없음" };
 }
 
 function _getTournamentList(team) {
