@@ -1,7 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useTheme } from '../../hooks/useTheme';
-import LineupSelector from '../game/LineupSelector';
-import SoccerRecorder from '../game/SoccerRecorder';
+import RosterSelector from '../game/RosterSelector';
+import FormationSetup from '../game/FormationSetup';
+import FormationRecorder from '../game/FormationRecorder';
+import { ref, set, get } from 'firebase/database';
+import { firebaseDb } from '../../config/firebase';
 import { calcSoccerScore, buildEventLogRows } from '../../utils/soccerScoring';
 import { generateEventId } from '../../utils/idGenerator';
 import AppSync from '../../services/appSync';
@@ -10,49 +13,116 @@ export default function TournamentMatchManager({ tournament, schedule, ourTeamNa
   const { C } = useTheme();
   const [selectedMatch, setSelectedMatch] = useState(null);
   const [phase, setPhase] = useState("list");
-  const [currentMatch, setCurrentMatch] = useState(null);
+  const [matchState, setMatchState] = useState(null);
   const [scoreEdit, setScoreEdit] = useState(null);
+  const saveTimer = useRef(null);
+
+  const teamSafe = (ourTeamName || "").replace(/[.#$/[\]]/g, "_");
+  const fbPath = `tournaments/${teamSafe}/${tournament.id}/activeGame`;
 
   const ourMatches = schedule.filter(m => m.isOurs && m.status !== "finished");
   const otherMatches = schedule.filter(m => !m.isOurs && m.status !== "finished");
 
-  const handleLineupConfirm = ({ lineup, gk, defenders }) => {
+  /* ---- Firebase auto-save (debounced) ---- */
+  const autoSave = useCallback((state) => {
+    if (saveTimer.current) clearTimeout(saveTimer.current);
+    saveTimer.current = setTimeout(() => {
+      const payload = { ...state, matchNum: selectedMatch?.matchNum };
+      set(ref(firebaseDb, fbPath), payload).catch(() => {});
+    }, 800);
+  }, [fbPath, selectedMatch]);
+
+  /* ---- Restore from Firebase on mount ---- */
+  useEffect(() => {
+    if (!tournament.id || !teamSafe) return;
+    get(ref(firebaseDb, fbPath)).then(snap => {
+      if (!snap.exists()) return;
+      const saved = snap.val();
+      // find the matching schedule entry
+      const match = schedule.find(m => m.matchNum === saved.matchNum && m.isOurs && m.status !== "finished");
+      if (!match) return;
+      setSelectedMatch(match);
+      setMatchState({ ...saved, events: saved.events || [] });
+      // determine phase from saved state
+      if (saved.startedAt) setPhase("playing");
+      else if (saved.formation) setPhase("formation");
+      else if (saved.selectedPlayers) setPhase("roster");
+    }).catch(() => {});
+  }, [tournament.id, teamSafe, fbPath, schedule]);
+
+  /* ---- Phase: roster ---- */
+  const handleRosterConfirm = (players) => {
+    const state = { selectedPlayers: players, events: [] };
+    setMatchState(state);
+    autoSave(state);
+    setPhase("formation");
+  };
+
+  /* ---- Phase: formation ---- */
+  const handleFormationConfirm = ({ formation, assignments, gk, positionMap, subs }) => {
     const opponent = selectedMatch.home === ourTeamName ? selectedMatch.away : selectedMatch.home;
-    setCurrentMatch({ matchIdx: 0, opponent, lineup, gk, defenders, events: [], startedAt: Date.now(), ourScore: 0, opponentScore: 0, status: "playing" });
+    const state = {
+      ...matchState,
+      formation, assignments, gk, positionMap, subs,
+      opponent, startedAt: Date.now(), events: matchState?.events || [],
+    };
+    setMatchState(state);
+    autoSave(state);
     setPhase("playing");
   };
 
+  /* ---- Phase: playing ---- */
   const handleAddEvent = (event) => {
-    setCurrentMatch(prev => {
-      const events = [...prev.events, { ...event, id: event.id || generateEventId(), timestamp: event.timestamp || Date.now() }];
-      let ourScore = 0, opponentScore = 0;
-      for (const ev of events) { if (ev.type === "goal") ourScore++; else if (ev.type === "owngoal" || ev.type === "opponentGoal") opponentScore++; }
-      return { ...prev, events, ourScore, opponentScore };
+    setMatchState(prev => {
+      const ev = { ...event, id: event.id || generateEventId(), timestamp: event.timestamp || Date.now() };
+      const events = [...prev.events, ev];
+      const next = { ...prev, events };
+      autoSave(next);
+      return next;
     });
   };
 
   const handleDeleteEvent = (eventId) => {
-    setCurrentMatch(prev => {
+    setMatchState(prev => {
       const events = prev.events.filter(e => e.id !== eventId);
-      let ourScore = 0, opponentScore = 0;
-      for (const ev of events) { if (ev.type === "goal") ourScore++; else if (ev.type === "owngoal" || ev.type === "opponentGoal") opponentScore++; }
-      return { ...prev, events, ourScore, opponentScore };
+      const next = { ...prev, events };
+      autoSave(next);
+      return next;
     });
   };
 
-  const handleFinishMatch = async () => {
-    const { ourScore, opponentScore } = calcSoccerScore(currentMatch.events);
+  const handleStateChange = (partial) => {
+    setMatchState(prev => {
+      const next = { ...prev, ...partial };
+      autoSave(next);
+      return next;
+    });
+  };
+
+  const handleFinishMatch = async (finalState) => {
+    const soccerMatch = {
+      matchIdx: selectedMatch.matchNum - 1,
+      opponent: matchState.opponent,
+      lineup: Object.values(finalState.assignments),
+      gk: finalState.gk,
+      defenders: Object.entries(finalState.positionMap).filter(([, r]) => r === "DF").map(([n]) => n),
+      events: matchState.events,
+      startedAt: matchState.startedAt,
+      status: "finished",
+    };
+
+    const { ourScore, opponentScore } = calcSoccerScore(matchState.events);
     const isHome = selectedMatch.home === ourTeamName;
     const homeScore = isHome ? ourScore : opponentScore;
     const awayScore = isHome ? opponentScore : ourScore;
 
     await AppSync.updateTournamentMatchScore(tournament.id, selectedMatch.matchNum, homeScore, awayScore);
 
-    const finished = [{ ...currentMatch, status: "finished", matchIdx: selectedMatch.matchNum - 1 }];
+    const finished = [soccerMatch];
     const eventRows = buildEventLogRows(finished, tournament.startDate || new Date().toISOString().slice(0, 10));
     await AppSync.writeTournamentEventLog(tournament.id, { events: eventRows });
 
-    // 선수기록 재집계
+    // player stats re-aggregate
     const allEvents = await AppSync.getTournamentEventLog(tournament.id);
     const pStats = {};
     const ensure = (n) => { if (!pStats[n]) pStats[n] = { name: n, games: 0, fieldGames: 0, keeperGames: 0, goals: 0, assists: 0, cleanSheets: 0, conceded: 0, owngoals: 0, point: 0 }; };
@@ -66,6 +136,9 @@ export default function TournamentMatchManager({ tournament, schedule, ourTeamNa
     Object.values(pStats).forEach(p => { p.point = p.goals + p.assists + (p.owngoals * (gameSettings?.ownGoalPoint ?? -1)) + (p.cleanSheets * (gameSettings?.cleanSheetPoint ?? 1)); });
     await AppSync.writeTournamentPlayerRecord(tournament.id, { players: Object.values(pStats) });
 
+    // clear Firebase activeGame
+    await set(ref(firebaseDb, fbPath), null);
+
     onScheduleUpdate();
     setPhase("finished");
   };
@@ -76,36 +149,73 @@ export default function TournamentMatchManager({ tournament, schedule, ourTeamNa
     setScoreEdit(null);
   };
 
-  if (phase === "playing" && currentMatch) {
+  /* ---- Render: playing ---- */
+  if (phase === "playing" && matchState) {
     return (
       <div>
-        <div style={{ fontSize: 11, color: C.gray, marginBottom: 8 }}>제{selectedMatch.matchNum}경기 · {selectedMatch.round}</div>
-        <SoccerRecorder match={currentMatch} attendees={attendees} onAddEvent={handleAddEvent} onDeleteEvent={handleDeleteEvent} onFinishMatch={handleFinishMatch} styles={{ card: { background: C.card, borderRadius: 12, padding: 14 } }} />
+        <div style={{ fontSize: 11, color: C.gray, marginBottom: 8 }}>
+          제{selectedMatch.matchNum}경기 · {selectedMatch.round}
+        </div>
+        <FormationRecorder
+          formation={matchState.formation}
+          assignments={matchState.assignments}
+          positionMap={matchState.positionMap}
+          subs={matchState.subs}
+          gk={matchState.gk}
+          opponent={matchState.opponent}
+          startedAt={matchState.startedAt}
+          events={matchState.events}
+          onAddEvent={handleAddEvent}
+          onDeleteEvent={handleDeleteEvent}
+          onFinishMatch={handleFinishMatch}
+          onStateChange={handleStateChange}
+        />
       </div>
     );
   }
 
-  if (phase === "lineup" && selectedMatch) {
+  /* ---- Render: formation ---- */
+  if (phase === "formation" && matchState) {
     const opponent = selectedMatch.home === ourTeamName ? selectedMatch.away : selectedMatch.home;
     return (
       <div>
-        <button onClick={() => setPhase("list")} style={{ marginBottom: 10, padding: "6px 14px", borderRadius: 8, background: C.grayDark, color: C.white, border: "none", fontSize: 12, cursor: "pointer" }}>← 돌아가기</button>
-        <div style={{ fontSize: 14, fontWeight: 700, color: C.white, marginBottom: 12 }}>vs {opponent} — 라인업</div>
-        <LineupSelector attendees={attendees} onConfirm={handleLineupConfirm} styles={{}} />
+        <div style={{ fontSize: 14, fontWeight: 700, color: C.white, marginBottom: 12 }}>vs {opponent} -- 포메이션</div>
+        <FormationSetup
+          selectedPlayers={matchState.selectedPlayers}
+          onConfirm={handleFormationConfirm}
+          onBack={() => setPhase("roster")}
+        />
       </div>
     );
   }
 
+  /* ---- Render: roster ---- */
+  if (phase === "roster" && selectedMatch) {
+    const opponent = selectedMatch.home === ourTeamName ? selectedMatch.away : selectedMatch.home;
+    return (
+      <div>
+        <button onClick={() => { setPhase("list"); setSelectedMatch(null); setMatchState(null); }}
+          style={{ marginBottom: 10, padding: "6px 14px", borderRadius: 8, background: C.grayDark, color: C.white, border: "none", fontSize: 12, cursor: "pointer" }}>
+          ← 돌아가기
+        </button>
+        <div style={{ fontSize: 14, fontWeight: 700, color: C.white, marginBottom: 12 }}>vs {opponent} -- 출전 명단</div>
+        <RosterSelector allPlayers={attendees} onConfirm={handleRosterConfirm} />
+      </div>
+    );
+  }
+
+  /* ---- Render: finished ---- */
   if (phase === "finished") {
     return (
       <div style={{ textAlign: "center", padding: 20 }}>
         <div style={{ fontSize: 18, fontWeight: 800, color: C.green, marginBottom: 8 }}>경기 기록 완료</div>
-        <button onClick={() => { setPhase("list"); setSelectedMatch(null); setCurrentMatch(null); }}
+        <button onClick={() => { setPhase("list"); setSelectedMatch(null); setMatchState(null); }}
           style={{ padding: "10px 24px", borderRadius: 10, background: C.accent, color: C.bg, border: "none", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>돌아가기</button>
       </div>
     );
   }
 
+  /* ---- Render: list ---- */
   return (
     <div>
       {ourMatches.length > 0 && (
@@ -114,7 +224,7 @@ export default function TournamentMatchManager({ tournament, schedule, ourTeamNa
           {ourMatches.map(m => {
             const opponent = m.home === ourTeamName ? m.away : m.home;
             return (
-              <div key={m.matchNum} onClick={() => { setSelectedMatch(m); setPhase("lineup"); }}
+              <div key={m.matchNum} onClick={() => { setSelectedMatch(m); setPhase("roster"); }}
                 style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 14px", background: `${C.accent}11`, borderRadius: 10, marginBottom: 6, cursor: "pointer", borderLeft: `3px solid ${C.accent}` }}>
                 <div>
                   <div style={{ fontSize: 11, color: C.gray }}>제{m.matchNum}경기 · {m.date || "미정"}</div>
