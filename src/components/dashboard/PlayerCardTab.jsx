@@ -191,6 +191,11 @@ export default function PlayerCardTab({ playerLog, members, defenseStats, winSta
               </table>
             </div>
           )}
+          {(!defenseStats || Object.keys(defenseStats).length === 0 || !winStats || Object.keys(winStats).length === 0) && (
+            <div style={{ marginTop: 12, padding: "8px 10px", borderRadius: 8, background: `${C.accent}10`, fontSize: 11, color: C.gray, lineHeight: 1.6 }}>
+              수비력{!winStats || Object.keys(winStats).length === 0 ? ", 승리기여" : ""} 지표는 앱 경기기록 데이터 부족으로 일부만 결과에 반영되고 있습니다.
+            </div>
+          )}
         </div>
       )}
     </div>
