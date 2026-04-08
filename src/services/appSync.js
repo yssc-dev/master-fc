@@ -262,6 +262,16 @@ const AppSync = {
     } catch (e) { console.warn("대회 목록 조회 실패:", e.message); return []; }
   },
 
+  async getTournamentRoster(tournamentId) {
+    if (!this.enabled()) return [];
+    try {
+      const resp = await fetch(APPS_SCRIPT_URL, { method: "POST", headers: { "Content-Type": "text/plain" },
+        body: JSON.stringify({ action: "getTournamentRoster", tournamentId, team: this._getTeam(), authToken: this._getAuthToken() }) });
+      const data = await resp.json();
+      return data.players || [];
+    } catch (e) { console.warn("대회 명단 조회 실패:", e.message); return []; }
+  },
+
   async getTournamentSchedule(tournamentId) {
     if (!this.enabled()) return [];
     try {

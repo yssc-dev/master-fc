@@ -187,6 +187,8 @@ function doPost(e) {
       return _jsonResponse(_updateTournamentMatch(body.tournamentId, body.matchNum, body.updates || {}));
     } else if (action === "getTournamentList") {
       return _jsonResponse(_getTournamentList(requestTeam));
+    } else if (action === "getTournamentRoster") {
+      return _jsonResponse(_getTournamentRoster(body.tournamentId));
     } else if (action === "getTournamentSchedule") {
       return _jsonResponse(_getTournamentSchedule(body.tournamentId));
     } else if (action === "updateTournamentMatchScore") {
@@ -1127,6 +1129,11 @@ function _createTournament(data) {
     });
     schedSheet.getRange(2, 1, values.length, 9).setValues(values);
   }
+  // 명단 시트 생성
+  var rosterSheet = ss.insertSheet("대회_" + data.id + "_명단");
+  rosterSheet.getRange("A1:B1").setValues([["백넘버","이름"]]);
+  rosterSheet.getRange("A1:B1").setFontWeight("bold");
+
   var eventSheet = ss.insertSheet("대회_" + data.id + "_이벤트로그");
   eventSheet.getRange("A1:G1").setValues([["경기번호","상대팀명","이벤트","선수","관련선수","포지션","입력시간"]]);
   eventSheet.getRange("A1:G1").setFontWeight("bold");
@@ -1140,7 +1147,7 @@ function _deleteTournament(tournamentId) {
   if (!tournamentId) return { success: false, error: "대회ID 누락" };
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   // 관련 시트 삭제
-  ["_일정", "_이벤트로그", "_선수기록"].forEach(function(suffix) {
+  ["_명단", "_일정", "_이벤트로그", "_선수기록"].forEach(function(suffix) {
     var sheet = ss.getSheetByName("대회_" + tournamentId + suffix);
     if (sheet) ss.deleteSheet(sheet);
   });
@@ -1182,6 +1189,19 @@ function _updateTournamentMatch(tournamentId, matchNum, updates) {
     }
   }
   return { success: false, error: "경기번호 " + matchNum + " 없음" };
+}
+
+function _getTournamentRoster(tournamentId) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName("대회_" + tournamentId + "_명단");
+  if (!sheet) return { success: true, players: [] };
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return { success: true, players: [] };
+  var data = sheet.getRange(2, 1, lastRow - 1, 2).getValues();
+  var players = data.filter(function(r) { return r[1]; }).map(function(r) {
+    return { backNum: r[0] ? String(r[0]).trim() : "", name: String(r[1]).trim() };
+  });
+  return { success: true, players: players };
 }
 
 function _getTournamentList(team) {

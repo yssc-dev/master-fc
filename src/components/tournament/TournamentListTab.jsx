@@ -30,7 +30,7 @@ export default function TournamentListTab({ teamName, ourTeamName, isAdmin, atte
   };
 
   if (selectedTournament) {
-    return <TournamentDashboard tournament={selectedTournament} ourTeamName={ourTeamName} attendees={attendees} gameSettings={gameSettings} isAdmin={isAdmin}
+    return <TournamentDashboard tournament={selectedTournament} ourTeamName={ourTeamName} gameSettings={gameSettings} isAdmin={isAdmin}
       onBack={() => { setSelectedTournament(null); loadList(); }} />;
   }
 

@@ -6,15 +6,21 @@ import TournamentSchedule from './TournamentSchedule';
 import TournamentPlayerRecords from './TournamentPlayerRecords';
 import TournamentMatchManager from './TournamentMatchManager';
 
-export default function TournamentDashboard({ tournament, ourTeamName, attendees, gameSettings, isAdmin, onBack }) {
+export default function TournamentDashboard({ tournament, ourTeamName, gameSettings, isAdmin, onBack }) {
   const { C } = useTheme();
   const [tab, setTab] = useState("dashboard");
   const [schedule, setSchedule] = useState([]);
+  const [roster, setRoster] = useState([]);
   const [loading, setLoading] = useState(true);
   const [topPlayers, setTopPlayers] = useState({ goals: [], assists: [] });
 
   const loadSchedule = () => { AppSync.getTournamentSchedule(tournament.id).then(m => setSchedule(m)).finally(() => setLoading(false)); };
-  useEffect(() => { loadSchedule(); }, [tournament.id]);
+  useEffect(() => {
+    loadSchedule();
+    AppSync.getTournamentRoster(tournament.id).then(p => setRoster(p));
+  }, [tournament.id]);
+
+  const attendees = roster.map(p => p.name);
 
   useEffect(() => {
     AppSync.getTournamentPlayerRecords(tournament.id).then(players => {
