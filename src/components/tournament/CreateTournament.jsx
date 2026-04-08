@@ -25,7 +25,7 @@ export default function CreateTournament({ ourTeamName, onSubmit, onCancel }) {
     if (format === "fullLeague") matches = generateFullLeague(teams);
     else if (format === "knockout") matches = generateKnockout(teams);
     else matches = generateManual(matchCount);
-    onSubmit({ id: "t_" + Date.now(), name: name.trim(), startDate, endDate, teams, format, matches, ourTeam: ourTeamName });
+    onSubmit({ id: name.trim().replace(/\s+/g, "_"), name: name.trim(), startDate, endDate, teams, format, matches, ourTeam: ourTeamName });
   };
 
   const is = {

@@ -21,6 +21,7 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
   const [rankingHistory, setRankingHistory] = useState(null);
   const [rankingLoading, setRankingLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("records");
+  const [tournamentActive, setTournamentActive] = useState(false);
 
   const activeEntry = teamEntries.find(e => e.mode === activeSport) || teamEntries[0];
 
@@ -558,7 +559,7 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
         </div>
       </div>
 
-      <div style={{ display: "flex", background: C.bg, borderBottom: `1px solid ${C.grayDarker}` }}>
+      {!tournamentActive && <div style={{ display: "flex", background: C.bg, borderBottom: `1px solid ${C.grayDarker}` }}>
         {[
           { key: "records", label: "대시보드" },
           { key: "roster", label: "개인기록" },
@@ -575,7 +576,7 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
             </span>
           </button>
         ))}
-      </div>
+      </div>}
 
       <div style={{ padding: "16px 0" }}>
         {activeTab === "records" && renderRecords()}
@@ -593,6 +594,7 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
             isAdmin={activeEntry?.role === "관리자"}
             attendees={members.map(m => m.name)}
             gameSettings={getSettings(teamName)}
+            onTournamentView={setTournamentActive}
           />
         )}
       </div>

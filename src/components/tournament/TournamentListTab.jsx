@@ -4,7 +4,7 @@ import AppSync from '../../services/appSync';
 import CreateTournament from './CreateTournament';
 import TournamentDashboard from './TournamentDashboard';
 
-export default function TournamentListTab({ teamName, ourTeamName, isAdmin, attendees, gameSettings }) {
+export default function TournamentListTab({ teamName, ourTeamName, isAdmin, attendees, gameSettings, onTournamentView }) {
   const { C } = useTheme();
   const [tournaments, setTournaments] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -13,6 +13,7 @@ export default function TournamentListTab({ teamName, ourTeamName, isAdmin, atte
 
   const loadList = () => { setLoading(true); AppSync.getTournamentList().then(list => setTournaments(list)).finally(() => setLoading(false)); };
   useEffect(() => { loadList(); }, []);
+  useEffect(() => { if (onTournamentView) onTournamentView(!!selectedTournament); }, [selectedTournament]);
 
   const handleCreate = async (data) => {
     const result = await AppSync.createTournament(data);
