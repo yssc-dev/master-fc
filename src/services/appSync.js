@@ -272,11 +272,11 @@ const AppSync = {
     } catch (e) { console.warn("대회 명단 조회 실패:", e.message); return []; }
   },
 
-  async getTournamentSchedule(tournamentId) {
+  async getTournamentSchedule(tournamentId, ourTeam) {
     if (!this.enabled()) return [];
     try {
       const resp = await fetch(APPS_SCRIPT_URL, { method: "POST", headers: { "Content-Type": "text/plain" },
-        body: JSON.stringify({ action: "getTournamentSchedule", tournamentId, team: this._getTeam(), authToken: this._getAuthToken() }) });
+        body: JSON.stringify({ action: "getTournamentSchedule", tournamentId, ourTeam: ourTeam || "", team: this._getTeam(), authToken: this._getAuthToken() }) });
       const data = await resp.json();
       return data.matches || [];
     } catch (e) { console.warn("대회 일정 조회 실패:", e.message); return []; }

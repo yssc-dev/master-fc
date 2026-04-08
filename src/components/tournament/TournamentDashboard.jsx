@@ -14,7 +14,7 @@ export default function TournamentDashboard({ tournament, ourTeamName, gameSetti
   const [loading, setLoading] = useState(true);
   const [topPlayers, setTopPlayers] = useState({ goals: [], assists: [] });
 
-  const loadSchedule = () => { AppSync.getTournamentSchedule(tournament.id).then(m => setSchedule(m)).finally(() => setLoading(false)); };
+  const loadSchedule = () => { AppSync.getTournamentSchedule(tournament.id, ourTeamName).then(m => setSchedule(m)).finally(() => setLoading(false)); };
   useEffect(() => {
     loadSchedule();
     AppSync.getTournamentRoster(tournament.id).then(p => setRoster(p));
