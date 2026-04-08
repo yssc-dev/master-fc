@@ -80,6 +80,7 @@ export async function saveSettings(team, settings) {
 }
 
 // Firebase에서 설정 로드 → localStorage에 캐싱
+// 새 팀(Firebase에 설정 없음)은 시트명을 비워서 다른 팀 데이터가 보이지 않도록 함
 export async function loadSettingsFromFirebase(team) {
   try {
     const snap = await get(_firebaseRef(team));
@@ -90,6 +91,14 @@ export async function loadSettingsFromFirebase(team) {
       localStorage.setItem(key, JSON.stringify(data));
       return { ...DEFAULTS, ...data };
     }
+    // Firebase에 설정이 없는 새 팀: 시트명을 비워서 초기화
+    const emptySheets = {
+      dashboardSheet: "", attendanceSheet: "", pointLogSheet: "", playerLogSheet: "",
+    };
+    const key = _key(team);
+    _cache[key] = emptySheets;
+    localStorage.setItem(key, JSON.stringify(emptySheets));
+    return { ...DEFAULTS, ...emptySheets };
   } catch (e) {
     console.warn("설정 Firebase 로드 실패:", e.message);
   }
