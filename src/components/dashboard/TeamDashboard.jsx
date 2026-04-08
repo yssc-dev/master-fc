@@ -581,7 +581,7 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
         {activeTab === "analytics" && (
           <div style={ds.section}>
             <div style={ds.sectionTitle}>선수 분석</div>
-            <PlayerAnalytics teamName={teamName} />
+            <PlayerAnalytics teamName={teamName} teamMode={activeSport} />
           </div>
         )}
         {activeTab === "games" && renderGames()}
@@ -606,7 +606,7 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
 
       {showDualTeam && (
         <Modal onClose={() => setShowDualTeam(false)} title="팀전 랭킹">
-          <PlayerAnalytics teamName={teamName} initialTab="dualteam" isAdmin={activeEntry?.role === "관리자"} />
+          <PlayerAnalytics teamName={teamName} teamMode={activeSport} initialTab="dualteam" isAdmin={activeEntry?.role === "관리자"} />
         </Modal>
       )}
 

@@ -239,7 +239,8 @@ function analyzeTeams(playerLog) {
   };
 }
 
-export default function PlayerAnalytics({ teamName, initialTab, isAdmin }) {
+export default function PlayerAnalytics({ teamName, teamMode, initialTab, isAdmin }) {
+  const isSoccer = teamMode === "축구";
   const { C } = useTheme();
   const [events, setEvents] = useState(null);
   const [playerLog, setPlayerLog] = useState(null);
@@ -304,17 +305,18 @@ export default function PlayerAnalytics({ teamName, initialTab, isAdmin }) {
     return { count: gameRecords.length, from: dates[0], to: dates[dates.length - 1] };
   }, [gameRecords]);
 
-  const tabs = [
+  const allTabs = [
     { key: "combo", label: "골든콤비" },
-    { key: "killer", label: "키퍼킬러" },
+    !isSoccer && { key: "killer", label: "키퍼킬러" },
     { key: "race", label: "시즌레이스" },
     { key: "chemistry", label: "케미" },
-    { key: "crovaguma", label: "🍀/🍠" },
+    !isSoccer && { key: "crovaguma", label: "🍀/🍠" },
     { key: "playercard", label: "선수카드" },
     { key: "synergy", label: "시너지" },
     { key: "timepattern", label: "시간대" },
     ...(initialTab === "dualteam" ? [{ key: "dualteam", label: "팀전" }] : []),
-  ];
+  ].filter(Boolean);
+  const tabs = allTabs;
 
   const RED = "#ef4444", BLUE = "#3b82f6", GREEN = "#22c55e", ORANGE = "#f97316", PURPLE = "#a855f7";
   const COLORS = [RED, BLUE, GREEN, ORANGE, PURPLE, "#eab308", "#ec4899", "#8b5cf6", "#14b8a6", "#f97316", "#6366f1", "#84cc16", "#06b6d4", "#f43f5e", "#a3e635", "#fb923c", "#818cf8", "#34d399", "#f472b6", "#facc15"];
