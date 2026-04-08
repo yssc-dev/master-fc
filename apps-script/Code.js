@@ -1132,7 +1132,7 @@ function _createTournament(data) {
   var eventSheet = ss.insertSheet("대회_" + data.id + "_이벤트로그");
   eventSheet.getRange("A1:G1").setValues([["경기번호","상대팀명","이벤트","선수","관련선수","포지션","입력시간"]]);
   eventSheet.getRange("A1:G1").setFontWeight("bold");
-  var playerSheet = ss.insertSheet("대회_" + data.id + "_선수기록");
+  var playerSheet = ss.insertSheet("대회_" + data.id + "_대시보드");
   playerSheet.getRange("A1:J1").setValues([["선수명","전체경기","필드경기","키퍼경기","골","어시","클린시트","실점","자책골","포인트"]]);
   playerSheet.getRange("A1:J1").setFontWeight("bold");
   return { success: true, id: data.id };
@@ -1142,7 +1142,7 @@ function _deleteTournament(tournamentId) {
   if (!tournamentId) return { success: false, error: "대회ID 누락" };
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   // 관련 시트 삭제
-  ["_일정", "_이벤트로그", "_선수기록"].forEach(function(suffix) {
+  ["_일정", "_이벤트로그", "_대시보드"].forEach(function(suffix) {
     var sheet = ss.getSheetByName("대회_" + tournamentId + suffix);
     if (sheet) ss.deleteSheet(sheet);
   });
@@ -1187,7 +1187,7 @@ function _updateTournamentMatch(tournamentId, matchNum, updates) {
 }
 
 function _getTournamentRoster(tournamentId) {
-  // _선수기록 시트에서 명단 조회 (선수기록 = 대시보드)
+  // _대시보드 시트에서 명단 조회 (선수기록 = 대시보드)
   var result = _getTournamentPlayerRecords(tournamentId);
   return { success: true, players: (result.players || []).map(function(p) {
     return { name: p.name, games: p.games, goals: p.goals, assists: p.assists, cleanSheets: p.cleanSheets, point: p.point };
@@ -1267,7 +1267,7 @@ function _writeTournamentPlayerRecord(tournamentId, data) {
   var rows = data.players || [];
   if (rows.length === 0) return { success: true, count: 0 };
   var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var sheet = ss.getSheetByName("대회_" + tournamentId + "_선수기록");
+  var sheet = ss.getSheetByName("대회_" + tournamentId + "_대시보드");
   if (!sheet) return { success: false, error: "선수기록 시트 없음" };
   var lastRow = sheet.getLastRow();
   if (lastRow > 1) sheet.getRange(2, 1, lastRow - 1, 10).clearContent();
@@ -1282,7 +1282,7 @@ function _writeTournamentPlayerRecord(tournamentId, data) {
 
 function _getTournamentPlayerRecords(tournamentId) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var sheet = ss.getSheetByName("대회_" + tournamentId + "_선수기록");
+  var sheet = ss.getSheetByName("대회_" + tournamentId + "_대시보드");
   if (!sheet) return { success: true, players: [] };
   var lastRow = sheet.getLastRow();
   if (lastRow < 2) return { success: true, players: [] };
