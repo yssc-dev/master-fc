@@ -3,7 +3,8 @@ import { useTheme } from '../../hooks/useTheme';
 import { getSettings, saveSettings, getDefaults } from '../../config/settings';
 import AppSync from '../../services/appSync';
 
-export default function SettingsScreen({ teamName, onBack }) {
+export default function SettingsScreen({ teamName, teamMode, onBack }) {
+  const isSoccer = teamMode === "축구";
   const { C } = useTheme();
   const [settings, setSettings] = useState(() => getSettings(teamName));
   const defaults = getDefaults();
@@ -105,22 +106,33 @@ export default function SettingsScreen({ teamName, onBack }) {
         <SheetSelect label="대시보드 시트" value={settings.dashboardSheet} onChange={v => update("dashboardSheet", v)} />
         <SheetSelect label="포인트로그 시트" value={settings.pointLogSheet} onChange={v => update("pointLogSheet", v)} />
         <SheetSelect label="선수별집계 시트" value={settings.playerLogSheet} onChange={v => update("playerLogSheet", v)} />
+        {isSoccer && (
+          <SheetSelect label="이벤트로그 시트" value={settings.eventLogSheet} onChange={v => update("eventLogSheet", v)} />
+        )}
       </div>
 
       <div style={ss.section}>
         <div style={ss.sectionTitle}>경기규칙 설정</div>
-        <NumRow label="자책골 포인트" value={settings.ownGoalPoint} onChange={v => update("ownGoalPoint", v)} defaultVal={defaults.ownGoalPoint} />
-        <NumRow label="크로바(1위팀)" value={settings.crovaPoint} onChange={v => update("crovaPoint", v)} defaultVal={defaults.crovaPoint} />
-        <NumRow label="고구마(꼴찌팀)" value={settings.gogumaPoint} onChange={v => update("gogumaPoint", v)} defaultVal={defaults.gogumaPoint} />
-        <NumRow label="황금크로바/탄고구마" value={settings.bonusMultiplier} onChange={v => update("bonusMultiplier", v)} defaultVal={defaults.bonusMultiplier} suffix="배" />
-
-        <details style={{ fontSize: 11, color: C.gray, marginTop: 4 }}>
-          <summary style={{ cursor: "pointer", padding: "6px 0" }}>황금크로바 / 탄고구마 설명</summary>
-          <div style={{ background: C.card, borderRadius: 8, padding: 10, marginTop: 4 }}>
-            시즌 누적 크로바 1위가 꼴등팀 소속 → 고구마 {settings.gogumaPoint} × {settings.bonusMultiplier} = {settings.gogumaPoint * settings.bonusMultiplier}<br/>
-            시즌 누적 고구마 1위가 1등팀 소속 → 크로바 {settings.crovaPoint} × {settings.bonusMultiplier} = {settings.crovaPoint * settings.bonusMultiplier}
-          </div>
-        </details>
+        {isSoccer ? (
+          <>
+            <NumRow label="자책골 포인트" value={settings.ownGoalPoint} onChange={v => update("ownGoalPoint", v)} defaultVal={-1} />
+            <NumRow label="클린시트 포인트" value={settings.cleanSheetPoint} onChange={v => update("cleanSheetPoint", v)} defaultVal={defaults.cleanSheetPoint} />
+          </>
+        ) : (
+          <>
+            <NumRow label="자책골 포인트" value={settings.ownGoalPoint} onChange={v => update("ownGoalPoint", v)} defaultVal={defaults.ownGoalPoint} />
+            <NumRow label="크로바(1위팀)" value={settings.crovaPoint} onChange={v => update("crovaPoint", v)} defaultVal={defaults.crovaPoint} />
+            <NumRow label="고구마(꼴찌팀)" value={settings.gogumaPoint} onChange={v => update("gogumaPoint", v)} defaultVal={defaults.gogumaPoint} />
+            <NumRow label="황금크로바/탄고구마" value={settings.bonusMultiplier} onChange={v => update("bonusMultiplier", v)} defaultVal={defaults.bonusMultiplier} suffix="배" />
+            <details style={{ fontSize: 11, color: C.gray, marginTop: 4 }}>
+              <summary style={{ cursor: "pointer", padding: "6px 0" }}>황금크로바 / 탄고구마 설명</summary>
+              <div style={{ background: C.card, borderRadius: 8, padding: 10, marginTop: 4 }}>
+                시즌 누적 크로바 1위가 꼴등팀 소속 → 고구마 {settings.gogumaPoint} × {settings.bonusMultiplier} = {settings.gogumaPoint * settings.bonusMultiplier}<br/>
+                시즌 누적 고구마 1위가 1등팀 소속 → 크로바 {settings.crovaPoint} × {settings.bonusMultiplier} = {settings.crovaPoint * settings.bonusMultiplier}
+              </div>
+            </details>
+          </>
+        )}
       </div>
 
       <div style={ss.section}>

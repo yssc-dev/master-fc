@@ -167,7 +167,7 @@ export default function Root() {
   }
 
   if (screen === "settings") {
-    return <SettingsScreen teamName={selectedTeamName} onBack={() => setScreen("dashboard")} />;
+    return <SettingsScreen teamName={selectedTeamName} teamMode={teamContext?.mode} onBack={() => setScreen("dashboard")} />;
   }
 
   return <App authUser={authUser} teamContext={teamContext} isNewGame={isNewGame} gameMode={gameMode} gameId={activeGameId}

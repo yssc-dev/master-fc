@@ -68,6 +68,11 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
 
     // 새 경기: 모든 데이터 병렬 로딩
     _loadAllData(team);
+
+    // 축구팀이면 자동으로 축구 모드 설정
+    if (teamContext?.mode === "축구") {
+      dispatch({ type: 'SET_FIELDS', fields: { matchMode: "soccer", courtCount: 1 } });
+    }
   }, []);
 
   // 백그라운드로 시트 데이터 + 누적보너스 로딩 (이어하기 시)
@@ -639,31 +644,26 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
           )}
         </div>
         <PhaseIndicator activeIndex={0} />
+        {teamContext?.mode !== "축구" && (
         <div style={s.section}>
           <div style={s.sectionTitle}>⚙️ 경기 설정</div>
           <div style={s.card}>
-            {matchMode !== "soccer" && (
             <div style={{ marginBottom: 12 }}>
               <div style={{ fontSize: 12, color: C.gray, marginBottom: 6 }}>팀 수</div>
               <div style={s.row}>{(matchMode === "push" ? [3, 4, 5, 6] : [4, 5, 6]).map(n => <button key={n} onClick={() => set('teamCount', n)} style={s.btn(teamCount === n ? C.accent : C.grayDark, teamCount === n ? C.bg : C.white)}>{n}팀</button>)}</div>
             </div>
-            )}
-            {matchMode !== "soccer" && (
             <div style={{ marginBottom: 12 }}>
               <div style={{ fontSize: 12, color: C.gray, marginBottom: 6 }}>구장 수</div>
               <div style={s.row}>{[1, 2].map(n => <button key={n} onClick={() => { if (matchMode !== "push") set('courtCount', n); }} disabled={matchMode === "push"} style={{ ...s.btn(courtCount === n ? C.accent : C.grayDark, courtCount === n ? C.bg : C.white), opacity: matchMode === "push" && n !== 1 ? 0.3 : 1 }}>{n}코트</button>)}</div>
             </div>
-            )}
             <div style={{ marginBottom: 12 }}>
               <div style={{ fontSize: 12, color: C.gray, marginBottom: 6 }}>경기 모드</div>
               <div style={s.row}>
                 <button onClick={() => set('matchMode', 'schedule')} style={s.btn(matchMode === "schedule" ? C.accent : C.grayDark, matchMode === "schedule" ? C.bg : C.white)}>대진표</button>
                 <button onClick={() => set('matchMode', 'free')} style={s.btn(matchMode === "free" ? C.accent : C.grayDark, matchMode === "free" ? C.bg : C.white)}>자유대진</button>
                 <button onClick={() => { set('matchMode', 'push'); set('courtCount', 1); }} style={s.btn(matchMode === "push" ? C.accent : C.grayDark, matchMode === "push" ? C.bg : C.white)}>밀어내기</button>
-                <button onClick={() => { set('matchMode', 'soccer'); set('courtCount', 1); }} style={s.btn(matchMode === "soccer" ? C.accent : C.grayDark, matchMode === "soccer" ? C.bg : C.white)}>축구</button>
               </div>
             </div>
-            {matchMode !== "soccer" && (
             <div style={{ marginBottom: courtCount === 1 && matchMode === "schedule" ? 12 : 0 }}>
               <div style={{ fontSize: 12, color: C.gray, marginBottom: 6 }}>팀 편성 방식</div>
               <div style={s.row}>
@@ -671,20 +671,20 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
                 <button onClick={() => set('draftMode', 'free')} style={s.btn(draftMode === "free" ? C.accent : C.grayDark, draftMode === "free" ? C.bg : C.white)}>자유편성</button>
               </div>
             </div>
-            )}
-            {matchMode !== "soccer" && courtCount === 1 && matchMode === "schedule" && (
+            {courtCount === 1 && matchMode === "schedule" && (
               <div>
                 <div style={{ fontSize: 12, color: C.gray, marginBottom: 6 }}>회전 수</div>
                 <div style={s.row}>{[1, 2, 3, 4].map(n => <button key={n} onClick={() => set('rotations', n)} style={s.btn(rotations === n ? C.accent : C.grayDark, rotations === n ? C.bg : C.white)}>{n}회전</button>)}</div>
               </div>
             )}
-            {matchMode !== "soccer" && matchMode === "schedule" && courtCount === 2 && (
+            {matchMode === "schedule" && courtCount === 2 && (
               <div style={{ fontSize: 11, color: C.gray, marginTop: 8, background: C.cardLight, padding: 8, borderRadius: 8 }}>
                 {teamCount === 4 && "동일팀 4번씩 경기 · 12라운드"}{teamCount === 5 && "동일팀 2번씩 경기 · 10라운드"}{teamCount === 6 && "조별리그 → 순위별 재편성 · 12라운드"}
               </div>
             )}
           </div>
         </div>
+        )}
         <div style={s.section}>
           <div style={s.sectionTitle}>👥 참석자 선택 <span style={{ fontSize: 12, fontWeight: 400, color: C.gray }}>({attendees.length}명)</span></div>
           <div style={{ ...s.row, marginBottom: 10, flexWrap: "wrap" }}>
