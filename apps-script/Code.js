@@ -179,6 +179,22 @@ function doPost(e) {
       return _jsonResponse(_writeSoccerPointLog(body.data, body.pointLogSheet || ""));
     } else if (action === "writeSoccerPlayerLog") {
       return _jsonResponse(_writeSoccerPlayerLog(body.data, body.playerLogSheet || ""));
+    } else if (action === "createTournament") {
+      return _jsonResponse(_createTournament(body.data));
+    } else if (action === "getTournamentList") {
+      return _jsonResponse(_getTournamentList(requestTeam));
+    } else if (action === "getTournamentSchedule") {
+      return _jsonResponse(_getTournamentSchedule(body.tournamentId));
+    } else if (action === "updateTournamentMatchScore") {
+      return _jsonResponse(_updateTournamentMatchScore(body.tournamentId, body.matchNum, body.homeScore, body.awayScore));
+    } else if (action === "writeTournamentEventLog") {
+      return _jsonResponse(_writeTournamentEventLog(body.tournamentId, body.data));
+    } else if (action === "writeTournamentPlayerRecord") {
+      return _jsonResponse(_writeTournamentPlayerRecord(body.tournamentId, body.data));
+    } else if (action === "getTournamentPlayerRecords") {
+      return _jsonResponse(_getTournamentPlayerRecords(body.tournamentId));
+    } else if (action === "getTournamentEventLog") {
+      return _jsonResponse(_getTournamentEventLog(body.tournamentId));
     }
 
     return _errorResponse("Unknown action: " + action);
@@ -1075,4 +1091,160 @@ function _getPlayerLog(team, customSheetName) {
     });
   }
   return { success: true, players: players, debug: { totalRows: data.length, returned: players.length, requestedTeam: team, sheetName: sheetName, headers: headers } };
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 대회 관리
+// ═══════════════════════════════════════════════════════════════
+
+function _createTournament(data) {
+  if (!data || !data.id || !data.name) return { success: false, error: "필수 정보 누락" };
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var listSheet = ss.getSheetByName("대회_목록");
+  if (!listSheet) {
+    listSheet = ss.insertSheet("대회_목록");
+    listSheet.getRange("A1:H1").setValues([["대회ID","대회명","시작일","종료일","참가팀","대진형태","상태","생성시간"]]);
+    listSheet.getRange("A1:H1").setFontWeight("bold");
+  }
+  var lastRow = listSheet.getLastRow();
+  listSheet.getRange(lastRow + 1, 1, 1, 8).setValues([[
+    data.id, data.name, data.startDate || "", data.endDate || "",
+    (data.teams || []).join(","), data.format || "manual", "active", _kstNow()
+  ]]);
+  var schedSheet = ss.insertSheet("대회_" + data.id + "_일정");
+  schedSheet.getRange("A1:I1").setValues([["경기번호","날짜","라운드","홈팀","원정팀","홈스코어","원정스코어","우리팀여부","상태"]]);
+  schedSheet.getRange("A1:I1").setFontWeight("bold");
+  var matches = data.matches || [];
+  if (matches.length > 0) {
+    var ourTeam = data.ourTeam || "";
+    var values = matches.map(function(m) {
+      var isOurs = (m.home === ourTeam || m.away === ourTeam) ? "Y" : "N";
+      return [m.matchNum, m.date || "", m.round || "", m.home || "", m.away || "", "", "", isOurs, "scheduled"];
+    });
+    schedSheet.getRange(2, 1, values.length, 9).setValues(values);
+  }
+  var eventSheet = ss.insertSheet("대회_" + data.id + "_이벤트로그");
+  eventSheet.getRange("A1:G1").setValues([["경기번호","상대팀명","이벤트","선수","관련선수","포지션","입력시간"]]);
+  eventSheet.getRange("A1:G1").setFontWeight("bold");
+  var playerSheet = ss.insertSheet("대회_" + data.id + "_선수기록");
+  playerSheet.getRange("A1:J1").setValues([["선수명","전체경기","필드경기","키퍼경기","골","어시","클린시트","실점","자책골","포인트"]]);
+  playerSheet.getRange("A1:J1").setFontWeight("bold");
+  return { success: true, id: data.id };
+}
+
+function _getTournamentList(team) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName("대회_목록");
+  if (!sheet) return { success: true, tournaments: [] };
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return { success: true, tournaments: [] };
+  var data = sheet.getRange(2, 1, lastRow - 1, 8).getValues();
+  var list = data.filter(function(r) { return r[0]; }).map(function(r) {
+    return { id: String(r[0]), name: String(r[1]), startDate: _toDateStr(r[2]), endDate: _toDateStr(r[3]),
+      teams: String(r[4]).split(",").map(function(t) { return t.trim(); }).filter(Boolean),
+      format: String(r[5]), status: String(r[6]) };
+  });
+  return { success: true, tournaments: list };
+}
+
+function _getTournamentSchedule(tournamentId) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName("대회_" + tournamentId + "_일정");
+  if (!sheet) return { success: false, error: "일정 시트 없음" };
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return { success: true, matches: [] };
+  var data = sheet.getRange(2, 1, lastRow - 1, 9).getValues();
+  var matches = data.filter(function(r) { return r[0]; }).map(function(r) {
+    return { matchNum: Number(r[0]), date: _toDateStr(r[1]), round: String(r[2]),
+      home: String(r[3]), away: String(r[4]),
+      homeScore: r[5] !== "" ? Number(r[5]) : null, awayScore: r[6] !== "" ? Number(r[6]) : null,
+      isOurs: String(r[7]) === "Y", status: String(r[8]) };
+  });
+  return { success: true, matches: matches };
+}
+
+function _updateTournamentMatchScore(tournamentId, matchNum, homeScore, awayScore) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName("대회_" + tournamentId + "_일정");
+  if (!sheet) return { success: false, error: "일정 시트 없음" };
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return { success: false, error: "데이터 없음" };
+  var data = sheet.getRange(2, 1, lastRow - 1, 9).getValues();
+  for (var i = 0; i < data.length; i++) {
+    if (Number(data[i][0]) === matchNum) {
+      sheet.getRange(i + 2, 6).setValue(homeScore);
+      sheet.getRange(i + 2, 7).setValue(awayScore);
+      sheet.getRange(i + 2, 9).setValue("finished");
+      return { success: true };
+    }
+  }
+  return { success: false, error: "경기번호 " + matchNum + " 없음" };
+}
+
+function _writeTournamentEventLog(tournamentId, data) {
+  if (!data) return { success: false, error: "data 누락" };
+  var rows = data.events || [];
+  if (rows.length === 0) return { success: true, count: 0 };
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName("대회_" + tournamentId + "_이벤트로그");
+  if (!sheet) return { success: false, error: "이벤트로그 시트 없음" };
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(15000)) return { success: false, error: "잠금 획득 실패" };
+  try {
+    var values = rows.map(function(e) {
+      return [e.matchNum || "", e.opponent || "", e.event || "", e.player || "", e.relatedPlayer || "", e.position || "", e.inputTime || _kstNow()];
+    });
+    var lastRow = sheet.getLastRow();
+    sheet.getRange(lastRow + 1, 1, values.length, 7).setValues(values);
+    return { success: true, count: values.length };
+  } finally { lock.releaseLock(); }
+}
+
+function _writeTournamentPlayerRecord(tournamentId, data) {
+  if (!data) return { success: false, error: "data 누락" };
+  var rows = data.players || [];
+  if (rows.length === 0) return { success: true, count: 0 };
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName("대회_" + tournamentId + "_선수기록");
+  if (!sheet) return { success: false, error: "선수기록 시트 없음" };
+  var lastRow = sheet.getLastRow();
+  if (lastRow > 1) sheet.getRange(2, 1, lastRow - 1, 10).clearContent();
+  var values = rows.map(function(p) {
+    return [p.name, Number(p.games)||0, Number(p.fieldGames)||0, Number(p.keeperGames)||0,
+      Number(p.goals)||0, Number(p.assists)||0, Number(p.cleanSheets)||0,
+      Number(p.conceded)||0, Number(p.owngoals)||0, Number(p.point)||0];
+  });
+  sheet.getRange(2, 1, values.length, 10).setValues(values);
+  return { success: true, count: values.length };
+}
+
+function _getTournamentPlayerRecords(tournamentId) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName("대회_" + tournamentId + "_선수기록");
+  if (!sheet) return { success: true, players: [] };
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return { success: true, players: [] };
+  var data = sheet.getRange(2, 1, lastRow - 1, 10).getValues();
+  var players = data.filter(function(r) { return r[0]; }).map(function(r) {
+    return { name: String(r[0]), games: Number(r[1])||0, fieldGames: Number(r[2])||0,
+      keeperGames: Number(r[3])||0, goals: Number(r[4])||0, assists: Number(r[5])||0,
+      cleanSheets: Number(r[6])||0, conceded: Number(r[7])||0, owngoals: Number(r[8])||0,
+      point: Number(r[9])||0 };
+  });
+  return { success: true, players: players };
+}
+
+function _getTournamentEventLog(tournamentId) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName("대회_" + tournamentId + "_이벤트로그");
+  if (!sheet) return { success: true, events: [] };
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return { success: true, events: [] };
+  var data = sheet.getRange(2, 1, lastRow - 1, 7).getValues();
+  var events = data.filter(function(r) { return r[0]; }).map(function(r) {
+    return { matchNum: Number(r[0]), opponent: String(r[1]), event: String(r[2]),
+      player: String(r[3]), relatedPlayer: String(r[4]), position: String(r[5]),
+      inputTime: String(r[6]) };
+  });
+  return { success: true, events: events };
 }
