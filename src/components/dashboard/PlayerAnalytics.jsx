@@ -297,10 +297,9 @@ export default function PlayerAnalytics({ teamName, teamMode, initialTab, isAdmi
 
   const defenseStats = useMemo(() => {
     if (gameRecords && gameRecords.length > 0) return calcDefenseStats(gameRecords);
-    // stateJSON 없으면 대시보드 members에서 수비력 추출
-    if (isSoccer && members && members.length > 0) return calcDefenseFromMembers(members);
+    // 축구: stateJSON 없으면 수비력 측정 불가 (대시보드 실점=키퍼 실점이라 필드 수비력과 무관)
     return {};
-  }, [gameRecords, isSoccer, members]);
+  }, [gameRecords]);
   const winStats = useMemo(() => {
     if (gameRecords && gameRecords.length > 0) return calcWinContribution(gameRecords);
     // stateJSON 없으면 포인트로그에서 승리기여 추출 (골/어시 기록 있는 선수만)
