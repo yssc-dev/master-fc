@@ -312,8 +312,8 @@ export default function PlayerAnalytics({ teamName, teamMode, initialTab, isAdmi
     { key: "chemistry", label: "케미" },
     !isSoccer && { key: "crovaguma", label: "🍀/🍠" },
     { key: "playercard", label: "선수카드" },
-    { key: "synergy", label: "시너지" },
-    { key: "timepattern", label: "시간대" },
+    !isSoccer && { key: "synergy", label: "시너지" },
+    !isSoccer && { key: "timepattern", label: "시간대" },
     ...(initialTab === "dualteam" ? [{ key: "dualteam", label: "팀전" }] : []),
   ].filter(Boolean);
   const tabs = allTabs;
