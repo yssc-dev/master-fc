@@ -1129,11 +1129,6 @@ function _createTournament(data) {
     });
     schedSheet.getRange(2, 1, values.length, 9).setValues(values);
   }
-  // 대시보드 시트 생성 (명단 + 기록)
-  var dashSheet = ss.insertSheet("대회_" + data.id + "_대시보드");
-  dashSheet.getRange("A1:L1").setValues([["백넘버","이름","전체경기","필드경기","키퍼경기","골","어시","클린시트","포인트","실점","실점허용률","자책골"]]);
-  dashSheet.getRange("A1:L1").setFontWeight("bold");
-
   var eventSheet = ss.insertSheet("대회_" + data.id + "_이벤트로그");
   eventSheet.getRange("A1:G1").setValues([["경기번호","상대팀명","이벤트","선수","관련선수","포지션","입력시간"]]);
   eventSheet.getRange("A1:G1").setFontWeight("bold");
@@ -1147,7 +1142,7 @@ function _deleteTournament(tournamentId) {
   if (!tournamentId) return { success: false, error: "대회ID 누락" };
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   // 관련 시트 삭제
-  ["_대시보드", "_일정", "_이벤트로그", "_선수기록"].forEach(function(suffix) {
+  ["_일정", "_이벤트로그", "_선수기록"].forEach(function(suffix) {
     var sheet = ss.getSheetByName("대회_" + tournamentId + suffix);
     if (sheet) ss.deleteSheet(sheet);
   });
@@ -1192,48 +1187,11 @@ function _updateTournamentMatch(tournamentId, matchNum, updates) {
 }
 
 function _getTournamentRoster(tournamentId) {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var sheet = ss.getSheetByName("대회_" + tournamentId + "_대시보드");
-  if (!sheet) return { success: true, players: [] };
-  var lastRow = sheet.getLastRow();
-  if (lastRow < 2) return { success: true, players: [] };
-  // 헤더 행 자동 탐색
-  var colCount = sheet.getLastColumn();
-  var headerRow = 1;
-  var scanRows = sheet.getRange(1, 1, Math.min(5, lastRow), colCount).getValues();
-  for (var r = 0; r < scanRows.length; r++) {
-    if (scanRows[r].some(function(cell) { return String(cell).trim() === "이름"; })) {
-      headerRow = r + 1; break;
-    }
-  }
-  var dataStartRow = headerRow + 1;
-  if (dataStartRow > lastRow) return { success: true, players: [] };
-  var data = sheet.getRange(dataStartRow, 1, lastRow - dataStartRow + 1, colCount).getValues();
-  // 헤더 매핑
-  var headers = sheet.getRange(headerRow, 1, 1, colCount).getValues()[0].map(function(h) { return String(h).trim(); });
-  var cm = {};
-  for (var c = 0; c < headers.length; c++) {
-    var h = headers[c];
-    if (h === "백넘버") cm.backNum = c;
-    else if (h === "이름") cm.name = c;
-    else if (h === "골") cm.goals = c;
-    else if (h === "어시") cm.assists = c;
-    else if (h === "클린시트") cm.cleanSheets = c;
-    else if (h === "포인트") cm.point = c;
-    else if (h === "전체경기") cm.games = c;
-  }
-  var players = data.filter(function(r) { return cm.name !== undefined && r[cm.name]; }).map(function(r) {
-    return {
-      backNum: cm.backNum !== undefined ? String(r[cm.backNum]).trim() : "",
-      name: String(r[cm.name]).trim(),
-      games: cm.games !== undefined ? Number(r[cm.games]) || 0 : 0,
-      goals: cm.goals !== undefined ? Number(r[cm.goals]) || 0 : 0,
-      assists: cm.assists !== undefined ? Number(r[cm.assists]) || 0 : 0,
-      cleanSheets: cm.cleanSheets !== undefined ? Number(r[cm.cleanSheets]) || 0 : 0,
-      point: cm.point !== undefined ? Number(r[cm.point]) || 0 : 0,
-    };
-  });
-  return { success: true, players: players };
+  // _선수기록 시트에서 명단 조회 (선수기록 = 대시보드)
+  var result = _getTournamentPlayerRecords(tournamentId);
+  return { success: true, players: (result.players || []).map(function(p) {
+    return { name: p.name, games: p.games, goals: p.goals, assists: p.assists, cleanSheets: p.cleanSheets, point: p.point };
+  })};
 }
 
 function _getTournamentList(team) {
