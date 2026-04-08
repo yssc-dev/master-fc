@@ -6,6 +6,7 @@ import { useTheme } from '../../hooks/useTheme';
 import Modal from '../common/Modal';
 import RankingCandlestickChart from './RankingCandlestickChart';
 import PlayerAnalytics from './PlayerAnalytics';
+import TournamentListTab from '../tournament/TournamentListTab';
 
 export default function TeamDashboard({ authUser, teamName, teamEntries, onStartGame, onContinueGame, onViewHistory, onSettings, onSwitchTeam, onLogout, pendingGames = [], checkingPending }) {
   const { C, mode, toggle } = useTheme();
@@ -563,7 +564,8 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
           { key: "roster", label: "개인기록" },
           { key: "analytics", label: "분석" },
           { key: "games", label: "경기관리", badge: pendingGames.length > 0 },
-        ].map(tab => (
+          activeSport === "축구" && { key: "tournament", label: "대회" },
+        ].filter(Boolean).map(tab => (
           <button key={tab.key} onClick={() => setActiveTab(tab.key)} style={ds.mainTab(activeTab === tab.key)}>
             <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
               {tab.label}
@@ -585,6 +587,14 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
           </div>
         )}
         {activeTab === "games" && renderGames()}
+        {activeTab === "tournament" && (
+          <TournamentListTab
+            teamName={teamName} ourTeamName={teamName}
+            isAdmin={activeEntry?.role === "관리자"}
+            attendees={members.map(m => m.name)}
+            gameSettings={getSettings(teamName)}
+          />
+        )}
       </div>
 
       {selectedPlayer && (
