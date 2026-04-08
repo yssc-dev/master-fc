@@ -53,13 +53,53 @@ function parseCSV(text) {
   return players;
 }
 
+// 축구 대시보드 파싱
+// 컬럼: 년식(0), 백넘버(1), 이름(2), 전체경기(3), 필드경기(4), 키퍼경기(5), 골(6), 어시(7), 클린시트(8), 포인트(9), 실점(10), 실점허용률(11), 자책골(12)
+function parseSoccerCSV(text) {
+  const lines = text.split('\n');
+  const players = [];
+  // 헤더 행 찾기 ("이름" 포함 행)
+  let startRow = 3;
+  for (let i = 0; i < Math.min(lines.length, 10); i++) {
+    const f = parseCSVLine(lines[i]);
+    if (f.some(cell => cell.trim() === '이름')) { startRow = i + 1; break; }
+  }
+  for (let i = startRow; i < lines.length; i++) {
+    const line = lines[i];
+    if (!line.trim()) continue;
+    const f = parseCSVLine(line);
+    const name = (f[2] || '').trim();
+    if (!name || !/[가-힣]/.test(name)) continue;
+    players.push({
+      backNum: f[1] ? parseNum(f[1]) || null : null,
+      name,
+      games: parseNum(f[3]),
+      goals: parseNum(f[6]),
+      assists: parseNum(f[7]),
+      ownGoals: parseNum(f[12]),
+      point: parseNum(f[9]),
+      cleanSheets: parseNum(f[8]),
+      keeperGames: parseNum(f[5]),
+      conceded: parseNum(f[10]),
+      concededRate: parseFloat2(f[11]),
+      // 풋살 전용 필드 호환용 기본값
+      ppg: 0, rank: 0, goalsDelta: 0, assistsDelta: 0, ownGoalsDelta: 0,
+      crova: 0, goguma: 0, cleanSheetsDelta: 0, concededDelta: 0,
+    });
+  }
+  return players;
+}
+
 export async function fetchSheetData() {
-  const team = AuthUtil.getStored()?.team;
+  const auth = AuthUtil.getStored();
+  const team = auth?.team;
+  const mode = auth?.mode;
   const s = getSettings(team);
+  if (!s.dashboardSheet) throw new Error("대시보드 시트 미설정");
   const resp = await fetch(SHEET_CONFIG.csvUrlBySheet(s.sheetId, s.dashboardSheet));
   if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
   const text = await resp.text();
-  const players = parseCSV(text);
+  const players = mode === "축구" ? parseSoccerCSV(text) : parseCSV(text);
   if (players.length === 0) throw new Error("선수 데이터 없음");
   // 키퍼 섹션 파싱 (col 21~24, row 4+, row3=헤더 "선수명")
   const lines = text.split('\n');
@@ -80,11 +120,31 @@ export async function fetchSheetData() {
 }
 
 export async function fetchAttendanceData() {
-  const team2 = AuthUtil.getStored()?.team;
+  const auth2 = AuthUtil.getStored();
+  const team2 = auth2?.team;
+  const mode2 = auth2?.mode;
   const s2 = getSettings(team2);
+  if (!s2.attendanceSheet) throw new Error("참석명단 시트 미설정");
   const resp = await fetch(SHEET_CONFIG.csvUrlBySheet(s2.sheetId, s2.attendanceSheet));
   if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
   const text = await resp.text();
+
+  // 축구: 이름 컬럼(B)에서 선수명만 추출
+  if (mode2 === "축구") {
+    const lines = text.split('\n');
+    const attendees = [];
+    let startRow = 0;
+    for (let i = 0; i < Math.min(lines.length, 10); i++) {
+      const f = parseCSVLine(lines[i]);
+      if (f.some(cell => cell.trim() === '이름')) { startRow = i + 1; break; }
+    }
+    for (let i = startRow; i < lines.length; i++) {
+      const f = parseCSVLine(lines[i]);
+      const name = (f[1] || '').trim();
+      if (name && /^[가-힣]{2,5}$/.test(name)) attendees.push(name);
+    }
+    return { attendees, teamCount: 0, prebuiltTeams: [], prebuiltTeamNames: [] };
+  }
   const lines = text.split('\n');
 
   // CSV 구조 (참석명단 시트):
