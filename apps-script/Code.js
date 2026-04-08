@@ -1,6 +1,6 @@
 // ═══════════════════════════════════════════════════════════════
 // 풋살 웹앱 Apps Script v2.0
-// 최종 수정: 2026-04-08
+// 최종 수정: 2026-04-08 v2
 // 개선: 응답 표준화, 입력 검증, 팀 접근 제어, LockService 동시성 제어
 //
 // 배포: 배포 → 새 배포 → 웹 앱 → 실행 대상: 나, 액세스: 모든 사용자
@@ -949,27 +949,44 @@ function _getPointLog(team, customSheetName) {
   var lastRow = sheet.getLastRow();
   if (lastRow < 2) return { success: true, events: [] };
 
-  var data = sheet.getRange(2, 1, lastRow - 1, 10).getValues();
-  // 열: 경기일자(0), 경기번호(1), 내팀(2), 상대팀(3), 득점(4), 어시(5), 자책골(6), 실점키퍼(7), 입력시간(8), 팀이름(9)
+  var colCount = sheet.getLastColumn();
+  var headers = sheet.getRange(1, 1, 1, colCount).getValues()[0].map(function(h) { return String(h).trim(); });
+
+  // 헤더 기반 동적 컬럼 매핑 (풋살/축구 공통)
+  var cm = {};
+  for (var c = 0; c < headers.length; c++) {
+    var h = headers[c];
+    if (h === "경기일자") cm.date = c;
+    else if (h === "경기번호") cm.matchId = c;
+    else if (h === "내팀") cm.myTeam = c;
+    else if (h === "상대팀" || h === "상대팀명") cm.opponent = c;
+    else if (h === "득점" || h === "득점선수") cm.scorer = c;
+    else if (h === "어시" || h === "어시선수") cm.assist = c;
+    else if (h === "자책골") cm.ownGoal = c;
+    else if (h === "실점" || h === "실점키퍼" || h === "실점키퍼명") cm.concedingGk = c;
+    else if (h === "팀이름") cm.teamName = c;
+  }
+
+  var data = sheet.getRange(2, 1, lastRow - 1, colCount).getValues();
   var events = [];
   for (var i = 0; i < data.length; i++) {
-    if (!useCustomSheet) {
-      var rowTeam = data[i][9] ? String(data[i][9]).trim() : "";
+    if (cm.teamName !== undefined && !useCustomSheet) {
+      var rowTeam = data[i][cm.teamName] ? String(data[i][cm.teamName]).trim() : "";
       if (rowTeam && rowTeam !== team) continue;
     }
 
-    var dateStr = _toDateStr(data[i][0]);
+    var dateStr = _toDateStr(data[i][cm.date !== undefined ? cm.date : 0]);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) continue;
 
     events.push({
       date: dateStr,
-      matchId: String(data[i][1] || "").trim(),
-      myTeam: String(data[i][2] || "").trim(),
-      opponent: String(data[i][3] || "").trim(),
-      scorer: String(data[i][4] || "").trim(),
-      assist: String(data[i][5] || "").trim(),
-      ownGoal: String(data[i][6] || "").trim(),
-      concedingGk: String(data[i][7] || "").trim(),
+      matchId: cm.matchId !== undefined ? String(data[i][cm.matchId] || "").trim() : "",
+      myTeam: cm.myTeam !== undefined ? String(data[i][cm.myTeam] || "").trim() : "",
+      opponent: cm.opponent !== undefined ? String(data[i][cm.opponent] || "").trim() : "",
+      scorer: cm.scorer !== undefined ? String(data[i][cm.scorer] || "").trim() : "",
+      assist: cm.assist !== undefined ? String(data[i][cm.assist] || "").trim() : "",
+      ownGoal: cm.ownGoal !== undefined ? String(data[i][cm.ownGoal] || "").trim() : "",
+      concedingGk: cm.concedingGk !== undefined ? String(data[i][cm.concedingGk] || "").trim() : "",
     });
   }
 
@@ -990,35 +1007,50 @@ function _getPlayerLog(team, customSheetName) {
   var lastRow = sheet.getLastRow();
   if (lastRow < 2) return { success: true, players: [] };
 
-  var data = sheet.getRange(2, 1, lastRow - 1, 13).getValues();
+  var colCount = sheet.getLastColumn();
+  var headers = sheet.getRange(1, 1, 1, colCount).getValues()[0].map(function(h) { return String(h).trim(); });
+
+  // 헤더 기반 동적 컬럼 매핑 (풋살/축구 공통)
+  var cm = {};
+  for (var c = 0; c < headers.length; c++) {
+    var h = headers[c];
+    if (h === "경기일자") cm.date = c;
+    else if (h === "선수명") cm.name = c;
+    else if (h === "골") cm.goals = c;
+    else if (h === "어시") cm.assists = c;
+    else if (h === "역주행" || h === "자책골") cm.ownGoals = c;
+    else if (h === "실점") cm.conceded = c;
+    else if (h === "클린시트") cm.cleanSheets = c;
+    else if (h === "크로바") cm.crova = c;
+    else if (h === "고구마") cm.goguma = c;
+    else if (h === "키퍼경기수" || h === "키퍼경기") cm.keeperGames = c;
+    else if (h === "팀순위점수") cm.rankScore = c;
+    else if (h === "소속팀") cm.teamName = c;
+  }
+
+  var data = sheet.getRange(2, 1, lastRow - 1, colCount).getValues();
   var players = [];
   for (var i = 0; i < data.length; i++) {
-    // 커스텀 시트면 팀 필터 생략 (사용자가 직접 지정한 시트)
-    if (!useCustomSheet) {
-      var rowTeam = data[i][12] ? String(data[i][12]).trim() : "";
+    if (cm.teamName !== undefined && !useCustomSheet) {
+      var rowTeam = data[i][cm.teamName] ? String(data[i][cm.teamName]).trim() : "";
       if (rowTeam && rowTeam !== team) continue;
     }
-    var dateStr = _toDateStr(data[i][0]);
+    var dateStr = _toDateStr(data[i][cm.date !== undefined ? cm.date : 0]);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) continue;
-    var name = String(data[i][1]).trim();
+    var name = String(data[i][cm.name !== undefined ? cm.name : 1]).trim();
     if (!name) continue;
     players.push({
       date: dateStr, name: name,
-      goals: Number(data[i][2]) || 0, assists: Number(data[i][3]) || 0,
-      ownGoals: Number(data[i][4]) || 0, conceded: Number(data[i][5]) || 0,
-      cleanSheets: Number(data[i][6]) || 0, crova: Number(data[i][7]) || 0,
-      goguma: Number(data[i][8]) || 0, keeperGames: Number(data[i][9]) || 0,
-      rankScore: Number(data[i][10]) || 0,
+      goals: cm.goals !== undefined ? Number(data[i][cm.goals]) || 0 : 0,
+      assists: cm.assists !== undefined ? Number(data[i][cm.assists]) || 0 : 0,
+      ownGoals: cm.ownGoals !== undefined ? Number(data[i][cm.ownGoals]) || 0 : 0,
+      conceded: cm.conceded !== undefined ? Number(data[i][cm.conceded]) || 0 : 0,
+      cleanSheets: cm.cleanSheets !== undefined ? Number(data[i][cm.cleanSheets]) || 0 : 0,
+      crova: cm.crova !== undefined ? Number(data[i][cm.crova]) || 0 : 0,
+      goguma: cm.goguma !== undefined ? Number(data[i][cm.goguma]) || 0 : 0,
+      keeperGames: cm.keeperGames !== undefined ? Number(data[i][cm.keeperGames]) || 0 : 0,
+      rankScore: cm.rankScore !== undefined ? Number(data[i][cm.rankScore]) || 0 : 0,
     });
   }
-  // 디버그: 첫 5행 원본 + 스킵된 행 수
-  // 스킵된 팀이름 샘플 수집
-  var skippedTeamNames = {};
-  for (var d = 0; d < data.length; d++) {
-    var rt = data[d][12] ? String(data[d][12]).trim() : "";
-    if (rt && rt !== team) {
-      skippedTeamNames[rt] = (skippedTeamNames[rt] || 0) + 1;
-    }
-  }
-  return { success: true, players: players, debug: { totalRows: data.length, returned: players.length, skippedTeamNames: skippedTeamNames, requestedTeam: team, sheetName: sheetName } };
+  return { success: true, players: players, debug: { totalRows: data.length, returned: players.length, requestedTeam: team, sheetName: sheetName, headers: headers } };
 }
