@@ -115,9 +115,12 @@ export default function TournamentMatchManager({ tournament, schedule, ourTeamNa
             const opponent = m.home === ourTeamName ? m.away : m.home;
             return (
               <div key={m.matchNum} onClick={() => { setSelectedMatch(m); setPhase("lineup"); }}
-                style={{ display: "flex", justifyContent: "space-between", padding: "10px 12px", background: `${C.accent}11`, borderRadius: 8, marginBottom: 4, cursor: "pointer", borderLeft: `3px solid ${C.accent}` }}>
-                <span style={{ fontSize: 13, fontWeight: 600, color: C.white }}>제{m.matchNum}경기 vs {opponent}</span>
-                <span style={{ fontSize: 11, color: C.gray }}>{m.date || "미정"}</span>
+                style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 14px", background: `${C.accent}11`, borderRadius: 10, marginBottom: 6, cursor: "pointer", borderLeft: `3px solid ${C.accent}` }}>
+                <div>
+                  <div style={{ fontSize: 11, color: C.gray }}>제{m.matchNum}경기 · {m.date || "미정"}</div>
+                  <div style={{ fontSize: 16, fontWeight: 800, color: C.white, marginTop: 2 }}>vs {opponent}</div>
+                </div>
+                <div style={{ fontSize: 12, color: C.accent, fontWeight: 600 }}>기록 →</div>
               </div>
             );
           })}
