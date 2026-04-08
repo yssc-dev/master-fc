@@ -221,6 +221,86 @@ const AppSync = {
     } catch (e) { console.warn("축구 선수별집계 저장 실패:", e.message); return null; }
   },
 
+  // ── 대회 ──
+
+  async createTournament(data) {
+    if (!this.enabled()) return null;
+    try {
+      const team = this._getTeam();
+      const resp = await fetch(APPS_SCRIPT_URL, { method: "POST", headers: { "Content-Type": "text/plain" },
+        body: JSON.stringify({ action: "createTournament", data: { ...data, team }, authToken: this._getAuthToken() }) });
+      return await resp.json();
+    } catch (e) { console.warn("대회 생성 실패:", e.message); return null; }
+  },
+
+  async getTournamentList() {
+    if (!this.enabled()) return [];
+    try {
+      const team = this._getTeam();
+      const resp = await fetch(APPS_SCRIPT_URL, { method: "POST", headers: { "Content-Type": "text/plain" },
+        body: JSON.stringify({ action: "getTournamentList", team, authToken: this._getAuthToken() }) });
+      const data = await resp.json();
+      return data.tournaments || [];
+    } catch (e) { console.warn("대회 목록 조회 실패:", e.message); return []; }
+  },
+
+  async getTournamentSchedule(tournamentId) {
+    if (!this.enabled()) return [];
+    try {
+      const resp = await fetch(APPS_SCRIPT_URL, { method: "POST", headers: { "Content-Type": "text/plain" },
+        body: JSON.stringify({ action: "getTournamentSchedule", tournamentId, team: this._getTeam(), authToken: this._getAuthToken() }) });
+      const data = await resp.json();
+      return data.matches || [];
+    } catch (e) { console.warn("대회 일정 조회 실패:", e.message); return []; }
+  },
+
+  async updateTournamentMatchScore(tournamentId, matchNum, homeScore, awayScore) {
+    if (!this.enabled()) return null;
+    try {
+      const resp = await fetch(APPS_SCRIPT_URL, { method: "POST", headers: { "Content-Type": "text/plain" },
+        body: JSON.stringify({ action: "updateTournamentMatchScore", tournamentId, matchNum, homeScore, awayScore, team: this._getTeam(), authToken: this._getAuthToken() }) });
+      return await resp.json();
+    } catch (e) { console.warn("스코어 업데이트 실패:", e.message); return null; }
+  },
+
+  async writeTournamentEventLog(tournamentId, data) {
+    if (!this.enabled()) return null;
+    try {
+      const resp = await fetch(APPS_SCRIPT_URL, { method: "POST", headers: { "Content-Type": "text/plain" },
+        body: JSON.stringify({ action: "writeTournamentEventLog", tournamentId, data, team: this._getTeam(), authToken: this._getAuthToken() }) });
+      return await resp.json();
+    } catch (e) { console.warn("대회 이벤트로그 저장 실패:", e.message); return null; }
+  },
+
+  async writeTournamentPlayerRecord(tournamentId, data) {
+    if (!this.enabled()) return null;
+    try {
+      const resp = await fetch(APPS_SCRIPT_URL, { method: "POST", headers: { "Content-Type": "text/plain" },
+        body: JSON.stringify({ action: "writeTournamentPlayerRecord", tournamentId, data, team: this._getTeam(), authToken: this._getAuthToken() }) });
+      return await resp.json();
+    } catch (e) { console.warn("대회 선수기록 저장 실패:", e.message); return null; }
+  },
+
+  async getTournamentPlayerRecords(tournamentId) {
+    if (!this.enabled()) return [];
+    try {
+      const resp = await fetch(APPS_SCRIPT_URL, { method: "POST", headers: { "Content-Type": "text/plain" },
+        body: JSON.stringify({ action: "getTournamentPlayerRecords", tournamentId, team: this._getTeam(), authToken: this._getAuthToken() }) });
+      const data = await resp.json();
+      return data.players || [];
+    } catch (e) { console.warn("대회 선수기록 조회 실패:", e.message); return []; }
+  },
+
+  async getTournamentEventLog(tournamentId) {
+    if (!this.enabled()) return [];
+    try {
+      const resp = await fetch(APPS_SCRIPT_URL, { method: "POST", headers: { "Content-Type": "text/plain" },
+        body: JSON.stringify({ action: "getTournamentEventLog", tournamentId, team: this._getTeam(), authToken: this._getAuthToken() }) });
+      const data = await resp.json();
+      return data.events || [];
+    } catch (e) { console.warn("대회 이벤트로그 조회 실패:", e.message); return []; }
+  },
+
   async verifyAuth(name, phone4) {
     if (!this.enabled()) return { success: false, message: "서버 연결 불가" };
     try {
