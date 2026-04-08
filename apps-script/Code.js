@@ -950,7 +950,16 @@ function _getPointLog(team, customSheetName) {
   if (lastRow < 2) return { success: true, events: [] };
 
   var colCount = sheet.getLastColumn();
-  var headers = sheet.getRange(1, 1, 1, colCount).getValues()[0].map(function(h) { return String(h).trim(); });
+  // 헤더 행 자동 탐색 (1~5행 중 "경기일자" 포함 행)
+  var headerRow = 1;
+  var scanRows = sheet.getRange(1, 1, Math.min(5, lastRow), colCount).getValues();
+  for (var r = 0; r < scanRows.length; r++) {
+    if (scanRows[r].some(function(cell) { return String(cell).trim() === "경기일자"; })) {
+      headerRow = r + 1;
+      break;
+    }
+  }
+  var headers = sheet.getRange(headerRow, 1, 1, colCount).getValues()[0].map(function(h) { return String(h).trim(); });
 
   // 헤더 기반 동적 컬럼 매핑 (풋살/축구 공통)
   var cm = {};
@@ -967,7 +976,9 @@ function _getPointLog(team, customSheetName) {
     else if (h === "팀이름") cm.teamName = c;
   }
 
-  var data = sheet.getRange(2, 1, lastRow - 1, colCount).getValues();
+  var dataStartRow = headerRow + 1;
+  if (dataStartRow > lastRow) return { success: true, events: [] };
+  var data = sheet.getRange(dataStartRow, 1, lastRow - dataStartRow + 1, colCount).getValues();
   var events = [];
   for (var i = 0; i < data.length; i++) {
     if (cm.teamName !== undefined && !useCustomSheet) {
@@ -1008,7 +1019,16 @@ function _getPlayerLog(team, customSheetName) {
   if (lastRow < 2) return { success: true, players: [] };
 
   var colCount = sheet.getLastColumn();
-  var headers = sheet.getRange(1, 1, 1, colCount).getValues()[0].map(function(h) { return String(h).trim(); });
+  // 헤더 행 자동 탐색 (1~5행 중 "선수명" 또는 "경기일자" 포함 행)
+  var headerRow = 1;
+  var scanRows = sheet.getRange(1, 1, Math.min(5, lastRow), colCount).getValues();
+  for (var r = 0; r < scanRows.length; r++) {
+    if (scanRows[r].some(function(cell) { var s = String(cell).trim(); return s === "선수명" || s === "경기일자"; })) {
+      headerRow = r + 1;
+      break;
+    }
+  }
+  var headers = sheet.getRange(headerRow, 1, 1, colCount).getValues()[0].map(function(h) { return String(h).trim(); });
 
   // 헤더 기반 동적 컬럼 매핑 (풋살/축구 공통)
   var cm = {};
@@ -1028,7 +1048,9 @@ function _getPlayerLog(team, customSheetName) {
     else if (h === "소속팀") cm.teamName = c;
   }
 
-  var data = sheet.getRange(2, 1, lastRow - 1, colCount).getValues();
+  var dataStartRow = headerRow + 1;
+  if (dataStartRow > lastRow) return { success: true, players: [] };
+  var data = sheet.getRange(dataStartRow, 1, lastRow - dataStartRow + 1, colCount).getValues();
   var players = [];
   for (var i = 0; i < data.length; i++) {
     if (cm.teamName !== undefined && !useCustomSheet) {
