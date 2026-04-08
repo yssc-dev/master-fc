@@ -1,50 +1,34 @@
 // src/utils/tournamentBrackets.js
 
-export function generateFullLeague(teams) {
+/**
+ * 풀리그: 우리팀 경기만 생성 (각 상대팀과 1번씩)
+ * @param {string[]} teams - 참가팀 목록
+ * @param {string} ourTeam - 우리팀 이름
+ */
+export function generateFullLeague(teams, ourTeam) {
   const matches = [];
   let matchNum = 1;
-  const n = teams.length;
-  for (let i = 0; i < n; i++) {
-    for (let j = i + 1; j < n; j++) {
-      matches.push({ matchNum: matchNum++, round: "", home: teams[i], away: teams[j] });
-    }
-  }
-  const perRound = Math.floor(n / 2);
-  matches.forEach((m, i) => { m.round = `${Math.floor(i / perRound) + 1}R`; });
-  return matches;
-}
-
-export function generateKnockout(teams) {
-  const matches = [];
-  let matchNum = 1;
-  const roundNames = (total) => {
-    if (total <= 2) return ["결승"];
-    if (total <= 4) return ["준결승", "결승"];
-    if (total <= 8) return ["8강", "준결승", "결승"];
-    if (total <= 16) return ["16강", "8강", "준결승", "결승"];
-    return Array.from({ length: Math.ceil(Math.log2(total)) }, (_, i) => `${i + 1}R`);
-  };
-  const n = teams.length;
-  const rounds = roundNames(n);
-  const firstRoundPairs = Math.ceil(n / 2);
-  for (let i = 0; i < firstRoundPairs; i++) {
-    const home = teams[i * 2];
-    const away = teams[i * 2 + 1] || "부전승";
-    matches.push({ matchNum: matchNum++, round: rounds[0], home, away });
-  }
-  let prevCount = firstRoundPairs;
-  for (let r = 1; r < rounds.length; r++) {
-    const count = Math.ceil(prevCount / 2);
-    for (let i = 0; i < count; i++) {
-      matches.push({ matchNum: matchNum++, round: rounds[r], home: "", away: "" });
-    }
-    prevCount = count;
+  for (const team of teams) {
+    if (team === ourTeam) continue;
+    matches.push({ matchNum: matchNum++, round: "", home: ourTeam, away: team });
   }
   return matches;
 }
 
-export function generateManual(matchCount) {
+/**
+ * 녹아웃: 우리팀 첫 경기만 생성 (이후 경기는 승리 시 추가)
+ */
+export function generateKnockout(teams, ourTeam) {
+  const opponents = teams.filter(t => t !== ourTeam);
+  if (opponents.length === 0) return [];
+  return [{ matchNum: 1, round: "1R", home: ourTeam, away: opponents[0] }];
+}
+
+/**
+ * 수동: 빈 경기 슬롯 생성
+ */
+export function generateManual(matchCount, ourTeam) {
   return Array.from({ length: matchCount }, (_, i) => ({
-    matchNum: i + 1, round: "", home: "", away: "",
+    matchNum: i + 1, round: "", home: ourTeam || "", away: "",
   }));
 }

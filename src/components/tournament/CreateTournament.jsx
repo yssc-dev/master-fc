@@ -22,9 +22,9 @@ export default function CreateTournament({ ourTeamName, onSubmit, onCancel }) {
     if (!name.trim()) { alert("대회명을 입력하세요."); return; }
     if (teams.length < 2) { alert("참가팀이 2팀 이상이어야 합니다."); return; }
     let matches = [];
-    if (format === "fullLeague") matches = generateFullLeague(teams);
-    else if (format === "knockout") matches = generateKnockout(teams);
-    else matches = generateManual(matchCount);
+    if (format === "fullLeague") matches = generateFullLeague(teams, ourTeamName);
+    else if (format === "knockout") matches = generateKnockout(teams, ourTeamName);
+    else matches = generateManual(matchCount, ourTeamName);
     onSubmit({ id: name.trim().replace(/\s+/g, "_"), name: name.trim(), startDate, endDate, teams, format, matches, ourTeam: ourTeamName });
   };
 
@@ -75,7 +75,7 @@ export default function CreateTournament({ ourTeamName, onSubmit, onCancel }) {
           </div>
         )}
         <div style={{ marginTop: 6, fontSize: 11, color: C.gray }}>
-          {format === "fullLeague" && teams.length >= 2 && `${teams.length}팀 풀리그 = ${teams.length * (teams.length - 1) / 2}경기 (각 팀 1번씩)`}
+          {format === "fullLeague" && teams.length >= 2 && `${teams.length}팀 풀리그 = 우리팀 ${teams.length - 1}경기`}
           {format === "knockout" && teams.length >= 2 && `${teams.length}팀 녹아웃 = ${teams.length - 1}경기 (단판 토너먼트)`}
           {format === "manual" && `자유 대진: ${matchCount}경기 생성 후 홈/원정팀 직접 편집`}
         </div>
