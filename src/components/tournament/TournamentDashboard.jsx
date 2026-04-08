@@ -51,14 +51,12 @@ export default function TournamentDashboard({ tournament, ourTeamName, gameSetti
 
   return (
     <div>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-        <button onClick={onBack} style={{ padding: "6px 12px", borderRadius: 8, background: C.grayDark, color: C.white, border: "none", fontSize: 12, cursor: "pointer" }}>← 대회 목록</button>
-        <div>
-          <div style={{ fontSize: 16, fontWeight: 800, color: C.white }}>{tournament.name}</div>
-          <div style={{ fontSize: 11, color: C.gray }}>{tournament.startDate} ~ {tournament.endDate} · {tournament.teams.length}팀</div>
-        </div>
+      <div style={{ padding: "0 16px 8px" }}>
+        <div style={{ fontSize: 16, fontWeight: 800, color: C.white }}>{tournament.name}</div>
+        <div style={{ fontSize: 11, color: C.gray }}>{tournament.startDate} ~ {tournament.endDate} · {tournament.teams.length}팀</div>
       </div>
       <div style={{ display: "flex", background: C.bg, borderBottom: `1px solid ${C.grayDarker}`, marginBottom: 12 }}>
+        <button onClick={onBack} style={{ ...tabStyle(false), flex: "none", padding: "10px 12px", fontSize: 12 }}>← 목록</button>
         {[{ key: "dashboard", label: "대시보드" }, { key: "players", label: "개인기록" }, { key: "manage", label: "경기관리" }].map(t => (
           <button key={t.key} onClick={() => setTab(t.key)} style={tabStyle(tab === t.key)}>{t.label}</button>
         ))}
