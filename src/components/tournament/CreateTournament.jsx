@@ -47,7 +47,6 @@ export default function CreateTournament({ ourTeamName, onSubmit, onCancel }) {
         <div style={{ flex: 1 }}><label style={is.label}>시작일</label><input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} style={is.input} /></div>
         <div style={{ flex: 1 }}><label style={is.label}>종료일</label><input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} style={is.input} /></div>
       </div>
-      <div style={is.section}>
       <div style={{ display: "flex", gap: 8, ...is.section }}>
         <div style={{ flex: 1 }}><label style={is.label}>기본 경기시간(분)</label><input type="number" value={defaultMinutes} onChange={e => setDefaultMinutes(Number(e.target.value) || 90)} style={{ ...is.input, width: "100%" }} /></div>
         <div style={{ flex: 1 }}><label style={is.label}>기본 구장</label><input value={defaultVenue} onChange={e => setDefaultVenue(e.target.value)} placeholder="구장명" style={is.input} /></div>
