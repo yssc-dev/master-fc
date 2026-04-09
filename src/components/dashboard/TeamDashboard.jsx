@@ -301,10 +301,11 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
           {/* 출석률 */}
           {activePlayers.length > 0 && (
             <div style={ds.section}>
-              <div style={ds.sectionTitle}>출석률 TOP 10 <span style={{ fontSize: 11, fontWeight: 400, color: C.gray }}>(전체 {maxGames}경기 기준)</span></div>
+              <div style={ds.sectionTitle}>출석률 TOP 10 <span style={{ fontSize: 11, fontWeight: 400, color: C.gray }}>(전체 {activeSport === "축구" && teamRecord ? teamRecord.games : maxGames}경기 기준)</span></div>
               <div style={{ ...ds.card, display: "flex", flexWrap: "wrap", gap: 0 }}>
                 {[...members].filter(p => p.games > 0).sort((a, b) => b.games - a.games).slice(0, 10).map((p, i) => {
-                  const ratio = p.games / (maxGames || 1);
+                  const totalGames = (activeSport === "축구" && teamRecord) ? teamRecord.games : maxGames;
+                  const ratio = p.games / (totalGames || 1);
                   const opacity = 0.3 + ratio * 0.7;
                   return (
                     <div key={i} style={{ width: "50%", display: "flex", justifyContent: "space-between", alignItems: "center", padding: "5px 6px", fontSize: 12 }}>
