@@ -137,7 +137,8 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
             </div>
           )}
 
-          {/* 시즌 요약 카드 */}
+          {/* 시즌 요약 카드 (풋살만) */}
+          {activeSport !== "축구" && (
           <div style={ds.section}>
             <div style={{ display: "flex", gap: 8 }}>
               {[
@@ -153,6 +154,7 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
               ))}
             </div>
           </div>
+          )}
 
           {/* 포인트 TOP 5 */}
           {members.length > 0 && (
