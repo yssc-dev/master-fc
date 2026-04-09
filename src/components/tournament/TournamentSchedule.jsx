@@ -5,6 +5,7 @@ export default function TournamentSchedule({ schedule, ourTeamName, teams, onUpd
   const { C } = useTheme();
   const [editingMatch, setEditingMatch] = useState(null);
   const [editData, setEditData] = useState({});
+  const [showAll, setShowAll] = useState(false);
 
   const startEdit = (m) => {
     setEditingMatch(m.matchNum);
@@ -39,8 +40,19 @@ export default function TournamentSchedule({ schedule, ourTeamName, teams, onUpd
 
   // 우리팀 경기만 표시
   const ourSchedule = schedule.filter(m => m.isOurs);
+
+  // 다음 경기 찾기 (미완료 중 첫 번째)
+  const nextMatch = ourSchedule.find(m => m.status !== "finished");
+  // 최근 결과 (완료된 경기 중 마지막)
+  const lastResult = [...ourSchedule].reverse().find(m => m.status === "finished");
+
+  // 표시할 경기: 축소 모드에서는 최근결과 + 다음경기만
+  const displaySchedule = showAll ? ourSchedule : ourSchedule.filter(m =>
+    (lastResult && m.matchNum === lastResult.matchNum) || (nextMatch && m.matchNum === nextMatch.matchNum)
+  );
+
   const grouped = {};
-  ourSchedule.forEach(m => { const key = m.date || "미정"; if (!grouped[key]) grouped[key] = []; grouped[key].push(m); });
+  displaySchedule.forEach(m => { const key = m.date || "미정"; if (!grouped[key]) grouped[key] = []; grouped[key].push(m); });
   // 날짜순 정렬
   const sortedEntries = Object.entries(grouped).sort((a, b) => {
     if (a[0] === "미정") return 1;
@@ -54,7 +66,10 @@ export default function TournamentSchedule({ schedule, ourTeamName, teams, onUpd
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
         <div style={{ fontSize: 13, fontWeight: 700, color: C.white }}>경기 일정</div>
-        {isAdmin && <div style={{ fontSize: 10, color: C.grayDark }}>경기를 탭하여 편집</div>}
+        <button onClick={() => setShowAll(!showAll)}
+          style={{ padding: "4px 10px", borderRadius: 6, border: "none", fontSize: 11, cursor: "pointer", background: showAll ? C.accent : C.grayDarker, color: showAll ? C.bg : C.grayLight }}>
+          {showAll ? "간략히" : `전체 일정 (${ourSchedule.length})`}
+        </button>
       </div>
       {sortedEntries.map(([date, matches]) => (
         <div key={date} style={{ marginBottom: 12 }}>

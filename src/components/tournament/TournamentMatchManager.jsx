@@ -20,8 +20,9 @@ export default function TournamentMatchManager({ tournament, schedule, ourTeamNa
   const teamSafe = (ourTeamName || "").replace(/[.#$/[\]]/g, "_");
   const fbPath = `tournaments/${teamSafe}/${tournament.id}/activeGame`;
 
-  const ourMatches = schedule.filter(m => m.isOurs && m.status !== "finished");
-  const otherMatches = schedule.filter(m => !m.isOurs && m.status !== "finished");
+  const safeSchedule = schedule || [];
+  const ourMatches = safeSchedule.filter(m => m.isOurs && m.status !== "finished");
+  const otherMatches = safeSchedule.filter(m => !m.isOurs && m.status !== "finished");
 
   /* ---- Firebase auto-save (debounced) ---- */
   const autoSave = useCallback((state) => {
@@ -39,7 +40,7 @@ export default function TournamentMatchManager({ tournament, schedule, ourTeamNa
       if (!snap.exists()) return;
       const saved = snap.val();
       // find the matching schedule entry
-      const match = schedule.find(m => m.matchNum === saved.matchNum && m.isOurs && m.status !== "finished");
+      const match = (schedule || []).find(m => m.matchNum === saved.matchNum && m.isOurs && m.status !== "finished");
       if (!match) return;
       setSelectedMatch(match);
       setMatchState({ ...saved, events: saved.events || [] });
