@@ -113,7 +113,10 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
             <div style={ds.section}>
               <div style={{ background: C.card, borderRadius: 12, padding: 14 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: C.white }}>팀 전적</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: C.white }}>팀 전적</span>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: C.accent }}>{teamRecord.games > 0 ? Math.round((teamRecord.wins / teamRecord.games) * 100) : 0}%</span>
+                  </div>
                   <div style={{ display: "flex", gap: 3 }}>
                     {teamRecord.form.map((r, i) => (
                       <span key={i} style={{
