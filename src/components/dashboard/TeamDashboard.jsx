@@ -26,6 +26,7 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
 
   const activeEntry = teamEntries.find(e => e.mode === activeSport) || teamEntries[0];
   const [teamRecord, setTeamRecord] = useState(null);
+  const [opponentRecords, setOpponentRecords] = useState([]); // [{opponent, games, wins, draws, losses, gf, ga}]
   const [attendanceData, setAttendanceData] = useState(null); // { totalDates, playerDates: {name: count} }
 
   useEffect(() => {
@@ -71,6 +72,36 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
           else { draws++; form.push("D"); }
         }
         setTeamRecord({ wins, draws, losses, gf, ga, games: sorted.length, form: form.slice(-5) });
+        // 상대팀별 전적
+        const oppMap = {};
+        for (const e of events) {
+          if (!e.date || !e.matchId || !e.opponent) continue;
+          const key = `${e.date}_${e.matchId}`;
+          if (!oppMap[key]) oppMap[key] = { opponent: e.opponent };
+        }
+        const oppStats = {};
+        for (const m of sorted) {
+          const info = Object.values(oppMap).find(o => true); // need opponent from events
+        }
+        // 더 정확한 방법: events에서 opponent 추출
+        const matchOpponents = {};
+        for (const e of events) {
+          if (!e.date || !e.matchId) continue;
+          const key = `${e.date}_${e.matchId}`;
+          if (e.opponent && !matchOpponents[key]) matchOpponents[key] = e.opponent;
+        }
+        const oppRec = {};
+        for (const m of sorted) {
+          const key = `${m.date}_${m.matchId}`;
+          const opp = matchOpponents[key];
+          if (!opp) continue;
+          if (!oppRec[opp]) oppRec[opp] = { opponent: opp, games: 0, wins: 0, draws: 0, losses: 0, gf: 0, ga: 0 };
+          oppRec[opp].games++; oppRec[opp].gf += m.ourGoals; oppRec[opp].ga += m.opponentGoals;
+          if (m.ourGoals > m.opponentGoals) oppRec[opp].wins++;
+          else if (m.ourGoals < m.opponentGoals) oppRec[opp].losses++;
+          else oppRec[opp].draws++;
+        }
+        setOpponentRecords(Object.values(oppRec).sort((a, b) => b.games - a.games));
       }).catch(() => {});
     }
   }, []);
@@ -401,14 +432,14 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
     { key: "goals", label: "골" },
     { key: "assists", label: "어시" },
     { key: "ownGoals", label: "자책" },
-    { key: "crova", label: "🍀" },
-    { key: "goguma", label: "🍠" },
+    activeSport !== "축구" && { key: "crova", label: "🍀" },
+    activeSport !== "축구" && { key: "goguma", label: "🍠" },
     { key: "point", label: "PT" },
     { key: "cleanSheets", label: "CS" },
     { key: "keeperGames", label: "GK" },
     { key: "conceded", label: "실점" },
     { key: "concededRate", label: "실점률" },
-  ];
+  ].filter(Boolean);
 
   // 포인트 기준 고정 랭킹 (대시보드 정렬과 동일)
   const pointRankMap = useMemo(() => {
@@ -446,10 +477,36 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
   };
 
   const renderRoster = () => (
+    <>
+    {/* 상대팀별 전적 (축구) */}
+    {activeSport === "축구" && opponentRecords.length > 0 && (
+      <div style={ds.section}>
+        <div style={ds.sectionTitle}>상대팀별 전적</div>
+        <div style={{ ...ds.card, overflowX: "auto", padding: 8 }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
+            <thead><tr>{["상대팀", "경기", "승", "무", "패", "득", "실", "승률"].map(h => <th key={h} style={ds.thStyle}>{h}</th>)}</tr></thead>
+            <tbody>
+              {opponentRecords.map(o => (
+                <tr key={o.opponent}>
+                  <td style={{ ...ds.tdStyle(true), textAlign: "left" }}>{o.opponent}</td>
+                  <td style={ds.tdStyle()}>{o.games}</td>
+                  <td style={ds.tdStyle()}>{o.wins}</td>
+                  <td style={ds.tdStyle()}>{o.draws}</td>
+                  <td style={ds.tdStyle()}>{o.losses}</td>
+                  <td style={ds.tdStyle()}>{o.gf}</td>
+                  <td style={ds.tdStyle()}>{o.ga}</td>
+                  <td style={ds.tdStyle(true)}>{o.games > 0 ? Math.round((o.wins / o.games) * 100) : 0}%</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    )}
     <div style={ds.section}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div style={ds.sectionTitle}>개인 누적 기록 <span style={{ fontSize: 11, fontWeight: 400, color: C.gray }}>({members.length}명)</span></div>
-        <button onClick={() => setShowDualTeam(true)} style={{ background: C.orange + "22", color: C.orange, border: "none", borderRadius: 6, padding: "4px 10px", fontSize: 10, fontWeight: 600, cursor: "pointer" }}>팀전</button>
+        {activeSport !== "축구" && <button onClick={() => setShowDualTeam(true)} style={{ background: C.orange + "22", color: C.orange, border: "none", borderRadius: 6, padding: "4px 10px", fontSize: 10, fontWeight: 600, cursor: "pointer" }}>팀전</button>}
       </div>
       <div style={{ ...ds.card, overflowX: "auto", padding: 8 }}>
         {membersLoading ? (
@@ -511,6 +568,7 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
       </div>
 
     </div>
+    </>
   );
 
   const renderGames = () => (
@@ -651,7 +709,7 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
       {!tournamentActive && <div style={{ display: "flex", background: C.bg, borderBottom: `1px solid ${C.grayDarker}` }}>
         {[
           { key: "records", label: "대시보드" },
-          { key: "roster", label: "개인기록" },
+          { key: "roster", label: activeSport === "축구" ? "팀/개인 기록" : "개인기록" },
           { key: "analytics", label: "분석" },
           { key: "games", label: "경기관리", badge: pendingGames.length > 0 },
           activeSport === "축구" && { key: "tournament", label: "대회" },
