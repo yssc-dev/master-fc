@@ -2,19 +2,26 @@ import { useState, useEffect, useMemo } from 'react';
 import { useTheme } from '../../hooks/useTheme';
 import AppSync from '../../services/appSync';
 
-export default function TournamentPlayerRecords({ tournamentId }) {
+export default function TournamentPlayerRecords({ tournamentId, playerRecords: propPlayers, eventLog: propEvents }) {
   const { C } = useTheme();
-  const [players, setPlayers] = useState([]);
-  const [eventLog, setEventLog] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [players, setPlayers] = useState(propPlayers || []);
+  const [eventLog, setEventLog] = useState(propEvents || []);
+  const [loading, setLoading] = useState(!propPlayers);
   const [sortKey, setSortKey] = useState("point");
 
   useEffect(() => {
+    if (propPlayers) { setPlayers(propPlayers); setLoading(false); }
+    if (propEvents) setEventLog(propEvents);
+  }, [propPlayers, propEvents]);
+
+  useEffect(() => {
+    // props로 안 받았으면 직접 로드 (하위 호환)
+    if (propPlayers) return;
     Promise.all([
       AppSync.getTournamentPlayerRecords(tournamentId),
       AppSync.getTournamentEventLog(tournamentId),
     ]).then(([p, e]) => { setPlayers(p); setEventLog(e); }).finally(() => setLoading(false));
-  }, [tournamentId]);
+  }, [tournamentId, propPlayers]);
 
   // 이벤트로그에서 선발/교체출전 횟수 + 출전시간 계산
   const extraStats = useMemo(() => {

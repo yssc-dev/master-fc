@@ -1,5 +1,7 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useTheme } from '../../hooks/useTheme';
+import { ref, set, get } from 'firebase/database';
+import { firebaseDb } from '../../config/firebase';
 import AppSync from '../../services/appSync';
 import TournamentStandings from './TournamentStandings';
 import TournamentSchedule from './TournamentSchedule';
@@ -12,40 +14,77 @@ export default function TournamentDashboard({ tournament, ourTeamName, gameSetti
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [schedule, setSchedule] = useState([]);
   const [roster, setRoster] = useState([]);
+  const [playerRecords, setPlayerRecords] = useState([]);
+  const [eventLog, setEventLog] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [topPlayers, setTopPlayers] = useState({ goals: [], assists: [] });
 
-  const loadSchedule = () => { AppSync.getTournamentSchedule(tournament.id, ourTeamName).then(m => setSchedule(m)).finally(() => setLoading(false)); };
-  useEffect(() => {
-    loadSchedule();
-    AppSync.getTournamentRoster(tournament.id).then(p => setRoster(p));
-  }, [tournament.id]);
+  const teamSafe = (ourTeamName || "").replace(/[.#$/[\]]/g, "_");
+  const cachePath = `tournaments/${teamSafe}/${tournament.id}/cache`;
+
+  // Firebase에서 캐시 로드 → 구글시트에서 동기화
+  const loadAllData = useCallback(async () => {
+    setLoading(true);
+    try {
+      // 1. Firebase 캐시에서 먼저 로드 (즉시 표시)
+      const cacheSnap = await get(ref(firebaseDb, cachePath));
+      if (cacheSnap.exists()) {
+        const cached = cacheSnap.val();
+        if (cached.schedule) setSchedule(JSON.parse(cached.schedule));
+        if (cached.roster) setRoster(JSON.parse(cached.roster));
+        if (cached.playerRecords) setPlayerRecords(JSON.parse(cached.playerRecords));
+        if (cached.eventLog) setEventLog(JSON.parse(cached.eventLog));
+        setLoading(false);
+      }
+
+      // 2. 구글시트에서 최신 데이터 가져오기 (백그라운드)
+      const [sched, rost, players, events] = await Promise.all([
+        AppSync.getTournamentSchedule(tournament.id, ourTeamName),
+        AppSync.getTournamentRoster(tournament.id),
+        AppSync.getTournamentPlayerRecords(tournament.id),
+        AppSync.getTournamentEventLog(tournament.id),
+      ]);
+
+      setSchedule(sched || []);
+      setRoster(rost || []);
+      setPlayerRecords(players || []);
+      setEventLog(events || []);
+
+      // 3. Firebase 캐시 업데이트
+      await set(ref(firebaseDb, cachePath), {
+        schedule: JSON.stringify(sched || []),
+        roster: JSON.stringify(rost || []),
+        playerRecords: JSON.stringify(players || []),
+        eventLog: JSON.stringify(events || []),
+        updatedAt: Date.now(),
+      }).catch(() => {});
+    } catch (e) {
+      console.warn("대회 데이터 로드 실패:", e.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [tournament.id, ourTeamName, cachePath]);
+
+  useEffect(() => { loadAllData(); }, [loadAllData]);
+
+  // 데이터 변경 후 리로드 (경기 종료, 스코어 입력 등)
+  const refreshData = useCallback(() => { loadAllData(); }, [loadAllData]);
 
   const attendees = roster.map(p => p.name);
 
-  useEffect(() => {
-    AppSync.getTournamentPlayerRecords(tournament.id).then(players => {
-      setTopPlayers({
-        goals: [...players].sort((a, b) => b.goals - a.goals).slice(0, 3).filter(p => p.goals > 0),
-        assists: [...players].sort((a, b) => b.assists - a.assists).slice(0, 3).filter(p => p.assists > 0),
-      });
-    });
-  }, [tournament.id, tab]);
-
   const handleUpdateScore = async (matchNum, homeScore, awayScore) => {
     await AppSync.updateTournamentMatchScore(tournament.id, matchNum, homeScore, awayScore);
-    loadSchedule();
+    refreshData();
   };
 
   const handleUpdateMatch = async (matchNum, updates) => {
     await AppSync.updateTournamentMatch(tournament.id, matchNum, updates);
-    loadSchedule();
+    refreshData();
   };
 
-  // 팀 성적 카드 (우리팀)
+  // 팀 성적 카드
   const teamRecord = useMemo(() => {
     const r = { games: 0, wins: 0, draws: 0, losses: 0, gf: 0, ga: 0, streak: 0, streakType: "" };
-    const ourMatches = schedule.filter(m => m.isOurs && m.homeScore !== null && m.awayScore !== null);
+    const ourMatches = (schedule || []).filter(m => m.isOurs && m.homeScore !== null && m.awayScore !== null);
     const results = [];
     for (const m of ourMatches) {
       const isHome = m.home === ourTeamName;
@@ -56,23 +95,27 @@ export default function TournamentDashboard({ tournament, ourTeamName, gameSetti
       else if (ourGoals < theirGoals) { r.losses++; results.push("L"); }
       else { r.draws++; results.push("D"); }
     }
-    // 연승/연패 계산
     if (results.length > 0) {
       const last = results[results.length - 1];
       let count = 0;
-      for (let i = results.length - 1; i >= 0; i--) {
-        if (results[i] === last) count++; else break;
-      }
+      for (let i = results.length - 1; i >= 0; i--) { if (results[i] === last) count++; else break; }
       r.streak = count;
       r.streakType = last === "W" ? "연승" : last === "L" ? "연패" : "무승부";
     }
     return r;
   }, [schedule, ourTeamName]);
 
-  // 다음 경기
   const nextMatch = useMemo(() => {
-    return schedule.filter(m => m.isOurs).find(m => m.homeScore === null || m.awayScore === null);
+    return (schedule || []).filter(m => m.isOurs).find(m => m.homeScore === null || m.awayScore === null);
   }, [schedule]);
+
+  const topPlayers = useMemo(() => {
+    const p = playerRecords || [];
+    return {
+      goals: [...p].sort((a, b) => b.goals - a.goals).slice(0, 3).filter(x => x.goals > 0),
+      assists: [...p].sort((a, b) => b.assists - a.assists).slice(0, 3).filter(x => x.assists > 0),
+    };
+  }, [playerRecords]);
 
   const tabStyle = (active) => ({
     flex: 1, padding: "10px 8px", textAlign: "center", fontSize: 13, fontWeight: 700,
@@ -94,17 +137,13 @@ export default function TournamentDashboard({ tournament, ourTeamName, gameSetti
         ))}
       </div>
 
-      {/* 대시보드: 다음경기 → 팀성적 → 개인TOP */}
       {tab === "dashboard" && (
         <div style={{ padding: "0 16px" }}>
-          {/* 1. 다음 경기 */}
           {nextMatch ? (
             <div style={{ background: C.card, borderRadius: 12, padding: 16, marginBottom: 12, borderLeft: `3px solid ${C.accent}` }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
                 <div style={{ fontSize: 11, color: C.gray }}>다음 경기</div>
-                <button onClick={() => setShowScheduleModal(true)} style={{ padding: "3px 8px", borderRadius: 6, border: "none", fontSize: 10, cursor: "pointer", background: C.grayDarker, color: C.grayLight }}>
-                  전체 일정 →
-                </button>
+                <button onClick={() => setShowScheduleModal(true)} style={{ padding: "3px 8px", borderRadius: 6, border: "none", fontSize: 10, cursor: "pointer", background: C.grayDarker, color: C.grayLight }}>전체 일정 →</button>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div>
@@ -119,36 +158,16 @@ export default function TournamentDashboard({ tournament, ourTeamName, gameSetti
               <div style={{ fontSize: 13, color: C.gray }}>모든 경기가 완료되었습니다</div>
             </div>
           )}
-
-          {/* 2. 팀 성적 카드 */}
           {teamRecord.games > 0 && (
             <div style={{ background: C.card, borderRadius: 12, padding: 16, marginBottom: 12 }}>
               <div style={{ fontSize: 11, color: C.gray, marginBottom: 8 }}>팀 성적</div>
               <div style={{ display: "flex", justifyContent: "space-around", textAlign: "center" }}>
-                <div>
-                  <div style={{ fontSize: 22, fontWeight: 900, color: C.white }}>{teamRecord.games}</div>
-                  <div style={{ fontSize: 10, color: C.gray }}>경기</div>
-                </div>
-                <div>
-                  <div style={{ fontSize: 22, fontWeight: 900, color: C.green }}>{teamRecord.wins}</div>
-                  <div style={{ fontSize: 10, color: C.gray }}>승</div>
-                </div>
-                <div>
-                  <div style={{ fontSize: 22, fontWeight: 900, color: C.gray }}>{teamRecord.draws}</div>
-                  <div style={{ fontSize: 10, color: C.gray }}>무</div>
-                </div>
-                <div>
-                  <div style={{ fontSize: 22, fontWeight: 900, color: C.red }}>{teamRecord.losses}</div>
-                  <div style={{ fontSize: 10, color: C.gray }}>패</div>
-                </div>
-                <div>
-                  <div style={{ fontSize: 22, fontWeight: 900, color: C.white }}>{teamRecord.gf}</div>
-                  <div style={{ fontSize: 10, color: C.gray }}>득점</div>
-                </div>
-                <div>
-                  <div style={{ fontSize: 22, fontWeight: 900, color: C.white }}>{teamRecord.ga}</div>
-                  <div style={{ fontSize: 10, color: C.gray }}>실점</div>
-                </div>
+                <div><div style={{ fontSize: 22, fontWeight: 900, color: C.white }}>{teamRecord.games}</div><div style={{ fontSize: 10, color: C.gray }}>경기</div></div>
+                <div><div style={{ fontSize: 22, fontWeight: 900, color: C.green }}>{teamRecord.wins}</div><div style={{ fontSize: 10, color: C.gray }}>승</div></div>
+                <div><div style={{ fontSize: 22, fontWeight: 900, color: C.gray }}>{teamRecord.draws}</div><div style={{ fontSize: 10, color: C.gray }}>무</div></div>
+                <div><div style={{ fontSize: 22, fontWeight: 900, color: C.red }}>{teamRecord.losses}</div><div style={{ fontSize: 10, color: C.gray }}>패</div></div>
+                <div><div style={{ fontSize: 22, fontWeight: 900, color: C.white }}>{teamRecord.gf}</div><div style={{ fontSize: 10, color: C.gray }}>득점</div></div>
+                <div><div style={{ fontSize: 22, fontWeight: 900, color: C.white }}>{teamRecord.ga}</div><div style={{ fontSize: 10, color: C.gray }}>실점</div></div>
               </div>
               {teamRecord.streak >= 2 && (
                 <div style={{ textAlign: "center", marginTop: 8, fontSize: 12, fontWeight: 700, color: teamRecord.streakType === "연승" ? C.green : teamRecord.streakType === "연패" ? C.red : C.gray }}>
@@ -157,8 +176,6 @@ export default function TournamentDashboard({ tournament, ourTeamName, gameSetti
               )}
             </div>
           )}
-
-          {/* 3. 개인 TOP */}
           {(topPlayers.goals.length > 0 || topPlayers.assists.length > 0) && (
             <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
               {topPlayers.goals.length > 0 && (
@@ -178,23 +195,20 @@ export default function TournamentDashboard({ tournament, ourTeamName, gameSetti
         </div>
       )}
 
-      {/* 순위/기록: 팀순위(타팀 스코어 입력 가능) + 일정 + 개인기록 */}
       {tab === "standings" && (
         <div style={{ padding: "0 4px" }}>
-          <TournamentStandings schedule={schedule} ourTeamName={ourTeamName} onUpdateScore={isAdmin ? handleUpdateScore : null} />
+          <TournamentStandings schedule={schedule} ourTeamName={ourTeamName} />
           <div style={{ marginTop: 16 }}>
-            <TournamentPlayerRecords tournamentId={tournament.id} />
+            <TournamentPlayerRecords tournamentId={tournament.id} playerRecords={playerRecords} eventLog={eventLog} />
           </div>
         </div>
       )}
 
-      {/* 경기관리 */}
       {tab === "manage" && (
         <TournamentMatchManager tournament={tournament} schedule={schedule || []} ourTeamName={ourTeamName}
-          attendees={attendees || []} gameSettings={gameSettings} onScheduleUpdate={loadSchedule} />
+          attendees={attendees || []} gameSettings={gameSettings} onScheduleUpdate={refreshData} />
       )}
 
-      {/* 전체 일정 모달 */}
       {showScheduleModal && (
         <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: 200, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }} onClick={() => setShowScheduleModal(false)}>
           <div style={{ background: C.card, borderRadius: 16, padding: 20, maxWidth: 420, width: "100%", maxHeight: "85vh", overflowY: "auto" }} onClick={e => e.stopPropagation()}>
