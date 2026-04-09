@@ -22,6 +22,7 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
   const [rankingLoading, setRankingLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("records");
   const [tournamentActive, setTournamentActive] = useState(false);
+  const [tournamentName, setTournamentName] = useState(null);
 
   const activeEntry = teamEntries.find(e => e.mode === activeSport) || teamEntries[0];
 
@@ -529,7 +530,7 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
       <div style={ds.header}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div>
-            <div style={{ fontSize: 20, fontWeight: 800, color: "#fff" }}>{teamName}</div>
+            <div style={{ fontSize: 20, fontWeight: 800, color: "#fff" }}>{tournamentActive && tournamentName ? `🏆 ${tournamentName}` : teamName}</div>
             <div style={{ fontSize: 12, color: C.headerTextDim, marginTop: 2 }}>
               {authUser.name}님
               {activeEntry?.role === "관리자" && <span style={{ marginLeft: 6, fontSize: 10, padding: "2px 6px", borderRadius: 4, background: "rgba(255,255,255,0.2)" }}>관리자</span>}
@@ -604,6 +605,7 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
             attendees={members.map(m => m.name)}
             gameSettings={getSettings(teamName)}
             onTournamentView={setTournamentActive}
+            onTournamentName={setTournamentName}
             onGoHome={() => {
               if (!confirm("대회 모드에서 홈 화면으로 이동하시겠습니까?")) return;
               setTournamentActive(false);

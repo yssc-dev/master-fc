@@ -127,8 +127,7 @@ export default function TournamentDashboard({ tournament, ourTeamName, gameSetti
 
   return (
     <div>
-      <div style={{ padding: "0 16px 8px" }}>
-        <div style={{ fontSize: 16, fontWeight: 800, color: C.white }}>{tournament.name}</div>
+      <div style={{ padding: "0 16px 4px" }}>
         <div style={{ fontSize: 11, color: C.gray }}>{tournament.startDate} ~ {tournament.endDate} · {tournament.teams.length}팀</div>
       </div>
       <div style={{ display: "flex", background: C.bg, borderBottom: `1px solid ${C.grayDarker}`, marginBottom: 12 }}>
