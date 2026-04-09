@@ -1109,13 +1109,14 @@ function _createTournament(data) {
   var listSheet = ss.getSheetByName("대회_목록");
   if (!listSheet) {
     listSheet = ss.insertSheet("대회_목록");
-    listSheet.getRange("A1:H1").setValues([["대회ID","대회명","시작일","종료일","참가팀","대진형태","상태","생성시간"]]);
-    listSheet.getRange("A1:H1").setFontWeight("bold");
+    listSheet.getRange("A1:J1").setValues([["대회ID","대회명","시작일","종료일","참가팀","대진형태","상태","생성시간","기본경기시간","기본구장"]]);
+    listSheet.getRange("A1:J1").setFontWeight("bold");
   }
   var lastRow = listSheet.getLastRow();
-  listSheet.getRange(lastRow + 1, 1, 1, 8).setValues([[
+  listSheet.getRange(lastRow + 1, 1, 1, 10).setValues([[
     data.id, data.name, data.startDate || "", data.endDate || "",
-    (data.teams || []).join(","), data.format || "manual", "active", _kstNow()
+    (data.teams || []).join(","), data.format || "manual", "active", _kstNow(),
+    Number(data.defaultMinutes) || 90, data.defaultVenue || ""
   ]]);
   var schedSheet = ss.insertSheet("대회_" + data.id + "_일정");
   schedSheet.getRange("A1:F1").setValues([["경기번호","날짜","홈팀","원정팀","홈스코어","원정스코어"]]);
@@ -1190,11 +1191,13 @@ function _getTournamentList(team) {
   if (!sheet) return { success: true, tournaments: [] };
   var lastRow = sheet.getLastRow();
   if (lastRow < 2) return { success: true, tournaments: [] };
-  var data = sheet.getRange(2, 1, lastRow - 1, 8).getValues();
+  var colCount = Math.max(sheet.getLastColumn(), 10);
+  var data = sheet.getRange(2, 1, lastRow - 1, colCount).getValues();
   var list = data.filter(function(r) { return r[0]; }).map(function(r) {
     return { id: String(r[0]), name: String(r[1]), startDate: _toDateStr(r[2]), endDate: _toDateStr(r[3]),
       teams: String(r[4]).split(",").map(function(t) { return t.trim(); }).filter(Boolean),
-      format: String(r[5]), status: String(r[6]) };
+      format: String(r[5]), status: String(r[6]),
+      defaultMinutes: Number(r[8]) || 90, defaultVenue: String(r[9] || "") };
   });
   return { success: true, tournaments: list };
 }

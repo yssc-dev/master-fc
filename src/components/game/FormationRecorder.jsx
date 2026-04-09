@@ -7,7 +7,7 @@ import PlayerActionMenu from './PlayerActionMenu';
 
 export default function FormationRecorder({
   formation: initFormation, assignments: initAssignments, positionMap: initPositionMap,
-  subs: initSubs, gk: initGk, opponent, startedAt,
+  subs: initSubs, gk: initGk, opponent, startedAt, matchMinutes = 90,
   events: initEvents, onAddEvent, onDeleteEvent, onFinishMatch, onStateChange,
 }) {
   const { C } = useTheme();
@@ -108,7 +108,10 @@ export default function FormationRecorder({
           <div style={{ fontSize: 10, color: C.gray }}>우리팀</div>
           <div style={{ fontSize: 28, fontWeight: 900, color: ourScore > opponentScore ? C.green : C.white }}>{ourScore}</div>
         </div>
-        <div style={{ fontSize: 11, color: C.gray }}>vs {opponent}</div>
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontSize: 11, color: C.gray }}>vs {opponent}</div>
+          {startedAt && <div style={{ fontSize: 10, color: C.grayDark, marginTop: 2 }}>{matchMinutes}분 경기</div>}
+        </div>
         <div style={{ textAlign: "center" }}>
           <div style={{ fontSize: 10, color: C.gray }}>상대팀</div>
           <div style={{ fontSize: 28, fontWeight: 900, color: opponentScore > ourScore ? C.red : C.white }}>{opponentScore}</div>

@@ -11,6 +11,8 @@ export default function CreateTournament({ ourTeamName, onSubmit, onCancel }) {
   const [teamInput, setTeamInput] = useState("");
   const [teams, setTeams] = useState([ourTeamName]);
   const [matchCount, setMatchCount] = useState(6);
+  const [defaultMinutes, setDefaultMinutes] = useState(90);
+  const [defaultVenue, setDefaultVenue] = useState("");
 
   const addTeam = () => {
     const t = teamInput.trim();
@@ -25,7 +27,7 @@ export default function CreateTournament({ ourTeamName, onSubmit, onCancel }) {
     if (format === "fullLeague") matches = generateFullLeague(teams, ourTeamName);
     else if (format === "knockout") matches = generateKnockout(teams, ourTeamName);
     else matches = generateManual(matchCount, ourTeamName);
-    onSubmit({ id: name.trim().replace(/\s+/g, "_"), name: name.trim(), startDate, endDate, teams, format, matches, ourTeam: ourTeamName });
+    onSubmit({ id: name.trim().replace(/\s+/g, "_"), name: name.trim(), startDate, endDate, teams, format, matches, ourTeam: ourTeamName, defaultMinutes, defaultVenue });
   };
 
   const is = {
@@ -44,6 +46,11 @@ export default function CreateTournament({ ourTeamName, onSubmit, onCancel }) {
       <div style={{ display: "flex", gap: 8, ...is.section }}>
         <div style={{ flex: 1 }}><label style={is.label}>시작일</label><input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} style={is.input} /></div>
         <div style={{ flex: 1 }}><label style={is.label}>종료일</label><input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} style={is.input} /></div>
+      </div>
+      <div style={is.section}>
+      <div style={{ display: "flex", gap: 8, ...is.section }}>
+        <div style={{ flex: 1 }}><label style={is.label}>기본 경기시간(분)</label><input type="number" value={defaultMinutes} onChange={e => setDefaultMinutes(Number(e.target.value) || 90)} style={{ ...is.input, width: "100%" }} /></div>
+        <div style={{ flex: 1 }}><label style={is.label}>기본 구장</label><input value={defaultVenue} onChange={e => setDefaultVenue(e.target.value)} placeholder="구장명" style={is.input} /></div>
       </div>
       <div style={is.section}>
         <label style={is.label}>참가팀 ({teams.length}팀)</label>

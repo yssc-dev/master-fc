@@ -16,20 +16,57 @@ export default function TournamentPlayerRecords({ tournamentId }) {
     ]).then(([p, e]) => { setPlayers(p); setEventLog(e); }).finally(() => setLoading(false));
   }, [tournamentId]);
 
-  // 이벤트로그에서 선발/교체출전 횟수 계산
+  // 이벤트로그에서 선발/교체출전 횟수 + 출전시간 계산
   const extraStats = useMemo(() => {
-    const stats = {}; // { name: { starts, subApps } }
+    const stats = {}; // { name: { starts, subApps, totalMinutes } }
+    const ensure = (n) => { if (!stats[n]) stats[n] = { starts: 0, subApps: 0, totalMinutes: 0 }; };
+
+    // 경기별로 그룹핑
+    const matchEvents = {};
     for (const e of eventLog) {
-      if (e.event === "출전") {
-        if (!stats[e.player]) stats[e.player] = { starts: 0, subApps: 0 };
-        stats[e.player].starts++;
+      const key = e.matchNum;
+      if (!matchEvents[key]) matchEvents[key] = [];
+      matchEvents[key].push(e);
+    }
+
+    for (const [, events] of Object.entries(matchEvents)) {
+      // 경기 시작/종료 시간 추정 (출전 이벤트의 시간 = 시작, 마지막 이벤트 = 종료 근사)
+      const timestamps = events.map(e => {
+        try { return new Date(e.inputTime).getTime(); } catch { return 0; }
+      }).filter(t => t > 0);
+      if (timestamps.length === 0) continue;
+      const matchStart = Math.min(...timestamps);
+      const matchEnd = Math.max(...timestamps);
+      const matchDuration = Math.max(matchEnd - matchStart, 0);
+
+      // 선발 선수
+      const starters = new Set();
+      for (const e of events) {
+        if (e.event === "출전") { ensure(e.player); stats[e.player].starts++; starters.add(e.player); }
+        if (e.event === "교체" && e.player) { ensure(e.player); stats[e.player].subApps++; }
       }
-      if (e.event === "교체" && e.player) {
-        // e.player = IN 선수
-        if (!stats[e.player]) stats[e.player] = { starts: 0, subApps: 0 };
-        stats[e.player].subApps++;
+
+      // 출전시간 계산 (분) - 교체 이벤트 기반
+      const subEvents = events.filter(e => e.event === "교체");
+      const subOutTimes = {}; // { playerOut: timestamp }
+      const subInTimes = {}; // { playerIn: timestamp }
+      for (const e of subEvents) {
+        const ts = (() => { try { return new Date(e.inputTime).getTime(); } catch { return matchEnd; } })();
+        if (e.relatedPlayer) subOutTimes[e.relatedPlayer] = ts; // OUT 선수
+        if (e.player) subInTimes[e.player] = ts; // IN 선수
+      }
+
+      for (const name of starters) {
+        ensure(name);
+        const outTime = subOutTimes[name] || matchEnd;
+        stats[name].totalMinutes += Math.round((outTime - matchStart) / 60000);
+      }
+      for (const [name, inTime] of Object.entries(subInTimes)) {
+        ensure(name);
+        stats[name].totalMinutes += Math.round((matchEnd - inTime) / 60000);
       }
     }
+
     return stats;
   }, [eventLog]);
 
@@ -54,6 +91,7 @@ export default function TournamentPlayerRecords({ tournamentId }) {
           <th style={th}>선수</th>
           <th style={th}>선발</th>
           <th style={th}>교체</th>
+          <th style={th}>시간</th>
           <th style={{ ...th, color: sortKey === "goals" ? C.accent : C.gray }} onClick={() => setSortKey("goals")}>골</th>
           <th style={{ ...th, color: sortKey === "assists" ? C.accent : C.gray }} onClick={() => setSortKey("assists")}>어시</th>
           <th style={th}>CS</th><th style={th}>자책</th>
@@ -67,6 +105,7 @@ export default function TournamentPlayerRecords({ tournamentId }) {
                 <td style={{ ...td(true), textAlign: "left" }}>{i < 3 && p.point > 0 ? ["🥇","🥈","🥉"][i] + " " : ""}{p.name}</td>
                 <td style={td()}>{ex.starts || 0}</td>
                 <td style={td(ex.subApps > 0)}>{ex.subApps || 0}</td>
+                <td style={td()}>{ex.totalMinutes > 0 ? `${ex.totalMinutes}'` : "-"}</td>
                 <td style={td(p.goals > 0)}>{p.goals}</td>
                 <td style={td(p.assists > 0)}>{p.assists}</td>
                 <td style={td(p.cleanSheets > 0)}>{p.cleanSheets}</td>

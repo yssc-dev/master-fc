@@ -50,9 +50,12 @@ export default function TournamentMatchManager({ tournament, schedule, ourTeamNa
     }).catch(() => {});
   }, [tournament.id, teamSafe, fbPath, schedule]);
 
+  const [matchMinutes, setMatchMinutes] = useState(tournament.defaultMinutes || 90);
+  const [matchVenue, setMatchVenue] = useState(tournament.defaultVenue || "");
+
   /* ---- Phase: roster ---- */
   const handleRosterConfirm = (players) => {
-    const state = { selectedPlayers: players, events: [] };
+    const state = { selectedPlayers: players, events: [], matchMinutes, venue: matchVenue };
     setMatchState(state);
     autoSave(state);
     setPhase("formation");
@@ -164,6 +167,7 @@ export default function TournamentMatchManager({ tournament, schedule, ourTeamNa
           gk={matchState.gk}
           opponent={matchState.opponent}
           startedAt={matchState.startedAt}
+          matchMinutes={matchState.matchMinutes || 90}
           events={matchState.events}
           onAddEvent={handleAddEvent}
           onDeleteEvent={handleDeleteEvent}
@@ -198,7 +202,19 @@ export default function TournamentMatchManager({ tournament, schedule, ourTeamNa
           style={{ marginBottom: 10, padding: "6px 14px", borderRadius: 8, background: C.grayDark, color: C.white, border: "none", fontSize: 12, cursor: "pointer" }}>
           ← 돌아가기
         </button>
-        <div style={{ fontSize: 14, fontWeight: 700, color: C.white, marginBottom: 12 }}>vs {opponent} -- 출전 명단</div>
+        <div style={{ fontSize: 14, fontWeight: 700, color: C.white, marginBottom: 12 }}>vs {opponent}</div>
+        <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 11, color: C.gray, marginBottom: 4 }}>경기시간(분)</div>
+            <input type="number" value={matchMinutes} onChange={e => setMatchMinutes(Number(e.target.value) || 90)}
+              style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: `1px solid ${C.grayDark}`, background: C.cardLight, color: C.white, fontSize: 14, boxSizing: "border-box" }} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 11, color: C.gray, marginBottom: 4 }}>구장</div>
+            <input value={matchVenue} onChange={e => setMatchVenue(e.target.value)} placeholder="구장명"
+              style={{ width: "100%", padding: "8px 10px", borderRadius: 8, border: `1px solid ${C.grayDark}`, background: C.cardLight, color: C.white, fontSize: 14, boxSizing: "border-box" }} />
+          </div>
+        </div>
         <RosterSelector allPlayers={attendees} onConfirm={handleRosterConfirm} />
       </div>
     );
