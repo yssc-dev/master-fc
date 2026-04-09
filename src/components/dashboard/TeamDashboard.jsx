@@ -25,6 +25,7 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
   const [tournamentName, setTournamentName] = useState(null);
 
   const activeEntry = teamEntries.find(e => e.mode === activeSport) || teamEntries[0];
+  const [teamRecord, setTeamRecord] = useState(null); // { wins, draws, losses, gf, ga, form: ["W","L",...] }
 
   useEffect(() => {
     fetchSheetData()
@@ -32,9 +33,33 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
       .catch(() => setMembers([]))
       .finally(() => setMembersLoading(false));
     AppSync.getLatestDeltas(getSettings(teamName).playerLogSheet).then(deltas => {
-      console.log("latestDeltas:", deltas);
-      setPrevRanks(deltas); // store deltas, compute ranks in render
+      setPrevRanks(deltas);
     }).catch(() => {});
+    // 축구팀: 포인트로그에서 팀 전적 계산
+    if (teamEntries.some(e => e.mode === "축구")) {
+      AppSync.getPointLog(getSettings(teamName).pointLogSheet).then(events => {
+        if (!events || events.length === 0) return;
+        const matches = {};
+        for (const e of events) {
+          if (!e.date || !e.matchId) continue;
+          const key = `${e.date}_${e.matchId}`;
+          if (!matches[key]) matches[key] = { ourGoals: 0, opponentGoals: 0, date: e.date, matchId: e.matchId };
+          if (e.scorer && e.scorer !== "OG") matches[key].ourGoals++;
+          if (e.ownGoal) matches[key].opponentGoals++;
+          if (e.concedingGk && !e.scorer) matches[key].opponentGoals++;
+        }
+        const sorted = Object.values(matches).sort((a, b) => `${a.date}_${a.matchId}`.localeCompare(`${b.date}_${b.matchId}`));
+        let wins = 0, draws = 0, losses = 0, gf = 0, ga = 0;
+        const form = [];
+        for (const m of sorted) {
+          gf += m.ourGoals; ga += m.opponentGoals;
+          if (m.ourGoals > m.opponentGoals) { wins++; form.push("W"); }
+          else if (m.ourGoals < m.opponentGoals) { losses++; form.push("L"); }
+          else { draws++; form.push("D"); }
+        }
+        setTeamRecord({ wins, draws, losses, gf, ga, games: sorted.length, form: form.slice(-5) });
+      }).catch(() => {});
+    }
   }, []);
 
   const ds = useMemo(() => ({
@@ -83,6 +108,35 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
         <div style={{ ...ds.section, textAlign: "center", color: C.gray, fontSize: 13, padding: 20 }}>불러오는 중...</div>
       ) : (
         <>
+          {/* 팀 전적 (축구) */}
+          {activeSport === "축구" && teamRecord && (
+            <div style={ds.section}>
+              <div style={{ background: C.card, borderRadius: 12, padding: 14 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: C.white }}>팀 전적</div>
+                  <div style={{ display: "flex", gap: 3 }}>
+                    {teamRecord.form.map((r, i) => (
+                      <span key={i} style={{
+                        width: 22, height: 22, borderRadius: "50%", display: "inline-flex", alignItems: "center", justifyContent: "center",
+                        fontSize: 10, fontWeight: 800,
+                        background: r === "W" ? "#22c55e" : r === "L" ? "#ef4444" : "#6b7280",
+                        color: "#fff",
+                      }}>{r}</span>
+                    ))}
+                  </div>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-around", textAlign: "center" }}>
+                  <div><div style={{ fontSize: 20, fontWeight: 900, color: C.white }}>{teamRecord.games}</div><div style={{ fontSize: 9, color: C.gray }}>경기</div></div>
+                  <div><div style={{ fontSize: 20, fontWeight: 900, color: "#22c55e" }}>{teamRecord.wins}</div><div style={{ fontSize: 9, color: C.gray }}>승</div></div>
+                  <div><div style={{ fontSize: 20, fontWeight: 900, color: "#6b7280" }}>{teamRecord.draws}</div><div style={{ fontSize: 9, color: C.gray }}>무</div></div>
+                  <div><div style={{ fontSize: 20, fontWeight: 900, color: "#ef4444" }}>{teamRecord.losses}</div><div style={{ fontSize: 9, color: C.gray }}>패</div></div>
+                  <div><div style={{ fontSize: 20, fontWeight: 900, color: C.white }}>{teamRecord.gf}</div><div style={{ fontSize: 9, color: C.gray }}>득점</div></div>
+                  <div><div style={{ fontSize: 20, fontWeight: 900, color: C.white }}>{teamRecord.ga}</div><div style={{ fontSize: 9, color: C.gray }}>실점</div></div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* 시즌 요약 카드 */}
           <div style={ds.section}>
             <div style={{ display: "flex", gap: 8 }}>
