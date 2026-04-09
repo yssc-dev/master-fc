@@ -27,7 +27,7 @@ export default function FormationRecorder({
 
   let ourScore = 0, opponentScore = 0;
   for (const e of events) {
-    if (e.type === "goal") ourScore++;
+    if (e.type === "goal" || e.type === "opponentOwnGoal") ourScore++;
     else if (e.type === "owngoal" || e.type === "opponentGoal") opponentScore++;
   }
 
@@ -57,9 +57,15 @@ export default function FormationRecorder({
     setGoalFlow(null);
   };
 
-  const handleOpponentGoal = () => {
-    if (!confirm("상대팀 골을 기록하시겠습니까?")) return;
-    onAddEvent({ type: "opponentGoal", currentGk: gk, id: generateEventId(), timestamp: Date.now() });
+  const [showOpponentGoalMenu, setShowOpponentGoalMenu] = useState(false);
+
+  const handleOpponentGoal = (isOwnGoal) => {
+    if (isOwnGoal) {
+      onAddEvent({ type: "opponentOwnGoal", id: generateEventId(), timestamp: Date.now() });
+    } else {
+      onAddEvent({ type: "opponentGoal", currentGk: gk, id: generateEventId(), timestamp: Date.now() });
+    }
+    setShowOpponentGoalMenu(false);
   };
 
   const handleSubOut = (posIdx, name) => { setSubOut({ posIdx, name }); };
@@ -135,7 +141,7 @@ export default function FormationRecorder({
 
       {/* Buttons */}
       <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
-        <button onClick={handleOpponentGoal} style={{ flex: 1, padding: "10px 0", borderRadius: 8, border: "none", fontSize: 12, fontWeight: 700, cursor: "pointer", background: `${C.red}20`, color: C.red }}>⚽ 상대골</button>
+        <button onClick={() => setShowOpponentGoalMenu(true)} style={{ flex: 1, padding: "10px 0", borderRadius: 8, border: "none", fontSize: 12, fontWeight: 700, cursor: "pointer", background: `${C.red}20`, color: C.red }}>⚽ 상대골</button>
         <button onClick={() => { setShowSubModal(true); setSubOut(null); }} style={{ flex: 1, padding: "10px 0", borderRadius: 8, border: "none", fontSize: 12, fontWeight: 700, cursor: "pointer", background: `${C.accent}20`, color: C.accent }}>🔄 교체</button>
         <button onClick={() => setShowFormationPicker(true)} style={{ flex: 1, padding: "10px 0", borderRadius: 8, border: "none", fontSize: 12, fontWeight: 700, cursor: "pointer", background: C.grayDarker, color: C.grayLight }}>📋 포메이션</button>
         <button onClick={handleFinish} style={{ flex: 1, padding: "10px 0", borderRadius: 8, border: "none", fontSize: 12, fontWeight: 700, cursor: "pointer", background: `${C.green}20`, color: C.green }}>🏁 종료</button>
@@ -153,10 +159,32 @@ export default function FormationRecorder({
               {e.type === "goal" && <><span>⚽</span><span style={{ fontWeight: 600, color: C.white }}>{e.player}</span>{e.assist && <span style={{ color: C.gray }}> ← {e.assist}</span>}</>}
               {e.type === "owngoal" && <><span>🔴</span><span style={{ color: C.red }}>{e.player} (자책)</span></>}
               {e.type === "opponentGoal" && <><span>⚽</span><span style={{ color: C.red }}>상대골</span>{e.currentGk && <span style={{ color: C.gray }}> GK:{e.currentGk}</span>}</>}
+              {e.type === "opponentOwnGoal" && <><span>🔴</span><span style={{ color: C.green }}>상대 자책골 (+1)</span></>}
               {e.type === "sub" && <><span>🔄</span><span style={{ color: C.red }}>{e.playerOut}</span><span style={{ color: C.gray }}>→</span><span style={{ color: C.green }}>{e.playerIn}</span></>}
               <button onClick={() => onDeleteEvent(e.id)} style={{ marginLeft: "auto", background: `${C.red}30`, border: "none", borderRadius: 4, color: C.red, fontSize: 9, padding: "2px 5px", cursor: "pointer" }}>✕</button>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Opponent goal menu */}
+      {showOpponentGoalMenu && (
+        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: 300, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }} onClick={() => setShowOpponentGoalMenu(false)}>
+          <div style={{ background: C.card, borderRadius: 16, padding: 20, maxWidth: 280, width: "100%", textAlign: "center" }} onClick={e => e.stopPropagation()}>
+            <div style={{ fontSize: 16, fontWeight: 800, color: C.white, marginBottom: 16 }}>상대팀 득점</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <button onClick={() => handleOpponentGoal(false)}
+                style={{ padding: "14px 0", borderRadius: 12, border: "none", fontSize: 15, fontWeight: 700, cursor: "pointer", background: `${C.red}25`, color: C.red }}>
+                ⚽ 일반 실점
+              </button>
+              <button onClick={() => handleOpponentGoal(true)}
+                style={{ padding: "14px 0", borderRadius: 12, border: "none", fontSize: 15, fontWeight: 700, cursor: "pointer", background: `${C.green}25`, color: C.green }}>
+                🔴 상대 자책골 (우리팀 +1)
+              </button>
+            </div>
+            <button onClick={() => setShowOpponentGoalMenu(false)}
+              style={{ marginTop: 10, padding: "10px 0", width: "100%", borderRadius: 10, border: "none", fontSize: 13, cursor: "pointer", background: C.grayDarker, color: C.grayLight }}>취소</button>
+          </div>
         </div>
       )}
 

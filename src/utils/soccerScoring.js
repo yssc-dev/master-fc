@@ -6,9 +6,8 @@
 export function calcSoccerScore(events) {
   let ourScore = 0, opponentScore = 0;
   for (const e of events) {
-    if (e.type === "goal") ourScore++;
-    else if (e.type === "owngoal") opponentScore++;
-    else if (e.type === "opponentGoal") opponentScore++;
+    if (e.type === "goal" || e.type === "opponentOwnGoal") ourScore++;
+    else if (e.type === "owngoal" || e.type === "opponentGoal") opponentScore++;
   }
   return { ourScore, opponentScore };
 }
