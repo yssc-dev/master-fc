@@ -9,7 +9,9 @@ import { calcSoccerScore, buildEventLogRows } from '../../utils/soccerScoring';
 import { generateEventId } from '../../utils/idGenerator';
 import AppSync from '../../services/appSync';
 
-export default function TournamentMatchManager({ tournament, schedule, ourTeamName, attendees, gameSettings, onScheduleUpdate }) {
+export default function TournamentMatchManager({ tournament, schedule: rawSchedule, ourTeamName, attendees: rawAttendees, gameSettings, onScheduleUpdate }) {
+  const schedule = rawSchedule || [];
+  const attendees = rawAttendees || [];
   const { C } = useTheme();
   const [selectedMatch, setSelectedMatch] = useState(null);
   const [phase, setPhase] = useState("list");
@@ -20,9 +22,8 @@ export default function TournamentMatchManager({ tournament, schedule, ourTeamNa
   const teamSafe = (ourTeamName || "").replace(/[.#$/[\]]/g, "_");
   const fbPath = `tournaments/${teamSafe}/${tournament.id}/activeGame`;
 
-  const safeSchedule = schedule || [];
-  const ourMatches = safeSchedule.filter(m => m.isOurs && m.status !== "finished");
-  const otherMatches = safeSchedule.filter(m => !m.isOurs && m.status !== "finished");
+  const ourMatches = schedule.filter(m => m.isOurs && m.status !== "finished");
+  const otherMatches = schedule.filter(m => !m.isOurs && m.status !== "finished");
 
   /* ---- Firebase auto-save (debounced) ---- */
   const autoSave = useCallback((state) => {

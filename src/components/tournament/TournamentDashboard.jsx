@@ -190,8 +190,8 @@ export default function TournamentDashboard({ tournament, ourTeamName, gameSetti
 
       {/* 경기관리 */}
       {tab === "manage" && (
-        <TournamentMatchManager tournament={tournament} schedule={schedule} ourTeamName={ourTeamName}
-          attendees={attendees} gameSettings={gameSettings} onScheduleUpdate={loadSchedule} />
+        <TournamentMatchManager tournament={tournament} schedule={schedule || []} ourTeamName={ourTeamName}
+          attendees={attendees || []} gameSettings={gameSettings} onScheduleUpdate={loadSchedule} />
       )}
 
       {/* 전체 일정 모달 */}

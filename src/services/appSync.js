@@ -2,6 +2,20 @@ import AuthUtil from './authUtil';
 
 const APPS_SCRIPT_URL = import.meta.env.VITE_APPS_SCRIPT_URL || "";
 
+// 세션 캐시 (5분 TTL)
+const _cache = {};
+const CACHE_TTL = 5 * 60 * 1000;
+function cacheGet(key) {
+  const entry = _cache[key];
+  if (!entry) return null;
+  if (Date.now() - entry.ts > CACHE_TTL) { delete _cache[key]; return null; }
+  return entry.data;
+}
+function cacheSet(key, data) { _cache[key] = { data, ts: Date.now() }; }
+function cacheInvalidate(prefix) {
+  Object.keys(_cache).forEach(k => { if (k.startsWith(prefix)) delete _cache[k]; });
+}
+
 const AppSync = {
   enabled() { return !!APPS_SCRIPT_URL; },
 
@@ -253,37 +267,53 @@ const AppSync = {
 
   async getTournamentList() {
     if (!this.enabled()) return [];
+    const ck = "tList";
+    const cached = cacheGet(ck);
+    if (cached) return cached;
     try {
       const team = this._getTeam();
       const resp = await fetch(APPS_SCRIPT_URL, { method: "POST", headers: { "Content-Type": "text/plain" },
         body: JSON.stringify({ action: "getTournamentList", team, authToken: this._getAuthToken() }) });
       const data = await resp.json();
-      return data.tournaments || [];
+      const result = data.tournaments || [];
+      cacheSet(ck, result);
+      return result;
     } catch (e) { console.warn("대회 목록 조회 실패:", e.message); return []; }
   },
 
   async getTournamentRoster(tournamentId) {
     if (!this.enabled()) return [];
+    const ck = `tRoster_${tournamentId}`;
+    const cached = cacheGet(ck);
+    if (cached) return cached;
     try {
       const resp = await fetch(APPS_SCRIPT_URL, { method: "POST", headers: { "Content-Type": "text/plain" },
         body: JSON.stringify({ action: "getTournamentRoster", tournamentId, team: this._getTeam(), authToken: this._getAuthToken() }) });
       const data = await resp.json();
-      return data.players || [];
+      const result = data.players || [];
+      cacheSet(ck, result);
+      return result;
     } catch (e) { console.warn("대회 명단 조회 실패:", e.message); return []; }
   },
 
   async getTournamentSchedule(tournamentId, ourTeam) {
     if (!this.enabled()) return [];
+    const ck = `tSched_${tournamentId}`;
+    const cached = cacheGet(ck);
+    if (cached) return cached;
     try {
       const resp = await fetch(APPS_SCRIPT_URL, { method: "POST", headers: { "Content-Type": "text/plain" },
         body: JSON.stringify({ action: "getTournamentSchedule", tournamentId, ourTeam: ourTeam || "", team: this._getTeam(), authToken: this._getAuthToken() }) });
       const data = await resp.json();
-      return data.matches || [];
+      const result = data.matches || [];
+      cacheSet(ck, result);
+      return result;
     } catch (e) { console.warn("대회 일정 조회 실패:", e.message); return []; }
   },
 
   async updateTournamentMatchScore(tournamentId, matchNum, homeScore, awayScore) {
     if (!this.enabled()) return null;
+    cacheInvalidate(`tSched_${tournamentId}`); // 캐시 무효화
     try {
       const resp = await fetch(APPS_SCRIPT_URL, { method: "POST", headers: { "Content-Type": "text/plain" },
         body: JSON.stringify({ action: "updateTournamentMatchScore", tournamentId, matchNum, homeScore, awayScore, team: this._getTeam(), authToken: this._getAuthToken() }) });
@@ -293,6 +323,7 @@ const AppSync = {
 
   async writeTournamentEventLog(tournamentId, data) {
     if (!this.enabled()) return null;
+    cacheInvalidate(`tEvent_${tournamentId}`);
     try {
       const resp = await fetch(APPS_SCRIPT_URL, { method: "POST", headers: { "Content-Type": "text/plain" },
         body: JSON.stringify({ action: "writeTournamentEventLog", tournamentId, data, team: this._getTeam(), authToken: this._getAuthToken() }) });
@@ -302,6 +333,8 @@ const AppSync = {
 
   async writeTournamentPlayerRecord(tournamentId, data) {
     if (!this.enabled()) return null;
+    cacheInvalidate(`tPlayer_${tournamentId}`);
+    cacheInvalidate(`tRoster_${tournamentId}`);
     try {
       const resp = await fetch(APPS_SCRIPT_URL, { method: "POST", headers: { "Content-Type": "text/plain" },
         body: JSON.stringify({ action: "writeTournamentPlayerRecord", tournamentId, data, team: this._getTeam(), authToken: this._getAuthToken() }) });
@@ -311,21 +344,31 @@ const AppSync = {
 
   async getTournamentPlayerRecords(tournamentId) {
     if (!this.enabled()) return [];
+    const ck = `tPlayer_${tournamentId}`;
+    const cached = cacheGet(ck);
+    if (cached) return cached;
     try {
       const resp = await fetch(APPS_SCRIPT_URL, { method: "POST", headers: { "Content-Type": "text/plain" },
         body: JSON.stringify({ action: "getTournamentPlayerRecords", tournamentId, team: this._getTeam(), authToken: this._getAuthToken() }) });
       const data = await resp.json();
-      return data.players || [];
+      const result = data.players || [];
+      cacheSet(ck, result);
+      return result;
     } catch (e) { console.warn("대회 선수기록 조회 실패:", e.message); return []; }
   },
 
   async getTournamentEventLog(tournamentId) {
     if (!this.enabled()) return [];
+    const ck = `tEvent_${tournamentId}`;
+    const cached = cacheGet(ck);
+    if (cached) return cached;
     try {
       const resp = await fetch(APPS_SCRIPT_URL, { method: "POST", headers: { "Content-Type": "text/plain" },
         body: JSON.stringify({ action: "getTournamentEventLog", tournamentId, team: this._getTeam(), authToken: this._getAuthToken() }) });
       const data = await resp.json();
-      return data.events || [];
+      const result = data.events || [];
+      cacheSet(ck, result);
+      return result;
     } catch (e) { console.warn("대회 이벤트로그 조회 실패:", e.message); return []; }
   },
 
