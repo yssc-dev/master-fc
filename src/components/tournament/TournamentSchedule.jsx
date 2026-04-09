@@ -46,9 +46,9 @@ export default function TournamentSchedule({ schedule, ourTeamName, teams, onUpd
   // 최근 결과 (완료된 경기 중 마지막)
   const lastResult = [...ourSchedule].reverse().find(m => m.status === "finished");
 
-  // 표시할 경기: 축소 모드에서는 최근결과 + 다음경기만
+  // 표시할 경기: 축소 모드에서는 다음경기만
   const displaySchedule = showAll ? ourSchedule : ourSchedule.filter(m =>
-    (lastResult && m.matchNum === lastResult.matchNum) || (nextMatch && m.matchNum === nextMatch.matchNum)
+    nextMatch && m.matchNum === nextMatch.matchNum
   );
 
   const grouped = {};
