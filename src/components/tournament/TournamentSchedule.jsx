@@ -13,7 +13,14 @@ export default function TournamentSchedule({ schedule, ourTeamName, teams, onUpd
       date: m.date || defaultDate || new Date().toISOString().slice(0, 10), home: m.home || "", away: m.away || "",
       homeScore: m.homeScore !== null ? String(m.homeScore) : "",
       awayScore: m.awayScore !== null ? String(m.awayScore) : "",
+      time: m.time || "", venue: m.venue || "",
     });
+  };
+
+  const dayNames = ["일", "월", "화", "수", "목", "금", "토"];
+  const getDayName = (dateStr) => {
+    if (!dateStr) return "";
+    try { const d = new Date(dateStr); return dayNames[d.getDay()]; } catch { return ""; }
   };
 
   const saveEdit = async (matchNum) => {
@@ -22,6 +29,8 @@ export default function TournamentSchedule({ schedule, ourTeamName, teams, onUpd
     if (editData.date !== (orig.date || "")) updates.date = editData.date;
     if (editData.home !== (orig.home || "")) updates.home = editData.home;
     if (editData.away !== (orig.away || "")) updates.away = editData.away;
+    if (editData.time !== (orig.time || "")) updates.time = editData.time;
+    if (editData.venue !== (orig.venue || "")) updates.venue = editData.venue;
 
     // 스코어 변경
     const h = editData.homeScore !== "" ? parseInt(editData.homeScore) : null;
@@ -75,7 +84,9 @@ export default function TournamentSchedule({ schedule, ourTeamName, teams, onUpd
       </div>
       {sortedEntries.map(([date, matches]) => (
         <div key={date} style={{ marginBottom: 12 }}>
-          <div style={{ fontSize: 11, color: C.gray, fontWeight: 600, marginBottom: 4, padding: "4px 0", borderBottom: `1px solid ${C.grayDarker}` }}>{date}</div>
+          <div style={{ fontSize: 11, color: C.gray, fontWeight: 600, marginBottom: 4, padding: "4px 0", borderBottom: `1px solid ${C.grayDarker}` }}>
+            {date}{date !== "미정" && getDayName(date) ? ` (${getDayName(date)})` : ""}
+          </div>
           {matches.map(m => {
             const isOurs = m.home === ourTeamName || m.away === ourTeamName;
             const isFinished = m.homeScore !== null && m.awayScore !== null;
@@ -100,6 +111,12 @@ export default function TournamentSchedule({ schedule, ourTeamName, teams, onUpd
                       {(teams || []).map(t => <option key={t} value={t}>{t}</option>)}
                     </select>
                   </div>
+                  <div style={{ display: "flex", gap: 6, marginBottom: 6, alignItems: "center" }}>
+                    <span style={{ fontSize: 11, color: C.gray, minWidth: 30 }}>시간</span>
+                    <input type="time" value={editData.time} onChange={e => setEditData(p => ({ ...p, time: e.target.value }))} style={{ ...is.input, flex: 1 }} />
+                    <span style={{ fontSize: 11, color: C.gray, minWidth: 30 }}>구장</span>
+                    <input value={editData.venue} onChange={e => setEditData(p => ({ ...p, venue: e.target.value }))} placeholder="구장명" style={{ ...is.input, flex: 1 }} />
+                  </div>
                   {!isOurs && (
                     <div style={{ display: "flex", gap: 6, marginBottom: 6, alignItems: "center" }}>
                       <span style={{ fontSize: 11, color: C.gray, minWidth: 30 }}>스코어</span>
@@ -118,14 +135,22 @@ export default function TournamentSchedule({ schedule, ourTeamName, teams, onUpd
 
             return (
               <div key={m.matchNum} onClick={() => isAdmin && startEdit(m)}
-                style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 10px", marginBottom: 3, background: isOurs ? `${C.accent}11` : C.cardLight, borderRadius: 8, borderLeft: isOurs ? `3px solid ${C.accent}` : "3px solid transparent", cursor: isAdmin ? "pointer" : "default" }}>
-                <span style={{ fontSize: 10, color: C.grayDark, minWidth: 20 }}>#{m.matchNum}</span>
-                <span style={{ flex: 1, fontSize: 12, fontWeight: isOurs ? 700 : 400, color: C.white, textAlign: "right" }}>{m.home || "미정"}</span>
-                <div style={{ minWidth: 50, textAlign: "center" }}>
-                  {isFinished ? <span style={{ fontSize: 14, fontWeight: 700, color: C.white }}>{m.homeScore}:{m.awayScore}</span>
-                    : <span style={{ fontSize: 11, color: C.grayDark }}>vs</span>}
+                style={{ padding: "8px 10px", marginBottom: 4, background: isOurs ? `${C.accent}08` : C.cardLight, borderRadius: 8, borderLeft: isOurs ? `3px solid ${C.accent}` : "3px solid transparent", cursor: isAdmin ? "pointer" : "default" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ fontSize: 10, color: C.grayDark, minWidth: 20 }}>#{m.matchNum}</span>
+                  <span style={{ flex: 1, fontSize: 13, fontWeight: isOurs ? 700 : 400, color: C.white, textAlign: "right" }}>{m.home || "미정"}</span>
+                  <div style={{ minWidth: 50, textAlign: "center" }}>
+                    {isFinished ? <span style={{ fontSize: 14, fontWeight: 700, color: C.white }}>{m.homeScore}:{m.awayScore}</span>
+                      : <span style={{ fontSize: 11, color: C.grayDark }}>vs</span>}
+                  </div>
+                  <span style={{ flex: 1, fontSize: 13, fontWeight: isOurs ? 700 : 400, color: C.white }}>{m.away || "미정"}</span>
                 </div>
-                <span style={{ flex: 1, fontSize: 12, fontWeight: isOurs ? 700 : 400, color: C.white }}>{m.away || "미정"}</span>
+                {(m.time || m.venue) && (
+                  <div style={{ display: "flex", gap: 8, marginTop: 3, paddingLeft: 26 }}>
+                    {m.time && <span style={{ fontSize: 10, color: C.gray }}>⏰ {m.time}</span>}
+                    {m.venue && <span style={{ fontSize: 10, color: C.gray }}>📍 {m.venue}</span>}
+                  </div>
+                )}
               </div>
             );
           })}

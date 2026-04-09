@@ -1119,14 +1119,15 @@ function _createTournament(data) {
     Number(data.defaultMinutes) || 90, data.defaultVenue || ""
   ]]);
   var schedSheet = ss.insertSheet("대회_" + data.id + "_일정");
-  schedSheet.getRange("A1:F1").setValues([["경기번호","날짜","홈팀","원정팀","홈스코어","원정스코어"]]);
-  schedSheet.getRange("A1:F1").setFontWeight("bold");
+  schedSheet.getRange("A1:H1").setValues([["경기번호","날짜","홈팀","원정팀","홈스코어","원정스코어","시간","구장"]]);
+  schedSheet.getRange("A1:H1").setFontWeight("bold");
   var matches = data.matches || [];
   if (matches.length > 0) {
+    var defVenue = data.defaultVenue || "";
     var values = matches.map(function(m) {
-      return [m.matchNum, m.date || "", m.home || "", m.away || "", "", ""];
+      return [m.matchNum, m.date || "", m.home || "", m.away || "", "", "", "", defVenue];
     });
-    schedSheet.getRange(2, 1, values.length, 6).setValues(values);
+    schedSheet.getRange(2, 1, values.length, 8).setValues(values);
   }
   var eventSheet = ss.insertSheet("대회_" + data.id + "_이벤트로그");
   eventSheet.getRange("A1:G1").setValues([["경기번호","상대팀명","이벤트","선수","관련선수","포지션","입력시간"]]);
@@ -1171,6 +1172,8 @@ function _updateTournamentMatch(tournamentId, matchNum, updates) {
       if (updates.date !== undefined) sheet.getRange(i + 2, 2).setValue(updates.date);
       if (updates.home !== undefined) sheet.getRange(i + 2, 3).setValue(updates.home);
       if (updates.away !== undefined) sheet.getRange(i + 2, 4).setValue(updates.away);
+      if (updates.time !== undefined) sheet.getRange(i + 2, 7).setValue(updates.time);
+      if (updates.venue !== undefined) sheet.getRange(i + 2, 8).setValue(updates.venue);
       return { success: true };
     }
   }
@@ -1208,7 +1211,7 @@ function _getTournamentSchedule(tournamentId, ourTeam) {
   if (!sheet) return { success: false, error: "일정 시트 없음" };
   var lastRow = sheet.getLastRow();
   if (lastRow < 2) return { success: true, matches: [] };
-  var colCount = Math.max(sheet.getLastColumn(), 6);
+  var colCount = Math.max(sheet.getLastColumn(), 8);
   var data = sheet.getRange(2, 1, lastRow - 1, colCount).getValues();
   var matches = data.filter(function(r) { return r[0]; }).map(function(r) {
     var home = String(r[2] || "").trim();
@@ -1219,6 +1222,8 @@ function _getTournamentSchedule(tournamentId, ourTeam) {
       home: home, away: away,
       homeScore: hasScore ? Number(r[4]) : null,
       awayScore: r[5] !== "" && r[5] !== null ? Number(r[5]) : null,
+      time: String(r[6] || "").trim(),
+      venue: String(r[7] || "").trim(),
       isOurs: isOurs,
       status: hasScore ? "finished" : "scheduled" };
   });

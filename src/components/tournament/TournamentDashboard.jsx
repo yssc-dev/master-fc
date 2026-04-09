@@ -143,7 +143,12 @@ export default function TournamentDashboard({ tournament, ourTeamName, gameSetti
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div>
                   <div style={{ fontSize: 18, fontWeight: 800, color: C.white }}>vs {nextMatch.home === ourTeamName ? nextMatch.away : nextMatch.home}</div>
-                  <div style={{ fontSize: 12, color: C.grayLight, marginTop: 2 }}>{nextMatch.date || "날짜 미정"}</div>
+                  <div style={{ fontSize: 12, color: C.grayLight, marginTop: 2 }}>
+                    {nextMatch.date || "날짜 미정"}
+                    {nextMatch.date && (() => { try { const d = new Date(nextMatch.date); return ` (${["일","월","화","수","목","금","토"][d.getDay()]})`; } catch { return ""; } })()}
+                    {nextMatch.time && ` ${nextMatch.time}`}
+                  </div>
+                  {nextMatch.venue && <div style={{ fontSize: 11, color: C.gray, marginTop: 1 }}>📍 {nextMatch.venue}</div>}
                 </div>
                 <div style={{ fontSize: 11, color: C.grayDark }}>#{nextMatch.matchNum}</div>
               </div>
