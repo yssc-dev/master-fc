@@ -99,7 +99,12 @@ export default function TournamentDashboard({ tournament, ourTeamName, gameSetti
           {/* 1. 다음 경기 */}
           {nextMatch ? (
             <div style={{ background: C.card, borderRadius: 12, padding: 16, marginBottom: 12, borderLeft: `3px solid ${C.accent}` }}>
-              <div style={{ fontSize: 11, color: C.gray, marginBottom: 6 }}>다음 경기</div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                <div style={{ fontSize: 11, color: C.gray }}>다음 경기</div>
+                <button onClick={() => setTab("standings")} style={{ padding: "3px 8px", borderRadius: 6, border: "none", fontSize: 10, cursor: "pointer", background: C.grayDarker, color: C.grayLight }}>
+                  전체 일정 →
+                </button>
+              </div>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div>
                   <div style={{ fontSize: 18, fontWeight: 800, color: C.white }}>vs {nextMatch.home === ourTeamName ? nextMatch.away : nextMatch.home}</div>
