@@ -50,6 +50,28 @@ export default function FormationRecorder({
   const handleAssist = (player) => { setActionPlayer(null); setGoalFlow({ type: "selectScorer", assister: player }); };
   const handleOwnGoal = (player) => { onAddEvent({ type: "owngoal", player, id: generateEventId(), timestamp: Date.now() }); setActionPlayer(null); };
 
+  const handleYellowCard = (player) => {
+    onAddEvent({ type: "yellowCard", player, id: generateEventId(), timestamp: Date.now() });
+    setActionPlayer(null);
+  };
+
+  const handleRedCard = (player) => {
+    if (!confirm(`${player}에게 레드카드를 부여하시겠습니까?\n해당 선수는 퇴장됩니다.`)) { setActionPlayer(null); return; }
+    onAddEvent({ type: "redCard", player, id: generateEventId(), timestamp: Date.now() });
+    // 퇴장: 피치에서 제거 (후보 투입 없음)
+    const posIdx = Object.entries(assignments).find(([, n]) => n === player)?.[0];
+    if (posIdx !== undefined) {
+      const newAssignments = { ...assignments };
+      delete newAssignments[posIdx];
+      const newPosMap = { ...positionMap };
+      delete newPosMap[player];
+      setAssignments(newAssignments);
+      setPositionMap(newPosMap);
+      onStateChange?.({ assignments: newAssignments, positionMap: newPosMap });
+    }
+    setActionPlayer(null);
+  };
+
   const handleNoAssist = () => {
     if (goalFlow?.type === "selectAssist") {
       onAddEvent({ type: "goal", player: goalFlow.scorer, assist: null, id: generateEventId(), timestamp: Date.now() });
@@ -160,6 +182,8 @@ export default function FormationRecorder({
               {e.type === "owngoal" && <><span>🔴</span><span style={{ color: C.red }}>{e.player} (자책)</span></>}
               {e.type === "opponentGoal" && <><span>⚽</span><span style={{ color: C.red }}>상대골</span>{e.currentGk && <span style={{ color: C.gray }}> GK:{e.currentGk}</span>}</>}
               {e.type === "opponentOwnGoal" && <><span>🔴</span><span style={{ color: C.green }}>상대 자책골 (+1)</span></>}
+              {e.type === "yellowCard" && <><span>🟨</span><span style={{ color: "#eab308", fontWeight: 600 }}>{e.player}</span><span style={{ color: C.gray }}> 옐로카드</span></>}
+              {e.type === "redCard" && <><span>🟥</span><span style={{ color: "#ef4444", fontWeight: 600 }}>{e.player}</span><span style={{ color: C.gray }}> 레드카드 (퇴장)</span></>}
               {e.type === "sub" && <><span>🔄</span><span style={{ color: C.red }}>{e.playerOut}</span><span style={{ color: C.gray }}>→</span><span style={{ color: C.green }}>{e.playerIn}</span></>}
               <button onClick={() => onDeleteEvent(e.id)} style={{ marginLeft: "auto", background: `${C.red}30`, border: "none", borderRadius: 4, color: C.red, fontSize: 9, padding: "2px 5px", cursor: "pointer" }}>✕</button>
             </div>
@@ -190,7 +214,7 @@ export default function FormationRecorder({
 
       {/* Action menu */}
       {actionPlayer && !goalFlow && (
-        <PlayerActionMenu player={actionPlayer.name} position={actionPlayer.role} onGoal={handleGoal} onAssist={handleAssist} onOwnGoal={handleOwnGoal} onClose={() => setActionPlayer(null)} />
+        <PlayerActionMenu player={actionPlayer.name} position={actionPlayer.role} onGoal={handleGoal} onAssist={handleAssist} onOwnGoal={handleOwnGoal} onYellowCard={handleYellowCard} onRedCard={handleRedCard} onClose={() => setActionPlayer(null)} />
       )}
 
       {/* Sub modal */}

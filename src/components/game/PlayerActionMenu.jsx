@@ -1,6 +1,6 @@
 import { useTheme } from '../../hooks/useTheme';
 
-export default function PlayerActionMenu({ player, position, onGoal, onAssist, onOwnGoal, onClose }) {
+export default function PlayerActionMenu({ player, position, onGoal, onAssist, onOwnGoal, onYellowCard, onRedCard, onClose }) {
   const { C } = useTheme();
   return (
     <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: 300, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }} onClick={onClose}>
@@ -11,6 +11,10 @@ export default function PlayerActionMenu({ player, position, onGoal, onAssist, o
           <button onClick={() => onGoal(player)} style={{ padding: "14px 0", borderRadius: 12, border: "none", fontSize: 15, fontWeight: 700, cursor: "pointer", background: `${C.green}25`, color: C.green }}>⚽ 골</button>
           <button onClick={() => onAssist(player)} style={{ padding: "14px 0", borderRadius: 12, border: "none", fontSize: 15, fontWeight: 700, cursor: "pointer", background: `${C.accent}25`, color: C.accent }}>🅰️ 어시스트</button>
           <button onClick={() => onOwnGoal(player)} style={{ padding: "14px 0", borderRadius: 12, border: "none", fontSize: 15, fontWeight: 700, cursor: "pointer", background: `${C.red}25`, color: C.red }}>🔴 자책골</button>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={() => onYellowCard(player)} style={{ flex: 1, padding: "12px 0", borderRadius: 12, border: "none", fontSize: 14, fontWeight: 700, cursor: "pointer", background: "#eab30825", color: "#eab308" }}>🟨 옐로</button>
+            <button onClick={() => onRedCard(player)} style={{ flex: 1, padding: "12px 0", borderRadius: 12, border: "none", fontSize: 14, fontWeight: 700, cursor: "pointer", background: "#ef444425", color: "#ef4444" }}>🟥 레드</button>
+          </div>
         </div>
         <button onClick={onClose} style={{ marginTop: 10, padding: "10px 0", width: "100%", borderRadius: 10, border: "none", fontSize: 13, cursor: "pointer", background: C.grayDarker, color: C.grayLight }}>취소</button>
       </div>
