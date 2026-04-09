@@ -158,8 +158,9 @@ export default function TournamentMatchManager({ tournament, schedule: rawSchedu
   if (phase === "playing" && matchState) {
     return (
       <div>
-        <div style={{ fontSize: 11, color: C.gray, marginBottom: 8 }}>
-          제{selectedMatch.matchNum}경기 · {selectedMatch.round}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+          <span style={{ fontSize: 11, color: C.gray }}>제{selectedMatch.matchNum}경기</span>
+          <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 10, background: `${C.red}25`, color: C.red, fontWeight: 700, animation: "pulse 1.5s infinite" }}>● LIVE</span>
         </div>
         <FormationRecorder
           formation={matchState.formation || "4-4-2"}
