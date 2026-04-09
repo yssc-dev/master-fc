@@ -25,7 +25,8 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
   const [tournamentName, setTournamentName] = useState(null);
 
   const activeEntry = teamEntries.find(e => e.mode === activeSport) || teamEntries[0];
-  const [teamRecord, setTeamRecord] = useState(null); // { wins, draws, losses, gf, ga, form: ["W","L",...] }
+  const [teamRecord, setTeamRecord] = useState(null);
+  const [attendanceData, setAttendanceData] = useState(null); // { totalDates, playerDates: {name: count} }
 
   useEffect(() => {
     fetchSheetData()
@@ -35,8 +36,20 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
     AppSync.getLatestDeltas(getSettings(teamName).playerLogSheet).then(deltas => {
       setPrevRanks(deltas);
     }).catch(() => {});
-    // 축구팀: 포인트로그에서 팀 전적 계산
+    // 축구팀: 포인트로그에서 팀 전적 + 선수별집계에서 출석률
     if (teamEntries.some(e => e.mode === "축구")) {
+      AppSync.getPlayerLog(getSettings(teamName).playerLogSheet).then(plog => {
+        if (!plog || plog.length === 0) return;
+        const allDates = new Set(plog.map(p => p.date));
+        const playerDates = {};
+        for (const p of plog) {
+          if (!playerDates[p.name]) playerDates[p.name] = new Set();
+          playerDates[p.name].add(p.date);
+        }
+        const result = {};
+        for (const [name, dates] of Object.entries(playerDates)) { result[name] = dates.size; }
+        setAttendanceData({ totalDates: allDates.size, playerDates: result });
+      }).catch(() => {});
       AppSync.getPointLog(getSettings(teamName).pointLogSheet).then(events => {
         if (!events || events.length === 0) return;
         const matches = {};
@@ -301,19 +314,25 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
           {/* 출석률 */}
           {activePlayers.length > 0 && (
             <div style={ds.section}>
-              <div style={ds.sectionTitle}>출석률 TOP 10 <span style={{ fontSize: 11, fontWeight: 400, color: C.gray }}>(전체 {activeSport === "축구" && teamRecord ? teamRecord.games : maxGames}경기 기준)</span></div>
+              <div style={ds.sectionTitle}>출석률 TOP 10 <span style={{ fontSize: 11, fontWeight: 400, color: C.gray }}>(전체 {activeSport === "축구" && attendanceData ? attendanceData.totalDates : maxGames}일 기준)</span></div>
               <div style={{ ...ds.card, display: "flex", flexWrap: "wrap", gap: 0 }}>
-                {[...members].filter(p => p.games > 0).sort((a, b) => b.games - a.games).slice(0, 10).map((p, i) => {
-                  const totalGames = (activeSport === "축구" && teamRecord) ? teamRecord.games : maxGames;
-                  const ratio = p.games / (totalGames || 1);
-                  const opacity = 0.3 + ratio * 0.7;
-                  return (
-                    <div key={i} style={{ width: "50%", display: "flex", justifyContent: "space-between", alignItems: "center", padding: "5px 6px", fontSize: 12 }}>
-                      <span style={{ fontWeight: 600, opacity }}>{p.name}</span>
-                      <span style={{ fontWeight: 700, color: ratio >= 1 ? "#22c55e" : C.accent, opacity }}>{Math.round(ratio * 100)}%({p.games}경기)</span>
-                    </div>
-                  );
-                })}
+                {(() => {
+                  const isSoccer = activeSport === "축구" && attendanceData;
+                  const totalDates = isSoccer ? attendanceData.totalDates : maxGames;
+                  const list = isSoccer
+                    ? Object.entries(attendanceData.playerDates).map(([name, count]) => ({ name, att: count })).sort((a, b) => b.att - a.att).slice(0, 10)
+                    : [...members].filter(p => p.games > 0).sort((a, b) => b.games - a.games).slice(0, 10).map(p => ({ name: p.name, att: p.games }));
+                  return list.map((p, i) => {
+                    const ratio = p.att / (totalDates || 1);
+                    const opacity = 0.3 + ratio * 0.7;
+                    return (
+                      <div key={i} style={{ width: "50%", display: "flex", justifyContent: "space-between", alignItems: "center", padding: "5px 6px", fontSize: 12 }}>
+                        <span style={{ fontWeight: 600, opacity }}>{p.name}</span>
+                        <span style={{ fontWeight: 700, color: ratio >= 1 ? "#22c55e" : C.accent, opacity }}>{Math.round(ratio * 100)}%({p.att}일)</span>
+                      </div>
+                    );
+                  });
+                })()}
               </div>
             </div>
           )}
