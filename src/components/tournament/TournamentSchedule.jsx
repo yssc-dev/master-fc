@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { useTheme } from '../../hooks/useTheme';
 
-export default function TournamentSchedule({ schedule, ourTeamName, teams, onUpdateScore, onUpdateMatch, isAdmin, defaultDate }) {
+export default function TournamentSchedule({ schedule, ourTeamName, teams, onUpdateScore, onUpdateMatch, isAdmin, defaultDate, forceShowAll }) {
   const { C } = useTheme();
   const [editingMatch, setEditingMatch] = useState(null);
   const [editData, setEditData] = useState({});
-  const [showAll, setShowAll] = useState(false);
+  const [showAll, setShowAll] = useState(forceShowAll || false);
 
   const startEdit = (m) => {
     setEditingMatch(m.matchNum);

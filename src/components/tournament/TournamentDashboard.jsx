@@ -9,6 +9,7 @@ import TournamentMatchManager from './TournamentMatchManager';
 export default function TournamentDashboard({ tournament, ourTeamName, gameSettings, isAdmin, onBack, onGoHome }) {
   const { C } = useTheme();
   const [tab, setTab] = useState("dashboard");
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [schedule, setSchedule] = useState([]);
   const [roster, setRoster] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -101,7 +102,7 @@ export default function TournamentDashboard({ tournament, ourTeamName, gameSetti
             <div style={{ background: C.card, borderRadius: 12, padding: 16, marginBottom: 12, borderLeft: `3px solid ${C.accent}` }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
                 <div style={{ fontSize: 11, color: C.gray }}>다음 경기</div>
-                <button onClick={() => setTab("standings")} style={{ padding: "3px 8px", borderRadius: 6, border: "none", fontSize: 10, cursor: "pointer", background: C.grayDarker, color: C.grayLight }}>
+                <button onClick={() => setShowScheduleModal(true)} style={{ padding: "3px 8px", borderRadius: 6, border: "none", fontSize: 10, cursor: "pointer", background: C.grayDarker, color: C.grayLight }}>
                   전체 일정 →
                 </button>
               </div>
@@ -141,8 +142,12 @@ export default function TournamentDashboard({ tournament, ourTeamName, gameSetti
                   <div style={{ fontSize: 10, color: C.gray }}>패</div>
                 </div>
                 <div>
-                  <div style={{ fontSize: 22, fontWeight: 900, color: C.white }}>{teamRecord.gf}:{teamRecord.ga}</div>
-                  <div style={{ fontSize: 10, color: C.gray }}>득:실</div>
+                  <div style={{ fontSize: 22, fontWeight: 900, color: C.white }}>{teamRecord.gf}</div>
+                  <div style={{ fontSize: 10, color: C.gray }}>득점</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: 22, fontWeight: 900, color: C.white }}>{teamRecord.ga}</div>
+                  <div style={{ fontSize: 10, color: C.gray }}>실점</div>
                 </div>
               </div>
               {teamRecord.streak >= 2 && (
@@ -178,9 +183,6 @@ export default function TournamentDashboard({ tournament, ourTeamName, gameSetti
         <div style={{ padding: "0 4px" }}>
           <TournamentStandings schedule={schedule} ourTeamName={ourTeamName} onUpdateScore={isAdmin ? handleUpdateScore : null} />
           <div style={{ marginTop: 16 }}>
-            <TournamentSchedule schedule={schedule} ourTeamName={ourTeamName} teams={tournament.teams} onUpdateScore={handleUpdateScore} onUpdateMatch={handleUpdateMatch} isAdmin={isAdmin} defaultDate={tournament.startDate} />
-          </div>
-          <div style={{ marginTop: 16 }}>
             <TournamentPlayerRecords tournamentId={tournament.id} />
           </div>
         </div>
@@ -190,6 +192,19 @@ export default function TournamentDashboard({ tournament, ourTeamName, gameSetti
       {tab === "manage" && (
         <TournamentMatchManager tournament={tournament} schedule={schedule} ourTeamName={ourTeamName}
           attendees={attendees} gameSettings={gameSettings} onScheduleUpdate={loadSchedule} />
+      )}
+
+      {/* 전체 일정 모달 */}
+      {showScheduleModal && (
+        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: 200, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }} onClick={() => setShowScheduleModal(false)}>
+          <div style={{ background: C.card, borderRadius: 16, padding: 20, maxWidth: 420, width: "100%", maxHeight: "85vh", overflowY: "auto" }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+              <div style={{ fontSize: 16, fontWeight: 800, color: C.white }}>전체 일정</div>
+              <button onClick={() => setShowScheduleModal(false)} style={{ padding: "4px 10px", borderRadius: 6, border: "none", fontSize: 12, cursor: "pointer", background: C.grayDarker, color: C.grayLight }}>닫기</button>
+            </div>
+            <TournamentSchedule schedule={schedule} ourTeamName={ourTeamName} teams={tournament.teams} onUpdateScore={handleUpdateScore} onUpdateMatch={handleUpdateMatch} isAdmin={isAdmin} defaultDate={tournament.startDate} forceShowAll />
+          </div>
+        </div>
       )}
     </div>
   );
