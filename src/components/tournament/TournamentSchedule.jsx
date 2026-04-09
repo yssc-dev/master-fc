@@ -66,10 +66,12 @@ export default function TournamentSchedule({ schedule, ourTeamName, teams, onUpd
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
         <div style={{ fontSize: 13, fontWeight: 700, color: C.white }}>경기 일정</div>
-        <button onClick={() => setShowAll(!showAll)}
-          style={{ padding: "4px 10px", borderRadius: 6, border: "none", fontSize: 11, cursor: "pointer", background: showAll ? C.accent : C.grayDarker, color: showAll ? C.bg : C.grayLight }}>
-          {showAll ? "간략히" : `전체 일정 (${ourSchedule.length})`}
-        </button>
+        {!forceShowAll && (
+          <button onClick={() => setShowAll(!showAll)}
+            style={{ padding: "4px 10px", borderRadius: 6, border: "none", fontSize: 11, cursor: "pointer", background: showAll ? C.accent : C.grayDarker, color: showAll ? C.bg : C.grayLight }}>
+            {showAll ? "간략히" : `전체 일정 (${ourSchedule.length})`}
+          </button>
+        )}
       </div>
       {sortedEntries.map(([date, matches]) => (
         <div key={date} style={{ marginBottom: 12 }}>
