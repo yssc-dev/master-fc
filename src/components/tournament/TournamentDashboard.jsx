@@ -11,7 +11,6 @@ import TournamentMatchManager from './TournamentMatchManager';
 export default function TournamentDashboard({ tournament, ourTeamName, gameSettings, isAdmin, onBack, onGoHome }) {
   const { C } = useTheme();
   const [tab, setTab] = useState("dashboard");
-  const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [schedule, setSchedule] = useState([]);
   const [roster, setRoster] = useState([]);
   const [playerRecords, setPlayerRecords] = useState([]);
@@ -127,11 +126,8 @@ export default function TournamentDashboard({ tournament, ourTeamName, gameSetti
 
   return (
     <div>
-      <div style={{ padding: "0 16px 4px" }}>
-        <div style={{ fontSize: 11, color: C.gray }}>{tournament.startDate} ~ {tournament.endDate} · {tournament.teams.length}팀</div>
-      </div>
       <div style={{ display: "flex", background: C.bg, borderBottom: `1px solid ${C.grayDarker}`, marginBottom: 12 }}>
-        {[{ key: "dashboard", label: "대시보드" }, { key: "standings", label: "순위/기록" }, { key: "manage", label: "경기관리" }].map(t => (
+        {[{ key: "dashboard", label: "대시보드" }, { key: "schedule", label: "일정" }, { key: "standings", label: "순위/기록" }, { key: "manage", label: "경기관리" }].map(t => (
           <button key={t.key} onClick={() => setTab(t.key)} style={tabStyle(tab === t.key)}>{t.label}</button>
         ))}
       </div>
@@ -142,7 +138,7 @@ export default function TournamentDashboard({ tournament, ourTeamName, gameSetti
             <div style={{ background: C.card, borderRadius: 12, padding: 16, marginBottom: 12, borderLeft: `3px solid ${C.accent}` }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
                 <div style={{ fontSize: 11, color: C.gray }}>다음 경기</div>
-                <button onClick={() => setShowScheduleModal(true)} style={{ padding: "3px 8px", borderRadius: 6, border: "none", fontSize: 10, cursor: "pointer", background: C.grayDarker, color: C.grayLight }}>전체 일정 →</button>
+                <button onClick={() => setTab("schedule")} style={{ padding: "3px 8px", borderRadius: 6, border: "none", fontSize: 10, cursor: "pointer", background: C.grayDarker, color: C.grayLight }}>전체 일정 →</button>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div>
@@ -194,6 +190,31 @@ export default function TournamentDashboard({ tournament, ourTeamName, gameSetti
         </div>
       )}
 
+      {/* 일정 탭 */}
+      {tab === "schedule" && (
+        <div style={{ padding: "0 16px" }}>
+          <div style={{ background: C.card, borderRadius: 12, padding: 14, marginBottom: 12, display: "flex", justifyContent: "space-around", textAlign: "center" }}>
+            <div>
+              <div style={{ fontSize: 10, color: C.gray }}>기간</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: C.white, marginTop: 2 }}>{tournament.startDate} ~ {tournament.endDate}</div>
+            </div>
+            <div style={{ width: 1, background: C.grayDarker }} />
+            <div>
+              <div style={{ fontSize: 10, color: C.gray }}>참가팀</div>
+              <div style={{ fontSize: 18, fontWeight: 800, color: C.accent, marginTop: 2 }}>{tournament.teams.length}<span style={{ fontSize: 11, color: C.gray }}>팀</span></div>
+            </div>
+            <div style={{ width: 1, background: C.grayDarker }} />
+            <div>
+              <div style={{ fontSize: 10, color: C.gray }}>진행</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: C.white, marginTop: 2 }}>
+                {(schedule || []).filter(m => m.isOurs && m.homeScore !== null).length}/{(schedule || []).filter(m => m.isOurs).length}경기
+              </div>
+            </div>
+          </div>
+          <TournamentSchedule schedule={schedule} ourTeamName={ourTeamName} teams={tournament.teams} onUpdateScore={handleUpdateScore} onUpdateMatch={handleUpdateMatch} isAdmin={isAdmin} defaultDate={tournament.startDate} forceShowAll />
+        </div>
+      )}
+
       {tab === "standings" && (
         <div style={{ padding: "0 4px" }}>
           <TournamentStandings schedule={schedule} ourTeamName={ourTeamName} />
@@ -208,17 +229,6 @@ export default function TournamentDashboard({ tournament, ourTeamName, gameSetti
           attendees={attendees || []} gameSettings={gameSettings} onScheduleUpdate={refreshData} />
       )}
 
-      {showScheduleModal && (
-        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: 200, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }} onClick={() => setShowScheduleModal(false)}>
-          <div style={{ background: C.card, borderRadius: 16, padding: 20, maxWidth: 420, width: "100%", maxHeight: "85vh", overflowY: "auto" }} onClick={e => e.stopPropagation()}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-              <div style={{ fontSize: 16, fontWeight: 800, color: C.white }}>전체 일정</div>
-              <button onClick={() => setShowScheduleModal(false)} style={{ padding: "4px 10px", borderRadius: 6, border: "none", fontSize: 12, cursor: "pointer", background: C.grayDarker, color: C.grayLight }}>닫기</button>
-            </div>
-            <TournamentSchedule schedule={schedule} ourTeamName={ourTeamName} teams={tournament.teams} onUpdateScore={handleUpdateScore} onUpdateMatch={handleUpdateMatch} isAdmin={isAdmin} defaultDate={tournament.startDate} forceShowAll />
-          </div>
-        </div>
-      )}
     </div>
   );
 }
