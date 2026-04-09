@@ -162,15 +162,15 @@ export default function TournamentMatchManager({ tournament, schedule: rawSchedu
           제{selectedMatch.matchNum}경기 · {selectedMatch.round}
         </div>
         <FormationRecorder
-          formation={matchState.formation}
-          assignments={matchState.assignments}
-          positionMap={matchState.positionMap}
-          subs={matchState.subs}
-          gk={matchState.gk}
-          opponent={matchState.opponent}
+          formation={matchState.formation || "4-4-2"}
+          assignments={matchState.assignments || {}}
+          positionMap={matchState.positionMap || {}}
+          subs={matchState.subs || []}
+          gk={matchState.gk || ""}
+          opponent={matchState.opponent || ""}
           startedAt={matchState.startedAt}
           matchMinutes={matchState.matchMinutes || 90}
-          events={matchState.events}
+          events={matchState.events || []}
           onAddEvent={handleAddEvent}
           onDeleteEvent={handleDeleteEvent}
           onFinishMatch={handleFinishMatch}
@@ -187,7 +187,7 @@ export default function TournamentMatchManager({ tournament, schedule: rawSchedu
       <div>
         <div style={{ fontSize: 14, fontWeight: 700, color: C.white, marginBottom: 12 }}>vs {opponent} -- 포메이션</div>
         <FormationSetup
-          selectedPlayers={matchState.selectedPlayers}
+          selectedPlayers={matchState.selectedPlayers || []}
           onConfirm={handleFormationConfirm}
           onBack={() => setPhase("roster")}
         />

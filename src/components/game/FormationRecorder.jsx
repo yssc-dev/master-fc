@@ -11,18 +11,18 @@ export default function FormationRecorder({
   events: initEvents, onAddEvent, onDeleteEvent, onFinishMatch, onStateChange,
 }) {
   const { C } = useTheme();
-  const [formation, setFormation] = useState(initFormation);
-  const [assignments, setAssignments] = useState(initAssignments);
-  const [positionMap, setPositionMap] = useState(initPositionMap);
-  const [subs, setSubs] = useState(initSubs);
-  const [gk, setGk] = useState(initGk);
+  const [formation, setFormation] = useState(initFormation || "4-4-2");
+  const [assignments, setAssignments] = useState(initAssignments || {});
+  const [positionMap, setPositionMap] = useState(initPositionMap || {});
+  const [subs, setSubs] = useState(initSubs || []);
+  const [gk, setGk] = useState(initGk || "");
   const [actionPlayer, setActionPlayer] = useState(null);
   const [goalFlow, setGoalFlow] = useState(null);
   const [showFormationPicker, setShowFormationPicker] = useState(false);
   const [showSubModal, setShowSubModal] = useState(false);
   const [subOut, setSubOut] = useState(null);
 
-  const events = initEvents || [];
+  const events = Array.isArray(initEvents) ? initEvents : [];
   const formData = FORMATIONS[formation];
 
   let ourScore = 0, opponentScore = 0;
