@@ -623,35 +623,50 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
 
           <div>
             <div style={ds.sectionTitle}>새 경기</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {activeSport === "축구" ? (
               <div style={{ ...ds.card, cursor: "pointer", border: `1px solid ${C.borderColor}`, transition: "border-color 0.2s" }}
                 onClick={() => onStartGame("sheetSync")}
                 onMouseEnter={e => e.currentTarget.style.borderColor = C.accent}
                 onMouseLeave={e => e.currentTarget.style.borderColor = C.borderColor}>
                 <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                  <div style={{ fontSize: 24 }}>📋</div>
+                  <div style={{ fontSize: 24 }}>⚽</div>
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 15, fontWeight: 700, color: C.white }}>구글시트 연동</div>
-                    <div style={{ fontSize: 12, color: C.gray, marginTop: 2 }}>시트에서 참석자/팀수를 읽어 자동 편성</div>
+                    <div style={{ fontSize: 15, fontWeight: 700, color: C.white }}>경기 시작</div>
+                    <div style={{ fontSize: 12, color: C.gray, marginTop: 2 }}>참석명단 연동 → 포메이션 → 경기 진행</div>
                   </div>
                   <span style={{ fontSize: 12, color: C.accent, fontWeight: 600 }}>▶</span>
                 </div>
               </div>
-
-              <div style={{ ...ds.card, cursor: "pointer", border: `1px solid ${C.borderColor}`, transition: "border-color 0.2s" }}
-                onClick={() => onStartGame("custom")}
-                onMouseEnter={e => e.currentTarget.style.borderColor = C.accent}
-                onMouseLeave={e => e.currentTarget.style.borderColor = C.borderColor}>
-                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                  <div style={{ fontSize: 24 }}>⚙️</div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 15, fontWeight: 700, color: C.white }}>커스텀 경기</div>
-                    <div style={{ fontSize: 12, color: C.gray, marginTop: 2 }}>참석자 선택 → 팀 편성 → 경기 진행</div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                <div style={{ ...ds.card, cursor: "pointer", border: `1px solid ${C.borderColor}`, transition: "border-color 0.2s" }}
+                  onClick={() => onStartGame("sheetSync")}
+                  onMouseEnter={e => e.currentTarget.style.borderColor = C.accent}
+                  onMouseLeave={e => e.currentTarget.style.borderColor = C.borderColor}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    <div style={{ fontSize: 24 }}>📋</div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 15, fontWeight: 700, color: C.white }}>구글시트 연동</div>
+                      <div style={{ fontSize: 12, color: C.gray, marginTop: 2 }}>시트에서 참석자/팀수를 읽어 자동 편성</div>
+                    </div>
+                    <span style={{ fontSize: 12, color: C.accent, fontWeight: 600 }}>▶</span>
                   </div>
-                  <span style={{ fontSize: 12, color: C.accent, fontWeight: 600 }}>▶</span>
+                </div>
+                <div style={{ ...ds.card, cursor: "pointer", border: `1px solid ${C.borderColor}`, transition: "border-color 0.2s" }}
+                  onClick={() => onStartGame("custom")}
+                  onMouseEnter={e => e.currentTarget.style.borderColor = C.accent}
+                  onMouseLeave={e => e.currentTarget.style.borderColor = C.borderColor}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    <div style={{ fontSize: 24 }}>⚙️</div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 15, fontWeight: 700, color: C.white }}>커스텀 경기</div>
+                      <div style={{ fontSize: 12, color: C.gray, marginTop: 2 }}>참석자 선택 → 팀 편성 → 경기 진행</div>
+                    </div>
+                    <span style={{ fontSize: 12, color: C.accent, fontWeight: 600 }}>▶</span>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
           </div>
         </>
       )}

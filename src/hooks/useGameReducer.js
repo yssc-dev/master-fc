@@ -43,6 +43,7 @@ const initialState = {
   soccerMatches: [],
   currentMatchIdx: -1,
   opponents: [],
+  soccerFormation: null, // { formation, assignments, positionMap, subs, gk, viewState, selectedOpponent }
 };
 
 function gameReducer(state, action) {
@@ -85,6 +86,7 @@ function gameReducer(state, action) {
       if (s.soccerMatches != null) updates.soccerMatches = s.soccerMatches;
       if (s.currentMatchIdx != null) updates.currentMatchIdx = s.currentMatchIdx;
       if (s.opponents != null) updates.opponents = s.opponents;
+      if (s.soccerFormation != null) updates.soccerFormation = s.soccerFormation;
       if (s.gameCreator != null) updates.gameCreator = s.gameCreator;
       if (s.phase != null) updates.phase = s.phase;
       return { ...state, ...updates };
@@ -271,6 +273,9 @@ function gameReducer(state, action) {
         i === matchIdx ? { ...m, status: "finished" } : m
       );
       return { ...state, soccerMatches: matches, currentMatchIdx: -1 };
+    }
+    case 'SET_SOCCER_FORMATION': {
+      return { ...state, soccerFormation: action.formation };
     }
     case 'SET_OPPONENTS': {
       return { ...state, opponents: action.opponents };

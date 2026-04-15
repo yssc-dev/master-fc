@@ -210,7 +210,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
     phase, teams, teamNames, teamColorIndices, gks, gksHistory, allEvents,
     completedMatches, schedule, currentRoundIdx, viewingRoundIdx, confirmedRounds, attendees,
     teamCount, courtCount, matchMode, isExtraRound, splitPhase, rotations, earlyFinish, pushState,
-    soccerMatches: state.soccerMatches, currentMatchIdx: state.currentMatchIdx, opponents: state.opponents,
+    soccerMatches: state.soccerMatches, currentMatchIdx: state.currentMatchIdx, opponents: state.opponents, soccerFormation: state.soccerFormation,
     lastEditor: authUser?.name || "알 수 없음",
     lastEditTime: Date.now(),
   }), [phase, teams, teamNames, teamColorIndices, gks, gksHistory, allEvents, completedMatches, schedule, currentRoundIdx, viewingRoundIdx, confirmedRounds, attendees, teamCount, courtCount, matchMode, isExtraRound, splitPhase, rotations, earlyFinish, pushState, state.soccerMatches, authUser, gameId]);
@@ -952,6 +952,8 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
               onDeleteEvent={deleteSoccerEvent} onFinishMatch={finishSoccerMatch}
               onAddOpponent={addOpponent} onGoToSummary={() => set('phase', 'summary')}
               gameSettings={gameSettings} styles={s}
+              savedFormation={state.soccerFormation}
+              onFormationChange={(f) => dispatch({ type: 'SET_SOCCER_FORMATION', formation: f })}
             />
           ) : matchMode === "push" ? (
             <PushMatchView teams={teams} teamNames={teamNames} teamColorIndices={teamColorIndices} gks={gks} gksHistory={gksHistory || {}}

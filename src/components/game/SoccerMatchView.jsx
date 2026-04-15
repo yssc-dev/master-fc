@@ -11,13 +11,26 @@ export default function SoccerMatchView({
   soccerMatches, currentMatchIdx, attendees, opponents,
   onCreateMatch, onAddEvent, onDeleteEvent, onFinishMatch,
   onAddOpponent, onGoToSummary, gameSettings, styles: s,
+  savedFormation, onFormationChange,
 }) {
   const { C } = useTheme();
-  const [viewState, setViewState] = useState("selectOpponent");
-  const [selectedOpponent, setSelectedOpponent] = useState(null);
+
+  // 저장된 포메이션 상태에서 복원
+  const [viewState, setViewState] = useState(() => {
+    if (savedFormation?.viewState) return savedFormation.viewState;
+    if (currentMatchIdx >= 0 && soccerMatches[currentMatchIdx]?.status === "playing") return "playing";
+    return "selectOpponent";
+  });
+  const [selectedOpponent, setSelectedOpponent] = useState(savedFormation?.selectedOpponent || null);
   const [viewingMatchIdx, setViewingMatchIdx] = useState(null);
-  const [selectedPlayers, setSelectedPlayers] = useState([]);
-  const [matchFormation, setMatchFormation] = useState(null);
+  const [selectedPlayers, setSelectedPlayers] = useState(savedFormation?.selectedPlayers || []);
+  const [matchFormation, setMatchFormation] = useState(savedFormation?.matchFormation || null);
+
+  // 상태 변경 시 리듀서에 저장 (Firebase 자동 저장됨)
+  const saveFormationState = (updates) => {
+    const current = { viewState, selectedOpponent, selectedPlayers, matchFormation, ...updates };
+    onFormationChange?.(current);
+  };
 
   const currentMatch = currentMatchIdx >= 0 ? soccerMatches[currentMatchIdx] : null;
   const finishedMatches = soccerMatches.filter(m => m.status === "finished");
@@ -26,18 +39,21 @@ export default function SoccerMatchView({
   // 상대팀 선택 → 바로 포메이션으로
   const handleOpponentSelect = (name) => {
     setSelectedOpponent(name);
-    setSelectedPlayers(attendees); // 오늘 참석 멤버 전체를 풀로 사용
+    setSelectedPlayers(attendees);
     setViewState("formation");
+    saveFormationState({ viewState: "formation", selectedOpponent: name, selectedPlayers: attendees });
   };
 
   // 포메이션 확정 → 경기 생성
   const handleFormationConfirm = ({ formation, assignments, gk, positionMap, subs }) => {
-    setMatchFormation({ formation, assignments, gk, positionMap, subs });
+    const mf = { formation, assignments, gk, positionMap, subs };
+    setMatchFormation(mf);
     const lineup = Object.values(assignments);
     const defenders = Object.entries(positionMap).filter(([, r]) => r === "DF").map(([n]) => n);
     onCreateMatch({ opponent: selectedOpponent, lineup, gk, defenders });
     setViewState("playing");
     setViewingMatchIdx(null);
+    saveFormationState({ viewState: "playing", matchFormation: mf });
   };
 
   // 이벤트
@@ -51,6 +67,7 @@ export default function SoccerMatchView({
     onFinishMatch(currentMatchIdx);
     setViewState("matchFinished");
     setMatchFormation(null);
+    saveFormationState({ viewState: "matchFinished", matchFormation: null });
   };
 
   const handleNextMatch = () => {
@@ -58,6 +75,7 @@ export default function SoccerMatchView({
     setSelectedPlayers([]);
     setMatchFormation(null);
     setViewState("selectOpponent");
+    saveFormationState({ viewState: "selectOpponent", selectedOpponent: null, matchFormation: null });
   };
 
   // 과거 경기 보기
