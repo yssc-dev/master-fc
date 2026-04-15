@@ -161,10 +161,10 @@ export default function SoccerMatchView({
           {finishedMatches.map((m, i) => {
             const sc = calcSoccerScore(m.events);
             return (
-              <div key={i} onClick={() => setViewingMatchIdx(m.matchIdx)}
-                style={{ display: "flex", justifyContent: "space-between", padding: "8px 12px", background: C.cardLight, borderRadius: 8, marginBottom: 4, fontSize: 13, cursor: "pointer", color: C.white }}>
-                <span>제{m.matchIdx + 1}경기 vs {m.opponent}</span>
-                <span style={{ fontWeight: 700 }}>{sc.ourScore}:{sc.opponentScore}</span>
+              <div key={i} onClick={() => m.opponent !== "휴식" && setViewingMatchIdx(m.matchIdx)}
+                style={{ display: "flex", justifyContent: "space-between", padding: "8px 12px", background: C.cardLight, borderRadius: 8, marginBottom: 4, fontSize: 13, cursor: m.opponent === "휴식" ? "default" : "pointer", color: C.white, opacity: m.opponent === "휴식" ? 0.5 : 1 }}>
+                <span>{m.opponent === "휴식" ? `제${m.matchIdx + 1}경기 😴 휴식` : `제${m.matchIdx + 1}경기 vs ${m.opponent}`}</span>
+                {m.opponent !== "휴식" && <span style={{ fontWeight: 700 }}>{sc.ourScore}:{sc.opponentScore}</span>}
               </div>
             );
           })}
@@ -175,6 +175,14 @@ export default function SoccerMatchView({
           {finishedMatches.length > 0 ? `제${finishedMatches.length + 1}경기` : "경기 생성"}
         </div>
         <OpponentSelector opponents={opponents} onSelect={handleOpponentSelect} onAddOpponent={onAddOpponent} styles={s} />
+        <button onClick={() => {
+          if (!confirm("이번 라운드를 휴식으로 처리하시겠습니까?")) return;
+          onCreateMatch({ opponent: "휴식", lineup: [], gk: "", defenders: [] });
+          onFinishMatch(currentMatchIdx >= 0 ? currentMatchIdx : soccerMatches.length);
+        }}
+          style={{ marginTop: 10, width: "100%", padding: "12px 0", borderRadius: 10, border: `1px dashed ${C.grayDark}`, background: "transparent", fontSize: 13, color: C.gray, cursor: "pointer" }}>
+          😴 휴식 (이번 라운드 스킵)
+        </button>
       </div>
     </div>
   );
