@@ -23,15 +23,10 @@ export default function SoccerMatchView({
   const finishedMatches = soccerMatches.filter(m => m.status === "finished");
   const viewingMatch = viewingMatchIdx !== null ? soccerMatches[viewingMatchIdx] : null;
 
-  // 상대팀 선택
+  // 상대팀 선택 → 바로 포메이션으로
   const handleOpponentSelect = (name) => {
     setSelectedOpponent(name);
-    setViewState("roster");
-  };
-
-  // 출전명단 확정
-  const handleRosterConfirm = (players) => {
-    setSelectedPlayers(players);
+    setSelectedPlayers(attendees); // 오늘 참석 멤버 전체를 풀로 사용
     setViewState("formation");
   };
 
@@ -150,28 +145,15 @@ export default function SoccerMatchView({
     );
   }
 
-  // 포메이션 선택
+  // 포메이션 선택 (참석 멤버에서 바로 배치)
   if (viewState === "formation" && selectedOpponent) {
     return (
       <div>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-          <button onClick={() => setViewState("roster")} style={{ padding: "6px 10px", borderRadius: 8, background: C.grayDark, color: C.white, border: "none", fontSize: 12, cursor: "pointer" }}>←</button>
+          <button onClick={() => setViewState("selectOpponent")} style={{ padding: "6px 10px", borderRadius: 8, background: C.grayDark, color: C.white, border: "none", fontSize: 12, cursor: "pointer" }}>←</button>
           <div style={{ fontSize: 14, fontWeight: 700, color: C.white }}>vs {selectedOpponent} — 포메이션</div>
         </div>
-        <FormationSetup selectedPlayers={selectedPlayers} onConfirm={handleFormationConfirm} onBack={() => setViewState("roster")} />
-      </div>
-    );
-  }
-
-  // 출전명단 선택
-  if (viewState === "roster" && selectedOpponent) {
-    return (
-      <div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-          <button onClick={() => setViewState("selectOpponent")} style={{ padding: "6px 10px", borderRadius: 8, background: C.grayDark, color: C.white, border: "none", fontSize: 12, cursor: "pointer" }}>←</button>
-          <div style={{ fontSize: 14, fontWeight: 700, color: C.white }}>vs {selectedOpponent} — 출전 명단</div>
-        </div>
-        <RosterSelector allPlayers={attendees} onConfirm={handleRosterConfirm} />
+        <FormationSetup selectedPlayers={selectedPlayers} onConfirm={handleFormationConfirm} onBack={() => setViewState("selectOpponent")} />
       </div>
     );
   }
