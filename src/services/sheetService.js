@@ -141,7 +141,8 @@ export async function fetchAttendanceData() {
     for (let i = startRow; i < lines.length; i++) {
       const f = parseCSVLine(lines[i]);
       const name = (f[1] || '').trim();
-      if (name && /^[가-힣]{2,5}$/.test(name)) attendees.push(name);
+      if (!name || !/^[가-힣]{2,5}$/.test(name)) break; // 빈 행 만나면 중단
+      attendees.push(name);
     }
     return { attendees, teamCount: 0, prebuiltTeams: [], prebuiltTeamNames: [] };
   }
