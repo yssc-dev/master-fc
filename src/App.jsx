@@ -150,6 +150,26 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
           else if (sheetTeamCount === 5) sched = generate5Team2Court();
           else if (sheetTeamCount === 6) sched = generate6Team2Court().firstHalf;
         }
+        // 1코트: 회전수 선택을 위해 teamBuild로 이동
+        if (cc === 1) {
+          dispatch({
+            type: 'SET_FIELDS',
+            fields: {
+              attendees: allPlayers,
+              teamCount: sheetTeamCount,
+              courtCount: cc,
+              matchMode: "schedule",
+              draftMode: hasPrebuilt ? "sheet" : "snake",
+              teams: finalTeams,
+              teamNames: tNames,
+              teamColorIndices: tColors,
+              gks: {},
+              phase: "teamBuild",
+            },
+          });
+          return;
+        }
+
         if (!sched) sched = generate1Court(sheetTeamCount, 2);
 
         dispatch({
@@ -770,6 +790,15 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
             );
           })}
         </div>
+        {courtCount === 1 && matchMode === "schedule" && (
+          <div style={{ ...s.section, marginTop: 0 }}>
+            <div style={{ ...s.card, display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{ fontSize: 12, color: C.gray, fontWeight: 700, whiteSpace: "nowrap" }}>회전 수</span>
+              <div style={s.row}>{[1, 2, 3, 4, 5].map(n => <button key={n} onClick={() => set('rotations', n)} style={s.btn(rotations === n ? C.accent : C.grayDark, rotations === n ? C.bg : C.white)}>{n}회전</button>)}</div>
+              <span style={{ fontSize: 11, color: C.gray, whiteSpace: "nowrap" }}>{teamCount * (teamCount - 1) / 2 * rotations}경기</span>
+            </div>
+          </div>
+        )}
         <div style={s.bottomBar}>
           <button onClick={() => set('phase', 'setup')} style={s.btn(C.grayDark)}>이전</button>
           <button onClick={startMatches} style={{ ...s.btn(C.green), flex: 1, opacity: teams.some(t => t.length < 1) ? 0.5 : 1 }}>경기 시작</button>
