@@ -121,7 +121,21 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
         dispatch({ type: 'SET_OPPONENTS', opponents });
       }
 
-      // 구글시트 연동 모드: 시트의 팀 편성을 그대로 사용, 없으면 스네이크 드래프트
+      // 축구: 시트 연동 시 참석자만 로드하고 축구 모드로 진입
+      if (gameMode === "sheetSync" && teamContext?.mode === "축구" && attendanceData && attendanceData.attendees.length > 0) {
+        dispatch({
+          type: 'SET_FIELDS',
+          fields: {
+            attendees: attendanceData.attendees,
+            matchMode: "soccer",
+            courtCount: 1,
+            phase: "match",
+          },
+        });
+        return;
+      }
+
+      // 풋살: 시트의 팀 편성을 그대로 사용, 없으면 스네이크 드래프트
       if (gameMode === "sheetSync" && attendanceData && attendanceData.attendees.length > 0) {
         const sp = players || FALLBACK_DATA.players;
         const prebuilt = attendanceData.prebuiltTeams || [];
