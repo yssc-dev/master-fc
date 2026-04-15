@@ -56,6 +56,15 @@ export const FORMATIONS = {
       { x: 35, y: 25, role: "FW" }, { x: 65, y: 25, role: "FW" },
     ],
   },
+  "4-2-4": {
+    label: "4-2-4",
+    positions: [
+      { x: 50, y: 92, role: "GK" },
+      { x: 15, y: 75, role: "DF" }, { x: 38, y: 78, role: "DF" }, { x: 62, y: 78, role: "DF" }, { x: 85, y: 75, role: "DF" },
+      { x: 35, y: 52, role: "MF" }, { x: 65, y: 52, role: "MF" },
+      { x: 12, y: 25, role: "FW" }, { x: 38, y: 22, role: "FW" }, { x: 62, y: 22, role: "FW" }, { x: 88, y: 25, role: "FW" },
+    ],
+  },
 };
 
 export const FORMATION_KEYS = Object.keys(FORMATIONS);

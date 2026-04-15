@@ -3,7 +3,7 @@ import { useTheme } from '../../hooks/useTheme';
 import { FORMATIONS, FORMATION_KEYS } from '../../utils/formations';
 import FormationPitch from './FormationPitch';
 
-export default function FormationSetup({ selectedPlayers, onConfirm, onBack }) {
+export default function FormationSetup({ selectedPlayers, onConfirm, onBack, title }) {
   const { C } = useTheme();
   const [formation, setFormation] = useState("4-4-2");
   const [assignments, setAssignments] = useState({});
@@ -11,7 +11,7 @@ export default function FormationSetup({ selectedPlayers, onConfirm, onBack }) {
 
   const formData = FORMATIONS[formation];
   const assignedNames = new Set(Object.values(assignments));
-  const unassigned = selectedPlayers.filter(n => !assignedNames.has(n));
+  const unassigned = selectedPlayers.filter(n => !assignedNames.has(n)).sort((a, b) => a.localeCompare(b, "ko"));
   const assignedCount = Object.keys(assignments).length;
   const canStart = assignedCount === 11;
 
@@ -39,7 +39,7 @@ export default function FormationSetup({ selectedPlayers, onConfirm, onBack }) {
     <div>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
         <button onClick={onBack} style={{ padding: "6px 10px", borderRadius: 8, background: C.grayDark, color: C.white, border: "none", fontSize: 12, cursor: "pointer" }}>←</button>
-        <div style={{ fontSize: 14, fontWeight: 700, color: C.white }}>포메이션 · 선수 배치</div>
+        <div style={{ fontSize: 14, fontWeight: 700, color: C.white }}>{title || "포메이션 · 선수 배치"}</div>
         <div style={{ marginLeft: "auto", fontSize: 12, fontWeight: 700, color: canStart ? C.green : C.gray }}>{assignedCount}/11</div>
       </div>
       <div style={{ display: "flex", gap: 4, marginBottom: 12, overflowX: "auto", paddingBottom: 4 }}>

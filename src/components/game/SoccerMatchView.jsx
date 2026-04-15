@@ -148,13 +148,7 @@ export default function SoccerMatchView({
   // 포메이션 선택 (참석 멤버에서 바로 배치)
   if (viewState === "formation" && selectedOpponent) {
     return (
-      <div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
-          <button onClick={() => setViewState("selectOpponent")} style={{ padding: "6px 10px", borderRadius: 8, background: C.grayDark, color: C.white, border: "none", fontSize: 12, cursor: "pointer" }}>←</button>
-          <div style={{ fontSize: 14, fontWeight: 700, color: C.white }}>vs {selectedOpponent} — 포메이션</div>
-        </div>
-        <FormationSetup selectedPlayers={selectedPlayers} onConfirm={handleFormationConfirm} onBack={() => setViewState("selectOpponent")} />
-      </div>
+      <FormationSetup selectedPlayers={selectedPlayers} onConfirm={handleFormationConfirm} onBack={() => setViewState("selectOpponent")} title={`vs ${selectedOpponent}`} />
     );
   }
 
