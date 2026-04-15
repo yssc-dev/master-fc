@@ -9,6 +9,7 @@ import HistoryView from './components/history/HistoryView';
 import SettingsScreen from './components/common/SettingsScreen';
 import { loadSettingsFromFirebase } from './config/settings';
 import App from './App';
+import SoccerApp from './SoccerApp';
 
 export default function Root() {
   // AuthUtil.getStored()를 한 번만 호출하여 초기 상태 설정
@@ -170,6 +171,7 @@ export default function Root() {
     return <SettingsScreen teamName={selectedTeamName} teamMode={teamContext?.mode} onBack={() => setScreen("dashboard")} />;
   }
 
-  return <App authUser={authUser} teamContext={teamContext} isNewGame={isNewGame} gameMode={gameMode} gameId={activeGameId}
+  const GameApp = teamContext?.mode === "축구" ? SoccerApp : App;
+  return <GameApp authUser={authUser} teamContext={teamContext} isNewGame={isNewGame} gameMode={gameMode} gameId={activeGameId}
     onLogout={handleLogout} onBackToMenu={() => { setIsNewGame(false); setGameMode(null); setActiveGameId(null); setScreen("dashboard"); if (selectedTeamName) checkPendingGames(selectedTeamName); else setPendingGames([]); }} />;
 }
