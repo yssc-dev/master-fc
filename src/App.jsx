@@ -40,7 +40,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
   useEffect(() => {
     const team = teamContext?.team || "";
 
-    // 이어하기: Firebase에서 특정 gameId로 빠르게 복원
+    // 이어하기: Firebase에서 복원
     if (!isNewGame && gameId) {
       FirebaseSync.loadState(team, gameId).then(fb => {
         if (fb && fb.found && fb.state && fb.state.phase !== "setup") {
@@ -49,17 +49,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
           _loadBackgroundData(team);
           return;
         }
-        // Firebase에 없으면 Apps Script에서 시도 (전체 로드 후 gameId 매칭)
-        return AppSync.loadAllStates().then(games => {
-          const match = games.find(g => g.gameId === gameId);
-          if (match && match.state && match.state.phase !== "setup") {
-            dispatch({ type: 'SET_FIELDS', fields: { dataLoading: false, dataSource: "restoring" } });
-            dispatch({ type: 'RESTORE_STATE', state: match.state });
-            _loadBackgroundData(team);
-            return;
-          }
-          _loadAllData(team);
-        });
+        _loadAllData(team);
       }).catch(() => _loadAllData(team));
       return;
     }
@@ -232,9 +222,6 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
       const team = teamContext?.team || "";
       try {
         await FirebaseSync.saveState(team, gameId || "legacy", gameState);
-        if (AppSync.enabled()) {
-          await AppSync.saveState(gameState);
-        }
         set('syncStatus', 'saved');
         setTimeout(() => set('syncStatus', ''), 2000);
       } catch (e) {

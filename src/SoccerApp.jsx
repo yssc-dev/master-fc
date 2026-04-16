@@ -40,16 +40,7 @@ export default function SoccerApp({ authUser, teamContext, isNewGame, gameMode, 
           _loadBackgroundData(team);
           return;
         }
-        return AppSync.loadAllStates().then(games => {
-          const match = games.find(g => g.gameId === gameId);
-          if (match && match.state && match.state.phase !== "setup") {
-            dispatch({ type: 'SET_FIELDS', fields: { dataLoading: false, dataSource: "restoring" } });
-            dispatch({ type: 'RESTORE_STATE', state: match.state });
-            _loadBackgroundData(team);
-            return;
-          }
-          _loadAllData(team);
-        });
+        _loadAllData(team);
       }).catch(() => _loadAllData(team));
       return;
     }
@@ -129,7 +120,6 @@ export default function SoccerApp({ authUser, teamContext, isNewGame, gameMode, 
       const team = teamContext?.team || "";
       try {
         await FirebaseSync.saveState(team, gameId || "legacy", gameState);
-        if (AppSync.enabled()) await AppSync.saveState(gameState);
         set('syncStatus', 'saved');
         setTimeout(() => set('syncStatus', ''), 2000);
       } catch (e) {
