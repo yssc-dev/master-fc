@@ -162,5 +162,5 @@ export default function Root() {
 
   const GameApp = teamContext?.mode === "축구" ? SoccerApp : App;
   return <GameApp authUser={authUser} teamContext={teamContext} isNewGame={isNewGame} gameMode={gameMode} gameId={activeGameId}
-    onLogout={handleLogout} onBackToMenu={() => { setIsNewGame(false); setGameMode(null); setActiveGameId(null); setScreen("dashboard"); if (selectedTeamName) checkPendingGames(selectedTeamName); else setPendingGames([]); }} />;
+    onLogout={handleLogout} onBackToMenu={() => { setIsNewGame(false); setGameMode(null); setActiveGameId(null); setScreen("dashboard"); setTimeout(() => { if (selectedTeamName) checkPendingGames(selectedTeamName); else setPendingGames([]); }, 1500); }} />;
 }
