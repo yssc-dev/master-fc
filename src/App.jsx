@@ -537,6 +537,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
     const dateStr = `${gameD.getFullYear()}-${String(gameD.getMonth() + 1).padStart(2, "0")}-${String(gameD.getDate()).padStart(2, "0")}`;
     // 입력시간: 구글시트로 데이터전송 시점
     const inputTime = new Date().toLocaleString("ko-KR");
+    const ES = state.settingsSnapshot || gameSettings;
 
     if (!confirm(`${gameD.getMonth() + 1}월 ${gameD.getDate()}일 풋살기록을 확정하시겠습니까?\n\n시트에 포인트로그 + 선수별집계를 저장합니다.`)) return;
 
@@ -577,14 +578,13 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
         pts.goguma = 0;
       }
       if (pts.goals === 0 && pts.assists === 0 && pts.owngoals === 0 && pts.conceded === 0 && pts.cleanSheets === 0 && pts.keeperGames === 0 && pts.crova === 0 && pts.goguma === 0 && rankScore === 0) return null;
-      const ES = state.settingsSnapshot || gameSettings;
-      return { gameDate: dateStr, name: p, ...pts, owngoals: pts.owngoals * ES.ownGoalPoint, rankScore, inputTime };
+      return { gameDate: dateStr, name: p, ...pts, owngoals: pts.owngoals * ES2.ownGoalPoint, rankScore, inputTime };
     }).filter(Boolean);
 
     try {
       const [r1, r2] = await Promise.all([
-        AppSync.writePointLog({ events: pointEvents }, gameSettings.pointLogSheet),
-        AppSync.writePlayerLog({ players: playerData }, gameSettings.playerLogSheet),
+        AppSync.writePointLog({ events: pointEvents }, ES.pointLogSheet),
+        AppSync.writePlayerLog({ players: playerData }, ES.playerLogSheet),
       ]);
       await AppSync.finalizeState(gameId);
       await FirebaseSync.clearState(teamContext?.team, gameId);

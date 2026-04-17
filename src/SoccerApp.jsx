@@ -169,11 +169,12 @@ export default function SoccerApp({ authUser, teamContext, isNewGame, gameMode, 
   const soccerStats = useMemo(() => {
     const finished = state.soccerMatches.filter(m => m.status === "finished");
     if (finished.length === 0) return [];
+    const ES = state.settingsSnapshot || gameSettings;
     const raw = calcSoccerPlayerStats(finished);
     return Object.entries(raw).map(([name, st]) => ({
-      name, ...st, point: calcSoccerPlayerPoint(st, gameSettings),
+      name, ...st, point: calcSoccerPlayerPoint(st, ES),
     })).sort((a, b) => b.point - a.point);
-  }, [state.soccerMatches, gameSettings]);
+  }, [state.soccerMatches, state.settingsSnapshot, gameSettings]);
 
   // ── 축구 핸들러 ──
   const createSoccerMatch = ({ opponent, lineup, gk, defenders }) => {
@@ -368,7 +369,7 @@ export default function SoccerApp({ authUser, teamContext, isNewGame, gameMode, 
             onCreateMatch={createSoccerMatch} onAddEvent={addSoccerEvent}
             onDeleteEvent={deleteSoccerEvent} onFinishMatch={finishSoccerMatch}
             onAddOpponent={addOpponent} onGoToSummary={() => set('phase', 'summary')}
-            gameSettings={gameSettings} styles={s}
+            gameSettings={state.settingsSnapshot || gameSettings} styles={s}
             savedFormation={state.soccerFormation}
             onFormationChange={(f) => dispatch({ type: 'SET_SOCCER_FORMATION', formation: f })}
           />
