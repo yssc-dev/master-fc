@@ -431,8 +431,10 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
 
   const confirmRound = (roundIdx, matchResults) => {
     let newSchedule = null, newSplitPhase = null;
-    const isLastRound = roundIdx >= schedule.length - 1;
-    const nextIdx = matchMode === "schedule" && !isExtraRound && !isLastRound ? roundIdx + 1 : null;
+    const sched = newSchedule || schedule;
+    let scanIdx = roundIdx + 1;
+    while (scanIdx < sched.length && confirmedRounds[scanIdx]) scanIdx++;
+    const nextIdx = (matchMode === "schedule" && !isExtraRound && scanIdx < sched.length) ? scanIdx : null;
     if (matchMode === "schedule" && !isExtraRound && teamCount === 6 && courtCount === 2 && splitPhase === "first") {
       // 6라운드 × 2코트 = 12경기 모두 완료 시 스플릿
       const cnt = completedMatches.filter(m => !m.isExtra).length + matchResults.length;
