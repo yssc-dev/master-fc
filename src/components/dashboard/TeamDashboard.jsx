@@ -425,6 +425,8 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
   };
 
 
+  const showCG = activeSport !== "축구" && getEffectiveSettings(teamName, "풋살").useCrovaGoguma;
+
   const [statSort, setStatSort] = useState("point");
   const statCols = [
     { key: "name", label: "선수" },
@@ -432,16 +434,8 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
     { key: "goals", label: "골" },
     { key: "assists", label: "어시" },
     { key: "ownGoals", label: "자책" },
-    (() => {
-      if (activeSport === "축구") return null;
-      const es = getEffectiveSettings(teamName, "풋살");
-      return es.useCrovaGoguma ? { key: "crova", label: "🍀" } : null;
-    })(),
-    (() => {
-      if (activeSport === "축구") return null;
-      const es = getEffectiveSettings(teamName, "풋살");
-      return es.useCrovaGoguma ? { key: "goguma", label: "🍠" } : null;
-    })(),
+    showCG ? { key: "crova", label: "🍀" } : null,
+    showCG ? { key: "goguma", label: "🍠" } : null,
     { key: "point", label: "PT" },
     { key: "cleanSheets", label: "CS" },
     { key: "keeperGames", label: "GK" },
@@ -560,8 +554,8 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
                     <td style={ds.tdStyle(p.goals > 0)}>{p.goals}</td>
                     <td style={ds.tdStyle(p.assists > 0)}>{p.assists}</td>
                     <td style={{ ...ds.tdStyle(p.ownGoals > 0), color: p.ownGoals > 0 ? C.red : undefined }}>{p.ownGoals}</td>
-                    <td style={ds.tdStyle(p.crova > 0)}>{p.crova || 0}</td>
-                    <td style={{ ...ds.tdStyle(p.goguma > 0), color: p.goguma > 0 ? C.red : undefined }}>{p.goguma || 0}</td>
+                    {showCG && <td style={ds.tdStyle(p.crova > 0)}>{p.crova || 0}</td>}
+                    {showCG && <td style={{ ...ds.tdStyle(p.goguma > 0), color: p.goguma > 0 ? C.red : undefined }}>{p.goguma || 0}</td>}
                     <td style={{ ...ds.tdStyle(true), fontWeight: 800, color: C.accent }}>{p.point}</td>
                     <td style={ds.tdStyle(p.cleanSheets > 0)}>{p.cleanSheets}</td>
                     <td style={ds.tdStyle(false)}>{p.keeperGames}</td>
