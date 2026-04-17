@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useTheme } from '../../hooks/useTheme';
-import { getSettings, saveSettings, getDefaults } from '../../config/settings';
+import { getSettings, saveSettings, getDefaults, SPORT_DEFAULTS } from '../../config/settings';
 import AppSync from '../../services/appSync';
 
 export default function SettingsScreen({ teamName, teamMode, onBack }) {
@@ -115,7 +115,7 @@ export default function SettingsScreen({ teamName, teamMode, onBack }) {
         <div style={ss.sectionTitle}>경기규칙 설정</div>
         {isSoccer ? (
           <>
-            <NumRow label="자책골 포인트" value={settings.ownGoalPoint} onChange={v => update("ownGoalPoint", v)} defaultVal={-1} />
+            <NumRow label="자책골 포인트" value={settings.ownGoalPoint} onChange={v => update("ownGoalPoint", v)} defaultVal={SPORT_DEFAULTS.축구.ownGoalPoint} />
             <NumRow label="클린시트 포인트" value={settings.cleanSheetPoint} onChange={v => update("cleanSheetPoint", v)} defaultVal={defaults.cleanSheetPoint} />
           </>
         ) : (

@@ -116,9 +116,7 @@ export function calcSoccerPlayerStats(soccerMatches) {
  */
 export function calcSoccerPlayerPoint(playerStat, settings) {
   const { goals, assists, owngoals, cleanSheets } = playerStat;
-  const ownGoalPt = settings?.ownGoalPoint ?? -1;
-  const csPt = settings?.cleanSheetPoint ?? 1;
-  return goals + assists + (owngoals * ownGoalPt) + (cleanSheets * csPt);
+  return goals + assists + (owngoals * settings.ownGoalPoint) + (cleanSheets * settings.cleanSheetPoint);
 }
 
 /**

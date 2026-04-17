@@ -3,6 +3,7 @@ import AppSync from '../../services/appSync';
 import { useTheme } from '../../hooks/useTheme';
 import { TEAM_COLORS } from '../../config/constants';
 import { calcMatchScore } from '../../utils/scoring';
+import { getEffectiveSettings } from '../../config/settings';
 
 function calcStandings(completedMatches, teamNames) {
   const stats = {};
@@ -109,7 +110,8 @@ export default function HistoryView({ teamContext, onBack }) {
     const isPush = matchMode === "push";
 
     const standings = calcStandings(matches, teamNames);
-    const playerRows = calcPlayerStats(events, matches, attendees, teams, teamNames, -2);
+    const es = getEffectiveSettings(teamContext.team, teamContext.mode);
+    const playerRows = calcPlayerStats(events, matches, attendees, teams, teamNames, es.ownGoalPoint);
 
     return (
       <div style={hs.container}>
@@ -170,7 +172,7 @@ export default function HistoryView({ teamContext, onBack }) {
                         </td>
                         <td style={hs.td(p.goals > 0)}>{p.goals}</td>
                         <td style={hs.td(p.assists > 0)}>{p.assists}</td>
-                        <td style={{ ...hs.td(p.owngoals > 0), color: p.owngoals > 0 ? C.red : C.white }}>{p.owngoals > 0 ? p.owngoals * -2 : 0}</td>
+                        <td style={{ ...hs.td(p.owngoals > 0), color: p.owngoals > 0 ? C.red : C.white }}>{p.owngoals > 0 ? p.owngoals * es.ownGoalPoint : 0}</td>
                         <td style={hs.td(p.cleanSheets > 0)}>{p.cleanSheets}</td>
                         <td style={hs.td(false)}>{p.conceded}</td>
                         <td style={hs.td(false)}>{p.keeperGames}</td>

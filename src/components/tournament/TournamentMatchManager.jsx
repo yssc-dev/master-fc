@@ -138,7 +138,7 @@ export default function TournamentMatchManager({ tournament, schedule: rawSchedu
       if (e.event === "실점" && e.player) { ensure(e.player); pStats[e.player].conceded++; }
       if (e.event === "교체") { ensure(e.player); pStats[e.player].games++; if (e.position === "GK") pStats[e.player].keeperGames++; else pStats[e.player].fieldGames++; }
     }
-    Object.values(pStats).forEach(p => { p.point = p.goals + p.assists + (p.owngoals * (gameSettings?.ownGoalPoint ?? -1)) + (p.cleanSheets * (gameSettings?.cleanSheetPoint ?? 1)); });
+    Object.values(pStats).forEach(p => { p.point = p.goals + p.assists + (p.owngoals * gameSettings.ownGoalPoint) + (p.cleanSheets * gameSettings.cleanSheetPoint); });
     await AppSync.writeTournamentPlayerRecord(tournament.id, { players: Object.values(pStats) });
 
     // clear Firebase activeGame
