@@ -189,6 +189,7 @@ export default function SoccerApp({ authUser, teamContext, isNewGame, gameMode, 
     dispatch({ type: 'FINISH_SOCCER_MATCH', matchIdx });
   };
   const addOpponent = async (name) => {
+    if (!teamContext?.team) return;
     const newOpponents = [...(state.opponents || []), name];
     dispatch({ type: 'SET_OPPONENTS', opponents: newOpponents });
     const es = getEffectiveSettings(teamContext.team, "축구");
