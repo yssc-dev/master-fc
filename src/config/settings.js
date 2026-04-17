@@ -54,31 +54,12 @@ export function resolvePreset(team, sport) {
 }
 
 const DEFAULTS = {
-  // 구글시트 설정
   sheetId: SHEET_CONFIG.sheetId,
   attendanceSheet: "참석명단",
-  dashboardSheet: "마스터FC 대시보드",
+  dashboardSheet: "대시보드",
   pointLogSheet: "포인트로그",
   playerLogSheet: "선수별집계기록로그",
-  // 팀전 설정
-  dualTeams: [
-    { name: "창조", members: ["조재상", "우창호"] },
-    { name: "동서라북", members: ["서라현", "정동근"] },
-    { name: "성환보영", members: ["김성환", "정보영"] },
-    { name: "횡성홍우", members: ["김홍익", "우상운"] },
-    { name: "투투", members: ["이영문", "이동규"] },
-  ],
-  dualTeamStartDate: "2026-04-01",
-  dualTeamEndDate: "2026-07-01",
-  // 경기규칙 설정
-  ownGoalPoint: -2,
-  crovaPoint: 2,
-  gogumaPoint: -1,
-  bonusMultiplier: 2,
-  // 축구 전용
   eventLogSheet: "",
-  cleanSheetPoint: 1,
-  opponents: [],
 };
 
 function _key(team) {
@@ -226,10 +207,6 @@ export function getEffectiveSettings(team, sport) {
     ...shared,
     _meta: { preset: presetName, sport, team },
   };
-}
-
-export function getDefaults() {
-  return { ...DEFAULTS };
 }
 
 export function getSportDefault(sport, key) {
