@@ -4,6 +4,55 @@ import { SHEET_CONFIG } from './constants';
 
 const SETTINGS_KEY = "masterfc_settings";
 
+export const SPORT_DEFAULTS = {
+  풋살: {
+    ownGoalPoint: -1,
+    useCrovaGoguma: false,
+    crovaPoint: 0,
+    gogumaPoint: 0,
+    bonusMultiplier: 1,
+  },
+  축구: {
+    ownGoalPoint: -1,
+    cleanSheetPoint: 1,
+    opponents: [],
+  },
+};
+
+export const PRESETS = {
+  풋살: {
+    "표준풋살": {
+      description: "일반 풋살 규칙",
+      values: {},
+    },
+    "마스터FC풋살": {
+      description: "마스터FC 커스텀 (자살골 2배, 크로바/고구마)",
+      values: {
+        ownGoalPoint: -2,
+        useCrovaGoguma: true,
+        crovaPoint: 2,
+        gogumaPoint: -1,
+        bonusMultiplier: 2,
+      },
+    },
+  },
+  축구: {
+    "표준축구": {
+      description: "일반 축구 규칙",
+      values: {},
+    },
+  },
+};
+
+const PRESET_MAP = {
+  "마스터FC": { 풋살: "마스터FC풋살" },
+  _default: { 풋살: "표준풋살", 축구: "표준축구" },
+};
+
+export function resolvePreset(team, sport) {
+  return PRESET_MAP[team]?.[sport] || PRESET_MAP._default[sport];
+}
+
 const DEFAULTS = {
   // 구글시트 설정
   sheetId: SHEET_CONFIG.sheetId,
