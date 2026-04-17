@@ -178,3 +178,58 @@ export function getEffectiveSettings(team, sport) {
 export function getDefaults() {
   return { ...DEFAULTS };
 }
+
+const SHARED_KEYS = [
+  "sheetId", "attendanceSheet", "dashboardSheet",
+  "pointLogSheet", "playerLogSheet",
+];
+const FUTSAL_KEYS = [
+  "ownGoalPoint", "crovaPoint", "gogumaPoint", "bonusMultiplier",
+  "useCrovaGoguma", "dualTeams", "dualTeamStartDate", "dualTeamEndDate",
+];
+const SOCCER_KEYS = [
+  "ownGoalPoint", "cleanSheetPoint", "opponents", "eventLogSheet",
+];
+
+export function isLegacyFormat(raw) {
+  if (!raw || typeof raw !== "object") return false;
+  return !raw.shared && !raw["풋살"] && !raw["축구"];
+}
+
+function _sparseOverrides(legacy, keys, presetValues) {
+  const overrides = {};
+  for (const k of keys) {
+    if (legacy[k] === undefined) continue;
+    if (legacy[k] === presetValues[k]) continue;
+    overrides[k] = legacy[k];
+  }
+  return overrides;
+}
+
+export function migrateToNested(team, legacy, teamEntries) {
+  const out = { shared: {} };
+  for (const k of SHARED_KEYS) {
+    if (legacy[k] !== undefined) out.shared[k] = legacy[k];
+  }
+
+  const sports = new Set((teamEntries || []).map(e => e.mode));
+  if (sports.size === 0) sports.add("풋살");
+
+  if (sports.has("풋살")) {
+    const preset = resolvePreset(team, "풋살");
+    const presetValues = PRESETS.풋살[preset]?.values || {};
+    out["풋살"] = {
+      preset,
+      overrides: _sparseOverrides(legacy, FUTSAL_KEYS, presetValues),
+    };
+  }
+  if (sports.has("축구")) {
+    const preset = resolvePreset(team, "축구");
+    const presetValues = PRESETS.축구[preset]?.values || {};
+    out["축구"] = {
+      preset,
+      overrides: _sparseOverrides(legacy, SOCCER_KEYS, presetValues),
+    };
+  }
+  return out;
+}

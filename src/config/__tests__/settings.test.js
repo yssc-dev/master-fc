@@ -103,3 +103,89 @@ describe('getEffectiveSettings', () => {
     expect(es.ownGoalPoint).toBe(-1);
   });
 });
+
+import { isLegacyFormat, migrateToNested } from '../settings.js';
+
+describe('isLegacyFormat', () => {
+  it('null/undefined → false', () => {
+    expect(isLegacyFormat(null)).toBe(false);
+    expect(isLegacyFormat(undefined)).toBe(false);
+  });
+  it('flat 객체 (shared/풋살/축구 키 없음) → true', () => {
+    expect(isLegacyFormat({ ownGoalPoint: -2, dashboardSheet: "X" })).toBe(true);
+  });
+  it('새 구조 (shared 있음) → false', () => {
+    expect(isLegacyFormat({ shared: {}, 풋살: {} })).toBe(false);
+  });
+  it('새 구조 (풋살만 있음) → false', () => {
+    expect(isLegacyFormat({ 풋살: {} })).toBe(false);
+  });
+});
+
+describe('migrateToNested', () => {
+  it('마스터FC + 풋살 팀은 마스터FC풋살 프리셋으로 매핑', () => {
+    const legacy = {
+      dashboardSheet: "마스터FC 대시보드",
+      dualTeams: [{ name: "창조", members: ["A"] }],
+      ownGoalPoint: -2,
+      crovaPoint: 2,
+    };
+    const teamEntries = [{ mode: "풋살", role: "멤버" }];
+    const result = migrateToNested("마스터FC", legacy, teamEntries);
+
+    expect(result.shared.dashboardSheet).toBe("마스터FC 대시보드");
+    expect(result.풋살.preset).toBe("마스터FC풋살");
+    expect(result.풋살.overrides.dualTeams).toEqual([{ name: "창조", members: ["A"] }]);
+    expect(result).not.toHaveProperty("축구");
+  });
+
+  it('신규 팀 + 풋살 → 표준풋살 프리셋', () => {
+    const teamEntries = [{ mode: "풋살", role: "멤버" }];
+    const result = migrateToNested("신규팀", {}, teamEntries);
+    expect(result.풋살.preset).toBe("표준풋살");
+  });
+
+  it('축구 팀원 있으면 축구 섹션 생성', () => {
+    const legacy = { cleanSheetPoint: 2, opponents: ["A팀"] };
+    const teamEntries = [{ mode: "축구", role: "감독" }];
+    const result = migrateToNested("신규팀", legacy, teamEntries);
+
+    expect(result.축구.preset).toBe("표준축구");
+    expect(result.축구.overrides.cleanSheetPoint).toBe(2);
+    expect(result.축구.overrides.opponents).toEqual(["A팀"]);
+    expect(result).not.toHaveProperty("풋살");
+  });
+
+  it('legacy 값이 프리셋 값과 동일하면 overrides에 저장하지 않음', () => {
+    const legacy = { ownGoalPoint: -2, crovaPoint: 2 };
+    const teamEntries = [{ mode: "풋살", role: "멤버" }];
+    const result = migrateToNested("마스터FC", legacy, teamEntries);
+
+    expect(result.풋살.overrides.ownGoalPoint).toBeUndefined();
+    expect(result.풋살.overrides.crovaPoint).toBeUndefined();
+  });
+
+  it('shared 키는 종목 구분 없이 shared로 이동', () => {
+    const legacy = {
+      sheetId: "X", attendanceSheet: "참석", dashboardSheet: "대시",
+      pointLogSheet: "포인트", playerLogSheet: "선수",
+    };
+    const teamEntries = [{ mode: "풋살", role: "멤버" }];
+    const result = migrateToNested("팀", legacy, teamEntries);
+
+    expect(result.shared).toEqual({
+      sheetId: "X", attendanceSheet: "참석", dashboardSheet: "대시",
+      pointLogSheet: "포인트", playerLogSheet: "선수",
+    });
+  });
+
+  it('teamEntries에 양 종목 있으면 양쪽 섹션 생성', () => {
+    const teamEntries = [
+      { mode: "풋살", role: "멤버" },
+      { mode: "축구", role: "감독" },
+    ];
+    const result = migrateToNested("팀X", {}, teamEntries);
+    expect(result.풋살.preset).toBe("표준풋살");
+    expect(result.축구.preset).toBe("표준축구");
+  });
+});
