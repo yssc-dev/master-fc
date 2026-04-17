@@ -328,10 +328,11 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
   const calcPlayerPoints = useCallback((player) => {
     const st = playerMatchStats[player];
     if (!st) return { total: 0, goals: 0, assists: 0, owngoals: 0, cleanSheets: 0, crova: 0, goguma: 0, conceded: 0, keeperGames: 0 };
-    const { ownGoalPoint, crovaPoint, gogumaPoint, bonusMultiplier } = gameSettings;
+    const ES = state.settingsSnapshot || gameSettings;
+    const { ownGoalPoint, crovaPoint, gogumaPoint, bonusMultiplier, useCrovaGoguma } = ES;
     let pts = st.goals + st.assists + st.owngoals * ownGoalPoint + st.cleanSheets;
     let crova = 0, goguma = 0;
-    if (courtCount === 2 && matchMode !== "push" && (allRoundsComplete || earlyFinish) && finalStandings.length > 0 && completedMatches.filter(m => !m.isExtra).length > 0) {
+    if (courtCount === 2 && matchMode !== "push" && useCrovaGoguma && (allRoundsComplete || earlyFinish) && finalStandings.length > 0 && completedMatches.filter(m => !m.isExtra).length > 0) {
       const pt = getPlayerTeamName(player);
       const first = finalStandings[0], last = finalStandings[finalStandings.length - 1];
       const sgl = getSeasonLeader("goguma"), scl = getSeasonLeader("crova");
@@ -565,7 +566,8 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
       const playerTeam = getPlayerTeamName(p);
       const rankScore = teamRankScore[playerTeam] || 0;
       if (pts.goals === 0 && pts.assists === 0 && pts.owngoals === 0 && pts.conceded === 0 && pts.cleanSheets === 0 && pts.keeperGames === 0 && pts.crova === 0 && pts.goguma === 0 && rankScore === 0) return null;
-      return { gameDate: dateStr, name: p, ...pts, owngoals: pts.owngoals * gameSettings.ownGoalPoint, rankScore, inputTime };
+      const ES = state.settingsSnapshot || gameSettings;
+      return { gameDate: dateStr, name: p, ...pts, owngoals: pts.owngoals * ES.ownGoalPoint, rankScore, inputTime };
     }).filter(Boolean);
 
     try {
@@ -1046,16 +1048,16 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
           <div style={s.sectionTitle}>👤 선수별 기록</div>
           <div style={s.card}>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead><tr>{((matchMode !== "push" && courtCount === 2) ? ["선수", "골", "어시", "역주행", "클린", "🍀", "🍠", "실점", "GK", "총점"] : ["선수", "골", "어시", "역주행", "클린", "실점", "GK", "총점"]).map(h => <th key={h} style={s.th}>{h}</th>)}</tr></thead>
+              <thead><tr>{((matchMode !== "push" && courtCount === 2 && (state.settingsSnapshot?.useCrovaGoguma ?? gameSettings.useCrovaGoguma)) ? ["선수", "골", "어시", "역주행", "클린", "🍀", "🍠", "실점", "GK", "총점"] : ["선수", "골", "어시", "역주행", "클린", "실점", "GK", "총점"]).map(h => <th key={h} style={s.th}>{h}</th>)}</tr></thead>
               <tbody>
                 {playerRows.map(p => (
                   <tr key={p.name}>
                     <td style={s.td(true)}>{p.name}<span style={{ fontSize: 10, color: C.gray, fontWeight: 400 }}>({p.team})</span></td>
                     <td style={s.td(p.goals > 0)}>{p.goals}</td><td style={s.td(p.assists > 0)}>{p.assists}</td>
-                    <td style={{ ...s.td(p.owngoals > 0), color: p.owngoals > 0 ? C.red : C.white }}>{p.owngoals > 0 ? p.owngoals * gameSettings.ownGoalPoint : 0}</td>
+                    <td style={{ ...s.td(p.owngoals > 0), color: p.owngoals > 0 ? C.red : C.white }}>{p.owngoals > 0 ? p.owngoals * (state.settingsSnapshot?.ownGoalPoint ?? gameSettings.ownGoalPoint) : 0}</td>
                     <td style={s.td(p.cleanSheets > 0)}>{p.cleanSheets}</td>
-                    {matchMode !== "push" && courtCount === 2 && <td style={{ ...s.td(p.crova > 0), color: p.crova > 0 ? C.green : C.white }}>{p.crova || ""}</td>}
-                    {matchMode !== "push" && courtCount === 2 && <td style={{ ...s.td(p.goguma < 0), color: p.goguma < 0 ? C.red : C.white }}>{p.goguma || ""}</td>}
+                    {matchMode !== "push" && courtCount === 2 && (state.settingsSnapshot?.useCrovaGoguma ?? gameSettings.useCrovaGoguma) && <td style={{ ...s.td(p.crova > 0), color: p.crova > 0 ? C.green : C.white }}>{p.crova || ""}</td>}
+                    {matchMode !== "push" && courtCount === 2 && (state.settingsSnapshot?.useCrovaGoguma ?? gameSettings.useCrovaGoguma) && <td style={{ ...s.td(p.goguma < 0), color: p.goguma < 0 ? C.red : C.white }}>{p.goguma || ""}</td>}
                     <td style={s.td()}>{p.conceded}</td><td style={s.td()}>{p.keeperGames}</td>
                     <td style={{ ...s.td(true), fontSize: 14, fontWeight: 800 }}>{p.total}</td>
                   </tr>
