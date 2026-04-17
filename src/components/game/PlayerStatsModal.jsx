@@ -2,12 +2,13 @@ import { useState } from 'react';
 import { useTheme } from '../../hooks/useTheme';
 import Modal from '../common/Modal';
 
-export default function PlayerStatsModal({ attendees, calcPlayerPoints, onClose, styles: s }) {
+export default function PlayerStatsModal({ attendees, calcPlayerPoints, courtCount, onClose, styles: s }) {
   const { C } = useTheme();
   const [sortKey, setSortKey] = useState("total");
 
-  const cols = ["선수", "골", "어시", "자책", "클린", "🍀", "🍠", "키퍼", "실점", "합계"];
-  const colKeys = ["name", "goals", "assists", "owngoals", "cleanSheets", "crova", "goguma", "keeperGames", "conceded", "total"];
+  const showBonus = courtCount === 2;
+  const cols = ["선수", "골", "어시", "자책", "클린", ...(showBonus ? ["🍀", "🍠"] : []), "키퍼", "실점", "합계"];
+  const colKeys = ["name", "goals", "assists", "owngoals", "cleanSheets", ...(showBonus ? ["crova", "goguma"] : []), "keeperGames", "conceded", "total"];
 
   const rows = attendees.map(p => {
     const pts = calcPlayerPoints(p);
@@ -36,8 +37,8 @@ export default function PlayerStatsModal({ attendees, calcPlayerPoints, onClose,
                 <td style={s.td(p.assists > 0)}>{p.assists}</td>
                 <td style={{ ...s.td(p.owngoals > 0), color: p.owngoals > 0 ? C.red : C.white }}>{p.owngoals > 0 ? `-${p.owngoals * 2}` : 0}</td>
                 <td style={s.td(p.cleanSheets > 0)}>{p.cleanSheets}</td>
-                <td style={{ ...s.td(p.crova > 0), color: p.crova > 0 ? C.green : C.white }}>{p.crova || ""}</td>
-                <td style={{ ...s.td(p.goguma < 0), color: p.goguma < 0 ? C.red : C.white }}>{p.goguma || ""}</td>
+                {showBonus && <td style={{ ...s.td(p.crova > 0), color: p.crova > 0 ? C.green : C.white }}>{p.crova || ""}</td>}
+                {showBonus && <td style={{ ...s.td(p.goguma < 0), color: p.goguma < 0 ? C.red : C.white }}>{p.goguma || ""}</td>}
                 <td style={s.td(p.keeperGames > 0)}>{p.keeperGames}</td>
                 <td style={s.td(p.conceded > 0)}>{p.conceded}</td>
                 <td style={{ ...s.td(true), fontSize: 13, fontWeight: 800, color: p.total > 0 ? C.green : p.total < 0 ? C.red : C.white }}>{p.total > 0 ? `+${p.total}` : p.total}</td>
