@@ -212,6 +212,7 @@ function gameReducer(state, action) {
         teamEditMode: true,
         teamEditSnapshot: {
           teams: state.teams.map(t => [...t]),
+          teamNames: [...state.teamNames],
           attendees: [...state.attendees],
           gks: { ...state.gks },
         },
@@ -243,6 +244,7 @@ function gameReducer(state, action) {
       return {
         ...state,
         teams: snap.teams,
+        teamNames: snap.teamNames,
         attendees: snap.attendees,
         gks: snap.gks,
         teamEditMode: false,
