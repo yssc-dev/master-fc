@@ -269,7 +269,10 @@ export default function PlayerAnalytics({ teamName, teamMode, initialTab, isAdmi
 
   useEffect(() => {
     if (tab === "dualteam") {
-      loadSettingsFromFirebase(teamName).then(s => setDualSettings(s));
+      loadSettingsFromFirebase(teamName).then(() => {
+        const es = getEffectiveSettings(teamName, "풋살");
+        setDualSettings(es);
+      });
     }
   }, [tab, teamName]);
 

@@ -2,7 +2,7 @@
 
 ## 개요
 
-팀별 경기규칙은 **3계층 머지**로 결정된다:
+팀별 경기규칙은 **4계층 머지**로 결정된다:
 1. `SPORT_DEFAULTS[sport]` — 종목 표준 규칙 (코드 상수)
 2. `PRESETS[sport][name].values` — 프리셋 (코드 상수)
 3. 팀의 `overrides` — Firebase `settings/{team}/{sport}/overrides`에 sparse 저장
