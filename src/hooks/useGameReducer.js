@@ -47,6 +47,8 @@ const initialState = {
   currentMatchIdx: -1,
   opponents: [],
   soccerFormation: null, // { formation, assignments, positionMap, subs, gk, viewState, selectedOpponent }
+  // 경기 시작 시 스냅샷된 effective settings — 경기 중 규칙 변경에 영향받지 않음
+  settingsSnapshot: null,
 };
 
 function gameReducer(state, action) {
@@ -92,6 +94,7 @@ function gameReducer(state, action) {
       if (s.soccerFormation != null) updates.soccerFormation = s.soccerFormation;
       if (s.gameCreator != null) updates.gameCreator = s.gameCreator;
       if (s.phase != null) updates.phase = s.phase;
+      if (s.settingsSnapshot != null) updates.settingsSnapshot = s.settingsSnapshot;
       return { ...state, ...updates };
     }
     case 'TOGGLE_ATTENDEE': {
@@ -331,6 +334,8 @@ function gameReducer(state, action) {
     case 'SET_OPPONENTS': {
       return { ...state, opponents: action.opponents };
     }
+    case 'SET_SETTINGS_SNAPSHOT':
+      return { ...state, settingsSnapshot: action.snapshot };
     default:
       return state;
   }
