@@ -129,29 +129,59 @@ export async function saveSettings(team, settings) {
 }
 
 // Firebase에서 설정 로드 → localStorage에 캐싱
-// 새 팀(Firebase에 설정 없음)은 시트명을 비워서 다른 팀 데이터가 보이지 않도록 함
-export async function loadSettingsFromFirebase(team) {
+// legacy 포맷 감지 시 nested 구조로 자동 마이그레이션 후 Firebase 덮어쓰기
+export async function loadSettingsFromFirebase(team, teamEntries) {
   try {
     const snap = await get(_firebaseRef(team));
-    if (snap.exists()) {
-      const data = snap.val();
-      const key = _key(team);
-      _cache[key] = data;
-      localStorage.setItem(key, JSON.stringify(data));
-      return { ...DEFAULTS, ...data };
+    const raw = snap.exists() ? snap.val() : null;
+
+    if (raw && isLegacyFormat(raw)) {
+      // 1) 원본 백업
+      try {
+        await set(
+          ref(firebaseDb, "settings_legacy_backup/" + _safeTeam(team)),
+          { ...raw, _migratedAt: Date.now() }
+        );
+      } catch (e) {
+        console.warn("설정 백업 실패 (마이그레이션 중단):", e.message);
+        return { ...DEFAULTS, ...raw };
+      }
+      // 2) 변환
+      const migrated = migrateToNested(team, raw, teamEntries || []);
+      // 3) 덮어쓰기
+      await set(_firebaseRef(team), migrated);
+      // 4) localStorage 캐시 정리 (legacy 키 무효화)
+      const legacyKey = _key(team);
+      localStorage.removeItem(legacyKey);
+      _cache[team] = migrated;
+      console.info("설정 마이그레이션 완료:", team);
+      return migrated;
     }
-    // Firebase에 설정이 없는 새 팀: 시트명을 비워서 초기화
-    const emptySheets = {
-      dashboardSheet: "", attendanceSheet: "", pointLogSheet: "", playerLogSheet: "",
-    };
-    const key = _key(team);
-    _cache[key] = emptySheets;
-    localStorage.setItem(key, JSON.stringify(emptySheets));
-    return { ...DEFAULTS, ...emptySheets };
+
+    if (raw) {
+      _cache[team] = raw;
+      // localStorage 동기화 (new 구조)
+      localStorage.setItem(_key(team), JSON.stringify(raw));
+      return raw;
+    }
+
+    // Firebase에 데이터 없는 신규 팀: 기본 nested 구조 생성
+    const sports = new Set((teamEntries || []).map(e => e.mode));
+    if (sports.size === 0) sports.add("풋살");
+    const fresh = { shared: {} };
+    if (sports.has("풋살")) {
+      fresh["풋살"] = { preset: resolvePreset(team, "풋살"), overrides: {} };
+    }
+    if (sports.has("축구")) {
+      fresh["축구"] = { preset: resolvePreset(team, "축구"), overrides: {} };
+    }
+    _cache[team] = fresh;
+    localStorage.setItem(_key(team), JSON.stringify(fresh));
+    return fresh;
   } catch (e) {
     console.warn("설정 Firebase 로드 실패:", e.message);
+    return _cache[team] || { shared: {} };
   }
-  return getSettings(team);
 }
 
 export function _setCacheForTest(obj) {
