@@ -1,13 +1,17 @@
 import { useState, useEffect } from 'react';
 import { useTheme } from '../../hooks/useTheme';
-import { getSettings, saveSettings, getDefaults, SPORT_DEFAULTS } from '../../config/settings';
+import {
+  getEffectiveSettings, SPORT_DEFAULTS, PRESETS,
+  saveSettings,
+} from '../../config/settings';
 import AppSync from '../../services/appSync';
 
 export default function SettingsScreen({ teamName, teamMode, onBack }) {
   const isSoccer = teamMode === "축구";
   const { C } = useTheme();
-  const [settings, setSettings] = useState(() => getSettings(teamName));
-  const defaults = getDefaults();
+  const sport = teamMode;
+  const [settings, setSettings] = useState(() => getEffectiveSettings(teamName, sport));
+  const [currentPreset, setCurrentPreset] = useState(() => settings._meta?.preset);
   const [saved, setSaved] = useState(false);
   const [sheetList, setSheetList] = useState([]);
   const [loadingSheets, setLoadingSheets] = useState(false);
@@ -30,10 +34,15 @@ export default function SettingsScreen({ teamName, teamMode, onBack }) {
   };
 
   const handleReset = async () => {
-    if (!confirm("모든 설정을 기본값으로 초기화하시겠습니까?")) return;
-    setSettings({ ...defaults });
-    await saveSettings(teamName, defaults);
+    if (!confirm("현재 설정을 초기 상태로 되돌리시겠습니까?")) return;
+    // 팀 오버라이드 전체 제거는 Task 15/16에서 완성. 지금은 UI 재로드만.
+    setSettings(getEffectiveSettings(teamName, sport));
     setSaved(true);
+  };
+
+  const handlePresetChange = (newPreset) => {
+    setCurrentPreset(newPreset);
+    setSaved(false);
   };
 
   const ss = {
@@ -113,25 +122,56 @@ export default function SettingsScreen({ teamName, teamMode, onBack }) {
 
       <div style={ss.section}>
         <div style={ss.sectionTitle}>경기규칙 설정</div>
+        <div style={ss.row}>
+          <span style={ss.label}>경기규칙 프리셋</span>
+          <select
+            style={ss.select}
+            value={currentPreset || ""}
+            onChange={e => handlePresetChange(e.target.value)}
+          >
+            {Object.keys(PRESETS[sport] || {}).map(p => (
+              <option key={p} value={p}>{p}</option>
+            ))}
+          </select>
+        </div>
+        <div style={ss.hint}>
+          {PRESETS[sport]?.[currentPreset]?.description || ""}
+        </div>
         {isSoccer ? (
           <>
             <NumRow label="자책골 포인트" value={settings.ownGoalPoint} onChange={v => update("ownGoalPoint", v)} defaultVal={SPORT_DEFAULTS.축구.ownGoalPoint} />
-            <NumRow label="클린시트 포인트" value={settings.cleanSheetPoint} onChange={v => update("cleanSheetPoint", v)} defaultVal={defaults.cleanSheetPoint} />
+            <NumRow label="클린시트 포인트" value={settings.cleanSheetPoint} onChange={v => update("cleanSheetPoint", v)} defaultVal={SPORT_DEFAULTS.축구.cleanSheetPoint} />
           </>
         ) : (
           <>
-            <NumRow label="자책골 포인트" value={settings.ownGoalPoint} onChange={v => update("ownGoalPoint", v)} defaultVal={defaults.ownGoalPoint} />
-            <NumRow label="크로바(1위팀)" value={settings.crovaPoint} onChange={v => update("crovaPoint", v)} defaultVal={defaults.crovaPoint} />
-            <NumRow label="고구마(꼴찌팀)" value={settings.gogumaPoint} onChange={v => update("gogumaPoint", v)} defaultVal={defaults.gogumaPoint} />
-            <NumRow label="황금크로바/탄고구마" value={settings.bonusMultiplier} onChange={v => update("bonusMultiplier", v)} defaultVal={defaults.bonusMultiplier} suffix="배" />
-            <div style={{ fontSize: 10, color: C.grayDark, marginBottom: 8 }}>※ 크로바/고구마 점수는 2구장 경기에서만 적용됩니다.</div>
-            <details style={{ fontSize: 11, color: C.gray, marginTop: 4 }}>
-              <summary style={{ cursor: "pointer", padding: "6px 0" }}>황금크로바 / 탄고구마 설명</summary>
-              <div style={{ background: C.card, borderRadius: 8, padding: 10, marginTop: 4 }}>
-                시즌 누적 크로바 1위가 꼴등팀 소속 → 고구마 {settings.gogumaPoint} × {settings.bonusMultiplier} = {settings.gogumaPoint * settings.bonusMultiplier}<br/>
-                시즌 누적 고구마 1위가 1등팀 소속 → 크로바 {settings.crovaPoint} × {settings.bonusMultiplier} = {settings.crovaPoint * settings.bonusMultiplier}
-              </div>
-            </details>
+            <div style={ss.row}>
+              <label style={ss.label}>
+                <input type="checkbox"
+                  checked={!!settings.useCrovaGoguma}
+                  onChange={e => update("useCrovaGoguma", e.target.checked)}
+                  style={{ marginRight: 6 }} />
+                크로바/고구마 사용
+              </label>
+              <span style={ss.hint}>표준: 꺼짐</span>
+            </div>
+
+            <NumRow label="자책골 포인트" value={settings.ownGoalPoint} onChange={v => update("ownGoalPoint", v)} defaultVal={SPORT_DEFAULTS.풋살.ownGoalPoint} />
+
+            {settings.useCrovaGoguma && (
+              <>
+                <NumRow label="크로바(1위팀)" value={settings.crovaPoint} onChange={v => update("crovaPoint", v)} defaultVal={0} />
+                <NumRow label="고구마(꼴찌팀)" value={settings.gogumaPoint} onChange={v => update("gogumaPoint", v)} defaultVal={0} />
+                <NumRow label="황금크로바/탄고구마" value={settings.bonusMultiplier} onChange={v => update("bonusMultiplier", v)} defaultVal={1} suffix="배" />
+                <div style={{ fontSize: 10, color: C.grayDark, marginBottom: 8 }}>※ 크로바/고구마 점수는 2구장 경기에서만 적용됩니다.</div>
+                <details style={{ fontSize: 11, color: C.gray, marginTop: 4 }}>
+                  <summary style={{ cursor: "pointer", padding: "6px 0" }}>황금크로바 / 탄고구마 설명</summary>
+                  <div style={{ background: C.card, borderRadius: 8, padding: 10, marginTop: 4 }}>
+                    시즌 누적 크로바 1위가 꼴등팀 소속 → 고구마 {settings.gogumaPoint} × {settings.bonusMultiplier} = {settings.gogumaPoint * settings.bonusMultiplier}<br/>
+                    시즌 누적 고구마 1위가 1등팀 소속 → 크로바 {settings.crovaPoint} × {settings.bonusMultiplier} = {settings.crovaPoint * settings.bonusMultiplier}
+                  </div>
+                </details>
+              </>
+            )}
           </>
         )}
       </div>
