@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useTheme } from '../../hooks/useTheme';
 import {
   getEffectiveSettings, SPORT_DEFAULTS, PRESETS,
-  saveSettings,
+  saveSettings, getSourceOf,
 } from '../../config/settings';
 import AppSync from '../../services/appSync';
 
@@ -86,9 +86,27 @@ export default function SettingsScreen({ teamName, teamMode, onBack }) {
     </div>
   );
 
-  const NumRow = ({ label, value, onChange, defaultVal, suffix }) => (
+  const SourceBadge = ({ k }) => {
+    const src = getSourceOf(teamName, sport, k);
+    const config = {
+      preset:   { color: "#5b9bff", label: "프리셋" },
+      override: { color: "#ffb84d", label: "오버라이드" },
+      shared:   { color: "#9c9c9c", label: "공용" },
+      default:  { color: "#9c9c9c", label: "표준" },
+    }[src] || { color: "#9c9c9c", label: "표준" };
+    return (
+      <span style={{ fontSize: 10, color: config.color, marginLeft: 6 }}>
+        ●{config.label}
+      </span>
+    );
+  };
+
+  const NumRow = ({ label, value, onChange, defaultVal, suffix, settingKey }) => (
     <div style={ss.row}>
-      <span style={{ ...ss.label, minWidth: 0 }}>{label}</span>
+      <span style={{ ...ss.label, minWidth: 0 }}>
+        {label}
+        {settingKey && <SourceBadge k={settingKey} />}
+      </span>
       <input type="number" style={ss.numInput} value={value} onChange={e => onChange(Number(e.target.value))} />
       <span style={{ ...ss.hint, width: 60, textAlign: "right", flexShrink: 0 }}>기본: {defaultVal}{suffix || ""}</span>
     </div>
@@ -139,8 +157,8 @@ export default function SettingsScreen({ teamName, teamMode, onBack }) {
         </div>
         {isSoccer ? (
           <>
-            <NumRow label="자책골 포인트" value={settings.ownGoalPoint} onChange={v => update("ownGoalPoint", v)} defaultVal={SPORT_DEFAULTS.축구.ownGoalPoint} />
-            <NumRow label="클린시트 포인트" value={settings.cleanSheetPoint} onChange={v => update("cleanSheetPoint", v)} defaultVal={SPORT_DEFAULTS.축구.cleanSheetPoint} />
+            <NumRow label="자책골 포인트" value={settings.ownGoalPoint} onChange={v => update("ownGoalPoint", v)} defaultVal={SPORT_DEFAULTS.축구.ownGoalPoint} settingKey="ownGoalPoint" />
+            <NumRow label="클린시트 포인트" value={settings.cleanSheetPoint} onChange={v => update("cleanSheetPoint", v)} defaultVal={SPORT_DEFAULTS.축구.cleanSheetPoint} settingKey="cleanSheetPoint" />
           </>
         ) : (
           <>
@@ -150,18 +168,18 @@ export default function SettingsScreen({ teamName, teamMode, onBack }) {
                   checked={!!settings.useCrovaGoguma}
                   onChange={e => update("useCrovaGoguma", e.target.checked)}
                   style={{ marginRight: 6 }} />
-                크로바/고구마 사용
+                크로바/고구마 사용<SourceBadge k="useCrovaGoguma" />
               </label>
               <span style={ss.hint}>표준: 꺼짐</span>
             </div>
 
-            <NumRow label="자책골 포인트" value={settings.ownGoalPoint} onChange={v => update("ownGoalPoint", v)} defaultVal={SPORT_DEFAULTS.풋살.ownGoalPoint} />
+            <NumRow label="자책골 포인트" value={settings.ownGoalPoint} onChange={v => update("ownGoalPoint", v)} defaultVal={SPORT_DEFAULTS.풋살.ownGoalPoint} settingKey="ownGoalPoint" />
 
             {settings.useCrovaGoguma && (
               <>
-                <NumRow label="크로바(1위팀)" value={settings.crovaPoint} onChange={v => update("crovaPoint", v)} defaultVal={0} />
-                <NumRow label="고구마(꼴찌팀)" value={settings.gogumaPoint} onChange={v => update("gogumaPoint", v)} defaultVal={0} />
-                <NumRow label="황금크로바/탄고구마" value={settings.bonusMultiplier} onChange={v => update("bonusMultiplier", v)} defaultVal={1} suffix="배" />
+                <NumRow label="크로바(1위팀)" value={settings.crovaPoint} onChange={v => update("crovaPoint", v)} defaultVal={0} settingKey="crovaPoint" />
+                <NumRow label="고구마(꼴찌팀)" value={settings.gogumaPoint} onChange={v => update("gogumaPoint", v)} defaultVal={0} settingKey="gogumaPoint" />
+                <NumRow label="황금크로바/탄고구마" value={settings.bonusMultiplier} onChange={v => update("bonusMultiplier", v)} defaultVal={1} suffix="배" settingKey="bonusMultiplier" />
                 <div style={{ fontSize: 10, color: C.grayDark, marginBottom: 8 }}>※ 크로바/고구마 점수는 2구장 경기에서만 적용됩니다.</div>
                 <details style={{ fontSize: 11, color: C.gray, marginTop: 4 }}>
                   <summary style={{ cursor: "pointer", padding: "6px 0" }}>황금크로바 / 탄고구마 설명</summary>
