@@ -39,6 +39,9 @@ const initialState = {
   matchModal_sortKey: "total",
   playerSortMode: "point",
   pushState: null,
+  // 경기 중 팀 명단 수정
+  teamEditMode: false,
+  teamEditSnapshot: null,
   // 축구 전용
   soccerMatches: [],
   currentMatchIdx: -1,
@@ -202,6 +205,53 @@ function gameReducer(state, action) {
       const gks = { ...state.gks };
       if (gks[fromIdx] === player) delete gks[fromIdx];
       return { ...state, teams, gks };
+    }
+    case 'ENTER_TEAM_EDIT': {
+      return {
+        ...state,
+        teamEditMode: true,
+        teamEditSnapshot: {
+          teams: state.teams.map(t => [...t]),
+          attendees: [...state.attendees],
+          gks: { ...state.gks },
+        },
+        phase: 'teamBuild',
+        draftMode: 'free',
+        matchModal: null,
+        moveSource: null,
+        editingTeamName: null,
+      };
+    }
+    case 'EXIT_TEAM_EDIT_SAVE': {
+      // GK 정리: 각 팀에서 빠진 선수가 GK로 지정돼 있으면 해제
+      const newGks = { ...state.gks };
+      state.teams.forEach((team, i) => {
+        if (newGks[i] && !team.includes(newGks[i])) delete newGks[i];
+      });
+      return {
+        ...state,
+        teamEditMode: false,
+        teamEditSnapshot: null,
+        gks: newGks,
+        phase: 'match',
+        moveSource: null,
+        editingTeamName: null,
+      };
+    }
+    case 'EXIT_TEAM_EDIT_CANCEL': {
+      const snap = state.teamEditSnapshot;
+      const restored = snap
+        ? { teams: snap.teams, attendees: snap.attendees, gks: snap.gks }
+        : {};
+      return {
+        ...state,
+        ...restored,
+        teamEditMode: false,
+        teamEditSnapshot: null,
+        phase: 'match',
+        moveSource: null,
+        editingTeamName: null,
+      };
     }
     case 'START_MATCHES': {
       const { schedule, pushState: initPushState } = action;
