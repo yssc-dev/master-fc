@@ -193,6 +193,7 @@ const SOCCER_KEYS = [
 
 export function isLegacyFormat(raw) {
   if (!raw || typeof raw !== "object") return false;
+  if (Object.keys(raw).length === 0) return false;
   return !raw.shared && !raw["풋살"] && !raw["축구"];
 }
 

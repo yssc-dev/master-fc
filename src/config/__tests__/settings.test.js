@@ -120,6 +120,9 @@ describe('isLegacyFormat', () => {
   it('새 구조 (풋살만 있음) → false', () => {
     expect(isLegacyFormat({ 풋살: {} })).toBe(false);
   });
+  it('빈 객체 → false (마이그레이션 불필요)', () => {
+    expect(isLegacyFormat({})).toBe(false);
+  });
 });
 
 describe('migrateToNested', () => {
