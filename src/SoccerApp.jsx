@@ -213,6 +213,7 @@ export default function SoccerApp({ authUser, teamContext, isNewGame, gameMode, 
       await AppSync.finalizeState(gameId);
       await FirebaseSync.clearState(teamContext?.team, gameId);
       alert(`기록 확정 완료!\n\n이벤트로그: ${results[0]?.count || 0}건\n포인트로그: ${results[1]?.count || 0}건\n선수별집계: ${results[2]?.count || 0}명`);
+      onBackToMenu?.();
     } catch (err) {
       alert("시트 저장 실패: " + err.message);
     }

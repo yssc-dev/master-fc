@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import AuthUtil from './services/authUtil';
 import AppSync from './services/appSync';
 import FirebaseSync from './services/firebaseSync';
@@ -51,6 +51,15 @@ export default function Root() {
       loadSettingsFromFirebase(selectedTeamName);
     }
   }, []);
+
+  // 다른 화면에서 대시보드로 복귀 시 pendingGames 재조회 (경기 확정 후 상태 반영)
+  const prevScreenRef = useRef(screen);
+  useEffect(() => {
+    if (screen === "dashboard" && prevScreenRef.current !== "dashboard" && selectedTeamName) {
+      checkPendingGames(selectedTeamName);
+    }
+    prevScreenRef.current = screen;
+  }, [screen, selectedTeamName]);
 
   const checkPendingGames = (teamName) => {
     setCheckingPending(true);

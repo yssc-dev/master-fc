@@ -570,6 +570,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
       await AppSync.finalizeState(gameId);
       await FirebaseSync.clearState(teamContext?.team, gameId);
       alert(`기록 확정 완료!\n\n포인트로그: ${r1?.count || 0}건\n선수별집계: ${r2?.count || 0}명`);
+      onBackToMenu?.();
     } catch (err) {
       alert("시트 저장 실패: " + err.message);
     }
