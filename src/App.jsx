@@ -413,6 +413,14 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
     return attendees.filter(p => !assigned.has(p));
   }, [teams, attendees]);
 
+  const absentSeasonPool = useMemo(() => {
+    if (!teamEditMode) return [];
+    const assigned = new Set(teams.flat());
+    return seasonPlayers
+      .map(p => p.name)
+      .filter(n => !attendees.includes(n) && !assigned.has(n));
+  }, [teamEditMode, teams, attendees, seasonPlayers]);
+
   const startMatches = () => {
     if (teams.some(t => t.length < 1)) { alert("모든 팀에 최소 1명"); return; }
     let sched = null;
@@ -680,18 +688,18 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
     return (
       <div style={s.app}>
         <div style={s.header}>
-          <div style={s.title}>⚽ 팀 편성</div>
-          <div style={s.subtitle}>{draftMode === "snake" ? "스네이크 드래프트" : "자유 편성"} · {teamCount}팀 · {attendees.length}명</div>
+          <div style={s.title}>⚽ {teamEditMode ? "팀 명단 수정" : "팀 편성"}</div>
+          <div style={s.subtitle}>{teamEditMode ? "경기 진행 중 · 편집 모드" : `${draftMode === "snake" ? "스네이크 드래프트" : "자유 편성"} · ${teamCount}팀 · ${attendees.length}명`}</div>
         </div>
-        <PhaseIndicator activeIndex={1} />
+        {!teamEditMode && <PhaseIndicator activeIndex={1} />}
         <div style={s.section}>
           <div style={{ ...s.row, marginBottom: 12 }}>
-            {draftMode === "snake" && <button onClick={reshuffleTeams} style={s.btnSm(C.grayDark)}>재배치</button>}
-            {draftMode === "free" && <button onClick={() => dispatch({ type: 'SET_FIELDS', fields: { teams: Array.from({ length: teamCount }, () => []), teamNames: Array.from({ length: teamCount }, (_, i) => `팀 ${i + 1}`), gks: {} } })} style={s.btnSm(C.grayDark)}>초기화</button>}
+            {!teamEditMode && draftMode === "snake" && <button onClick={reshuffleTeams} style={s.btnSm(C.grayDark)}>재배치</button>}
+            {!teamEditMode && draftMode === "free" && <button onClick={() => dispatch({ type: 'SET_FIELDS', fields: { teams: Array.from({ length: teamCount }, () => []), teamNames: Array.from({ length: teamCount }, (_, i) => `팀 ${i + 1}`), gks: {} } })} style={s.btnSm(C.grayDark)}>초기화</button>}
             <span style={{ fontSize: 11, color: C.gray }}>전력: {teams.map(t => teamPower(t, seasonPlayers)).join(" / ")}</span>
           </div>
 
-          {draftMode === "free" && unassignedPlayers.length > 0 && (
+          {draftMode === "free" && (unassignedPlayers.length > 0 || teamEditMode) && (
             <div style={{ ...s.card, border: `2px solid ${C.accent}44`, marginBottom: 14 }}>
               <div style={{ fontSize: 12, fontWeight: 700, color: C.accent, marginBottom: 8 }}>미배정 선수 ({unassignedPlayers.length}명) → 아래 팀을 선택 후 클릭</div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
@@ -704,6 +712,41 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
                   );
                 })}
               </div>
+              {teamEditMode && absentSeasonPool.length > 0 && (
+                <>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: C.gray, marginTop: 10, marginBottom: 6 }}>불참 시즌 선수 ({absentSeasonPool.length}명)</div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                    {[...absentSeasonPool].sort((a, b) => getPlayerPoint(b, seasonPlayers) - getPlayerPoint(a, seasonPlayers)).map(p => {
+                      const pd = getPlayerData(p, seasonPlayers);
+                      return (
+                        <div key={p} onClick={() => { dispatch({ type: 'SET_FIELDS', fields: { attendees: [...attendees, p] } }); freeAddPlayer(p); }}
+                          style={{ ...s.chip(false), cursor: "pointer", padding: "6px 10px", fontSize: 12, opacity: 0.85 }}>
+                          <span>{p}</span><span style={{ fontSize: 10, opacity: 0.6 }}>{pd.point}p</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+              {teamEditMode && (
+                <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
+                  <input style={{ ...s.input, flex: 1, fontSize: 12, padding: "6px 8px" }} placeholder="새 선수 이름 (게스트)"
+                    value={newPlayer} onChange={e => set('newPlayer', e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key !== "Enter") return;
+                      const name = newPlayer.trim();
+                      if (!name || attendees.includes(name) || teams.flat().includes(name)) { set('newPlayer', ""); return; }
+                      dispatch({ type: 'SET_FIELDS', fields: { attendees: [...attendees, name], newPlayer: "" } });
+                      freeAddPlayer(name);
+                    }} />
+                  <button onClick={() => {
+                    const name = newPlayer.trim();
+                    if (!name || attendees.includes(name) || teams.flat().includes(name)) { set('newPlayer', ""); return; }
+                    dispatch({ type: 'SET_FIELDS', fields: { attendees: [...attendees, name], newPlayer: "" } });
+                    freeAddPlayer(name);
+                  }} style={s.btnSm(C.green, C.bg)}>추가</button>
+                </div>
+              )}
             </div>
           )}
 
@@ -727,21 +770,24 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
                 onClick={() => { if (draftMode === "free") set('freeSelectTeam', tIdx); }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    {editingTeamName === tIdx ? (
+                    {!teamEditMode && editingTeamName === tIdx ? (
                       <input autoFocus style={{ ...s.input, width: 100, padding: "4px 8px", fontSize: 14, fontWeight: 700 }} value={teamNames[tIdx]}
                         onChange={e => { const c = [...teamNames]; c[tIdx] = e.target.value; set('teamNames', c); }}
                         onBlur={() => set('editingTeamName', null)} onKeyDown={e => e.key === "Enter" && set('editingTeamName', null)} />
                     ) : (
-                      <span style={{ fontWeight: 700, fontSize: 14, cursor: "pointer" }} onClick={(e) => { e.stopPropagation(); set('editingTeamName', tIdx); }}>{teamNames[tIdx]}</span>
+                      <span style={{ fontWeight: 700, fontSize: 14, cursor: teamEditMode ? "default" : "pointer" }}
+                        onClick={(e) => { if (teamEditMode) return; e.stopPropagation(); set('editingTeamName', tIdx); }}>{teamNames[tIdx]}</span>
                     )}
                     <span style={{ fontSize: 11, color: C.gray }}>전력 {teamPower(team, seasonPlayers)}</span>
                   </div>
-                  <div style={{ display: "flex", gap: 3 }}>
-                    {TEAM_COLORS.map((tc, ci) => (
-                      <div key={ci} onClick={(e) => { e.stopPropagation(); const c = [...teamColorIndices]; c[tIdx] = ci; set('teamColorIndices', c); }}
-                        style={{ width: 16, height: 16, borderRadius: "50%", background: tc.bg, border: teamColorIndices[tIdx] === ci ? `2px solid ${C.white}` : `1px solid ${C.grayDark}`, cursor: "pointer" }} />
-                    ))}
-                  </div>
+                  {!teamEditMode && (
+                    <div style={{ display: "flex", gap: 3 }}>
+                      {TEAM_COLORS.map((tc, ci) => (
+                        <div key={ci} onClick={(e) => { e.stopPropagation(); const c = [...teamColorIndices]; c[tIdx] = ci; set('teamColorIndices', c); }}
+                          style={{ width: 16, height: 16, borderRadius: "50%", background: tc.bg, border: teamColorIndices[tIdx] === ci ? `2px solid ${C.white}` : `1px solid ${C.grayDark}`, cursor: "pointer" }} />
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
                   {sorted.map((player, pIdx) => {
@@ -789,8 +835,20 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
           </div>
         )}
         <div style={s.bottomBar}>
-          <button onClick={() => set('phase', 'setup')} style={s.btn(C.grayDark)}>이전</button>
-          <button onClick={startMatches} style={{ ...s.btn(C.green), flex: 1, opacity: teams.some(t => t.length < 1) ? 0.5 : 1 }}>경기 시작</button>
+          {teamEditMode ? (
+            <>
+              <button onClick={() => dispatch({ type: 'EXIT_TEAM_EDIT_CANCEL' })} style={s.btn(C.grayDark)}>취소</button>
+              <button onClick={() => {
+                if (teams.some(t => t.length < 1)) { alert("모든 팀에 최소 1명"); return; }
+                dispatch({ type: 'EXIT_TEAM_EDIT_SAVE' });
+              }} style={{ ...s.btn(C.green), flex: 1, opacity: teams.some(t => t.length < 1) ? 0.5 : 1 }}>완료</button>
+            </>
+          ) : (
+            <>
+              <button onClick={() => set('phase', 'setup')} style={s.btn(C.grayDark)}>이전</button>
+              <button onClick={startMatches} style={{ ...s.btn(C.green), flex: 1, opacity: teams.some(t => t.length < 1) ? 0.5 : 1 }}>경기 시작</button>
+            </>
+          )}
         </div>
       </div>
     );
