@@ -595,7 +595,7 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
                 const gameDate = gameTs ? new Date(gameTs) : (game.savedAt ? new Date(game.savedAt) : null);
                 const dateFmt = gameDate ? `${gameDate.getMonth() + 1}/${gameDate.getDate()}` : "";
 
-                const isSummary = gs.phase === "summary";
+                const isSummary = gs.phase === "summary" || gs.earlyFinish === true;
                 return (
                   <div key={game.gameId} style={{ ...ds.card, border: `1px solid ${isSummary ? C.orange : C.green}44`, cursor: "pointer", marginBottom: 8 }}
                     onClick={() => onContinueGame(game.gameId)}>
