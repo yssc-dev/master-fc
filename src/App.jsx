@@ -31,7 +31,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
     matchMode, rotations, draftMode, freeSelectTeam, teams, teamNames,
     teamColorIndices, gks, gksHistory, editingTeamName, moveSource, schedule, currentRoundIdx,
     viewingRoundIdx, confirmedRounds, completedMatches, allEvents, isExtraRound,
-    splitPhase, earlyFinish, matchModal, matchModal_sortKey, playerSortMode, pushState,
+    splitPhase, earlyFinish, matchModal, matchModal_sortKey, playerSortMode, pushState, teamEditMode,
   } = state;
 
   const set = (field, value) => dispatch({ type: 'SET_FIELD', field, value });
@@ -848,6 +848,12 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
 
         {matchModal === "teamRoster" && (
           <Modal onClose={() => set('matchModal', null)} title="팀 명단">
+            <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 10 }}>
+              <button onClick={() => dispatch({ type: 'ENTER_TEAM_EDIT' })}
+                style={{ ...s.btnSm(C.orange, C.bg), fontSize: 12, fontWeight: 700 }}>
+                팀 수정
+              </button>
+            </div>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
               {teams.map((team, tIdx) => {
                 const color = TEAM_COLORS[teamColorIndices[tIdx]];
