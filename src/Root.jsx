@@ -48,7 +48,7 @@ export default function Root() {
   useEffect(() => {
     if (screen === "dashboard" && selectedTeamName) {
       checkPendingGames(selectedTeamName);
-      loadSettingsFromFirebase(selectedTeamName);
+      loadSettingsFromFirebase(selectedTeamName, selectedTeamEntries);
     }
   }, []);
 
@@ -97,7 +97,7 @@ export default function Root() {
     AuthUtil.save(u.name, u.phone4, teamName, first.mode, first.role);
     setScreen("dashboard");
     checkPendingGames(teamName);
-    loadSettingsFromFirebase(teamName);
+    loadSettingsFromFirebase(teamName, entries);
   };
 
   const handleLogout = () => {
