@@ -5,7 +5,7 @@ import { fetchSheetData, fetchAttendanceData } from './services/sheetService';
 import AppSync from './services/appSync';
 import FirebaseSync from './services/firebaseSync';
 import { useGameReducer } from './hooks/useGameReducer';
-import { getSettings, saveSettings } from './config/settings';
+import { getSettings, getEffectiveSettings, saveSettings } from './config/settings';
 import { makeStyles } from './styles/theme';
 import PhaseIndicator from './components/common/PhaseIndicator';
 import Modal from './components/common/Modal';
@@ -21,7 +21,7 @@ export default function SoccerApp({ authUser, teamContext, isNewGame, gameMode, 
   const {
     phase, dataLoading, dataSource, seasonPlayers,
     syncStatus, attendanceLoading, attendees, newPlayer,
-    playerSortMode, matchModal,
+    playerSortMode, matchModal, settingsSnapshot,
   } = state;
 
   const set = (field, value) => dispatch({ type: 'SET_FIELD', field, value });
@@ -75,6 +75,9 @@ export default function SoccerApp({ authUser, teamContext, isNewGame, gameMode, 
       if (sheetData) { fields.seasonPlayers = sheetData.players; fields.dataSource = "sheet"; }
       else { fields.dataSource = "fallback"; }
       if (cumBonus) { fields.seasonCrova = cumBonus.crova || {}; fields.seasonGoguma = cumBonus.goguma || {}; }
+      if (isNewGame) {
+        fields.settingsSnapshot = getEffectiveSettings(teamContext.team, "축구");
+      }
       dispatch({ type: 'SET_FIELDS', fields });
 
       const opponents = gameSettings.opponents || [];
@@ -108,9 +111,10 @@ export default function SoccerApp({ authUser, teamContext, isNewGame, gameMode, 
     phase, attendees, matchMode: "soccer", courtCount: 1,
     soccerMatches: state.soccerMatches, currentMatchIdx: state.currentMatchIdx,
     opponents: state.opponents, soccerFormation: state.soccerFormation,
+    settingsSnapshot,
     lastEditor: authUser?.name || "알 수 없음",
     lastEditTime: Date.now(),
-  }), [phase, attendees, state.soccerMatches, state.currentMatchIdx, state.opponents, state.soccerFormation, authUser, gameId]);
+  }), [phase, attendees, state.soccerMatches, state.currentMatchIdx, state.opponents, state.soccerFormation, settingsSnapshot, authUser, gameId]);
 
   const autoSave = useCallback(() => {
     if (isSyncingRef.current) return;

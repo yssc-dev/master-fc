@@ -10,7 +10,7 @@ import { fetchSheetData, fetchAttendanceData } from './services/sheetService';
 import AppSync from './services/appSync';
 import FirebaseSync from './services/firebaseSync';
 import { useGameReducer } from './hooks/useGameReducer';
-import { getSettings } from './config/settings';
+import { getSettings, getEffectiveSettings } from './config/settings';
 import { makeStyles } from './styles/theme';
 import PhaseIndicator from './components/common/PhaseIndicator';
 import Modal from './components/common/Modal';
@@ -32,6 +32,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
     teamColorIndices, gks, gksHistory, editingTeamName, moveSource, schedule, currentRoundIdx,
     viewingRoundIdx, confirmedRounds, completedMatches, allEvents, isExtraRound,
     splitPhase, earlyFinish, matchModal, matchModal_sortKey, playerSortMode, pushState, teamEditMode,
+    settingsSnapshot,
   } = state;
 
   const set = (field, value) => dispatch({ type: 'SET_FIELD', field, value });
@@ -96,6 +97,9 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
       if (cumBonus) {
         fields.seasonCrova = cumBonus.crova || {};
         fields.seasonGoguma = cumBonus.goguma || {};
+      }
+      if (isNewGame) {
+        fields.settingsSnapshot = getEffectiveSettings(teamContext.team, "풋살");
       }
       dispatch({ type: 'SET_FIELDS', fields });
 
@@ -210,9 +214,10 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
     phase, teams, teamNames, teamColorIndices, gks, gksHistory, allEvents,
     completedMatches, schedule, currentRoundIdx, viewingRoundIdx, confirmedRounds, attendees,
     teamCount, courtCount, matchMode, isExtraRound, splitPhase, rotations, earlyFinish, pushState,
+    settingsSnapshot,
     lastEditor: authUser?.name || "알 수 없음",
     lastEditTime: Date.now(),
-  }), [phase, teams, teamNames, teamColorIndices, gks, gksHistory, allEvents, completedMatches, schedule, currentRoundIdx, viewingRoundIdx, confirmedRounds, attendees, teamCount, courtCount, matchMode, isExtraRound, splitPhase, rotations, earlyFinish, pushState, authUser, gameId]);
+  }), [phase, teams, teamNames, teamColorIndices, gks, gksHistory, allEvents, completedMatches, schedule, currentRoundIdx, viewingRoundIdx, confirmedRounds, attendees, teamCount, courtCount, matchMode, isExtraRound, splitPhase, rotations, earlyFinish, pushState, settingsSnapshot, authUser, gameId]);
 
   const autoSave = useCallback(() => {
     if (isSyncingRef.current) return;
