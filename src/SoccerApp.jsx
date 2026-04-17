@@ -51,7 +51,7 @@ export default function SoccerApp({ authUser, teamContext, isNewGame, gameMode, 
   const _loadBackgroundData = (team) => {
     Promise.all([
       fetchSheetData().catch(() => null),
-      AppSync.getCumulativeBonus(gameSettings.playerLogSheet).catch(() => ({ crova: {}, goguma: {} })),
+      Promise.resolve({ crova: {}, goguma: {} }),
     ]).then(([sheetData, cumBonus]) => {
       const fields = {};
       if (sheetData) { fields.seasonPlayers = sheetData.players; fields.dataSource = "sheet"; }
@@ -63,7 +63,7 @@ export default function SoccerApp({ authUser, teamContext, isNewGame, gameMode, 
   const _loadAllData = (team) => {
     const loadPromises = [
       fetchSheetData().catch(err => { console.warn("시트 로딩 실패:", err.message); return null; }),
-      AppSync.getCumulativeBonus(gameSettings.playerLogSheet).catch(err => { console.warn("누적보너스 로딩 실패:", err.message); return { crova: {}, goguma: {} }; }),
+      Promise.resolve({ crova: {}, goguma: {} }),
     ];
     if (gameMode === "sheetSync") {
       loadPromises.push(

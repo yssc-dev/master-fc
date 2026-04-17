@@ -62,9 +62,12 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
 
   // 백그라운드로 시트 데이터 + 누적보너스 로딩 (이어하기 시)
   const _loadBackgroundData = (team) => {
+    const es = getEffectiveSettings(teamContext.team, "풋살");
     Promise.all([
       fetchSheetData().catch(() => null),
-      AppSync.getCumulativeBonus(gameSettings.playerLogSheet).catch(() => ({ crova: {}, goguma: {} })),
+      es.useCrovaGoguma
+        ? AppSync.getCumulativeBonus(es.playerLogSheet).catch(() => ({ crova: {}, goguma: {} }))
+        : Promise.resolve({ crova: {}, goguma: {} }),
     ]).then(([sheetData, cumBonus]) => {
       const fields = {};
       if (sheetData) { fields.seasonPlayers = sheetData.players; fields.dataSource = "sheet"; }
@@ -75,9 +78,12 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
 
   // 전체 데이터 로딩 (새 경기/구글시트 연동)
   const _loadAllData = (team) => {
+    const es = getEffectiveSettings(teamContext.team, "풋살");
     const loadPromises = [
       fetchSheetData().catch(err => { console.warn("시트 로딩 실패:", err.message); return null; }),
-      AppSync.getCumulativeBonus(gameSettings.playerLogSheet).catch(err => { console.warn("누적보너스 로딩 실패:", err.message); return { crova: {}, goguma: {} }; }),
+      es.useCrovaGoguma
+        ? AppSync.getCumulativeBonus(es.playerLogSheet).catch(err => { console.warn("누적보너스 로딩 실패:", err.message); return { crova: {}, goguma: {} }; })
+        : Promise.resolve({ crova: {}, goguma: {} }),
     ];
     if (gameMode === "sheetSync") {
       loadPromises.push(
@@ -565,6 +571,11 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
       const pts = calcPlayerPoints(p);
       const playerTeam = getPlayerTeamName(p);
       const rankScore = teamRankScore[playerTeam] || 0;
+      const ES2 = state.settingsSnapshot || gameSettings;
+      if (!ES2.useCrovaGoguma) {
+        pts.crova = 0;
+        pts.goguma = 0;
+      }
       if (pts.goals === 0 && pts.assists === 0 && pts.owngoals === 0 && pts.conceded === 0 && pts.cleanSheets === 0 && pts.keeperGames === 0 && pts.crova === 0 && pts.goguma === 0 && rankScore === 0) return null;
       const ES = state.settingsSnapshot || gameSettings;
       return { gameDate: dateStr, name: p, ...pts, owngoals: pts.owngoals * ES.ownGoalPoint, rankScore, inputTime };
