@@ -959,14 +959,14 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
           <div style={s.sectionTitle}>🏆 팀 순위</div>
           <div style={s.card}>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead><tr>{["#", "팀", "경기", "승", "무", "패", "득", "실", "승점", ""].map(h => <th key={h} style={s.th}>{h}</th>)}</tr></thead>
+              <thead><tr>{["#", "팀", "경기", "승", "무", "패", "득", "실", "승점", ...(courtCount === 2 ? [""] : [])].map(h => <th key={h} style={s.th}>{h}</th>)}</tr></thead>
               <tbody>
                 {standings.map((t, i) => (
                   <tr key={t.name} style={{ background: i === 0 ? `${C.green}11` : i === standings.length - 1 ? `${C.red}11` : "transparent" }}>
                     <td style={s.td()}>{i + 1}</td><td style={s.td(true)}>{t.name}</td>
                     <td style={s.td()}>{t.games}</td><td style={s.td()}>{t.wins}</td><td style={s.td()}>{t.draws}</td><td style={s.td()}>{t.losses}</td>
                     <td style={s.td()}>{t.gf}</td><td style={s.td()}>{t.ga}</td><td style={s.td(true)}>{t.points}</td>
-                    <td style={s.td()}>{i === 0 ? "🍀" : i === standings.length - 1 ? "🍠" : ""}</td>
+                    {courtCount === 2 && <td style={s.td()}>{i === 0 ? "🍀" : i === standings.length - 1 ? "🍠" : ""}</td>}
                   </tr>
                 ))}
               </tbody>
@@ -977,7 +977,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
           <div style={s.sectionTitle}>👤 선수별 기록</div>
           <div style={s.card}>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead><tr>{(matchMode === "push" ? ["선수", "골", "어시", "역주행", "클린", "실점", "GK", "총점"] : ["선수", "골", "어시", "역주행", "클린", "🍀", "🍠", "실점", "GK", "총점"]).map(h => <th key={h} style={s.th}>{h}</th>)}</tr></thead>
+              <thead><tr>{((matchMode !== "push" && courtCount === 2) ? ["선수", "골", "어시", "역주행", "클린", "🍀", "🍠", "실점", "GK", "총점"] : ["선수", "골", "어시", "역주행", "클린", "실점", "GK", "총점"]).map(h => <th key={h} style={s.th}>{h}</th>)}</tr></thead>
               <tbody>
                 {playerRows.map(p => (
                   <tr key={p.name}>
@@ -985,8 +985,8 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
                     <td style={s.td(p.goals > 0)}>{p.goals}</td><td style={s.td(p.assists > 0)}>{p.assists}</td>
                     <td style={{ ...s.td(p.owngoals > 0), color: p.owngoals > 0 ? C.red : C.white }}>{p.owngoals > 0 ? p.owngoals * gameSettings.ownGoalPoint : 0}</td>
                     <td style={s.td(p.cleanSheets > 0)}>{p.cleanSheets}</td>
-                    {matchMode !== "push" && <td style={{ ...s.td(p.crova > 0), color: p.crova > 0 ? C.green : C.white }}>{p.crova || ""}</td>}
-                    {matchMode !== "push" && <td style={{ ...s.td(p.goguma < 0), color: p.goguma < 0 ? C.red : C.white }}>{p.goguma || ""}</td>}
+                    {matchMode !== "push" && courtCount === 2 && <td style={{ ...s.td(p.crova > 0), color: p.crova > 0 ? C.green : C.white }}>{p.crova || ""}</td>}
+                    {matchMode !== "push" && courtCount === 2 && <td style={{ ...s.td(p.goguma < 0), color: p.goguma < 0 ? C.red : C.white }}>{p.goguma || ""}</td>}
                     <td style={s.td()}>{p.conceded}</td><td style={s.td()}>{p.keeperGames}</td>
                     <td style={{ ...s.td(true), fontSize: 14, fontWeight: 800 }}>{p.total}</td>
                   </tr>
