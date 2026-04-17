@@ -154,6 +154,27 @@ export async function loadSettingsFromFirebase(team) {
   return getSettings(team);
 }
 
+export function _setCacheForTest(obj) {
+  _cache = obj;
+}
+
+export function getEffectiveSettings(team, sport) {
+  const teamData = _cache[team] || {};
+  const sportDefaults = SPORT_DEFAULTS[sport] || {};
+  const presetName = teamData[sport]?.preset;
+  const presetValues = PRESETS[sport]?.[presetName]?.values || {};
+  const overrides = teamData[sport]?.overrides || {};
+  const shared = teamData.shared || {};
+
+  return {
+    ...sportDefaults,
+    ...presetValues,
+    ...overrides,
+    ...shared,
+    _meta: { preset: presetName, sport, team },
+  };
+}
+
 export function getDefaults() {
   return { ...DEFAULTS };
 }
