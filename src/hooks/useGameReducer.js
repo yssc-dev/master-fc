@@ -240,12 +240,11 @@ function gameReducer(state, action) {
     }
     case 'EXIT_TEAM_EDIT_CANCEL': {
       const snap = state.teamEditSnapshot;
-      const restored = snap
-        ? { teams: snap.teams, attendees: snap.attendees, gks: snap.gks }
-        : {};
       return {
         ...state,
-        ...restored,
+        teams: snap.teams,
+        attendees: snap.attendees,
+        gks: snap.gks,
         teamEditMode: false,
         teamEditSnapshot: null,
         phase: 'match',
