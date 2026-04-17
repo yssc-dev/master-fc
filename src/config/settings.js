@@ -150,9 +150,8 @@ export async function loadSettingsFromFirebase(team, teamEntries) {
       const migrated = migrateToNested(team, raw, teamEntries || []);
       // 3) 덮어쓰기
       await set(_firebaseRef(team), migrated);
-      // 4) localStorage 캐시 정리 (legacy 키 무효화)
-      const legacyKey = _key(team);
-      localStorage.removeItem(legacyKey);
+      // 4) localStorage에 nested 구조 저장 (legacy 키는 동일 slot에 덮어쓰기)
+      localStorage.setItem(_key(team), JSON.stringify(migrated));
       _cache[team] = migrated;
       console.info("설정 마이그레이션 완료:", team);
       return migrated;
