@@ -1,4 +1,14 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+
+vi.mock('firebase/database', () => ({
+  ref: vi.fn(() => ({})),
+  set: vi.fn(() => Promise.resolve()),
+  get: vi.fn(() => Promise.resolve({ exists: () => false })),
+}));
+vi.mock('../firebase', () => ({
+  firebaseDb: {},
+}));
+
 import { SPORT_DEFAULTS, PRESETS, resolvePreset } from '../settings.js';
 import { getEffectiveSettings, _setCacheForTest } from '../settings.js';
 
@@ -235,5 +245,53 @@ describe('getSourceOf', () => {
   it('아무 곳에도 없는 키 → "unknown"', () => {
     _resetCache({ "팀": { shared: {}, 풋살: { preset: "표준풋살", overrides: {} } } });
     expect(getSourceOf("팀", "풋살", "neverHeardOfThisKey")).toBe("unknown");
+  });
+});
+
+import { saveSettings } from '../settings.js';
+
+describe('saveSettings', () => {
+  let _store = {};
+  const mockLocalStorage = {
+    getItem: (k) => _store[k] ?? null,
+    setItem: (k, v) => { _store[k] = String(v); },
+    removeItem: (k) => { delete _store[k]; },
+    clear: () => { _store = {}; },
+  };
+
+  beforeEach(() => {
+    _store = {};
+    vi.stubGlobal('localStorage', mockLocalStorage);
+    _setCacheForTest({});
+  });
+
+  it('프리셋과 동일한 값은 overrides에 저장하지 않음 (sparse)', async () => {
+    _setCacheForTest({ "팀A": { shared: {}, 풋살: { preset: "마스터FC풋살", overrides: {} } } });
+    // 프리셋과 동일 값 + 프리셋과 다른 값 섞기
+    const effective = {
+      ownGoalPoint: -2,      // 마스터FC풋살 preset 값과 동일 (저장 X)
+      crovaPoint: 5,         // preset 값(2)과 다름 (override O)
+      useCrovaGoguma: true,  // preset 값과 동일 (저장 X)
+      sheetId: "SHEET123",   // SHARED_KEYS (shared로 저장)
+      _meta: { preset: "마스터FC풋살" },  // 무시
+    };
+    await saveSettings("팀A", "풋살", effective, "마스터FC풋살");
+
+    const stored = JSON.parse(localStorage.getItem("masterfc_settings_팀A"));
+    expect(stored["풋살"].preset).toBe("마스터FC풋살");
+    expect(stored["풋살"].overrides).toEqual({ crovaPoint: 5 });
+    expect(stored.shared).toEqual({ sheetId: "SHEET123" });
+  });
+
+  it('SPORT_DEFAULTS와 동일한 값(프리셋에 없는 키)도 저장하지 않음', async () => {
+    _setCacheForTest({ "팀B": { shared: {}, 축구: { preset: "표준축구", overrides: {} } } });
+    const effective = {
+      ownGoalPoint: -1,   // SPORT_DEFAULTS.축구.ownGoalPoint = -1, 동일
+      cleanSheetPoint: 3, // SPORT_DEFAULTS = 1, 다름
+    };
+    await saveSettings("팀B", "축구", effective, "표준축구");
+
+    const stored = JSON.parse(localStorage.getItem("masterfc_settings_팀B"));
+    expect(stored["축구"].overrides).toEqual({ cleanSheetPoint: 3 });
   });
 });

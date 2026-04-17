@@ -108,21 +108,35 @@ export function getSettings(team) {
   }
 }
 
-export async function saveSettings(team, settings) {
-  // 기본값과 같은 필드는 저장하지 않음
-  const toSave = {};
-  for (const key of Object.keys(settings)) {
-    if (settings[key] !== DEFAULTS[key]) {
-      toSave[key] = settings[key];
-    }
-  }
-  const cacheKey = _key(team);
-  _cache[cacheKey] = toSave;
-  localStorage.setItem(cacheKey, JSON.stringify(toSave));
+export async function saveSettings(team, sport, effectiveValues, presetName) {
+  const sportDef = SPORT_DEFAULTS[sport] || {};
+  const presetValues = PRESETS[sport]?.[presetName]?.values || {};
 
-  // Firebase에도 저장
+  const sharedOut = {};
+  const overrides = {};
+
+  for (const k of Object.keys(effectiveValues)) {
+    if (k === "_meta" || k.startsWith("_")) continue;
+    if (SHARED_KEYS.includes(k)) {
+      sharedOut[k] = effectiveValues[k];
+      continue;
+    }
+    const presetVal = k in presetValues ? presetValues[k] : sportDef[k];
+    if (effectiveValues[k] === presetVal) continue;
+    overrides[k] = effectiveValues[k];
+  }
+
+  const existing = _cache[team] || {};
+  const next = {
+    ...existing,
+    shared: { ...(existing.shared || {}), ...sharedOut },
+    [sport]: { preset: presetName, overrides },
+  };
+
+  _cache[team] = next;
+  localStorage.setItem(_key(team), JSON.stringify(next));
   try {
-    await set(_firebaseRef(team), toSave);
+    await set(_firebaseRef(team), next);
   } catch (e) {
     console.warn("설정 Firebase 저장 실패:", e.message);
   }

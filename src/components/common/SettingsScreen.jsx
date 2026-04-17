@@ -30,15 +30,22 @@ export default function SettingsScreen({ teamName, teamMode, onBack }) {
   };
 
   const handleSave = async () => {
-    await saveSettings(teamName, settings);
+    await saveSettings(teamName, sport, settings, currentPreset);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };
 
   const handleReset = async () => {
-    if (!confirm("현재 설정을 초기 상태로 되돌리시겠습니까?")) return;
-    // 팀 오버라이드 전체 제거는 Task 15/16에서 완성. 지금은 UI 재로드만.
-    setSettings(getEffectiveSettings(teamName, sport));
+    if (!confirm("이 종목 설정을 프리셋 기본값으로 초기화하시겠습니까?")) return;
+    const sportDef = SPORT_DEFAULTS[sport] || {};
+    const presetValues = PRESETS[sport]?.[currentPreset]?.values || {};
+    const resetSettings = {
+      ...settings,  // shared 보존
+      ...sportDef,
+      ...presetValues,
+    };
+    setSettings(resetSettings);
+    await saveSettings(teamName, sport, resetSettings, currentPreset);
     setSaved(true);
   };
 
