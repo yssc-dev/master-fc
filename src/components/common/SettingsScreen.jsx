@@ -16,6 +16,8 @@ export default function SettingsScreen({ teamName, teamMode, onBack }) {
   const [sheetList, setSheetList] = useState([]);
   const [loadingSheets, setLoadingSheets] = useState(false);
   const [newOpponent, setNewOpponent] = useState("");
+  const [presetChangeDialog, setPresetChangeDialog] = useState(null);
+  // null | { newPreset, diffs: [{key, from, to}], overrides: {k:v} }
 
   useEffect(() => {
     setLoadingSheets(true);
@@ -41,7 +43,46 @@ export default function SettingsScreen({ teamName, teamMode, onBack }) {
   };
 
   const handlePresetChange = (newPreset) => {
+    if (newPreset === currentPreset) return;
+    const newPresetValues = PRESETS[sport]?.[newPreset]?.values || {};
+    const oldPresetValues = PRESETS[sport]?.[currentPreset]?.values || {};
+    const sportDef = SPORT_DEFAULTS[sport] || {};
+
+    const before = { ...sportDef, ...oldPresetValues };
+    const after = { ...sportDef, ...newPresetValues };
+    const keys = new Set([...Object.keys(before), ...Object.keys(after)]);
+    const diffs = [];
+    for (const k of keys) {
+      if (before[k] !== after[k]) diffs.push({ key: k, from: before[k], to: after[k] });
+    }
+
+    // 현재 오버라이드 추출 (지금 settings와 preset+defaults 비교)
+    const combined = { ...sportDef, ...oldPresetValues };
+    const overrides = {};
+    for (const k of Object.keys(settings)) {
+      if (k === "_meta" || k.startsWith("_")) continue;
+      if (SPORT_DEFAULTS[sport] && !(k in SPORT_DEFAULTS[sport]) && !(k in oldPresetValues)) continue;
+      if (settings[k] !== combined[k]) overrides[k] = settings[k];
+    }
+
+    setPresetChangeDialog({ newPreset, diffs, overrides });
+  };
+
+  const applyPresetChange = (keepOverrides) => {
+    if (!presetChangeDialog) return;
+    const { newPreset, overrides } = presetChangeDialog;
+    const newPresetValues = PRESETS[sport]?.[newPreset]?.values || {};
+    const sportDef = SPORT_DEFAULTS[sport] || {};
+
+    // settings 재구성
+    const newSettings = { ...settings, ...sportDef, ...newPresetValues };
+    if (keepOverrides) {
+      Object.assign(newSettings, overrides);
+    }
+
     setCurrentPreset(newPreset);
+    setSettings({ ...newSettings, _meta: { ...settings._meta, preset: newPreset } });
+    setPresetChangeDialog(null);
     setSaved(false);
   };
 
@@ -241,6 +282,54 @@ export default function SettingsScreen({ teamName, teamMode, onBack }) {
         <button onClick={handleReset} style={ss.btn(C.grayDark, C.gray)}>기본값으로 초기화</button>
         <button onClick={onBack} style={ss.btn(C.grayDarker, C.white)}>돌아가기</button>
       </div>
+
+      {presetChangeDialog && (
+        <div style={{
+          position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)",
+          display: "flex", alignItems: "center", justifyContent: "center", zIndex: 500,
+        }}>
+          <div style={{ background: C.bg, borderRadius: 12, padding: 20, maxWidth: 360, width: "90%" }}>
+            <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 12, color: C.white }}>
+              "{currentPreset}" → "{presetChangeDialog.newPreset}"
+            </div>
+            {presetChangeDialog.diffs.length > 0 && (
+              <>
+                <div style={{ fontSize: 12, color: C.gray, marginBottom: 6 }}>다음 값이 바뀝니다:</div>
+                <ul style={{ fontSize: 12, color: C.white, paddingLeft: 20, marginBottom: 12 }}>
+                  {presetChangeDialog.diffs.map(d => (
+                    <li key={d.key}>{d.key}: {String(d.from)} → {String(d.to)}</li>
+                  ))}
+                </ul>
+              </>
+            )}
+            {Object.keys(presetChangeDialog.overrides).length > 0 && (
+              <>
+                <div style={{ fontSize: 12, color: C.gray, marginBottom: 6 }}>
+                  이 팀이 덮어쓴 값({Object.keys(presetChangeDialog.overrides).length}개):
+                </div>
+                <ul style={{ fontSize: 11, color: C.grayDark, paddingLeft: 20, marginBottom: 12 }}>
+                  {Object.entries(presetChangeDialog.overrides).map(([k, v]) => (
+                    <li key={k}>{k} = {String(v)}</li>
+                  ))}
+                </ul>
+              </>
+            )}
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {Object.keys(presetChangeDialog.overrides).length > 0 && (
+                <button onClick={() => applyPresetChange(true)} style={ss.btn(C.grayDark, C.white)}>
+                  오버라이드 유지
+                </button>
+              )}
+              <button onClick={() => applyPresetChange(false)} style={ss.btn(C.accent, C.bg)}>
+                전부 초기화
+              </button>
+              <button onClick={() => setPresetChangeDialog(null)} style={ss.btn(C.grayDarker, C.gray)}>
+                취소
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
