@@ -188,10 +188,12 @@ export default function SoccerApp({ authUser, teamContext, isNewGame, gameMode, 
   const finishSoccerMatch = (matchIdx) => {
     dispatch({ type: 'FINISH_SOCCER_MATCH', matchIdx });
   };
-  const addOpponent = (name) => {
+  const addOpponent = async (name) => {
     const newOpponents = [...(state.opponents || []), name];
     dispatch({ type: 'SET_OPPONENTS', opponents: newOpponents });
-    saveSettings(teamContext?.team, { opponents: newOpponents });
+    const es = getEffectiveSettings(teamContext.team, "축구");
+    const { _meta, ...rest } = es;
+    await saveSettings(teamContext.team, "축구", { ...rest, opponents: newOpponents }, _meta.preset);
   };
 
   // ── 기록확정 (구글시트 저장) ──

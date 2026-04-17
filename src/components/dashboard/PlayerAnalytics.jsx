@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useTheme } from '../../hooks/useTheme';
 import AppSync from '../../services/appSync';
 import { fetchSheetData } from '../../services/sheetService';
-import { getSettings, saveSettings, loadSettingsFromFirebase } from '../../config/settings';
+import { getSettings, getEffectiveSettings, saveSettings, loadSettingsFromFirebase } from '../../config/settings';
 import { parseGameHistory, calcDefenseStats, calcWinContribution, calcSynergy, calcTimePattern, calcWinStatsFromPointLog, calcDefenseFromMembers } from '../../utils/gameStateAnalyzer';
 import PlayerCardTab from './PlayerCardTab';
 import SynergyTab from './SynergyTab';
@@ -656,11 +656,12 @@ export default function PlayerAnalytics({ teamName, teamMode, initialTab, isAdmi
         }).sort((a, b) => (b.total - a.total) || (b.totalPersonalPt - a.totalPersonalPt));
 
         const handleTeamNameSave = async (origIdx, newName) => {
-          const current = getSettings(teamName);
-          const updated = [...(current.dualTeams || [])];
+          const es = getEffectiveSettings(teamName, "풋살");
+          const { _meta, ...rest } = es;
+          const updated = [...(rest.dualTeams || [])];
           updated[origIdx] = { ...updated[origIdx], name: newName };
-          await saveSettings(teamName, { ...current, dualTeams: updated });
-          setDualSettings({ ...current, dualTeams: updated });
+          await saveSettings(teamName, "풋살", { ...rest, dualTeams: updated }, _meta.preset);
+          setDualSettings({ ...rest, dualTeams: updated });
           setEditingTeamIdx(null);
         };
 
