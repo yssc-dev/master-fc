@@ -192,3 +192,44 @@ describe('migrateToNested', () => {
     expect(result.축구.preset).toBe("표준축구");
   });
 });
+
+import { getSportDefault, getPresetValue, getSourceOf, _setCacheForTest as _resetCache } from '../settings.js';
+
+describe('getSportDefault', () => {
+  it('풋살 자살골 기본 -1', () => {
+    expect(getSportDefault("풋살", "ownGoalPoint")).toBe(-1);
+  });
+  it('축구 클린시트 기본 +1', () => {
+    expect(getSportDefault("축구", "cleanSheetPoint")).toBe(1);
+  });
+});
+
+describe('getPresetValue', () => {
+  it('마스터FC풋살의 ownGoalPoint → -2', () => {
+    expect(getPresetValue("풋살", "마스터FC풋살", "ownGoalPoint")).toBe(-2);
+  });
+  it('표준풋살의 crovaPoint → undefined (values 비어있음)', () => {
+    expect(getPresetValue("풋살", "표준풋살", "crovaPoint")).toBeUndefined();
+  });
+});
+
+describe('getSourceOf', () => {
+  beforeEach(() => { _resetCache({}); });
+
+  it('shared 키 → "shared"', () => {
+    _resetCache({ "팀": { shared: { sheetId: "X" }, 풋살: { preset: "표준풋살", overrides: {} } } });
+    expect(getSourceOf("팀", "풋살", "sheetId")).toBe("shared");
+  });
+  it('override 키 → "override"', () => {
+    _resetCache({ "팀": { shared: {}, 풋살: { preset: "표준풋살", overrides: { ownGoalPoint: -3 } } } });
+    expect(getSourceOf("팀", "풋살", "ownGoalPoint")).toBe("override");
+  });
+  it('preset 값 → "preset"', () => {
+    _resetCache({ "팀": { shared: {}, 풋살: { preset: "마스터FC풋살", overrides: {} } } });
+    expect(getSourceOf("팀", "풋살", "crovaPoint")).toBe("preset");
+  });
+  it('아무 곳에도 없음 → "default"', () => {
+    _resetCache({ "팀": { shared: {}, 풋살: { preset: "표준풋살", overrides: {} } } });
+    expect(getSourceOf("팀", "풋살", "ownGoalPoint")).toBe("default");
+  });
+});

@@ -179,6 +179,27 @@ export function getDefaults() {
   return { ...DEFAULTS };
 }
 
+export function getSportDefault(sport, key) {
+  return SPORT_DEFAULTS[sport]?.[key];
+}
+
+export function getPresetValue(sport, preset, key) {
+  return PRESETS[sport]?.[preset]?.values?.[key];
+}
+
+export function getSourceOf(team, sport, key) {
+  const teamData = _cache[team] || {};
+  if (teamData.shared && key in teamData.shared) return "shared";
+  const overrides = teamData[sport]?.overrides || {};
+  if (key in overrides) return "override";
+  const preset = teamData[sport]?.preset;
+  const presetValues = PRESETS[sport]?.[preset]?.values || {};
+  if (key in presetValues) return "preset";
+  const sportDefaults = SPORT_DEFAULTS[sport] || {};
+  if (key in sportDefaults) return "default";
+  return "default";
+}
+
 const SHARED_KEYS = [
   "sheetId", "attendanceSheet", "dashboardSheet",
   "pointLogSheet", "playerLogSheet",
