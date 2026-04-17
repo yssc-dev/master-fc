@@ -325,7 +325,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
     const { ownGoalPoint, crovaPoint, gogumaPoint, bonusMultiplier } = gameSettings;
     let pts = st.goals + st.assists + st.owngoals * ownGoalPoint + st.cleanSheets;
     let crova = 0, goguma = 0;
-    if (matchMode !== "push" && (allRoundsComplete || earlyFinish) && finalStandings.length > 0 && completedMatches.filter(m => !m.isExtra).length > 0) {
+    if (courtCount === 2 && matchMode !== "push" && (allRoundsComplete || earlyFinish) && finalStandings.length > 0 && completedMatches.filter(m => !m.isExtra).length > 0) {
       const pt = getPlayerTeamName(player);
       const first = finalStandings[0], last = finalStandings[finalStandings.length - 1];
       const sgl = getSeasonLeader("goguma"), scl = getSeasonLeader("crova");
@@ -336,7 +336,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
       if (pt === last.name) { goguma = gogumaPoint * gm; pts += goguma; }
     }
     return { total: pts, goals: st.goals, assists: st.assists, owngoals: st.owngoals, cleanSheets: st.cleanSheets, crova, goguma, conceded: st.conceded, keeperGames: st.keeperGames };
-  }, [playerMatchStats, finalStandings, completedMatches, getPlayerTeamName, getSeasonLeader, allRoundsComplete, earlyFinish, gameSettings]);
+  }, [playerMatchStats, finalStandings, completedMatches, getPlayerTeamName, getSeasonLeader, allRoundsComplete, earlyFinish, gameSettings, courtCount]);
 
   // Actions
   const handleGkChange = useCallback((teamIdx, player) => {
