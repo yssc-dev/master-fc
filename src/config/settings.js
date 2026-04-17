@@ -50,7 +50,7 @@ const PRESET_MAP = {
 };
 
 export function resolvePreset(team, sport) {
-  return PRESET_MAP[team]?.[sport] || PRESET_MAP._default[sport];
+  return PRESET_MAP[team]?.[sport] ?? PRESET_MAP._default[sport];
 }
 
 const DEFAULTS = {
