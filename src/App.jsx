@@ -872,6 +872,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
 
   // MATCH PHASE
   if (phase === "match") {
+    const _showModalBonus = matchMode !== "push" && courtCount === 2 && (state.settingsSnapshot?.useCrovaGoguma ?? gameSettings.useCrovaGoguma ?? false);
     return (
       <div style={s.app}>
         <div style={s.header}>
@@ -951,7 +952,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
         )}
 
         {matchModal === "standings" && <StandingsModal standings={getTeamStandings()} splitPhase={splitPhase} teamCount={teamCount} onClose={() => set('matchModal', null)} styles={s} />}
-        {matchModal === "playerStats" && <PlayerStatsModal attendees={attendees} calcPlayerPoints={calcPlayerPoints} showBonus={(state.settingsSnapshot?.useCrovaGoguma ?? gameSettings?.useCrovaGoguma ?? false) && courtCount === 2} onClose={() => set('matchModal', null)} styles={s} />}
+        {matchModal === "playerStats" && <PlayerStatsModal attendees={attendees} calcPlayerPoints={calcPlayerPoints} showBonus={_showModalBonus} onClose={() => set('matchModal', null)} styles={s} />}
 
         {matchModal === "gameFormat" && (
           <Modal onClose={() => set('matchModal', null)} title="경기방식">
