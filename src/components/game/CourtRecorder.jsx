@@ -330,12 +330,14 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
         </div>
       </div>
 
-      <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
-        <button onClick={() => setShowMercPicker("home")} style={{ ...s.btnSm(C.grayDark, C.orange), flex: 1, fontSize: 11 }}>+ 선수추가</button>
-        <button onClick={() => setShowMercPicker("away")} style={{ ...s.btnSm(C.grayDark, C.orange), flex: 1, fontSize: 11 }}>+ 선수추가</button>
-      </div>
+      {!readOnly && (
+        <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+          <button onClick={() => setShowMercPicker("home")} style={{ ...s.btnSm(C.grayDark, C.orange), flex: 1, fontSize: 11 }}>+ 선수추가</button>
+          <button onClick={() => setShowMercPicker("away")} style={{ ...s.btnSm(C.grayDark, C.orange), flex: 1, fontSize: 11 }}>+ 선수추가</button>
+        </div>
+      )}
 
-      {showMercPicker && (
+      {!readOnly && showMercPicker && (
         <MercPicker side={showMercPicker} candidates={getMercCandidates(showMercPicker)}
           opposingPlayers={showMercPicker === "home" ? awayPlayers : homePlayers}
           teamName={showMercPicker === "home" ? homeTeam : awayTeam}
