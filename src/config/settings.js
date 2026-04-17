@@ -187,7 +187,17 @@ export function _setCacheForTest(obj) {
   _cache = obj;
 }
 
+// Firebase 로드 이전 cold-start 대비: localStorage에 있으면 동기적으로 캐시 채움
+function _hydrateCacheFromStorage(team) {
+  if (_cache[team]) return;
+  try {
+    const raw = JSON.parse(localStorage.getItem(_key(team)) || "null");
+    if (raw && !isLegacyFormat(raw)) _cache[team] = raw;
+  } catch { /* ignore */ }
+}
+
 export function getEffectiveSettings(team, sport) {
+  _hydrateCacheFromStorage(team);
   const teamData = _cache[team] || {};
   const sportDefaults = SPORT_DEFAULTS[sport] || {};
   const presetName = teamData[sport]?.preset;
