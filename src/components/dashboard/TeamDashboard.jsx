@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { fetchSheetData } from '../../services/sheetService';
 import AppSync from '../../services/appSync';
-import { getSettings } from '../../config/settings';
+import { getSettings, getEffectiveSettings } from '../../config/settings';
 import { useTheme } from '../../hooks/useTheme';
 import Modal from '../common/Modal';
 import RankingCandlestickChart from './RankingCandlestickChart';
@@ -432,8 +432,16 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
     { key: "goals", label: "골" },
     { key: "assists", label: "어시" },
     { key: "ownGoals", label: "자책" },
-    activeSport !== "축구" && { key: "crova", label: "🍀" },
-    activeSport !== "축구" && { key: "goguma", label: "🍠" },
+    (() => {
+      if (activeSport === "축구") return null;
+      const es = getEffectiveSettings(teamName, "풋살");
+      return es.useCrovaGoguma ? { key: "crova", label: "🍀" } : null;
+    })(),
+    (() => {
+      if (activeSport === "축구") return null;
+      const es = getEffectiveSettings(teamName, "풋살");
+      return es.useCrovaGoguma ? { key: "goguma", label: "🍠" } : null;
+    })(),
     { key: "point", label: "PT" },
     { key: "cleanSheets", label: "CS" },
     { key: "keeperGames", label: "GK" },

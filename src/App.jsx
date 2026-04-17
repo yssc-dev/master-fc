@@ -951,7 +951,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
         )}
 
         {matchModal === "standings" && <StandingsModal standings={getTeamStandings()} splitPhase={splitPhase} teamCount={teamCount} onClose={() => set('matchModal', null)} styles={s} />}
-        {matchModal === "playerStats" && <PlayerStatsModal attendees={attendees} calcPlayerPoints={calcPlayerPoints} courtCount={courtCount} onClose={() => set('matchModal', null)} styles={s} />}
+        {matchModal === "playerStats" && <PlayerStatsModal attendees={attendees} calcPlayerPoints={calcPlayerPoints} showBonus={(state.settingsSnapshot?.useCrovaGoguma ?? gameSettings?.useCrovaGoguma ?? false) && courtCount === 2} onClose={() => set('matchModal', null)} styles={s} />}
 
         {matchModal === "gameFormat" && (
           <Modal onClose={() => set('matchModal', null)} title="경기방식">
