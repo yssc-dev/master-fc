@@ -99,7 +99,8 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
         fields.seasonGoguma = cumBonus.goguma || {};
       }
       if (isNewGame) {
-        fields.settingsSnapshot = getEffectiveSettings(teamContext.team, "풋살");
+        const { _meta, ...snap } = getEffectiveSettings(teamContext.team, "풋살");
+        fields.settingsSnapshot = snap;
       }
       dispatch({ type: 'SET_FIELDS', fields });
 

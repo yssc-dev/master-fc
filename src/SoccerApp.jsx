@@ -76,7 +76,8 @@ export default function SoccerApp({ authUser, teamContext, isNewGame, gameMode, 
       else { fields.dataSource = "fallback"; }
       if (cumBonus) { fields.seasonCrova = cumBonus.crova || {}; fields.seasonGoguma = cumBonus.goguma || {}; }
       if (isNewGame) {
-        fields.settingsSnapshot = getEffectiveSettings(teamContext.team, "축구");
+        const { _meta, ...snap } = getEffectiveSettings(teamContext.team, "축구");
+        fields.settingsSnapshot = snap;
       }
       dispatch({ type: 'SET_FIELDS', fields });
 
