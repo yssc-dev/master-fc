@@ -408,6 +408,13 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
     dispatch({ type: 'SET_FIELDS', fields: { teams: newTeams, teamNames: newNames, gks: newGks } });
   };
 
+  const addGuestPlayer = () => {
+    const name = newPlayer.trim();
+    if (!name || attendees.includes(name) || teams.flat().includes(name)) { set('newPlayer', ""); return; }
+    dispatch({ type: 'SET_FIELDS', fields: { attendees: [...attendees, name], newPlayer: "" } });
+    freeAddPlayer(name);
+  };
+
   const unassignedPlayers = useMemo(() => {
     const assigned = new Set(teams.flat());
     return attendees.filter(p => !assigned.has(p));
@@ -732,19 +739,8 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
                 <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
                   <input style={{ ...s.input, flex: 1, fontSize: 12, padding: "6px 8px" }} placeholder="새 선수 이름 (게스트)"
                     value={newPlayer} onChange={e => set('newPlayer', e.target.value)}
-                    onKeyDown={e => {
-                      if (e.key !== "Enter") return;
-                      const name = newPlayer.trim();
-                      if (!name || attendees.includes(name) || teams.flat().includes(name)) { set('newPlayer', ""); return; }
-                      dispatch({ type: 'SET_FIELDS', fields: { attendees: [...attendees, name], newPlayer: "" } });
-                      freeAddPlayer(name);
-                    }} />
-                  <button onClick={() => {
-                    const name = newPlayer.trim();
-                    if (!name || attendees.includes(name) || teams.flat().includes(name)) { set('newPlayer', ""); return; }
-                    dispatch({ type: 'SET_FIELDS', fields: { attendees: [...attendees, name], newPlayer: "" } });
-                    freeAddPlayer(name);
-                  }} style={s.btnSm(C.green, C.bg)}>추가</button>
+                    onKeyDown={e => { if (e.key === "Enter") addGuestPlayer(); }} />
+                  <button onClick={addGuestPlayer} style={s.btnSm(C.green, C.bg)}>추가</button>
                 </div>
               )}
             </div>
