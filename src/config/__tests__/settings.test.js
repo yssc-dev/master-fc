@@ -228,8 +228,12 @@ describe('getSourceOf', () => {
     _resetCache({ "팀": { shared: {}, 풋살: { preset: "마스터FC풋살", overrides: {} } } });
     expect(getSourceOf("팀", "풋살", "crovaPoint")).toBe("preset");
   });
-  it('아무 곳에도 없음 → "default"', () => {
+  it('sport default에만 있음 → "default"', () => {
     _resetCache({ "팀": { shared: {}, 풋살: { preset: "표준풋살", overrides: {} } } });
     expect(getSourceOf("팀", "풋살", "ownGoalPoint")).toBe("default");
+  });
+  it('아무 곳에도 없는 키 → "unknown"', () => {
+    _resetCache({ "팀": { shared: {}, 풋살: { preset: "표준풋살", overrides: {} } } });
+    expect(getSourceOf("팀", "풋살", "neverHeardOfThisKey")).toBe("unknown");
   });
 });

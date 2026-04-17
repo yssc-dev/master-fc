@@ -187,6 +187,8 @@ export function getPresetValue(sport, preset, key) {
   return PRESETS[sport]?.[preset]?.values?.[key];
 }
 
+// shared는 종목 무관 키(sheetId 등) 전용이므로 override보다 우선 검사한다.
+// 동일 키가 shared와 override 양쪽에 있으면 shared를 반환 — 배지 UI는 이 규칙을 전제로 한다.
 export function getSourceOf(team, sport, key) {
   const teamData = _cache[team] || {};
   if (teamData.shared && key in teamData.shared) return "shared";
@@ -197,7 +199,7 @@ export function getSourceOf(team, sport, key) {
   if (key in presetValues) return "preset";
   const sportDefaults = SPORT_DEFAULTS[sport] || {};
   if (key in sportDefaults) return "default";
-  return "default";
+  return "unknown";
 }
 
 const SHARED_KEYS = [
