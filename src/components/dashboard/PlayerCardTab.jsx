@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useTheme } from '../../hooks/useTheme';
 import { percentile } from '../../utils/gameStateAnalyzer';
+import { calcTrend, calcRelativePosition, calcAttendance } from '../../utils/playerAnalyticsUtils';
 
 const AXES = [
   { key: "scoring", label: "득점력" },
@@ -61,7 +62,7 @@ function getChaosBadge(chaosRate) {
   return null;
 }
 
-export default function PlayerCardTab({ playerLog, members, defenseStats, winStats, C }) {
+export default function PlayerCardTab({ playerLog, members, defenseStats, winStats, gameRecords, C }) {
   const [selectedPlayer, setSelectedPlayer] = useState(null);
 
   // 대시보드 members 데이터 우선 사용 (전체 누적), 없으면 playerLog에서 집계
@@ -143,6 +144,45 @@ export default function PlayerCardTab({ playerLog, members, defenseStats, winSta
     };
   };
 
+  const getTrends = (name) => {
+    const sessions = playerLog
+      .filter(p => p.name === name)
+      .sort((a, b) => a.date.localeCompare(b.date));
+    const goalsSeries = sessions.map(p => p.goals || 0);
+    const assistsSeries = sessions.map(p => p.assists || 0);
+    return {
+      goals: calcTrend(goalsSeries),
+      assists: calcTrend(assistsSeries),
+    };
+  };
+
+  const getRelativePosition = (name) => {
+    const s = playerSummary[name];
+    if (!s || s.games === 0) return null;
+    const qualified = players
+      .map(n => playerSummary[n])
+      .filter(ps => ps.games > 0);
+    const goalsPerGame = qualified.map(ps => ps.goals / ps.games);
+    const assistsPerGame = qualified.map(ps => ps.assists / ps.games);
+    return {
+      goals: calcRelativePosition(s.goals / s.games, goalsPerGame),
+      assists: calcRelativePosition(s.assists / s.games, assistsPerGame),
+    };
+  };
+
+  const getAttendance = (name) => calcAttendance(gameRecords || [], name);
+
+  const getGkFieldSplit = (name) => {
+    const s = playerSummary[name];
+    if (!s) return null;
+    const keeperGames = s.keeperGames || 0;
+    const fieldGames = Math.max(0, s.games - keeperGames);
+    return {
+      keeper: { games: keeperGames, conceded: s.conceded || 0 },
+      field: { games: fieldGames, goals: s.goals || 0, assists: s.assists || 0 },
+    };
+  };
+
   const selected = selectedPlayer || players[0];
   const pd = selected ? getPlayerData(selected) : { values: [50, 50, 50, 50, 50, 50], raw: {}, detail: {} };
   const values = pd.values;
@@ -191,6 +231,56 @@ export default function PlayerCardTab({ playerLog, members, defenseStats, winSta
               </table>
             </div>
           )}
+          {selected && (() => {
+            const trends = getTrends(selected);
+            const relPos = getRelativePosition(selected);
+            const att = getAttendance(selected);
+            const split = getGkFieldSplit(selected);
+            const hasAnything = trends.goals || trends.assists || relPos || att.total > 0 || (split && split.keeper.games > 0 && split.field.games > 0);
+            if (!hasAnything) return null;
+            return (
+              <div style={{ marginTop: 12, padding: "10px 12px", borderRadius: 8, background: C.cardLight, fontSize: 11, lineHeight: 1.9, textAlign: "left" }}>
+                {trends.goals && (
+                  <div>
+                    <span style={{ color: C.gray }}>득점 추세: </span>
+                    <span style={{ color: C.white, fontWeight: 700 }}>{trends.goals.icon} {trends.goals.label}</span>
+                  </div>
+                )}
+                {trends.assists && (
+                  <div>
+                    <span style={{ color: C.gray }}>도움 추세: </span>
+                    <span style={{ color: C.white, fontWeight: 700 }}>{trends.assists.icon} {trends.assists.label}</span>
+                  </div>
+                )}
+                {relPos && (
+                  <div>
+                    <span style={{ color: C.gray }}>팀 평균 대비: </span>
+                    <span style={{ color: relPos.goals >= 0 ? C.accent : "#ef4444", fontWeight: 700 }}>
+                      득점 {relPos.goals >= 0 ? "+" : ""}{relPos.goals}%
+                    </span>
+                    <span style={{ color: C.gray }}> · </span>
+                    <span style={{ color: relPos.assists >= 0 ? C.accent : "#ef4444", fontWeight: 700 }}>
+                      도움 {relPos.assists >= 0 ? "+" : ""}{relPos.assists}%
+                    </span>
+                  </div>
+                )}
+                {att.total > 0 && (
+                  <div>
+                    <span style={{ color: C.gray }}>출석: </span>
+                    <span style={{ color: C.white, fontWeight: 700 }}>{att.attended}/{att.total}세션 ({att.rate}%)</span>
+                  </div>
+                )}
+                {split && split.keeper.games > 0 && split.field.games > 0 && (
+                  <div>
+                    <span style={{ color: C.gray }}>GK/필드: </span>
+                    <span style={{ color: C.white }}>
+                      GK {split.keeper.games}경기 {split.keeper.conceded}실 · 필드 {split.field.games}경기 {split.field.goals}골 {split.field.assists}어시
+                    </span>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
           {(!defenseStats || Object.keys(defenseStats).length === 0 || !winStats || Object.keys(winStats).length === 0) && (
             <div style={{ marginTop: 12, padding: "8px 10px", borderRadius: 8, background: `${C.accent}10`, fontSize: 11, color: C.gray, lineHeight: 1.6 }}>
               수비력{!winStats || Object.keys(winStats).length === 0 ? ", 승리기여" : ""} 지표는 앱 경기기록 데이터 부족으로 일부만 결과에 반영되고 있습니다.

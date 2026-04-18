@@ -655,7 +655,7 @@ export default function PlayerAnalytics({ teamName, teamMode, initialTab, isAdmi
 
       {tab === "playercard" && (
         gameRecordsLoading ? <div style={{ textAlign: "center", padding: 20, color: C.gray }}>경기 데이터 로딩 중...</div> :
-        playerLog ? <PlayerCardTab playerLog={playerLog} members={members} defenseStats={defenseStats} winStats={winStats} C={C} /> :
+        playerLog ? <PlayerCardTab playerLog={playerLog} members={members} defenseStats={defenseStats} winStats={winStats} gameRecords={gameRecords} C={C} /> :
         <div style={{ textAlign: "center", padding: 20, color: C.gray }}>데이터 없음</div>
       )}
 
