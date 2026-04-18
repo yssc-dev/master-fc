@@ -127,4 +127,37 @@ describe('calcRoundMidpointTimePattern', () => {
     const result = calcRoundMidpointTimePattern(records);
     expect(result['서라현']).toEqual({ early: 1, late: 0, total: 1 });
   });
+
+  it('N=1 세션은 건너뜀 (midpoint 의미 없음)', () => {
+    const records = [{
+      gameDate: '2026-03-20',
+      matches: [{ matchId: 'm0', isExtra: false }],
+      events: [{ type: 'goal', matchId: 'm0', player: '서라현' }],
+    }];
+    const result = calcRoundMidpointTimePattern(records);
+    expect(result['서라현']).toBeUndefined();
+  });
+
+  it('여러 세션에 걸쳐 누적 (서로 다른 N, 각자 midpoint 기준)', () => {
+    const records = [
+      {
+        gameDate: '2026-03-20',
+        matches: Array.from({ length: 10 }, (_, i) => ({ matchId: `a${i}`, isExtra: false })),
+        events: [
+          { type: 'goal', matchId: 'a1', player: '서라현' },  // midpoint=5, 1<5 → early
+          { type: 'goal', matchId: 'a7', player: '서라현' },  // 7>=5 → late
+        ],
+      },
+      {
+        gameDate: '2026-03-27',
+        matches: Array.from({ length: 6 }, (_, i) => ({ matchId: `b${i}`, isExtra: false })),
+        events: [
+          { type: 'goal', matchId: 'b0', player: '서라현' },  // midpoint=3, 0<3 → early
+          { type: 'goal', matchId: 'b4', player: '서라현' },  // 4>=3 → late
+        ],
+      },
+    ];
+    const result = calcRoundMidpointTimePattern(records);
+    expect(result['서라현']).toEqual({ early: 2, late: 2, total: 4 });
+  });
 });

@@ -56,7 +56,7 @@ export function calcRoundMidpointTimePattern(gameRecords) {
   (gameRecords || []).forEach(record => {
     const mainMatches = (record.matches || []).filter(m => !m.isExtra);
     const N = mainMatches.length;
-    if (N === 0) return;
+    if (N <= 1) return; // N=1이면 midpoint=0 → 전부 late로 분류됨. 의미 없는 세션은 건너뜀.
     const midpoint = Math.floor(N / 2);
     const matchIndex = {};
     mainMatches.forEach((m, i) => { matchIndex[m.matchId] = i; });
