@@ -40,9 +40,7 @@ describe('calcTeamRanking', () => {
       matches: [{ homeIdx: 0, awayIdx: 1, homeScore: 1, awayScore: 1, isExtra: false }],
     };
     const ranking = calcTeamRanking(record);
-    expect(ranking.length).toBe(2);
-    expect(ranking).toContain('A');
-    expect(ranking).toContain('B');
+    expect(ranking).toEqual(['A', 'B']); // alphabetical tie-break guarantees exact order
   });
 });
 

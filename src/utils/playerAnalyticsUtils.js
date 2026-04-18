@@ -5,7 +5,7 @@ export function calcTeamRanking(record) {
   const { teamNames, matches } = record;
   const stats = {};
   teamNames.forEach(name => {
-    stats[name] = { wins: 0, draws: 0, losses: 0, gf: 0, ga: 0 };
+    stats[name] = { wins: 0, losses: 0, gf: 0, ga: 0 };
   });
   (matches || []).forEach(m => {
     if (m.isExtra) return;
@@ -18,14 +18,15 @@ export function calcTeamRanking(record) {
     stats[away].ga += m.homeScore;
     if (m.homeScore > m.awayScore) { stats[home].wins++; stats[away].losses++; }
     else if (m.homeScore < m.awayScore) { stats[away].wins++; stats[home].losses++; }
-    else { stats[home].draws++; stats[away].draws++; }
+    // draws not tracked — not used in comparator
   });
   return teamNames.slice().sort((a, b) => {
     const sa = stats[a], sb = stats[b];
     if (sb.wins !== sa.wins) return sb.wins - sa.wins;
     const da = sa.gf - sa.ga, db = sb.gf - sb.ga;
     if (db !== da) return db - da;
-    return sb.gf - sa.gf;
+    if (sb.gf !== sa.gf) return sb.gf - sa.gf;
+    return a.localeCompare(b); // stable alphabetical fallback when all criteria tie
   });
 }
 
@@ -41,7 +42,7 @@ export function calcCrovaGogumaFreq(gameRecords) {
     (record.teams?.[firstIdx] || []).forEach(p => {
       crova[p] = (crova[p] || 0) + 1;
     });
-    if (firstIdx !== lastIdx) {
+    if (firstIdx !== lastIdx) { // skip goguma when only one team or 1st === last (all tied)
       (record.teams?.[lastIdx] || []).forEach(p => {
         goguma[p] = (goguma[p] || 0) + 1;
       });
