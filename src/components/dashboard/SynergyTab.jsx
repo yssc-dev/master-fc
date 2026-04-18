@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { useTheme } from '../../hooks/useTheme';
+import { sortSynergyWithTieBreak } from '../../utils/playerAnalyticsUtils';
 
 export default function SynergyTab({ synergyData, playerLog, C }) {
   const [selectedPlayer, setSelectedPlayer] = useState(null);
@@ -14,19 +14,17 @@ export default function SynergyTab({ synergyData, playerLog, C }) {
     if (!selected || !synergyData[selected]) return [];
     return Object.entries(synergyData[selected])
       .filter(([, s]) => s.games >= 2)
-      .map(([name, s]) => ({ name, ...s }))
-      .sort((a, b) => b.winRate - a.winRate);
+      .map(([name, s]) => ({ name, ...s }));
   }, [selected, synergyData]);
 
-  const top5 = partners.slice(0, 5);
-  const bottom5 = [...partners].sort((a, b) => a.winRate - b.winRate).slice(0, 5);
+  const top5 = useMemo(() => sortSynergyWithTieBreak(partners, 'best').slice(0, 5), [partners]);
+  const bottom5 = useMemo(() => sortSynergyWithTieBreak(partners, 'worst').slice(0, 5), [partners]);
 
   const renderRow = (p, i, color) => (
     <div key={p.name} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0", borderBottom: `1px solid ${C.grayDarker}` }}>
       <span style={{ fontSize: 11, fontWeight: 700, color, minWidth: 16 }}>{i + 1}</span>
       <span style={{ fontSize: 13, fontWeight: 600, flex: 1 }}>{p.name}</span>
-      <span style={{ fontSize: 11, color: C.gray }}>{p.games}경기</span>
-      <span style={{ fontSize: 11, color: C.gray }}>{p.wins}승 {p.draws}무 {p.losses}패</span>
+      <span style={{ fontSize: 11, color: C.gray }}>{p.games}라운드 중 {p.wins}승 {p.draws}무 {p.losses}패</span>
       <span style={{ fontSize: 13, fontWeight: 700, color, minWidth: 40, textAlign: "right" }}>{Math.round(p.winRate * 100)}%</span>
     </div>
   );
