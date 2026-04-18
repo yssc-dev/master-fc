@@ -3,8 +3,8 @@ import { useTheme } from '../../hooks/useTheme';
 import AppSync from '../../services/appSync';
 import { fetchSheetData } from '../../services/sheetService';
 import { getSettings, getEffectiveSettings, saveSettings, loadSettingsFromFirebase } from '../../config/settings';
-import { parseGameHistory, calcDefenseStats, calcWinContribution, calcSynergy, calcTimePattern, calcWinStatsFromPointLog, calcDefenseFromMembers } from '../../utils/gameStateAnalyzer';
-import { calcComboEfficiency, calcCrovaGogumaFreq } from '../../utils/playerAnalyticsUtils';
+import { parseGameHistory, calcDefenseStats, calcWinContribution, calcSynergy, calcWinStatsFromPointLog, calcDefenseFromMembers } from '../../utils/gameStateAnalyzer';
+import { calcComboEfficiency, calcCrovaGogumaFreq, calcRoundMidpointTimePattern } from '../../utils/playerAnalyticsUtils';
 import PlayerCardTab from './PlayerCardTab';
 import SynergyTab from './SynergyTab';
 import TimePatternTab from './TimePatternTab';
@@ -322,7 +322,7 @@ export default function PlayerAnalytics({ teamName, teamMode, initialTab, isAdmi
     if (!analysis || !gameRecords) return null;
     return calcComboEfficiency(analysis.pairCount || {}, synergyData);
   }, [analysis, gameRecords, synergyData]);
-  const timeStats = useMemo(() => gameRecords ? calcTimePattern(gameRecords) : {}, [gameRecords]);
+  const timeStats = useMemo(() => gameRecords ? calcRoundMidpointTimePattern(gameRecords) : {}, [gameRecords]);
 
   const crovaGogumaFreq = useMemo(() => {
     if (!gameRecords) return { crova: {}, goguma: {} };
