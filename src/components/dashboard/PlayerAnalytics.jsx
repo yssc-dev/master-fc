@@ -610,31 +610,39 @@ export default function PlayerAnalytics({ teamName, teamMode, initialTab, isAdmi
           </div>
         ) : (
           <div>
-            <div style={{ fontSize: 12, fontWeight: 700, color: GREEN, marginBottom: 8 }}>
-              {isCrovaGogumaMode ? "🍀 크로바 TOP5" : "🏆 승리팀 단골 TOP5"}
-            </div>
-            {crovaTopNew.map((p, i) => (
-              <div key={`c-${p.name}`} style={{ display: "flex", alignItems: "center", padding: "6px 0", borderBottom: `1px solid ${C.grayDarker}`, gap: 8 }}>
-                <span style={{ width: 24, fontSize: 11, color: C.gray, textAlign: "center" }}>{i + 1}</span>
-                <span style={{ flex: 1, fontSize: 13, fontWeight: 700, color: C.white }}>{p.name}</span>
-                <span style={{ fontSize: 13, fontWeight: 800, color: GREEN, minWidth: 44, textAlign: "right" }}>
-                  {isCrovaGogumaMode ? `🍀 ${p.count}` : `${p.count}회`}
-                </span>
-              </div>
-            ))}
+            {crovaTopNew.length > 0 && (
+              <>
+                <div style={{ fontSize: 12, fontWeight: 700, color: GREEN, marginBottom: 8 }}>
+                  {isCrovaGogumaMode ? "🍀 크로바 TOP5" : "🏆 승리팀 단골 TOP5"}
+                </div>
+                {crovaTopNew.map((p, i) => (
+                  <div key={`c-${p.name}`} style={{ display: "flex", alignItems: "center", padding: "6px 0", borderBottom: `1px solid ${C.grayDarker}`, gap: 8 }}>
+                    <span style={{ width: 24, fontSize: 11, color: C.gray, textAlign: "center" }}>{i + 1}</span>
+                    <span style={{ flex: 1, fontSize: 13, fontWeight: 700, color: C.white }}>{p.name}</span>
+                    <span style={{ fontSize: 13, fontWeight: 800, color: GREEN, minWidth: 44, textAlign: "right" }}>
+                      {isCrovaGogumaMode ? `🍀 ${p.count}` : `${p.count}회`}
+                    </span>
+                  </div>
+                ))}
+              </>
+            )}
 
-            <div style={{ fontSize: 12, fontWeight: 700, color: RED, marginTop: 16, marginBottom: 8 }}>
-              {isCrovaGogumaMode ? "🍠 고구마 TOP5" : "🥲 꼴찌팀 단골 TOP5"}
-            </div>
-            {gogumaTopNew.map((p, i) => (
-              <div key={`g-${p.name}`} style={{ display: "flex", alignItems: "center", padding: "6px 0", borderBottom: `1px solid ${C.grayDarker}`, gap: 8 }}>
-                <span style={{ width: 24, fontSize: 11, color: C.gray, textAlign: "center" }}>{i + 1}</span>
-                <span style={{ flex: 1, fontSize: 13, fontWeight: 700, color: C.white }}>{p.name}</span>
-                <span style={{ fontSize: 13, fontWeight: 800, color: RED, minWidth: 44, textAlign: "right" }}>
-                  {isCrovaGogumaMode ? `🍠 ${p.count}` : `${p.count}회`}
-                </span>
-              </div>
-            ))}
+            {gogumaTopNew.length > 0 && (
+              <>
+                <div style={{ fontSize: 12, fontWeight: 700, color: RED, marginTop: crovaTopNew.length > 0 ? 16 : 0, marginBottom: 8 }}>
+                  {isCrovaGogumaMode ? "🍠 고구마 TOP5" : "🥲 꼴찌팀 단골 TOP5"}
+                </div>
+                {gogumaTopNew.map((p, i) => (
+                  <div key={`g-${p.name}`} style={{ display: "flex", alignItems: "center", padding: "6px 0", borderBottom: `1px solid ${C.grayDarker}`, gap: 8 }}>
+                    <span style={{ width: 24, fontSize: 11, color: C.gray, textAlign: "center" }}>{i + 1}</span>
+                    <span style={{ flex: 1, fontSize: 13, fontWeight: 700, color: C.white }}>{p.name}</span>
+                    <span style={{ fontSize: 13, fontWeight: 800, color: RED, minWidth: 44, textAlign: "right" }}>
+                      {isCrovaGogumaMode ? `🍠 ${p.count}` : `${p.count}회`}
+                    </span>
+                  </div>
+                ))}
+              </>
+            )}
           </div>
         )
       )}
