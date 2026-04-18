@@ -314,7 +314,11 @@ export default function PlayerAnalytics({ teamName, teamMode, initialTab, isAdmi
   const gameRecordsSummary = useMemo(() => {
     if (!gameRecords || gameRecords.length === 0) return null;
     const dates = gameRecords.map(g => g.gameDate).filter(Boolean).sort();
-    return { count: gameRecords.length, from: dates[0], to: dates[dates.length - 1] };
+    const totalRounds = gameRecords.reduce(
+      (sum, r) => sum + (r.matches || []).filter(m => !m.isExtra).length,
+      0,
+    );
+    return { count: gameRecords.length, totalRounds, from: dates[0], to: dates[dates.length - 1] };
   }, [gameRecords]);
 
   const allTabs = [
@@ -370,14 +374,40 @@ export default function PlayerAnalytics({ teamName, teamMode, initialTab, isAdmi
 
   return (
     <div>
-      <div style={{ display: "flex", gap: 4, marginBottom: 12, flexWrap: "wrap" }}>
-        {tabs.map(t => (
+      {(() => {
+        const groups = [
+          { title: '개인 분석', keys: ['playercard', 'race', 'killer'] },
+          { title: '조합 분석', keys: ['synergy', 'combo', 'chemistry'] },
+          { title: '재미', keys: ['crovaguma', 'timepattern'] },
+        ];
+        const rendered = new Set();
+        const tabButton = t => (
           <button key={t.key} onClick={() => setTab(t.key)}
             style={{ padding: "5px 10px", borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: "pointer", border: "none", background: t.key === tab ? C.accent : C.grayDarker, color: t.key === tab ? C.bg : C.gray }}>
             {t.label}
           </button>
-        ))}
-      </div>
+        );
+        const groupRows = groups.map(g => {
+          const tabsInGroup = tabs.filter(t => g.keys.includes(t.key));
+          if (tabsInGroup.length === 0) return null;
+          tabsInGroup.forEach(t => rendered.add(t.key));
+          return (
+            <div key={g.title} style={{ marginBottom: 8 }}>
+              <div style={{ fontSize: 11, color: C.gray, marginBottom: 4, fontWeight: 600 }}>{g.title}</div>
+              <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                {tabsInGroup.map(tabButton)}
+              </div>
+            </div>
+          );
+        });
+        const othersTabs = tabs.filter(t => !rendered.has(t.key));
+        const othersRow = othersTabs.length > 0 ? (
+          <div key="_other" style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 12 }}>
+            {othersTabs.map(tabButton)}
+          </div>
+        ) : null;
+        return <div style={{ marginBottom: 12 }}>{groupRows}{othersRow}</div>;
+      })()}
 
       {tab === "combo" && (
         <div>
@@ -598,7 +628,7 @@ export default function PlayerAnalytics({ teamName, teamMode, initialTab, isAdmi
 
       {(tab === "playercard" || tab === "synergy" || tab === "timepattern") && gameRecordsSummary && (
         <div style={{ fontSize: 10, color: C.gray, textAlign: "center", marginBottom: 8, padding: "4px 8px", background: `${C.grayDarker}44`, borderRadius: 6 }}>
-          앱 기록 {gameRecordsSummary.count}경기 기준 ({gameRecordsSummary.from} ~ {gameRecordsSummary.to}) · 수비력/승리기여/시너지는 앱 기록 경기만 분석
+          앱 기록 {gameRecordsSummary.count}세션 / 총 {gameRecordsSummary.totalRounds}라운드 기준 ({gameRecordsSummary.from} ~ {gameRecordsSummary.to}) · 수비력/승리기여/시너지는 앱 기록 경기만 분석
         </div>
       )}
 
