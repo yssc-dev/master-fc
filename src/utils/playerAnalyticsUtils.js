@@ -96,3 +96,15 @@ export function classifyTimeSlot(early, _late, total) {
   if (earlyRate <= 0.4) return { label: '후반형', emoji: '⚡' };
   return { label: '균형형', emoji: '⚖️' };
 }
+
+export function calcTrend(sessions) {
+  if (!sessions || sessions.length < 5) return null;
+  const seasonAvg = sessions.reduce((a, b) => a + b, 0) / sessions.length;
+  const recent = sessions.slice(-5);
+  const recentAvg = recent.reduce((a, b) => a + b, 0) / recent.length;
+  if (seasonAvg === 0) return { direction: 'flat', icon: '➡️', label: '유지' };
+  const ratio = recentAvg / seasonAvg;
+  if (ratio >= 1.1) return { direction: 'up', icon: '🔺', label: '상승세' };
+  if (ratio <= 0.9) return { direction: 'down', icon: '🔻', label: '하락세' };
+  return { direction: 'flat', icon: '➡️', label: '유지' };
+}
