@@ -402,7 +402,7 @@ export default function PlayerAnalytics({ teamName, teamMode, initialTab, isAdmi
         });
         const othersTabs = tabs.filter(t => !rendered.has(t.key));
         const othersRow = othersTabs.length > 0 ? (
-          <div key="_other" style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 12 }}>
+          <div key="_other" style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
             {othersTabs.map(tabButton)}
           </div>
         ) : null;
