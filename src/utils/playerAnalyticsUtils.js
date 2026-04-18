@@ -50,3 +50,26 @@ export function calcCrovaGogumaFreq(gameRecords) {
   });
   return { crova, goguma };
 }
+
+export function calcRoundMidpointTimePattern(gameRecords) {
+  const stats = {};
+  (gameRecords || []).forEach(record => {
+    const mainMatches = (record.matches || []).filter(m => !m.isExtra);
+    const N = mainMatches.length;
+    if (N === 0) return;
+    const midpoint = Math.floor(N / 2);
+    const matchIndex = {};
+    mainMatches.forEach((m, i) => { matchIndex[m.matchId] = i; });
+    (record.events || []).forEach(ev => {
+      if (ev.type !== 'goal') return;
+      const idx = matchIndex[ev.matchId];
+      if (idx === undefined) return;
+      const player = ev.player;
+      if (!stats[player]) stats[player] = { early: 0, late: 0, total: 0 };
+      if (idx < midpoint) stats[player].early++;
+      else stats[player].late++;
+      stats[player].total++;
+    });
+  });
+  return stats;
+}

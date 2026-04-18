@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { calcTeamRanking, calcCrovaGogumaFreq } from '../playerAnalyticsUtils';
+import { calcTeamRanking, calcCrovaGogumaFreq, calcRoundMidpointTimePattern } from '../playerAnalyticsUtils';
 
 describe('playerAnalyticsUtils', () => {
   it('module loads', () => {
@@ -65,5 +65,66 @@ describe('calcCrovaGogumaFreq', () => {
     expect(result.crova['본']).toBe(2);     // 3/20 1위 + 3/27 1위 (본이 B팀이었으니)
     expect(result.goguma['카이']).toBe(1);  // 3/20 꼴찌
     expect(result.goguma['딘']).toBe(1);    // 3/20 꼴찌
+  });
+});
+
+describe('calcRoundMidpointTimePattern', () => {
+  it('10라운드: 0~4는 전반, 5~9는 후반', () => {
+    const records = [{
+      gameDate: '2026-03-20',
+      matches: Array.from({ length: 10 }, (_, i) => ({ matchId: `m${i}`, isExtra: false })),
+      events: [
+        { type: 'goal', matchId: 'm0', player: '서라현' },
+        { type: 'goal', matchId: 'm4', player: '서라현' },
+        { type: 'goal', matchId: 'm5', player: '서라현' },
+        { type: 'goal', matchId: 'm9', player: '조재상' },
+      ],
+    }];
+    const result = calcRoundMidpointTimePattern(records);
+    expect(result['서라현']).toEqual({ early: 2, late: 1, total: 3 });
+    expect(result['조재상']).toEqual({ early: 0, late: 1, total: 1 });
+  });
+
+  it('isExtra 라운드는 카운트 제외', () => {
+    const records = [{
+      gameDate: '2026-03-20',
+      matches: [
+        { matchId: 'm0', isExtra: false },
+        { matchId: 'm1', isExtra: false },
+        { matchId: 'm2', isExtra: true },
+      ],
+      events: [
+        { type: 'goal', matchId: 'm0', player: '서라현' },
+        { type: 'goal', matchId: 'm2', player: '서라현' },
+      ],
+    }];
+    const result = calcRoundMidpointTimePattern(records);
+    expect(result['서라현']).toEqual({ early: 1, late: 0, total: 1 });
+  });
+
+  it('9라운드 (홀수): 0~3 전반, 4~8 후반', () => {
+    const records = [{
+      gameDate: '2026-03-20',
+      matches: Array.from({ length: 9 }, (_, i) => ({ matchId: `m${i}`, isExtra: false })),
+      events: [
+        { type: 'goal', matchId: 'm3', player: '서라현' },
+        { type: 'goal', matchId: 'm4', player: '서라현' },
+      ],
+    }];
+    const result = calcRoundMidpointTimePattern(records);
+    expect(result['서라현']).toEqual({ early: 1, late: 1, total: 2 });
+  });
+
+  it('goal 아닌 이벤트는 무시', () => {
+    const records = [{
+      gameDate: '2026-03-20',
+      matches: [{ matchId: 'm0', isExtra: false }, { matchId: 'm1', isExtra: false }],
+      events: [
+        { type: 'ownGoal', matchId: 'm0', player: '서라현' },
+        { type: 'goal', matchId: 'm0', player: '서라현' },
+      ],
+    }];
+    const result = calcRoundMidpointTimePattern(records);
+    expect(result['서라현']).toEqual({ early: 1, late: 0, total: 1 });
   });
 });
