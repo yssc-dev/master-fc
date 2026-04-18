@@ -74,6 +74,9 @@ export function calcRoundMidpointTimePattern(gameRecords) {
   return stats;
 }
 
+/**
+ * @param {'best'|'worst'} direction — 'worst'만 승률 asc, 그 외는 모두 'best' (desc)
+ */
 export function sortSynergyWithTieBreak(partners, direction) {
   const arr = partners.slice();
   arr.sort((a, b) => {
@@ -85,7 +88,8 @@ export function sortSynergyWithTieBreak(partners, direction) {
   return arr;
 }
 
-export function classifyTimeSlot(early, late, total) {
+// _late는 미사용. 호출부 가독성(early + late + total 대칭)을 위해 유지.
+export function classifyTimeSlot(early, _late, total) {
   if (total < 5) return null;
   const earlyRate = early / total;
   if (earlyRate >= 0.6) return { label: '초반형', emoji: '🔥' };
