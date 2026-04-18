@@ -4,6 +4,7 @@ import AppSync from '../../services/appSync';
 import { fetchSheetData } from '../../services/sheetService';
 import { getSettings, getEffectiveSettings, saveSettings, loadSettingsFromFirebase } from '../../config/settings';
 import { parseGameHistory, calcDefenseStats, calcWinContribution, calcSynergy, calcTimePattern, calcWinStatsFromPointLog, calcDefenseFromMembers } from '../../utils/gameStateAnalyzer';
+import { calcComboEfficiency } from '../../utils/playerAnalyticsUtils';
 import PlayerCardTab from './PlayerCardTab';
 import SynergyTab from './SynergyTab';
 import TimePatternTab from './TimePatternTab';
@@ -142,7 +143,7 @@ function analyzeData(events) {
     }))
     .sort((a, b) => b.avgTeamGoals - a.avgTeamGoals);
 
-  return { goldenCombos, keeperKillers, keeperStats, topChemistry };
+  return { goldenCombos, keeperKillers, keeperStats, topChemistry, pairCount };
 }
 
 function analyzeTeams(playerLog) {
@@ -277,7 +278,7 @@ export default function PlayerAnalytics({ teamName, teamMode, initialTab, isAdmi
   }, [tab, teamName]);
 
   useEffect(() => {
-    if (tab === "playercard" || tab === "synergy" || tab === "timepattern") {
+    if (tab === "playercard" || tab === "synergy" || tab === "timepattern" || tab === "combo2") {
       if (!gameRecords && !gameRecordsLoading) {
         setGameRecordsLoading(true);
         AppSync.getHistory().then(history => {
@@ -310,6 +311,10 @@ export default function PlayerAnalytics({ teamName, teamMode, initialTab, isAdmi
     return {};
   }, [gameRecords, isSoccer, events]);
   const synergyData = useMemo(() => gameRecords ? calcSynergy(gameRecords) : {}, [gameRecords]);
+  const comboEfficiency = useMemo(() => {
+    if (!analysis || !gameRecords) return null;
+    return calcComboEfficiency(analysis.pairCount || {}, synergyData);
+  }, [analysis, gameRecords, synergyData]);
   const timeStats = useMemo(() => gameRecords ? calcTimePattern(gameRecords) : {}, [gameRecords]);
   const gameRecordsSummary = useMemo(() => {
     if (!gameRecords || gameRecords.length === 0) return null;
@@ -325,7 +330,7 @@ export default function PlayerAnalytics({ teamName, teamMode, initialTab, isAdmi
     { key: "combo", label: "골든콤비" },
     !isSoccer && { key: "killer", label: "키퍼킬러" },
     { key: "race", label: "시즌레이스" },
-    { key: "chemistry", label: "케미" },
+    { key: "combo2", label: "득점콤비" },
     !isSoccer && { key: "crovaguma", label: "🍀/🍠" },
     { key: "playercard", label: "선수카드" },
     !isSoccer && { key: "synergy", label: "시너지" },
@@ -377,7 +382,7 @@ export default function PlayerAnalytics({ teamName, teamMode, initialTab, isAdmi
       {(() => {
         const groups = [
           { title: '개인 분석', keys: ['playercard', 'race', 'killer'] },
-          { title: '조합 분석', keys: ['synergy', 'combo', 'chemistry'] },
+          { title: '조합 분석', keys: ['synergy', 'combo', 'combo2'] },
           { title: '재미', keys: ['crovaguma', 'timepattern'] },
         ];
         const rendered = new Set();
@@ -533,25 +538,39 @@ export default function PlayerAnalytics({ teamName, teamMode, initialTab, isAdmi
         </div>
       )}
 
-      {tab === "chemistry" && (
-        <div>
-          <div style={{ fontSize: 11, color: C.gray, marginBottom: 8 }}>골+어시 함께 만든 조합 (전체 횟수)</div>
-          {analysis.topChemistry.map((c, i) => {
-            const [p1, p2] = c.pair.split('+');
-            const maxC = analysis.topChemistry[0]?.count || 1;
-            return (
-              <div key={i} style={{ display: "flex", alignItems: "center", padding: "6px 0", borderBottom: `1px solid ${C.grayDarker}`, gap: 8 }}>
-                <span style={{ width: 24, fontSize: 11, color: C.gray, textAlign: "center" }}>{i + 1}</span>
-                <div style={{ flex: 1 }}>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: C.white }}>{p1}</span>
-                  <span style={{ fontSize: 10, color: C.gray }}> + {p2}</span>
+      {tab === "combo2" && (
+        comboEfficiency === null ? (
+          <div style={{ textAlign: "center", padding: 20, color: C.gray }}>
+            앱 기록 데이터 로딩 중...
+          </div>
+        ) : comboEfficiency.length === 0 ? (
+          <div style={{ textAlign: "center", padding: 20, color: C.gray }}>
+            같이 뛴 라운드가 3회 이상인 페어가 없습니다
+          </div>
+        ) : (
+          <div>
+            <div style={{ fontSize: 11, color: C.gray, marginBottom: 8 }}>
+              효율% = 득점 조합 횟수 / 같이 뛴 라운드 (최소 3라운드)
+            </div>
+            {comboEfficiency.slice(0, 15).map((c, i) => {
+              const [p1, p2] = c.pair.split('+');
+              return (
+                <div key={c.pair} style={{ display: "flex", alignItems: "center", padding: "6px 0", borderBottom: `1px solid ${C.grayDarker}`, gap: 8 }}>
+                  <span style={{ width: 24, fontSize: 11, color: C.gray, textAlign: "center" }}>{i + 1}</span>
+                  <div style={{ flex: 1, fontSize: 12, fontWeight: 600, color: C.white }}>
+                    {p1} · {p2}
+                  </div>
+                  <span style={{ fontSize: 10, color: C.gray, minWidth: 90, textAlign: "right" }}>
+                    {c.goals}회 / {c.games}경기
+                  </span>
+                  <span style={{ fontSize: 13, fontWeight: 800, color: C.accent, minWidth: 44, textAlign: "right" }}>
+                    {c.efficiency}%
+                  </span>
                 </div>
-                <span style={{ fontSize: 13, fontWeight: 800, color: C.accent, minWidth: 28, textAlign: "right" }}>{c.count}</span>
-                <div style={{ width: 60 }}><div style={{ height: 8, borderRadius: 4, background: GREEN, width: `${c.count / maxC * 100}%`, minWidth: 2 }} /></div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )
       )}
 
       {tab === "crovaguma" && teamAnalysis && (
@@ -626,7 +645,7 @@ export default function PlayerAnalytics({ teamName, teamMode, initialTab, isAdmi
         </div>
       )}
 
-      {(tab === "playercard" || tab === "synergy" || tab === "timepattern") && gameRecordsSummary && (
+      {(tab === "playercard" || tab === "synergy" || tab === "timepattern" || tab === "combo2") && gameRecordsSummary && (
         <div style={{ fontSize: 10, color: C.gray, textAlign: "center", marginBottom: 8, padding: "4px 8px", background: `${C.grayDarker}44`, borderRadius: 6 }}>
           앱 기록 {gameRecordsSummary.count}세션 / 총 {gameRecordsSummary.totalRounds}라운드 기준 ({gameRecordsSummary.from} ~ {gameRecordsSummary.to}) · 수비력/승리기여/시너지는 앱 기록 경기만 분석
         </div>
