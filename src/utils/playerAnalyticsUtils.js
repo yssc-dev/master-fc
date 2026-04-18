@@ -135,6 +135,11 @@ export function calcAttendance(gameRecords, playerName) {
   return { attended, total, rate: Math.round((attended / total) * 100) };
 }
 
+/**
+ * @param {Record<string, number>} pairCount — 키 형식 `"A+B"` (팀원 이름에 '+' 금지). 값은 조합 득점 횟수.
+ * @param {Record<string, Record<string, {games: number}>>} synergyData — 양방향 쌍 조회용.
+ * games >= 3 필터: 효율은 비율이라 소표본 왜곡 방지. SynergyTab(>= 2)와 의도적으로 다름.
+ */
 export function calcComboEfficiency(pairCount, synergyData) {
   const out = [];
   Object.entries(pairCount || {}).forEach(([pair, goals]) => {
