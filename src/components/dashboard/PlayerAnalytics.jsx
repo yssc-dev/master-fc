@@ -277,8 +277,10 @@ export default function PlayerAnalytics({ teamName, teamMode, initialTab, isAdmi
     }
   }, [tab, teamName]);
 
+  const needsGameRecords = ["playercard", "synergy", "timepattern", "combo2"];
+
   useEffect(() => {
-    if (tab === "playercard" || tab === "synergy" || tab === "timepattern" || tab === "combo2") {
+    if (needsGameRecords.includes(tab)) {
       if (!gameRecords && !gameRecordsLoading) {
         setGameRecordsLoading(true);
         AppSync.getHistory().then(history => {
@@ -645,7 +647,7 @@ export default function PlayerAnalytics({ teamName, teamMode, initialTab, isAdmi
         </div>
       )}
 
-      {(tab === "playercard" || tab === "synergy" || tab === "timepattern" || tab === "combo2") && gameRecordsSummary && (
+      {needsGameRecords.includes(tab) && gameRecordsSummary && (
         <div style={{ fontSize: 10, color: C.gray, textAlign: "center", marginBottom: 8, padding: "4px 8px", background: `${C.grayDarker}44`, borderRadius: 6 }}>
           앱 기록 {gameRecordsSummary.count}세션 / 총 {gameRecordsSummary.totalRounds}라운드 기준 ({gameRecordsSummary.from} ~ {gameRecordsSummary.to}) · 수비력/승리기여/시너지는 앱 기록 경기만 분석
         </div>
