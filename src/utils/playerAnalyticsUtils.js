@@ -112,3 +112,21 @@ export function calcTrend(sessions) {
   if (ratio <= 0.9) return { direction: 'down', icon: '🔻', label: '하락세' };
   return { direction: 'flat', icon: '➡️', label: '유지' };
 }
+
+export function calcRelativePosition(playerValue, teamValues) {
+  if (!teamValues || teamValues.length === 0) return 0;
+  const avg = teamValues.reduce((a, b) => a + b, 0) / teamValues.length;
+  if (avg === 0) return 0;
+  return Math.round(((playerValue / avg) - 1) * 100);
+}
+
+export function calcAttendance(gameRecords, playerName) {
+  const total = (gameRecords || []).length;
+  if (total === 0) return { attended: 0, total: 0, rate: 0 };
+  let attended = 0;
+  gameRecords.forEach(record => {
+    const allPlayers = (record.teams || []).flat();
+    if (allPlayers.includes(playerName)) attended++;
+  });
+  return { attended, total, rate: Math.round((attended / total) * 100) };
+}

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { calcTeamRanking, calcCrovaGogumaFreq, calcRoundMidpointTimePattern, sortSynergyWithTieBreak, classifyTimeSlot, calcTrend } from '../playerAnalyticsUtils';
+import { calcTeamRanking, calcCrovaGogumaFreq, calcRoundMidpointTimePattern, sortSynergyWithTieBreak, classifyTimeSlot, calcTrend, calcRelativePosition, calcAttendance } from '../playerAnalyticsUtils';
 
 describe('playerAnalyticsUtils', () => {
   it('module loads', () => {
@@ -225,5 +225,46 @@ describe('calcTrend', () => {
 
   it('시즌 평균 0 (모두 0): 유지', () => {
     expect(calcTrend([0, 0, 0, 0, 0])).toEqual({ direction: 'flat', icon: '➡️', label: '유지' });
+  });
+});
+
+describe('calcRelativePosition', () => {
+  it('팀 평균보다 높으면 양수 %', () => {
+    expect(calcRelativePosition(1.5, [1.0, 1.0, 2.0])).toBe(13); // avg 1.333, (1.5/1.333-1)*100 = 12.5 → round
+  });
+
+  it('팀 평균보다 낮으면 음수 %', () => {
+    expect(calcRelativePosition(0.5, [1.0, 1.0, 1.0])).toBe(-50);
+  });
+
+  it('팀 평균 0: 0 반환 (div-by-zero 방어)', () => {
+    expect(calcRelativePosition(1, [0, 0, 0])).toBe(0);
+  });
+
+  it('팀 값 리스트 비어있으면 0', () => {
+    expect(calcRelativePosition(1, [])).toBe(0);
+  });
+});
+
+describe('calcAttendance', () => {
+  it('전체 세션 중 참석 세션 비율', () => {
+    const records = [
+      { gameDate: '2026-03-20', teams: [['알렉스', '본'], ['카이']] },
+      { gameDate: '2026-03-27', teams: [['알렉스'], ['본']] },
+      { gameDate: '2026-04-03', teams: [['카이']] },
+    ];
+    const result = calcAttendance(records, '알렉스');
+    expect(result).toEqual({ attended: 2, total: 3, rate: 67 });
+  });
+
+  it('전체 세션 없음: 0', () => {
+    expect(calcAttendance([], '알렉스')).toEqual({ attended: 0, total: 0, rate: 0 });
+  });
+
+  it('한 번도 참석 안 함: 0%', () => {
+    const records = [
+      { gameDate: '2026-03-20', teams: [['본']] },
+    ];
+    expect(calcAttendance(records, '알렉스')).toEqual({ attended: 0, total: 1, rate: 0 });
   });
 });
