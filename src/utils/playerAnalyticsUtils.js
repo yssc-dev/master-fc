@@ -113,6 +113,10 @@ export function calcTrend(sessions) {
   return { direction: 'flat', icon: '➡️', label: '유지' };
 }
 
+/**
+ * @param {number} playerValue — 비음수 유한값 (NaN/Infinity/음수 전제 호출 금지)
+ * @param {number[]} teamValues — 비음수 유한값 배열
+ */
 export function calcRelativePosition(playerValue, teamValues) {
   if (!teamValues || teamValues.length === 0) return 0;
   const avg = teamValues.reduce((a, b) => a + b, 0) / teamValues.length;
