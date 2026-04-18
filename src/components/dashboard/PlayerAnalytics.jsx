@@ -4,7 +4,7 @@ import AppSync from '../../services/appSync';
 import { fetchSheetData } from '../../services/sheetService';
 import { getSettings, getEffectiveSettings, saveSettings, loadSettingsFromFirebase } from '../../config/settings';
 import { parseGameHistory, calcDefenseStats, calcWinContribution, calcSynergy, calcTimePattern, calcWinStatsFromPointLog, calcDefenseFromMembers } from '../../utils/gameStateAnalyzer';
-import { calcComboEfficiency } from '../../utils/playerAnalyticsUtils';
+import { calcComboEfficiency, calcCrovaGogumaFreq } from '../../utils/playerAnalyticsUtils';
 import PlayerCardTab from './PlayerCardTab';
 import SynergyTab from './SynergyTab';
 import TimePatternTab from './TimePatternTab';
@@ -277,7 +277,7 @@ export default function PlayerAnalytics({ teamName, teamMode, initialTab, isAdmi
     }
   }, [tab, teamName]);
 
-  const needsGameRecords = ["playercard", "synergy", "timepattern", "combo2"];
+  const needsGameRecords = ["playercard", "synergy", "timepattern", "combo2", "crovaguma"];
 
   useEffect(() => {
     if (needsGameRecords.includes(tab)) {
@@ -292,6 +292,11 @@ export default function PlayerAnalytics({ teamName, teamMode, initialTab, isAdmi
       }
     }
   }, [tab, gameRecords, gameRecordsLoading]);
+
+  const isCrovaGogumaMode = useMemo(() => {
+    if (isSoccer) return false;
+    return getEffectiveSettings(teamName, "풋살")?.useCrovaGoguma === true;
+  }, [teamName, isSoccer]);
 
   const analysis = useMemo(() => events ? analyzeData(events) : null, [events]);
   const teamAnalysis = useMemo(() => {
@@ -318,6 +323,25 @@ export default function PlayerAnalytics({ teamName, teamMode, initialTab, isAdmi
     return calcComboEfficiency(analysis.pairCount || {}, synergyData);
   }, [analysis, gameRecords, synergyData]);
   const timeStats = useMemo(() => gameRecords ? calcTimePattern(gameRecords) : {}, [gameRecords]);
+
+  const crovaGogumaFreq = useMemo(() => {
+    if (!gameRecords) return { crova: {}, goguma: {} };
+    return calcCrovaGogumaFreq(gameRecords);
+  }, [gameRecords]);
+
+  const crovaTopNew = useMemo(() =>
+    Object.entries(crovaGogumaFreq.crova)
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, 'ko'))
+      .slice(0, 5)
+  , [crovaGogumaFreq]);
+
+  const gogumaTopNew = useMemo(() =>
+    Object.entries(crovaGogumaFreq.goguma)
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, 'ko'))
+      .slice(0, 5)
+  , [crovaGogumaFreq]);
   const gameRecordsSummary = useMemo(() => {
     if (!gameRecords || gameRecords.length === 0) return null;
     const dates = gameRecords.map(g => g.gameDate).filter(Boolean).sort();
@@ -333,7 +357,7 @@ export default function PlayerAnalytics({ teamName, teamMode, initialTab, isAdmi
     !isSoccer && { key: "killer", label: "키퍼킬러" },
     { key: "race", label: "시즌레이스" },
     { key: "combo2", label: "득점콤비" },
-    !isSoccer && { key: "crovaguma", label: "🍀/🍠" },
+    !isSoccer && { key: "crovaguma", label: isCrovaGogumaMode ? "🍀/🍠" : "승·꼴" },
     { key: "playercard", label: "선수카드" },
     !isSoccer && { key: "synergy", label: "시너지" },
     !isSoccer && { key: "timepattern", label: "시간대" },
@@ -575,76 +599,44 @@ export default function PlayerAnalytics({ teamName, teamMode, initialTab, isAdmi
         )
       )}
 
-      {tab === "crovaguma" && teamAnalysis && (
-        <div>
-          <div style={{ display: "flex", gap: 12, marginBottom: 12 }}>
-            <div style={{ flex: 1, background: `${GREEN}15`, borderRadius: 8, padding: 10, textAlign: "center" }}>
-              <div style={{ fontSize: 18 }}>🍀</div>
-              <div style={{ fontSize: 11, color: C.gray }}>크로바 {teamAnalysis.crovaGames}회</div>
-            </div>
-            <div style={{ flex: 1, background: `${RED}15`, borderRadius: 8, padding: 10, textAlign: "center" }}>
-              <div style={{ fontSize: 18 }}>🍠</div>
-              <div style={{ fontSize: 11, color: C.gray }}>고구마 {teamAnalysis.gogumaGames}회</div>
-            </div>
+      {tab === "crovaguma" && (
+        !gameRecords ? (
+          <div style={{ textAlign: "center", padding: 20, color: C.gray }}>
+            앱 기록 데이터 로딩 중...
           </div>
-
-          <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
-            <div style={{ flex: 1, background: `${GREEN}15`, borderRadius: 8, padding: 10 }}>
-              <div style={{ fontSize: 10, color: GREEN, marginBottom: 4 }}>🍀 1위팀 최다 등장</div>
-              {teamAnalysis.crovaFrequent.map((c, i) => (
-                <div key={i} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, padding: "2px 0" }}>
-                  <span style={{ color: C.white, fontWeight: 600, flex: 1 }}>{c.name}</span>
-                  <span style={{ color: GREEN, fontWeight: 700, fontSize: 10 }}>🍀{c.crova}</span>
-                  <span style={{ color: RED, fontWeight: 600, fontSize: 10 }}>🍠{c.goguma}</span>
-                </div>
-              ))}
-            </div>
-            <div style={{ flex: 1, background: `${RED}15`, borderRadius: 8, padding: 10 }}>
-              <div style={{ fontSize: 10, color: RED, marginBottom: 4 }}>🍠 꼴찌팀 최다 등장</div>
-              {teamAnalysis.gogumaFrequent.map((c, i) => (
-                <div key={i} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, padding: "2px 0" }}>
-                  <span style={{ color: C.white, fontWeight: 600, flex: 1 }}>{c.name}</span>
-                  <span style={{ color: RED, fontWeight: 700, fontSize: 10 }}>🍠{c.goguma}</span>
-                  <span style={{ color: GREEN, fontWeight: 600, fontSize: 10 }}>🍀{c.crova}</span>
-                </div>
-              ))}
-            </div>
+        ) : (crovaTopNew.length === 0 && gogumaTopNew.length === 0) ? (
+          <div style={{ textAlign: "center", padding: 20, color: C.gray }}>
+            집계할 세션이 없습니다
           </div>
-
-          <div style={{ fontSize: 12, fontWeight: 700, color: GREEN, marginBottom: 8 }}>🍀 크로바 TOP5 — 누가 팀원일 때 1위?</div>
-          {teamAnalysis.crovaTop.map((p, i) => (
-            <div key={i} style={{ padding: "8px 0", borderBottom: `1px solid ${C.grayDarker}` }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
-                <span style={{ fontSize: 13, fontWeight: 800, color: C.white }}>{p.name}</span>
-                <span style={{ fontSize: 11, color: GREEN, fontWeight: 700 }}>🍀 {p.total}회</span>
-              </div>
-              <div style={{ display: "flex", gap: 8, paddingLeft: 8 }}>
-                {p.mates.map((m, mi) => (
-                  <span key={mi} style={{ fontSize: 10, color: C.gray }}>
-                    {m.name} <span style={{ color: GREEN, fontWeight: 600 }}>{m.count}회</span>
-                  </span>
-                ))}
-              </div>
+        ) : (
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: GREEN, marginBottom: 8 }}>
+              {isCrovaGogumaMode ? "🍀 크로바 TOP5" : "🏆 승리팀 단골 TOP5"}
             </div>
-          ))}
+            {crovaTopNew.map((p, i) => (
+              <div key={`c-${p.name}`} style={{ display: "flex", alignItems: "center", padding: "6px 0", borderBottom: `1px solid ${C.grayDarker}`, gap: 8 }}>
+                <span style={{ width: 24, fontSize: 11, color: C.gray, textAlign: "center" }}>{i + 1}</span>
+                <span style={{ flex: 1, fontSize: 13, fontWeight: 700, color: C.white }}>{p.name}</span>
+                <span style={{ fontSize: 13, fontWeight: 800, color: GREEN, minWidth: 44, textAlign: "right" }}>
+                  {isCrovaGogumaMode ? `🍀 ${p.count}` : `${p.count}회`}
+                </span>
+              </div>
+            ))}
 
-          <div style={{ fontSize: 12, fontWeight: 700, color: RED, marginTop: 16, marginBottom: 8 }}>🍠 고구마 TOP5 — 누가 팀원일 때 꼴찌?</div>
-          {teamAnalysis.gogumaTop.map((p, i) => (
-            <div key={i} style={{ padding: "8px 0", borderBottom: `1px solid ${C.grayDarker}` }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
-                <span style={{ fontSize: 13, fontWeight: 800, color: C.white }}>{p.name}</span>
-                <span style={{ fontSize: 11, color: RED, fontWeight: 700 }}>🍠 {p.total}회</span>
-              </div>
-              <div style={{ display: "flex", gap: 8, paddingLeft: 8 }}>
-                {p.mates.map((m, mi) => (
-                  <span key={mi} style={{ fontSize: 10, color: C.gray }}>
-                    {m.name} <span style={{ color: RED, fontWeight: 600 }}>{m.count}회</span>
-                  </span>
-                ))}
-              </div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: RED, marginTop: 16, marginBottom: 8 }}>
+              {isCrovaGogumaMode ? "🍠 고구마 TOP5" : "🥲 꼴찌팀 단골 TOP5"}
             </div>
-          ))}
-        </div>
+            {gogumaTopNew.map((p, i) => (
+              <div key={`g-${p.name}`} style={{ display: "flex", alignItems: "center", padding: "6px 0", borderBottom: `1px solid ${C.grayDarker}`, gap: 8 }}>
+                <span style={{ width: 24, fontSize: 11, color: C.gray, textAlign: "center" }}>{i + 1}</span>
+                <span style={{ flex: 1, fontSize: 13, fontWeight: 700, color: C.white }}>{p.name}</span>
+                <span style={{ fontSize: 13, fontWeight: 800, color: RED, minWidth: 44, textAlign: "right" }}>
+                  {isCrovaGogumaMode ? `🍠 ${p.count}` : `${p.count}회`}
+                </span>
+              </div>
+            ))}
+          </div>
+        )
       )}
 
       {needsGameRecords.includes(tab) && gameRecordsSummary && (
