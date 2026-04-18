@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { calcTeamRanking, calcCrovaGogumaFreq, calcRoundMidpointTimePattern } from '../playerAnalyticsUtils';
+import { calcTeamRanking, calcCrovaGogumaFreq, calcRoundMidpointTimePattern, sortSynergyWithTieBreak, classifyTimeSlot } from '../playerAnalyticsUtils';
 
 describe('playerAnalyticsUtils', () => {
   it('module loads', () => {
@@ -159,5 +159,46 @@ describe('calcRoundMidpointTimePattern', () => {
     ];
     const result = calcRoundMidpointTimePattern(records);
     expect(result['서라현']).toEqual({ early: 2, late: 2, total: 4 });
+  });
+});
+
+describe('sortSynergyWithTieBreak', () => {
+  it('best 방향: 승률 desc → 라운드수 desc → 이름 asc', () => {
+    const partners = [
+      { name: '다연', games: 5, winRate: 0.5 },
+      { name: '가연', games: 9, winRate: 0.5 },
+      { name: '나연', games: 9, winRate: 0.5 },
+      { name: '라연', games: 9, winRate: 0.7 },
+    ];
+    const sorted = sortSynergyWithTieBreak(partners, 'best');
+    expect(sorted.map(p => p.name)).toEqual(['라연', '가연', '나연', '다연']);
+  });
+
+  it('worst 방향: 승률 asc → 라운드수 desc → 이름 asc', () => {
+    const partners = [
+      { name: '다연', games: 5, winRate: 0.3 },
+      { name: '가연', games: 9, winRate: 0.3 },
+      { name: '나연', games: 3, winRate: 0.1 },
+    ];
+    const sorted = sortSynergyWithTieBreak(partners, 'worst');
+    expect(sorted.map(p => p.name)).toEqual(['나연', '가연', '다연']);
+  });
+});
+
+describe('classifyTimeSlot', () => {
+  it('초반 60% 이상: 초반형', () => {
+    expect(classifyTimeSlot(6, 4, 10)).toEqual({ label: '초반형', emoji: '🔥' });
+  });
+
+  it('초반 40% 이하: 후반형', () => {
+    expect(classifyTimeSlot(4, 6, 10)).toEqual({ label: '후반형', emoji: '⚡' });
+  });
+
+  it('초반 50%: 균형형', () => {
+    expect(classifyTimeSlot(5, 5, 10)).toEqual({ label: '균형형', emoji: '⚖️' });
+  });
+
+  it('total<5: 샘플 부족 (null)', () => {
+    expect(classifyTimeSlot(2, 2, 4)).toBe(null);
   });
 });

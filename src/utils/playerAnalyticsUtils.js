@@ -73,3 +73,22 @@ export function calcRoundMidpointTimePattern(gameRecords) {
   });
   return stats;
 }
+
+export function sortSynergyWithTieBreak(partners, direction) {
+  const arr = partners.slice();
+  arr.sort((a, b) => {
+    const rateDiff = direction === 'worst' ? a.winRate - b.winRate : b.winRate - a.winRate;
+    if (rateDiff !== 0) return rateDiff;
+    if (b.games !== a.games) return b.games - a.games;
+    return a.name.localeCompare(b.name, 'ko');
+  });
+  return arr;
+}
+
+export function classifyTimeSlot(early, late, total) {
+  if (total < 5) return null;
+  const earlyRate = early / total;
+  if (earlyRate >= 0.6) return { label: '초반형', emoji: '🔥' };
+  if (earlyRate <= 0.4) return { label: '후반형', emoji: '⚡' };
+  return { label: '균형형', emoji: '⚖️' };
+}
