@@ -134,3 +134,19 @@ export function calcAttendance(gameRecords, playerName) {
   });
   return { attended, total, rate: Math.round((attended / total) * 100) };
 }
+
+export function calcComboEfficiency(pairCount, synergyData) {
+  const out = [];
+  Object.entries(pairCount || {}).forEach(([pair, goals]) => {
+    const [a, b] = pair.split('+');
+    const games = synergyData?.[a]?.[b]?.games ?? synergyData?.[b]?.[a]?.games ?? 0;
+    if (games < 3) return;
+    out.push({ pair, goals, games, efficiency: Math.round((goals / games) * 100) });
+  });
+  out.sort((x, y) => {
+    if (y.efficiency !== x.efficiency) return y.efficiency - x.efficiency;
+    if (y.goals !== x.goals) return y.goals - x.goals;
+    return x.pair.localeCompare(y.pair, 'ko');
+  });
+  return out;
+}

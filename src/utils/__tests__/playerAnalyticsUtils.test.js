@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { calcTeamRanking, calcCrovaGogumaFreq, calcRoundMidpointTimePattern, sortSynergyWithTieBreak, classifyTimeSlot, calcTrend, calcRelativePosition, calcAttendance } from '../playerAnalyticsUtils';
+import { calcTeamRanking, calcCrovaGogumaFreq, calcRoundMidpointTimePattern, sortSynergyWithTieBreak, classifyTimeSlot, calcTrend, calcRelativePosition, calcAttendance, calcComboEfficiency } from '../playerAnalyticsUtils';
 
 describe('playerAnalyticsUtils', () => {
   it('module loads', () => {
@@ -266,5 +266,50 @@ describe('calcAttendance', () => {
       { gameDate: '2026-03-20', teams: [['본']] },
     ];
     expect(calcAttendance(records, '알렉스')).toEqual({ attended: 0, total: 1, rate: 0 });
+  });
+});
+
+describe('calcComboEfficiency', () => {
+  it('pairCount와 synergyData 병합해서 효율% 계산', () => {
+    const pairCount = { 'A+B': 5, 'C+D': 2, 'A+C': 1 };
+    const synergyData = {
+      A: { B: { games: 10 }, C: { games: 5 } },
+      B: { A: { games: 10 } },
+      C: { A: { games: 5 }, D: { games: 8 } },
+      D: { C: { games: 8 } },
+    };
+    const result = calcComboEfficiency(pairCount, synergyData);
+    expect(result).toContainEqual({ pair: 'A+B', goals: 5, games: 10, efficiency: 50 });
+    expect(result).toContainEqual({ pair: 'C+D', goals: 2, games: 8, efficiency: 25 });
+  });
+
+  it('같이 뛴 라운드 < 3이면 제외', () => {
+    const pairCount = { 'A+B': 10 };
+    const synergyData = {
+      A: { B: { games: 2 } },
+      B: { A: { games: 2 } },
+    };
+    expect(calcComboEfficiency(pairCount, synergyData)).toEqual([]);
+  });
+
+  it('synergyData에 페어 없음: 제외', () => {
+    const pairCount = { 'A+B': 5 };
+    const synergyData = { A: {}, B: {} };
+    expect(calcComboEfficiency(pairCount, synergyData)).toEqual([]);
+  });
+
+  it('효율 desc → 횟수 desc → 이름 asc 정렬', () => {
+    const pairCount = { '가나+나가': 3, '다라+라다': 3, '마바+바마': 4 };
+    const synergyData = {
+      가나: { 나가: { games: 10 } }, 나가: { 가나: { games: 10 } },
+      다라: { 라다: { games: 10 } }, 라다: { 다라: { games: 10 } },
+      마바: { 바마: { games: 20 } }, 바마: { 마바: { games: 20 } },
+    };
+    const result = calcComboEfficiency(pairCount, synergyData);
+    // 가나+나가: 30%, 다라+라다: 30%, 마바+바마: 20%
+    // 동률 시 goals desc → 가나+나가와 다라+라다 모두 goals=3이니 이름 asc
+    expect(result[0].pair).toBe('가나+나가');
+    expect(result[1].pair).toBe('다라+라다');
+    expect(result[2].pair).toBe('마바+바마');
   });
 });
