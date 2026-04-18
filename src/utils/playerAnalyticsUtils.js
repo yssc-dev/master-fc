@@ -97,8 +97,12 @@ export function classifyTimeSlot(early, _late, total) {
   return { label: '균형형', emoji: '⚖️' };
 }
 
+/**
+ * @param {number[]} sessions — 세션별 비음수 지표 값 (예: 세션당 득점). NaN/음수 전제로 호출 금지.
+ */
 export function calcTrend(sessions) {
   if (!sessions || sessions.length < 5) return null;
+  if (sessions.some(v => !Number.isFinite(v))) return null;
   const seasonAvg = sessions.reduce((a, b) => a + b, 0) / sessions.length;
   const recent = sessions.slice(-5);
   const recentAvg = recent.reduce((a, b) => a + b, 0) / recent.length;
