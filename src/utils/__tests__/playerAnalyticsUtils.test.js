@@ -33,7 +33,7 @@ describe('calcTeamRanking', () => {
     expect(calcTeamRanking(record)).toEqual(['A', 'B']);
   });
 
-  it('동점 시 원래 순서 유지 (팀 이름 순)', () => {
+  it('동점 시 알파벳 순 정렬 (localeCompare fallback)', () => {
     const record = {
       gameDate: '2026-03-20',
       teamNames: ['A', 'B'],

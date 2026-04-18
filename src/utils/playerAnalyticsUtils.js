@@ -26,7 +26,7 @@ export function calcTeamRanking(record) {
     const da = sa.gf - sa.ga, db = sb.gf - sb.ga;
     if (db !== da) return db - da;
     if (sb.gf !== sa.gf) return sb.gf - sa.gf;
-    return a.localeCompare(b); // stable alphabetical fallback when all criteria tie
+    return a.localeCompare(b, 'ko'); // stable alphabetical fallback when all criteria tie
   });
 }
 
@@ -42,7 +42,7 @@ export function calcCrovaGogumaFreq(gameRecords) {
     (record.teams?.[firstIdx] || []).forEach(p => {
       crova[p] = (crova[p] || 0) + 1;
     });
-    if (firstIdx !== lastIdx) { // skip goguma when only one team or 1st === last (all tied)
+    if (firstIdx !== lastIdx) { // skip when only 1 team in session (1st and last resolve to same team)
       (record.teams?.[lastIdx] || []).forEach(p => {
         goguma[p] = (goguma[p] || 0) + 1;
       });
