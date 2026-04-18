@@ -2,11 +2,11 @@ import { useState, useEffect } from 'react';
 import { useTheme } from '../../hooks/useTheme';
 import {
   getEffectiveSettings, SPORT_DEFAULTS, PRESETS,
-  saveSettings, getSourceOf,
+  saveSettings, getSourceOf, loadSettingsFromFirebase,
 } from '../../config/settings';
 import AppSync from '../../services/appSync';
 
-export default function SettingsScreen({ teamName, teamMode, onBack }) {
+export default function SettingsScreen({ teamName, teamMode, teamEntries, onBack }) {
   const isSoccer = teamMode === "축구";
   const { C } = useTheme();
   const sport = teamMode;
@@ -23,6 +23,27 @@ export default function SettingsScreen({ teamName, teamMode, onBack }) {
     setLoadingSheets(true);
     AppSync.getSheetList().then(list => setSheetList(list)).finally(() => setLoadingSheets(false));
   }, []);
+
+  // Firebase async load가 Root의 fire-and-forget보다 늦으면 초기 state가 fallback(defaults)으로 고정됨.
+  // 마운트 시 다시 await해서 cache 확정 후 state 재동기화. 사용자가 편집 시작한 경우(_meta.preset 이미 있음)는 덮지 않음.
+  useEffect(() => {
+    if (settings._meta?.preset) return;
+    let cancelled = false;
+    loadSettingsFromFirebase(teamName, teamEntries || [{ mode: sport }]).then(() => {
+      if (cancelled) return;
+      const fresh = getEffectiveSettings(teamName, sport);
+      setSettings(fresh);
+      setCurrentPreset(fresh._meta?.preset);
+    });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 마운트 시 1회만
+  }, []);
+
+  // "기본:" 라벨은 현재 프리셋의 기본값을 반영 (프리셋에 없으면 sport default로 폴백)
+  const getDefaultFor = (key) => {
+    const presetVal = PRESETS[sport]?.[currentPreset]?.values?.[key];
+    return presetVal !== undefined ? presetVal : SPORT_DEFAULTS[sport]?.[key];
+  };
 
   const update = (key, value) => {
     setSettings(prev => ({ ...prev, [key]: value }));
@@ -205,8 +226,8 @@ export default function SettingsScreen({ teamName, teamMode, onBack }) {
         </div>
         {isSoccer ? (
           <>
-            <NumRow label="자책골 포인트" value={settings.ownGoalPoint} onChange={v => update("ownGoalPoint", v)} defaultVal={SPORT_DEFAULTS.축구.ownGoalPoint} settingKey="ownGoalPoint" />
-            <NumRow label="클린시트 포인트" value={settings.cleanSheetPoint} onChange={v => update("cleanSheetPoint", v)} defaultVal={SPORT_DEFAULTS.축구.cleanSheetPoint} settingKey="cleanSheetPoint" />
+            <NumRow label="자책골 포인트" value={settings.ownGoalPoint} onChange={v => update("ownGoalPoint", v)} defaultVal={getDefaultFor("ownGoalPoint")} settingKey="ownGoalPoint" />
+            <NumRow label="클린시트 포인트" value={settings.cleanSheetPoint} onChange={v => update("cleanSheetPoint", v)} defaultVal={getDefaultFor("cleanSheetPoint")} settingKey="cleanSheetPoint" />
           </>
         ) : (
           <>
@@ -218,16 +239,16 @@ export default function SettingsScreen({ teamName, teamMode, onBack }) {
                   style={{ marginRight: 6 }} />
                 크로바/고구마 사용<SourceBadge k="useCrovaGoguma" />
               </label>
-              <span style={ss.hint}>표준: 꺼짐</span>
+              <span style={ss.hint}>기본: {getDefaultFor("useCrovaGoguma") ? "켜짐" : "꺼짐"}</span>
             </div>
 
-            <NumRow label="자책골 포인트" value={settings.ownGoalPoint} onChange={v => update("ownGoalPoint", v)} defaultVal={SPORT_DEFAULTS.풋살.ownGoalPoint} settingKey="ownGoalPoint" />
+            <NumRow label="자책골 포인트" value={settings.ownGoalPoint} onChange={v => update("ownGoalPoint", v)} defaultVal={getDefaultFor("ownGoalPoint")} settingKey="ownGoalPoint" />
 
             {settings.useCrovaGoguma && (
               <>
-                <NumRow label="크로바(1위팀)" value={settings.crovaPoint} onChange={v => update("crovaPoint", v)} defaultVal={0} settingKey="crovaPoint" />
-                <NumRow label="고구마(꼴찌팀)" value={settings.gogumaPoint} onChange={v => update("gogumaPoint", v)} defaultVal={0} settingKey="gogumaPoint" />
-                <NumRow label="황금크로바/탄고구마" value={settings.bonusMultiplier} onChange={v => update("bonusMultiplier", v)} defaultVal={1} suffix="배" settingKey="bonusMultiplier" />
+                <NumRow label="크로바(1위팀)" value={settings.crovaPoint} onChange={v => update("crovaPoint", v)} defaultVal={getDefaultFor("crovaPoint")} settingKey="crovaPoint" />
+                <NumRow label="고구마(꼴찌팀)" value={settings.gogumaPoint} onChange={v => update("gogumaPoint", v)} defaultVal={getDefaultFor("gogumaPoint")} settingKey="gogumaPoint" />
+                <NumRow label="황금크로바/탄고구마" value={settings.bonusMultiplier} onChange={v => update("bonusMultiplier", v)} defaultVal={getDefaultFor("bonusMultiplier")} suffix="배" settingKey="bonusMultiplier" />
                 <div style={{ fontSize: 10, color: C.grayDark, marginBottom: 8 }}>※ 크로바/고구마 점수는 2구장 경기에서만 적용됩니다.</div>
                 <details style={{ fontSize: 11, color: C.gray, marginTop: 4 }}>
                   <summary style={{ cursor: "pointer", padding: "6px 0" }}>황금크로바 / 탄고구마 설명</summary>
