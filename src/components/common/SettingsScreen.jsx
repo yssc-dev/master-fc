@@ -177,7 +177,10 @@ export default function SettingsScreen({ teamName, teamMode, teamEntries, onBack
         {settingKey && <SourceBadge k={settingKey} />}
       </span>
       <input type="number" style={ss.numInput} value={value} onChange={e => onChange(Number(e.target.value))} />
-      <span style={{ ...ss.hint, width: 60, textAlign: "right", flexShrink: 0 }}>기본: {defaultVal}{suffix || ""}</span>
+      {/* 프리셋/기본값과 다를 때만 원복 기준 힌트 노출 — width는 고정해 레이아웃 유지 */}
+      <span style={{ ...ss.hint, width: 60, textAlign: "right", flexShrink: 0 }}>
+        {value !== defaultVal ? `기본: ${defaultVal}${suffix || ""}` : ""}
+      </span>
     </div>
   );
 
@@ -239,7 +242,9 @@ export default function SettingsScreen({ teamName, teamMode, teamEntries, onBack
                   style={{ marginRight: 6 }} />
                 크로바/고구마 사용<SourceBadge k="useCrovaGoguma" />
               </label>
-              <span style={ss.hint}>기본: {getDefaultFor("useCrovaGoguma") ? "켜짐" : "꺼짐"}</span>
+              {(!!settings.useCrovaGoguma !== !!getDefaultFor("useCrovaGoguma")) && (
+                <span style={ss.hint}>기본: {getDefaultFor("useCrovaGoguma") ? "켜짐" : "꺼짐"}</span>
+              )}
             </div>
 
             <NumRow label="자책골 포인트" value={settings.ownGoalPoint} onChange={v => update("ownGoalPoint", v)} defaultVal={getDefaultFor("ownGoalPoint")} settingKey="ownGoalPoint" />
