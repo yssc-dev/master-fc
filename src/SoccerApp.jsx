@@ -14,6 +14,7 @@ import {
   calcSoccerPlayerStats, calcSoccerPlayerPoint, calcSoccerScore,
   getCleanSheetPlayers, buildEventLogRows, buildPointLogRows, buildPlayerLogRows,
 } from './utils/soccerScoring';
+import { buildRawEventsFromSoccer, buildRawPlayerGamesFromSoccer } from './utils/rawLogBuilders';
 
 export default function SoccerApp({ authUser, teamContext, isNewGame, gameMode, gameId, onLogout, onBackToMenu }) {
   const gameSettings = useMemo(() => getSettings(teamContext?.team), [teamContext?.team]);
@@ -212,16 +213,27 @@ export default function SoccerApp({ authUser, teamContext, isNewGame, gameMode, 
     const eventLogRows = buildEventLogRows(finished, dateStr);
     const pointLogRows = buildPointLogRows(finished, dateStr, inputTime);
     const playerLogRows = buildPlayerLogRows(finished, dateStr, inputTime);
+    const team = teamContext?.team || '';
+    const rawEvents = buildRawEventsFromSoccer({ team, events: eventLogRows });
+    const rawPlayerGames = buildRawPlayerGamesFromSoccer({ team, inputTime, players: playerLogRows });
 
     try {
-      const results = await Promise.all([
+      const results = await Promise.allSettled([
         AppSync.writeEventLog({ events: eventLogRows }, gameSettings.eventLogSheet),
         AppSync.writeSoccerPointLog({ events: pointLogRows }, gameSettings.pointLogSheet),
         AppSync.writeSoccerPlayerLog({ players: playerLogRows }, gameSettings.playerLogSheet),
+        AppSync.writeRawEvents({ rows: rawEvents }),
+        AppSync.writeRawPlayerGames({ rows: rawPlayerGames }),
       ]);
+      const [r1, r2, r3, r4, r5] = results;
+      const legacyOk = r1.status === 'fulfilled' && r2.status === 'fulfilled' && r3.status === 'fulfilled';
+      if (!legacyOk) throw new Error('기존 시트 저장 실패');
       await AppSync.finalizeState(gameId);
       await FirebaseSync.clearState(teamContext?.team, gameId);
-      alert(`기록 확정 완료!\n\n이벤트로그: ${results[0]?.count || 0}건\n포인트로그: ${results[1]?.count || 0}건\n선수별집계: ${results[2]?.count || 0}명`);
+      const r1v = r1.value, r2v = r2.value, r3v = r3.value;
+      const r4v = r4.status === 'fulfilled' ? r4.value : null;
+      const r5v = r5.status === 'fulfilled' ? r5.value : null;
+      alert(`기록 확정 완료!\n\n이벤트로그: ${r1v?.count || 0}건\n포인트로그: ${r2v?.count || 0}건\n선수별집계: ${r3v?.count || 0}명\n로그_이벤트: ${r4v?.count || 0}건${r4v?.skipped ? ` (skip ${r4v.skipped})` : ''}\n로그_선수경기: ${r5v?.count || 0}명${r5v?.skipped ? ` (skip ${r5v.skipped})` : ''}`);
       onBackToMenu?.();
     } catch (err) {
       alert("시트 저장 실패: " + err.message);
