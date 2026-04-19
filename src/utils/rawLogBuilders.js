@@ -48,7 +48,7 @@ export function buildRawEventsFromFutsal({ team, events }) {
 export function buildRawPlayerGamesFromFutsal({ team, inputTime, players }) {
   return (players || []).map(p => ({
     team, sport: '풋살', mode: '기본', tournament_id: '',
-    date: p.gameDate, player: p.name, session_team: p.playerTeam || '',
+    date: p.gameDate || '', player: p.name || '', session_team: p.playerTeam || '',
     games: 0, field_games: 0, keeper_games: Number(p.keeperGames) || 0,
     goals: Number(p.goals) || 0,
     assists: Number(p.assists) || 0,
