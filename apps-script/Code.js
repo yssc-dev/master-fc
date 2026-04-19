@@ -909,6 +909,43 @@ function _loadRawPlayerGameKeys(sheet) {
 }
 
 // ═══════════════════════════════════════════════════════════════
+// 일회성 Legacy Import (기존 시트 read-only → 로그_이벤트/로그_선수경기 append)
+// 재실행 가능하게 dedupe 적용됨 (기존 키 있으면 skip).
+// 수동 실행: 편집기에서 _importLegacyToRaw() 실행.
+// ═══════════════════════════════════════════════════════════════
+
+function _importFutsalPointLog() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var src = ss.getSheetByName(POINT_LOG_SHEET);
+  if (!src) return { rows: [], skipped: 0, error: POINT_LOG_SHEET + " 없음" };
+  var lastRow = src.getLastRow();
+  if (lastRow < 2) return { rows: [], skipped: 0 };
+  // 컬럼: [경기일자, 경기번호, 내팀, 상대팀, 득점선수, 어시선수, 자책골, 실점키퍼명, 입력시간, 팀이름]
+  var data = src.getRange(2, 1, lastRow - 1, 10).getValues();
+  var rows = [];
+  for (var i = 0; i < data.length; i++) {
+    var r = data[i];
+    var team = String(r[9] || "");
+    var gameDate = _toDateStr(r[0]);
+    var matchId = String(r[1] || "");
+    var myTeam = String(r[2] || "");
+    var opponent = String(r[3] || "");
+    var scorer = String(r[4] || "");
+    var assist = String(r[5] || "");
+    var ownGoal = String(r[6] || "");
+    var concedingGk = String(r[7] || "");
+    var inputTime = r[8] instanceof Date ? Utilities.formatDate(r[8], "Asia/Seoul", "yyyy-MM-dd HH:mm:ss") : String(r[8] || "");
+    var common = { team: team, sport: "풋살", mode: "기본", tournament_id: "",
+      date: gameDate, match_id: matchId, our_team: myTeam, opponent: opponent,
+      position: "", input_time: inputTime };
+    if (scorer) rows.push(Object.assign({}, common, { event_type: "goal", player: scorer, related_player: assist }));
+    else if (ownGoal) rows.push(Object.assign({}, common, { event_type: "ownGoal", player: ownGoal, related_player: "" }));
+    else if (concedingGk) rows.push(Object.assign({}, common, { event_type: "concede", player: concedingGk, related_player: "" }));
+  }
+  return { rows: rows };
+}
+
+// ═══════════════════════════════════════════════════════════════
 // 누적 크로바/고구마 조회
 // ═══════════════════════════════════════════════════════════════
 
