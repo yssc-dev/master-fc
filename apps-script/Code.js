@@ -1037,6 +1037,77 @@ function _importSoccerPlayerLog() {
   return { rows: rows };
 }
 
+function _importTournamentEventLogs() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheets = ss.getSheets();
+  var rows = [];
+  var errors = [];
+  for (var s = 0; s < sheets.length; s++) {
+    var sheet = sheets[s];
+    var name = sheet.getName();
+    var m = name.match(/^대회_(.+)_이벤트로그$/);
+    if (!m) continue;
+    var tid = m[1];
+    var lastRow = sheet.getLastRow();
+    if (lastRow < 2) continue;
+    // 컬럼: [경기번호, 상대팀, 이벤트, 선수, 관련선수, 포지션, 입력시간]
+    var data = sheet.getRange(2, 1, lastRow - 1, 7).getValues();
+    var typeMap = { "출전": "lineup", "골": "goal", "자책골": "ownGoal", "실점": "concede", "교체": "sub" };
+    for (var i = 0; i < data.length; i++) {
+      var r = data[i];
+      var eventType = typeMap[String(r[2] || "")];
+      if (!eventType) continue;
+      var inputTime = r[6] instanceof Date ? Utilities.formatDate(r[6], "Asia/Seoul", "yyyy-MM-dd HH:mm:ss") : String(r[6] || "");
+      // 대회 시트엔 date 컬럼 없음 → inputTime 앞부분을 date로 사용 (YYYY-MM-DD 추출)
+      var date = "";
+      var dm = inputTime.match(/^(\d{4}-\d{2}-\d{2})/);
+      if (dm) date = dm[1];
+      rows.push({
+        team: "", sport: "축구", mode: "대회", tournament_id: tid,
+        date: date, match_id: String(r[0] || ""),
+        our_team: "", opponent: String(r[1] || ""),
+        event_type: eventType, player: String(r[3] || ""), related_player: String(r[4] || ""),
+        position: String(r[5] || ""), input_time: inputTime,
+      });
+    }
+  }
+  return { rows: rows, errors: errors };
+}
+
+/**
+ * 수동 실행: Apps Script 편집기에서 `_importLegacyToRaw` 선택 후 실행.
+ * 결과 리포트 반환: 각 소스별 총 행수 / 실제 insert / skipped.
+ */
+function _importLegacyToRaw() {
+  _ensureRawSheets();
+  var result = { insertedEvents: 0, insertedPlayerGames: 0, skippedEvents: 0, skippedPlayerGames: 0, sources: {} };
+
+  var sources = [
+    { name: "풋살 포인트로그", kind: "events", fn: _importFutsalPointLog },
+    { name: "풋살 선수별집계", kind: "playerGames", fn: _importFutsalPlayerLog },
+    { name: "축구 이벤트로그", kind: "events", fn: _importSoccerEventLog },
+    { name: "축구 선수별집계", kind: "playerGames", fn: _importSoccerPlayerLog },
+    { name: "대회 이벤트로그", kind: "events", fn: _importTournamentEventLogs },
+  ];
+
+  for (var i = 0; i < sources.length; i++) {
+    var src = sources[i];
+    var data;
+    try { data = src.fn(); } catch (e) { result.sources[src.name] = { error: e.message }; continue; }
+    var rows = data.rows || [];
+    if (rows.length === 0) { result.sources[src.name] = { inserted: 0, skipped: 0, note: data.error || "빈 소스" }; continue; }
+    var writeResult = src.kind === "events"
+      ? _writeRawEvents({ rows: rows })
+      : _writeRawPlayerGames({ rows: rows });
+    result.sources[src.name] = { inserted: writeResult.count || 0, skipped: writeResult.skipped || 0 };
+    if (src.kind === "events") { result.insertedEvents += writeResult.count || 0; result.skippedEvents += writeResult.skipped || 0; }
+    else { result.insertedPlayerGames += writeResult.count || 0; result.skippedPlayerGames += writeResult.skipped || 0; }
+  }
+
+  Logger.log(JSON.stringify(result, null, 2));
+  return result;
+}
+
 // ═══════════════════════════════════════════════════════════════
 // 누적 크로바/고구마 조회
 // ═══════════════════════════════════════════════════════════════
