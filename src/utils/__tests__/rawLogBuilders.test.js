@@ -185,4 +185,13 @@ describe('buildRawEventsFromSoccer', () => {
     const rows = buildRawEventsFromSoccer(mk({ event: '경고', player: 'A', relatedPlayer: '', position: '', inputTime: 't' }));
     expect(rows).toHaveLength(0);
   });
+
+  it('matchNum=0 → match_id="0" (not empty)', () => {
+    const rows = buildRawEventsFromSoccer({
+      team: '하버FC', mode: '기본', tournamentId: '',
+      events: [{ gameDate: '2026-04-10', matchNum: 0, opponent: 'X',
+                 event: '골', player: 'A', relatedPlayer: '', position: '', inputTime: 't' }],
+    });
+    expect(rows[0].match_id).toBe('0');
+  });
 });
