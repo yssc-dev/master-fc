@@ -79,14 +79,17 @@ let _cache = {};
 
 export function getSettings(team) {
   const key = _key(team);
-  if (_cache[key]) return { ...DEFAULTS, ..._cache[key] };
-  try {
-    const stored = JSON.parse(localStorage.getItem(key) || "{}");
-    _cache[key] = stored;
-    return { ...DEFAULTS, ...stored };
-  } catch {
-    return { ...DEFAULTS };
+  let stored = _cache[key];
+  if (!stored) {
+    try {
+      stored = JSON.parse(localStorage.getItem(key) || "{}");
+      _cache[key] = stored;
+    } catch {
+      stored = {};
+    }
   }
+  // 중첩 포맷의 shared.* 는 top-level로 평탄화. 레거시 flat 포맷은 stored 전개로 처리.
+  return { ...DEFAULTS, ...(stored.shared || {}), ...stored };
 }
 
 export async function saveSettings(team, sport, effectiveValues, presetName) {
