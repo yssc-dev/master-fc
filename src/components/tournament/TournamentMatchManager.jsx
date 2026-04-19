@@ -126,14 +126,16 @@ export default function TournamentMatchManager({ tournament, schedule: rawSchedu
 
     const finished = [soccerMatch];
     const eventRows = buildEventLogRows(finished, tournament.startDate || new Date().toISOString().slice(0, 10));
-    await AppSync.writeTournamentEventLog(tournament.id, { events: eventRows });
     const rawEvents = buildRawEventsFromSoccer({
       team: ourTeamName,
       mode: '대회',
       tournamentId: tournament.id,
       events: eventRows,
     });
-    await AppSync.writeRawEvents({ rows: rawEvents });
+    await Promise.allSettled([
+      AppSync.writeTournamentEventLog(tournament.id, { events: eventRows }),
+      AppSync.writeRawEvents({ rows: rawEvents }),
+    ]);
 
     // player stats re-aggregate
     const allEvents = await AppSync.getTournamentEventLog(tournament.id);
