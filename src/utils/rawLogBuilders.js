@@ -72,27 +72,6 @@ const SOCCER_EVENT_MAP = {
 };
 
 /**
- * 축구 기본 playerLogRows → 로그_선수경기 rows.
- * 대회 모드는 append-only와 증분 집계가 충돌하므로 이 함수로 생성하지 않음.
- */
-export function buildRawPlayerGamesFromSoccer({ team, inputTime, players }) {
-  return (players || []).map(p => ({
-    team, sport: '축구', mode: '기본', tournament_id: '',
-    date: p.gameDate || '', player: p.name || '', session_team: team,
-    games: Number(p.games) || 0,
-    field_games: Number(p.fieldGames) || 0,
-    keeper_games: Number(p.keeperGames) || 0,
-    goals: Number(p.goals) || 0,
-    assists: Number(p.assists) || 0,
-    owngoals: Number(p.owngoals) || 0,
-    conceded: Number(p.conceded) || 0,
-    cleansheets: Number(p.cleanSheets) || 0,
-    crova: 0, goguma: 0, 역주행: 0, rank_score: 0,
-    input_time: inputTime || '',
-  }));
-}
-
-/**
  * 축구 이벤트로그 row → 로그_이벤트 rows (기본/대회 공통)
  * @param {{ team, mode, tournamentId, events }} input
  */
@@ -111,4 +90,25 @@ export function buildRawEventsFromSoccer({ team, mode = '기본', tournamentId =
     });
   });
   return out;
+}
+
+/**
+ * 축구 기본 playerLogRows → 로그_선수경기 rows.
+ * 대회 모드는 append-only와 증분 집계가 충돌하므로 이 함수로 생성하지 않음.
+ */
+export function buildRawPlayerGamesFromSoccer({ team, inputTime, players }) {
+  return (players || []).map(p => ({
+    team, sport: '축구', mode: '기본', tournament_id: '',
+    date: p.gameDate || '', player: p.name || '', session_team: team,
+    games: Number(p.games) || 0,
+    field_games: Number(p.fieldGames) || 0,
+    keeper_games: Number(p.keeperGames) || 0,
+    goals: Number(p.goals) || 0,
+    assists: Number(p.assists) || 0,
+    owngoals: Number(p.owngoals) || 0,
+    conceded: Number(p.conceded) || 0,
+    cleansheets: Number(p.cleanSheets) || 0,
+    crova: 0, goguma: 0, 역주행: 0, rank_score: 0,
+    input_time: inputTime || '',
+  }));
 }
