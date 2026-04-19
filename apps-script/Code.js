@@ -11,6 +11,45 @@ var AUTH_SHEET_NAME = "회원인증";
 var POINT_LOG_SHEET = "포인트로그";
 var PLAYER_LOG_SHEET = "선수별집계기록로그";
 
+var RAW_EVENTS_SHEET = "로그_이벤트";
+var RAW_PLAYER_GAMES_SHEET = "로그_선수경기";
+
+var RAW_EVENTS_HEADERS = [
+  "team","sport","mode","tournament_id",
+  "date","match_id","our_team","opponent",
+  "event_type","player","related_player","position",
+  "input_time"
+];
+
+var RAW_PLAYER_GAMES_HEADERS = [
+  "team","sport","mode","tournament_id","date",
+  "player","session_team",
+  "games","field_games","keeper_games",
+  "goals","assists","owngoals","conceded","cleansheets",
+  "crova","goguma","역주행","rank_score",
+  "input_time"
+];
+
+function _ensureRawSheets() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var created = [];
+  var ev = ss.getSheetByName(RAW_EVENTS_SHEET);
+  if (!ev) {
+    ev = ss.insertSheet(RAW_EVENTS_SHEET);
+    ev.getRange(1, 1, 1, RAW_EVENTS_HEADERS.length).setValues([RAW_EVENTS_HEADERS]);
+    ev.getRange(1, 1, 1, RAW_EVENTS_HEADERS.length).setFontWeight("bold");
+    created.push(RAW_EVENTS_SHEET);
+  }
+  var pg = ss.getSheetByName(RAW_PLAYER_GAMES_SHEET);
+  if (!pg) {
+    pg = ss.insertSheet(RAW_PLAYER_GAMES_SHEET);
+    pg.getRange(1, 1, 1, RAW_PLAYER_GAMES_HEADERS.length).setValues([RAW_PLAYER_GAMES_HEADERS]);
+    pg.getRange(1, 1, 1, RAW_PLAYER_GAMES_HEADERS.length).setFontWeight("bold");
+    created.push(RAW_PLAYER_GAMES_SHEET);
+  }
+  return { created: created };
+}
+
 // ─── 한국시간 헬퍼 ───
 
 function _kstNow() {
@@ -179,6 +218,10 @@ function doPost(e) {
       return _jsonResponse(_writeSoccerPointLog(body.data, body.pointLogSheet || ""));
     } else if (action === "writeSoccerPlayerLog") {
       return _jsonResponse(_writeSoccerPlayerLog(body.data, body.playerLogSheet || ""));
+    } else if (action === "writeRawEvents") {
+      return _jsonResponse(_writeRawEvents(body.data));
+    } else if (action === "writeRawPlayerGames") {
+      return _jsonResponse(_writeRawPlayerGames(body.data));
     } else if (action === "createTournament") {
       return _jsonResponse(_createTournament(body.data));
     } else if (action === "deleteTournament") {
@@ -745,6 +788,124 @@ function _writeSoccerPlayerLog(data, sheetName) {
   } finally {
     lock.releaseLock();
   }
+}
+
+function _writeRawEvents(data) {
+  if (!data || !data.rows) return { success: false, error: "rows 누락" };
+  _ensureRawSheets();
+  var rows = data.rows;
+  if (rows.length === 0) return { success: true, count: 0, skipped: 0 };
+
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(15000)) return { success: false, error: "잠금 획득 실패" };
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getSheetByName(RAW_EVENTS_SHEET);
+    var existingKeys = _loadRawEventKeys(sheet);
+
+    var toInsert = [];
+    var skipped = 0;
+    for (var i = 0; i < rows.length; i++) {
+      var r = rows[i];
+      var key = _rawEventKey(r);
+      if (existingKeys[key]) { skipped++; continue; }
+      existingKeys[key] = true;
+      toInsert.push(_rawEventToArray(r));
+    }
+    if (toInsert.length > 0) {
+      var lastRow = sheet.getLastRow();
+      sheet.getRange(lastRow + 1, 1, toInsert.length, RAW_EVENTS_HEADERS.length).setValues(toInsert);
+    }
+    return { success: true, count: toInsert.length, skipped: skipped };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function _rawEventKey(r) {
+  return [r.team, r.sport, r.mode, r.tournament_id, r.date, r.match_id,
+    r.event_type, r.player, r.related_player, r.input_time].join("|");
+}
+
+function _rawEventToArray(r) {
+  return [r.team||"", r.sport||"", r.mode||"", r.tournament_id||"",
+    r.date||"", r.match_id||"", r.our_team||"", r.opponent||"",
+    r.event_type||"", r.player||"", r.related_player||"", r.position||"",
+    r.input_time||""];
+}
+
+function _loadRawEventKeys(sheet) {
+  var lastRow = sheet.getLastRow();
+  var keys = {};
+  if (lastRow < 2) return keys;
+  var data = sheet.getRange(2, 1, lastRow - 1, RAW_EVENTS_HEADERS.length).getValues();
+  for (var i = 0; i < data.length; i++) {
+    var r = data[i];
+    // [team, sport, mode, tid, date, match_id, our_team, opponent, event_type, player, related_player, position, input_time]
+    var key = [r[0], r[1], r[2], r[3], r[4], r[5], r[8], r[9], r[10], r[12]].join("|");
+    keys[key] = true;
+  }
+  return keys;
+}
+
+function _writeRawPlayerGames(data) {
+  if (!data || !data.rows) return { success: false, error: "rows 누락" };
+  _ensureRawSheets();
+  var rows = data.rows;
+  if (rows.length === 0) return { success: true, count: 0, skipped: 0 };
+
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(15000)) return { success: false, error: "잠금 획득 실패" };
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getSheetByName(RAW_PLAYER_GAMES_SHEET);
+    var existingKeys = _loadRawPlayerGameKeys(sheet);
+
+    var toInsert = [];
+    var skipped = 0;
+    for (var i = 0; i < rows.length; i++) {
+      var r = rows[i];
+      var key = _rawPlayerGameKey(r);
+      if (existingKeys[key]) { skipped++; continue; }
+      existingKeys[key] = true;
+      toInsert.push(_rawPlayerGameToArray(r));
+    }
+    if (toInsert.length > 0) {
+      var lastRow = sheet.getLastRow();
+      sheet.getRange(lastRow + 1, 1, toInsert.length, RAW_PLAYER_GAMES_HEADERS.length).setValues(toInsert);
+    }
+    return { success: true, count: toInsert.length, skipped: skipped };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function _rawPlayerGameKey(r) {
+  return [r.team, r.sport, r.mode, r.tournament_id, r.date, r.player].join("|");
+}
+
+function _rawPlayerGameToArray(r) {
+  return [r.team||"", r.sport||"", r.mode||"", r.tournament_id||"",
+    r.date||"", r.player||"", r.session_team||"",
+    Number(r.games)||0, Number(r.field_games)||0, Number(r.keeper_games)||0,
+    Number(r.goals)||0, Number(r.assists)||0, Number(r.owngoals)||0,
+    Number(r.conceded)||0, Number(r.cleansheets)||0,
+    Number(r.crova)||0, Number(r.goguma)||0, Number(r["역주행"])||0, Number(r.rank_score)||0,
+    r.input_time||""];
+}
+
+function _loadRawPlayerGameKeys(sheet) {
+  var lastRow = sheet.getLastRow();
+  var keys = {};
+  if (lastRow < 2) return keys;
+  var data = sheet.getRange(2, 1, lastRow - 1, RAW_PLAYER_GAMES_HEADERS.length).getValues();
+  for (var i = 0; i < data.length; i++) {
+    var r = data[i];
+    // [team, sport, mode, tid, date, player, session_team, ...]
+    var key = [r[0], r[1], r[2], r[3], r[4], r[5]].join("|");
+    keys[key] = true;
+  }
+  return keys;
 }
 
 // ═══════════════════════════════════════════════════════════════
