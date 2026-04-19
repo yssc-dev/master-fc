@@ -18,6 +18,27 @@ export const RAW_PLAYER_GAME_COLUMNS = [
 ];
 
 /**
+ * 풋살 playerData → 로그_선수경기 rows
+ */
+export function buildRawPlayerGamesFromFutsal({ team, inputTime, players }) {
+  return (players || []).map(p => ({
+    team, sport: '풋살', mode: '기본', tournament_id: '',
+    date: p.gameDate, player: p.name, session_team: p.playerTeam || '',
+    games: 0, field_games: 0, keeper_games: Number(p.keeperGames) || 0,
+    goals: Number(p.goals) || 0,
+    assists: Number(p.assists) || 0,
+    owngoals: Number(p.owngoals) || 0,
+    conceded: Number(p.conceded) || 0,
+    cleansheets: Number(p.cleanSheets) || 0,
+    crova: Number(p.crova) || 0,
+    goguma: Number(p.goguma) || 0,
+    역주행: Number(p.역주행) || 0,
+    rank_score: Number(p.rankScore) || 0,
+    input_time: inputTime || '',
+  }));
+}
+
+/**
  * 풋살 pointEvents → 로그_이벤트 rows
  * @param {{ team:string, events:Array<object> }} input
  * @returns {Array<object>} RAW_EVENT_COLUMNS 스키마 row 배열

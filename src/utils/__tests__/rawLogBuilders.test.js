@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { RAW_EVENT_COLUMNS, RAW_PLAYER_GAME_COLUMNS, buildRawEventsFromFutsal } from '../rawLogBuilders';
+import { RAW_EVENT_COLUMNS, RAW_PLAYER_GAME_COLUMNS, buildRawEventsFromFutsal, buildRawPlayerGamesFromFutsal } from '../rawLogBuilders';
 
 describe('raw log column constants', () => {
   it('RAW_EVENT_COLUMNS: 13개, 스펙 순서대로', () => {
@@ -91,5 +91,43 @@ describe('buildRawEventsFromFutsal', () => {
 
   it('빈 events → 빈 배열', () => {
     expect(buildRawEventsFromFutsal({ team: 'X', events: [] })).toEqual([]);
+  });
+});
+
+describe('buildRawPlayerGamesFromFutsal', () => {
+  it('플레이어 1명 → 1 row, 스키마 맞음', () => {
+    const rows = buildRawPlayerGamesFromFutsal({
+      team: '마스터FC', inputTime: '2026-04-10 21:00:00',
+      players: [{
+        gameDate: '2026-04-10', name: '홍길동',
+        goals: 3, assists: 1, owngoals: 0, conceded: 0, cleanSheets: 1,
+        crova: 1, goguma: 0, keeperGames: 1, rankScore: 4,
+        역주행: 0, playerTeam: '블루',
+      }],
+    });
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      team: '마스터FC', sport: '풋살', mode: '기본', tournament_id: '',
+      date: '2026-04-10', player: '홍길동', session_team: '블루',
+      games: 0, field_games: 0,       // 풋살은 games 원본 없음 → 0 기본
+      keeper_games: 1,
+      goals: 3, assists: 1, owngoals: 0, conceded: 0, cleansheets: 1,
+      crova: 1, goguma: 0, 역주행: 0, rank_score: 4,
+      input_time: '2026-04-10 21:00:00',
+    });
+  });
+
+  it('역주행 기본 0', () => {
+    const rows = buildRawPlayerGamesFromFutsal({
+      team: '마스터FC', inputTime: 't',
+      players: [{ gameDate: '2026-04-10', name: 'A', goals:0, assists:0, owngoals:0,
+                  conceded:0, cleanSheets:0, crova:0, goguma:0, keeperGames:0, rankScore:0,
+                  playerTeam:'블루' }],
+    });
+    expect(rows[0].역주행).toBe(0);
+  });
+
+  it('빈 players → 빈 배열', () => {
+    expect(buildRawPlayerGamesFromFutsal({ team: 'X', players: [] })).toEqual([]);
   });
 });
