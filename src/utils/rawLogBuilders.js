@@ -16,3 +16,28 @@ export const RAW_PLAYER_GAME_COLUMNS = [
   "crova", "goguma", "역주행", "rank_score",
   "input_time",
 ];
+
+/**
+ * 풋살 pointEvents → 로그_이벤트 rows
+ * @param {{ team:string, events:Array<object> }} input
+ * @returns {Array<object>} RAW_EVENT_COLUMNS 스키마 row 배열
+ */
+export function buildRawEventsFromFutsal({ team, events }) {
+  const out = [];
+  (events || []).forEach(e => {
+    const common = {
+      team, sport: '풋살', mode: '기본', tournament_id: '',
+      date: e.gameDate, match_id: e.matchId,
+      our_team: e.myTeam || '', opponent: e.opponentTeam || '',
+      position: '', input_time: e.inputTime || '',
+    };
+    if (e.scorer) {
+      out.push({ ...common, event_type: 'goal', player: e.scorer, related_player: e.assist || '' });
+    } else if (e.ownGoalPlayer) {
+      out.push({ ...common, event_type: 'ownGoal', player: e.ownGoalPlayer, related_player: '' });
+    } else if (e.concedingGk) {
+      out.push({ ...common, event_type: 'concede', player: e.concedingGk, related_player: '' });
+    }
+  });
+  return out;
+}
