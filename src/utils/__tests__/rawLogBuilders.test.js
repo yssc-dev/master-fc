@@ -11,6 +11,8 @@ describe('raw log column constants', () => {
 
   it('RAW_PLAYER_GAME_COLUMNS: 20개, 풋살 전용 필드 포함', () => {
     expect(RAW_PLAYER_GAME_COLUMNS).toHaveLength(20);
+    expect(RAW_PLAYER_GAME_COLUMNS[0]).toBe('team');
+    expect(RAW_PLAYER_GAME_COLUMNS[19]).toBe('input_time');
     expect(RAW_PLAYER_GAME_COLUMNS).toContain('crova');
     expect(RAW_PLAYER_GAME_COLUMNS).toContain('goguma');
     expect(RAW_PLAYER_GAME_COLUMNS).toContain('역주행');
