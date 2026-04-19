@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { RAW_EVENT_COLUMNS, RAW_PLAYER_GAME_COLUMNS, buildRawEventsFromFutsal, buildRawPlayerGamesFromFutsal, buildRawEventsFromSoccer } from '../rawLogBuilders';
+import { RAW_EVENT_COLUMNS, RAW_PLAYER_GAME_COLUMNS, buildRawEventsFromFutsal, buildRawPlayerGamesFromFutsal, buildRawEventsFromSoccer, buildRawPlayerGamesFromSoccer } from '../rawLogBuilders';
 
 describe('raw log column constants', () => {
   it('RAW_EVENT_COLUMNS: 13개, 스펙 순서대로', () => {
@@ -193,5 +193,29 @@ describe('buildRawEventsFromSoccer', () => {
                  event: '골', player: 'A', relatedPlayer: '', position: '', inputTime: 't' }],
     });
     expect(rows[0].match_id).toBe('0');
+  });
+});
+
+describe('buildRawPlayerGamesFromSoccer', () => {
+  it('매핑 정확', () => {
+    const rows = buildRawPlayerGamesFromSoccer({
+      team: '하버FC', inputTime: 't',
+      players: [{ gameDate: '2026-04-10', name: 'A',
+                  games: 3, fieldGames: 2, keeperGames: 1,
+                  goals: 2, assists: 1, cleanSheets: 1, conceded: 3, owngoals: 0 }],
+    });
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      team: '하버FC', sport: '축구', mode: '기본', tournament_id: '',
+      date: '2026-04-10', player: 'A', session_team: '하버FC',
+      games: 3, field_games: 2, keeper_games: 1,
+      goals: 2, assists: 1, owngoals: 0, conceded: 3, cleansheets: 1,
+      crova: 0, goguma: 0, 역주행: 0, rank_score: 0,
+      input_time: 't',
+    });
+  });
+
+  it('빈 players → 빈 배열', () => {
+    expect(buildRawPlayerGamesFromSoccer({ team: 'X', players: [] })).toEqual([]);
   });
 });
