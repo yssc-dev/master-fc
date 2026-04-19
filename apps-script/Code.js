@@ -823,8 +823,8 @@ function _writeRawEvents(data) {
 }
 
 function _rawEventKey(r) {
-  return [r.team, r.sport, r.mode, r.tournament_id, r.date, r.match_id,
-    r.event_type, r.player, r.related_player, r.input_time].join("|");
+  return [r.team||"", r.sport||"", r.mode||"", r.tournament_id||"", r.date||"", r.match_id||"",
+    r.event_type||"", r.player||"", r.related_player||"", r.input_time||""].join("|");
 }
 
 function _rawEventToArray(r) {
@@ -842,7 +842,7 @@ function _loadRawEventKeys(sheet) {
   for (var i = 0; i < data.length; i++) {
     var r = data[i];
     // [team, sport, mode, tid, date, match_id, our_team, opponent, event_type, player, related_player, position, input_time]
-    var key = [r[0], r[1], r[2], r[3], r[4], r[5], r[8], r[9], r[10], r[12]].join("|");
+    var key = [r[0], r[1], r[2], r[3], _toDateStr(r[4]), r[5], r[8], r[9], r[10], String(r[12])].join("|");
     keys[key] = true;
   }
   return keys;
@@ -881,7 +881,7 @@ function _writeRawPlayerGames(data) {
 }
 
 function _rawPlayerGameKey(r) {
-  return [r.team, r.sport, r.mode, r.tournament_id, r.date, r.player].join("|");
+  return [r.team||"", r.sport||"", r.mode||"", r.tournament_id||"", r.date||"", r.player||""].join("|");
 }
 
 function _rawPlayerGameToArray(r) {
@@ -902,7 +902,7 @@ function _loadRawPlayerGameKeys(sheet) {
   for (var i = 0; i < data.length; i++) {
     var r = data[i];
     // [team, sport, mode, tid, date, player, session_team, ...]
-    var key = [r[0], r[1], r[2], r[3], r[4], r[5]].join("|");
+    var key = [r[0], r[1], r[2], r[3], _toDateStr(r[4]), r[5]].join("|");
     keys[key] = true;
   }
   return keys;
