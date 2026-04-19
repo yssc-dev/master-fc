@@ -1325,6 +1325,32 @@ function _clearRawSheets() {
   return { cleared: cleared };
 }
 
+/**
+ * Apps Script 편집기 실행창에서 인자 전달이 안 되므로 래퍼.
+ * 팀/시트 추가 시 teams 배열에 항목 추가.
+ * 편집기에서 함수 선택 후 "실행" 클릭.
+ */
+function _runImport() {
+  return _importLegacyToRaw({
+    teams: [
+      {
+        team: "마스터FC",
+        pointSheet: "마스터FC 포인트 로그",
+        pointSchema: "futsalPoint",
+        playerSheet: "마스터FC 선수별집계기록 로그",
+        playerSchema: "futsalPlayer"
+      },
+      {
+        team: "하버FC",
+        pointSheet: "하버FC 포인트 로그",
+        pointSchema: "soccerPoint",
+        playerSheet: "하버FC 선수기록보관소",
+        playerSchema: "soccerPlayer"
+      }
+    ]
+  });
+}
+
 // ═══════════════════════════════════════════════════════════════
 // 누적 크로바/고구마 조회
 // ═══════════════════════════════════════════════════════════════
