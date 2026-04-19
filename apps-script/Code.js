@@ -945,6 +945,36 @@ function _importFutsalPointLog() {
   return { rows: rows };
 }
 
+function _importFutsalPlayerLog() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var src = ss.getSheetByName(PLAYER_LOG_SHEET);
+  if (!src) return { rows: [], skipped: 0, error: PLAYER_LOG_SHEET + " 없음" };
+  var lastRow = src.getLastRow();
+  if (lastRow < 2) return { rows: [] };
+  // 컬럼: [경기일자, 선수명, 골, 어시, 역주행, 실점, 클린시트, 크로바, 고구마, 키퍼경기수, 팀순위점수, 입력시간, 소속팀]
+  var data = src.getRange(2, 1, lastRow - 1, 13).getValues();
+  var rows = [];
+  for (var i = 0; i < data.length; i++) {
+    var r = data[i];
+    var team = String(r[12] || "");
+    var gameDate = _toDateStr(r[0]);
+    var name = String(r[1] || "");
+    if (!name) continue;
+    var inputTime = r[11] instanceof Date ? Utilities.formatDate(r[11], "Asia/Seoul", "yyyy-MM-dd HH:mm:ss") : String(r[11] || "");
+    rows.push({
+      team: team, sport: "풋살", mode: "기본", tournament_id: "",
+      date: gameDate, player: name, session_team: "",
+      games: 0, field_games: 0, keeper_games: Number(r[9]) || 0,
+      goals: Number(r[2]) || 0, assists: Number(r[3]) || 0,
+      owngoals: 0, conceded: Number(r[5]) || 0, cleansheets: Number(r[6]) || 0,
+      crova: Number(r[7]) || 0, goguma: Number(r[8]) || 0,
+      "역주행": Number(r[4]) || 0, rank_score: Number(r[10]) || 0,
+      input_time: inputTime,
+    });
+  }
+  return { rows: rows };
+}
+
 // ═══════════════════════════════════════════════════════════════
 // 누적 크로바/고구마 조회
 // ═══════════════════════════════════════════════════════════════
