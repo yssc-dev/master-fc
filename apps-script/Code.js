@@ -795,21 +795,26 @@ function _writeRawEvents(data) {
   _ensureRawSheets();
   var rows = data.rows;
   if (rows.length === 0) return { success: true, count: 0, skipped: 0 };
+  // skipDedupe=true: Legacy import 용. 같은 (선수,경기,event_type,date,tid,team) 조합이
+  // 정당하게 중복되는 케이스(헤딩골 2회 입력 등) 보존 위함. 재실행 전 _clearRawSheets 필수.
+  var skipDedupe = data.skipDedupe === true;
 
   var lock = LockService.getScriptLock();
   if (!lock.tryLock(15000)) return { success: false, error: "잠금 획득 실패" };
   try {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     var sheet = ss.getSheetByName(RAW_EVENTS_SHEET);
-    var existingKeys = _loadRawEventKeys(sheet);
+    var existingKeys = skipDedupe ? {} : _loadRawEventKeys(sheet);
 
     var toInsert = [];
     var skipped = 0;
     for (var i = 0; i < rows.length; i++) {
       var r = rows[i];
-      var key = _rawEventKey(r);
-      if (existingKeys[key]) { skipped++; continue; }
-      existingKeys[key] = true;
+      if (!skipDedupe) {
+        var key = _rawEventKey(r);
+        if (existingKeys[key]) { skipped++; continue; }
+        existingKeys[key] = true;
+      }
       toInsert.push(_rawEventToArray(r));
     }
     if (toInsert.length > 0) {
@@ -853,21 +858,25 @@ function _writeRawPlayerGames(data) {
   _ensureRawSheets();
   var rows = data.rows;
   if (rows.length === 0) return { success: true, count: 0, skipped: 0 };
+  // skipDedupe=true: Legacy import 용. 같은 선수가 한 날짜에 복수 세션 기록된 케이스 보존.
+  var skipDedupe = data.skipDedupe === true;
 
   var lock = LockService.getScriptLock();
   if (!lock.tryLock(15000)) return { success: false, error: "잠금 획득 실패" };
   try {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     var sheet = ss.getSheetByName(RAW_PLAYER_GAMES_SHEET);
-    var existingKeys = _loadRawPlayerGameKeys(sheet);
+    var existingKeys = skipDedupe ? {} : _loadRawPlayerGameKeys(sheet);
 
     var toInsert = [];
     var skipped = 0;
     for (var i = 0; i < rows.length; i++) {
       var r = rows[i];
-      var key = _rawPlayerGameKey(r);
-      if (existingKeys[key]) { skipped++; continue; }
-      existingKeys[key] = true;
+      if (!skipDedupe) {
+        var key = _rawPlayerGameKey(r);
+        if (existingKeys[key]) { skipped++; continue; }
+        existingKeys[key] = true;
+      }
       toInsert.push(_rawPlayerGameToArray(r));
     }
     if (toInsert.length > 0) {
@@ -910,9 +919,10 @@ function _loadRawPlayerGameKeys(sheet) {
 
 // ═══════════════════════════════════════════════════════════════
 // 일회성 Legacy Import (기존 시트 read-only → 로그_이벤트/로그_선수경기 append)
-// 재실행 가능하게 dedupe 적용됨 (기존 키 있으면 skip).
+// skipDedupe=true 로 write — 같은 (선수,경기,event_type,date,tid) 중복도 보존
+// (헤딩골 같은 이벤트를 2번 입력한 케이스 등).
 //
-// 사용법 (Apps Script 편집기에서 직접 실행):
+// 사용법 (Apps Script 편집기에서 _runImport 실행):
 //   _importLegacyToRaw({
 //     teams: [
 //       { team: "마스터FC", pointSheet: "마스터FC 포인트 로그", pointSchema: "futsalPoint",
@@ -925,8 +935,8 @@ function _loadRawPlayerGameKeys(sheet) {
 //
 // 주의사항:
 //   - config.teams 필수. 빈 config로 호출하면 { error: "config.teams 필요" } 반환.
-//   - 이전 import 결과가 잘못된 경우 _clearRawSheets() 로 헤더만 남기고 초기화 후 재실행.
-//   - _writeRawEvents / _writeRawPlayerGames 내부 dedupe로 재실행 안전 (기존 행 보존).
+//   - **재실행 전 반드시 _clearRawSheets() 먼저 실행**. skipDedupe 모드라 중복 방지 안 됨.
+//   - 신규 dual-write 경로 (doPost → _writeRawEvents)는 skipDedupe=false 로 정상 dedupe.
 // ═══════════════════════════════════════════════════════════════
 
 // ---------------------------------------------------------------
@@ -1246,7 +1256,7 @@ function _importLegacyToRaw(config) {
         if (pointRows.length === 0) {
           result.sources[entry.pointSheet] = { inserted: 0, skipped: 0, note: pointData.error || "빈 소스" };
         } else {
-          var pointWrite = _writeRawEvents({ rows: pointRows });
+          var pointWrite = _writeRawEvents({ rows: pointRows, skipDedupe: true });
           result.sources[entry.pointSheet] = { inserted: pointWrite.count || 0, skipped: pointWrite.skipped || 0 };
           result.insertedEvents += pointWrite.count || 0;
           result.skippedEvents += pointWrite.skipped || 0;
@@ -1274,7 +1284,7 @@ function _importLegacyToRaw(config) {
         if (playerRows.length === 0) {
           result.sources[entry.playerSheet] = { inserted: 0, skipped: 0, note: playerData.error || "빈 소스" };
         } else {
-          var playerWrite = _writeRawPlayerGames({ rows: playerRows });
+          var playerWrite = _writeRawPlayerGames({ rows: playerRows, skipDedupe: true });
           result.sources[entry.playerSheet] = { inserted: playerWrite.count || 0, skipped: playerWrite.skipped || 0 };
           result.insertedPlayerGames += playerWrite.count || 0;
           result.skippedPlayerGames += playerWrite.skipped || 0;
@@ -1296,7 +1306,7 @@ function _importLegacyToRaw(config) {
       if (tourneyRows.length === 0) {
         result.sources["대회 이벤트로그"] = { inserted: 0, skipped: 0, note: "빈 소스" };
       } else {
-        var tourneyWrite = _writeRawEvents({ rows: tourneyRows });
+        var tourneyWrite = _writeRawEvents({ rows: tourneyRows, skipDedupe: true });
         result.sources["대회 이벤트로그"] = { inserted: tourneyWrite.count || 0, skipped: tourneyWrite.skipped || 0 };
         result.insertedEvents += tourneyWrite.count || 0;
         result.skippedEvents += tourneyWrite.skipped || 0;
