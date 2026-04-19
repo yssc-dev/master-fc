@@ -1108,11 +1108,12 @@ function _readSoccerPointSchema(sheetName, team) {
       position: "", input_time: inputTime
     };
     if (goalVal === "OG") {
+      // 득점 컬럼에 "OG" 리터럴 + 자책골 컬럼에 선수명이 있을 수 있으니 r[6] 우선
       rows.push({
         team: common.team, sport: common.sport, mode: common.mode, tournament_id: common.tournament_id,
         date: common.date, match_id: common.match_id, our_team: common.our_team, opponent: common.opponent,
         position: common.position, input_time: common.input_time,
-        event_type: "ownGoal", player: "", related_player: ""
+        event_type: "ownGoal", player: ownGoal, related_player: ""
       });
     } else if (goalVal) {
       rows.push({
