@@ -235,6 +235,32 @@ const AppSync = {
     } catch (e) { console.warn("축구 선수별집계 저장 실패:", e.message); return null; }
   },
 
+  async writeRawEvents(data) {
+    if (!this.enabled()) return null;
+    try {
+      const team = this._getTeam();
+      const resp = await fetch(APPS_SCRIPT_URL, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain" },
+        body: JSON.stringify({ action: "writeRawEvents", data: { ...data, team }, authToken: this._getAuthToken() }),
+      });
+      return await resp.json();
+    } catch (e) { console.warn("로그_이벤트 저장 실패:", e.message); return null; }
+  },
+
+  async writeRawPlayerGames(data) {
+    if (!this.enabled()) return null;
+    try {
+      const team = this._getTeam();
+      const resp = await fetch(APPS_SCRIPT_URL, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain" },
+        body: JSON.stringify({ action: "writeRawPlayerGames", data: { ...data, team }, authToken: this._getAuthToken() }),
+      });
+      return await resp.json();
+    } catch (e) { console.warn("로그_선수경기 저장 실패:", e.message); return null; }
+  },
+
   // ── 대회 ──
 
   async createTournament(data) {
