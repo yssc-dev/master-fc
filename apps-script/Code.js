@@ -975,6 +975,68 @@ function _importFutsalPlayerLog() {
   return { rows: rows };
 }
 
+function _importSoccerEventLog() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var src = ss.getSheetByName("축구_이벤트로그");
+  if (!src) return { rows: [], error: "축구_이벤트로그 없음" };
+  var lastRow = src.getLastRow();
+  if (lastRow < 2) return { rows: [] };
+  // 컬럼: [경기일자, 경기번호, 상대팀명, 이벤트, 선수, 관련선수, 포지션, 입력시간]
+  var data = src.getRange(2, 1, lastRow - 1, 8).getValues();
+  var rows = [];
+  var team = "";
+  try { team = _getTeamContextFromSheetName() || ""; } catch (e) {}
+  for (var i = 0; i < data.length; i++) {
+    var r = data[i];
+    var eventKor = String(r[3] || "");
+    var typeMap = { "출전": "lineup", "골": "goal", "자책골": "ownGoal", "실점": "concede", "교체": "sub" };
+    var eventType = typeMap[eventKor];
+    if (!eventType) continue;
+    var gameDate = _toDateStr(r[0]);
+    var inputTime = r[7] instanceof Date ? Utilities.formatDate(r[7], "Asia/Seoul", "yyyy-MM-dd HH:mm:ss") : String(r[7] || "");
+    rows.push({
+      team: team || String(r[2] || ""), // 팀 컨텍스트 없으면 opponent를 placeholder로는 쓰면 안됨 — 빈 처리
+      sport: "축구", mode: "기본", tournament_id: "",
+      date: gameDate, match_id: String(r[1] || ""),
+      our_team: team || "", opponent: String(r[2] || ""),
+      event_type: eventType, player: String(r[4] || ""), related_player: String(r[5] || ""),
+      position: String(r[6] || ""), input_time: inputTime,
+    });
+  }
+  return { rows: rows };
+}
+
+// 현재 스프레드시트에서 축구 팀명 추정: 간단히 빈 문자열 반환 → import 시 수동 입력 요구
+function _getTeamContextFromSheetName() { return ""; }
+
+function _importSoccerPlayerLog() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var src = ss.getSheetByName("축구_선수별집계기록로그");
+  if (!src) return { rows: [], error: "축구_선수별집계기록로그 없음" };
+  var lastRow = src.getLastRow();
+  if (lastRow < 2) return { rows: [] };
+  // 컬럼: [경기일자, 선수명, 전체경기, 필드경기, 키퍼경기, 골, 어시, 클린시트, 실점, 자책골, 입력시간]
+  var data = src.getRange(2, 1, lastRow - 1, 11).getValues();
+  var rows = [];
+  for (var i = 0; i < data.length; i++) {
+    var r = data[i];
+    var name = String(r[1] || "");
+    if (!name) continue;
+    var gameDate = _toDateStr(r[0]);
+    var inputTime = r[10] instanceof Date ? Utilities.formatDate(r[10], "Asia/Seoul", "yyyy-MM-dd HH:mm:ss") : String(r[10] || "");
+    rows.push({
+      team: "",  // 축구 기본 선수별집계는 팀 컬럼 없음. 수동 후처리 필요.
+      sport: "축구", mode: "기본", tournament_id: "",
+      date: gameDate, player: name, session_team: "",
+      games: Number(r[2]) || 0, field_games: Number(r[3]) || 0, keeper_games: Number(r[4]) || 0,
+      goals: Number(r[5]) || 0, assists: Number(r[6]) || 0,
+      owngoals: Number(r[9]) || 0, conceded: Number(r[8]) || 0, cleansheets: Number(r[7]) || 0,
+      crova: 0, goguma: 0, "역주행": 0, rank_score: 0, input_time: inputTime,
+    });
+  }
+  return { rows: rows };
+}
+
 // ═══════════════════════════════════════════════════════════════
 // 누적 크로바/고구마 조회
 // ═══════════════════════════════════════════════════════════════
