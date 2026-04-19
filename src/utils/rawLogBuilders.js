@@ -27,7 +27,7 @@ export function buildRawEventsFromFutsal({ team, events }) {
   (events || []).forEach(e => {
     const common = {
       team, sport: '풋살', mode: '기본', tournament_id: '',
-      date: e.gameDate, match_id: e.matchId,
+      date: e.gameDate || '', match_id: e.matchId || '',
       our_team: e.myTeam || '', opponent: e.opponentTeam || '',
       position: '', input_time: e.inputTime || '',
     };

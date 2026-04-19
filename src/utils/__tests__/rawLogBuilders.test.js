@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { RAW_EVENT_COLUMNS, RAW_PLAYER_GAME_COLUMNS } from '../rawLogBuilders';
-import { buildRawEventsFromFutsal } from '../rawLogBuilders';
+import { RAW_EVENT_COLUMNS, RAW_PLAYER_GAME_COLUMNS, buildRawEventsFromFutsal } from '../rawLogBuilders';
 
 describe('raw log column constants', () => {
   it('RAW_EVENT_COLUMNS: 13개, 스펙 순서대로', () => {
