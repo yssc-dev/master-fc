@@ -995,7 +995,7 @@ function _importSoccerEventLog() {
     var gameDate = _toDateStr(r[0]);
     var inputTime = r[7] instanceof Date ? Utilities.formatDate(r[7], "Asia/Seoul", "yyyy-MM-dd HH:mm:ss") : String(r[7] || "");
     rows.push({
-      team: team || String(r[2] || ""), // 팀 컨텍스트 없으면 opponent를 placeholder로는 쓰면 안됨 — 빈 처리
+      team: team || "", // 팀 컨텍스트 없으면 빈 문자열. import 후 수동 보정 필요.
       sport: "축구", mode: "기본", tournament_id: "",
       date: gameDate, match_id: String(r[1] || ""),
       our_team: team || "", opponent: String(r[2] || ""),
