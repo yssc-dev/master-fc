@@ -62,3 +62,32 @@ export function buildRawPlayerGamesFromFutsal({ team, inputTime, players }) {
     input_time: inputTime || '',
   }));
 }
+
+const SOCCER_EVENT_MAP = {
+  '출전': 'lineup',
+  '골': 'goal',
+  '자책골': 'ownGoal',
+  '실점': 'concede',
+  '교체': 'sub',
+};
+
+/**
+ * 축구 이벤트로그 row → 로그_이벤트 rows (기본/대회 공통)
+ * @param {{ team, mode, tournamentId, events }} input
+ */
+export function buildRawEventsFromSoccer({ team, mode = '기본', tournamentId = '', events }) {
+  const out = [];
+  (events || []).forEach(e => {
+    const type = SOCCER_EVENT_MAP[e.event];
+    if (!type) return;
+    out.push({
+      team, sport: '축구', mode, tournament_id: tournamentId || '',
+      date: e.gameDate || '', match_id: String(e.matchNum ?? ''),
+      our_team: team, opponent: e.opponent || '',
+      event_type: type,
+      player: e.player || '', related_player: e.relatedPlayer || '',
+      position: e.position || '', input_time: e.inputTime || '',
+    });
+  });
+  return out;
+}

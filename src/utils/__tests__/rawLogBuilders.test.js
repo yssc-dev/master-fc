@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { RAW_EVENT_COLUMNS, RAW_PLAYER_GAME_COLUMNS, buildRawEventsFromFutsal, buildRawPlayerGamesFromFutsal } from '../rawLogBuilders';
+import { RAW_EVENT_COLUMNS, RAW_PLAYER_GAME_COLUMNS, buildRawEventsFromFutsal, buildRawPlayerGamesFromFutsal, buildRawEventsFromSoccer } from '../rawLogBuilders';
 
 describe('raw log column constants', () => {
   it('RAW_EVENT_COLUMNS: 13개, 스펙 순서대로', () => {
@@ -129,5 +129,60 @@ describe('buildRawPlayerGamesFromFutsal', () => {
 
   it('빈 players → 빈 배열', () => {
     expect(buildRawPlayerGamesFromFutsal({ team: 'X', players: [] })).toEqual([]);
+  });
+});
+
+describe('buildRawEventsFromSoccer', () => {
+  const mk = (ev) => ({
+    team: '하버FC', mode: '기본', tournamentId: '',
+    events: [{ gameDate: '2026-04-10', matchNum: 1, opponent: '상대A', ...ev }],
+  });
+
+  it('출전 → lineup', () => {
+    const rows = buildRawEventsFromSoccer(mk({ event: '출전', player: 'A', relatedPlayer: '', position: 'GK', inputTime: 't' }));
+    expect(rows[0]).toMatchObject({
+      team: '하버FC', sport: '축구', mode: '기본', tournament_id: '',
+      date: '2026-04-10', match_id: '1', our_team: '하버FC', opponent: '상대A',
+      event_type: 'lineup', player: 'A', related_player: '', position: 'GK', input_time: 't',
+    });
+  });
+
+  it('골 → goal (relatedPlayer 유지)', () => {
+    const rows = buildRawEventsFromSoccer(mk({ event: '골', player: 'B', relatedPlayer: 'C', position: '', inputTime: 't' }));
+    expect(rows[0].event_type).toBe('goal');
+    expect(rows[0].player).toBe('B');
+    expect(rows[0].related_player).toBe('C');
+  });
+
+  it('자책골 → ownGoal', () => {
+    const rows = buildRawEventsFromSoccer(mk({ event: '자책골', player: 'D', relatedPlayer: '', position: '', inputTime: 't' }));
+    expect(rows[0].event_type).toBe('ownGoal');
+  });
+
+  it('실점 → concede, position GK', () => {
+    const rows = buildRawEventsFromSoccer(mk({ event: '실점', player: 'E', relatedPlayer: '', position: 'GK', inputTime: 't' }));
+    expect(rows[0].event_type).toBe('concede');
+    expect(rows[0].position).toBe('GK');
+  });
+
+  it('교체 → sub (playerIn/playerOut)', () => {
+    const rows = buildRawEventsFromSoccer(mk({ event: '교체', player: 'IN', relatedPlayer: 'OUT', position: 'FW', inputTime: 't' }));
+    expect(rows[0].event_type).toBe('sub');
+    expect(rows[0].player).toBe('IN');
+    expect(rows[0].related_player).toBe('OUT');
+  });
+
+  it('대회모드 → mode="대회", tournament_id 세팅', () => {
+    const rows = buildRawEventsFromSoccer({
+      team: '하버FC', mode: '대회', tournamentId: '하버리그2026',
+      events: [{ gameDate: '2026-05-01', matchNum: 3, opponent: 'X', event: '골', player: 'Y', relatedPlayer: '', position: '', inputTime: 't' }],
+    });
+    expect(rows[0].mode).toBe('대회');
+    expect(rows[0].tournament_id).toBe('하버리그2026');
+  });
+
+  it('알 수 없는 event → 스킵', () => {
+    const rows = buildRawEventsFromSoccer(mk({ event: '경고', player: 'A', relatedPlayer: '', position: '', inputTime: 't' }));
+    expect(rows).toHaveLength(0);
   });
 });
