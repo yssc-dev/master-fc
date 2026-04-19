@@ -933,14 +933,29 @@ function _loadRawPlayerGameKeys(sheet) {
 // 스키마별 Reader 함수 (각각 sheetName, team 인자를 받아 { rows, error? } 반환)
 // ---------------------------------------------------------------
 
+// 첫 5행 중 A열이 firstColExpected인 행을 헤더로 간주. 못 찾으면 1.
+// 시트에 빈 상단 행(frozen row 용도)이 있는 경우에 대응.
+function _findHeaderRow(sheet, firstColExpected) {
+  var lastRow = sheet.getLastRow();
+  var maxPeek = Math.min(lastRow, 5);
+  if (maxPeek < 1) return 1;
+  var peek = sheet.getRange(1, 1, maxPeek, 1).getValues();
+  for (var i = 0; i < peek.length; i++) {
+    if (String(peek[i][0] || "").trim() === firstColExpected) return i + 1;
+  }
+  return 1;
+}
+
 function _readFutsalPointSchema(sheetName, team) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var src = ss.getSheetByName(sheetName);
   if (!src) return { rows: [], error: sheetName + " 없음" };
   var lastRow = src.getLastRow();
   if (lastRow < 2) return { rows: [] };
+  var headerRow = _findHeaderRow(src, "경기일자");
+  if (lastRow <= headerRow) return { rows: [] };
   // 헤더 검증: 인덱스 0-8 필수
-  var headers = src.getRange(1, 1, 1, Math.min(src.getLastColumn(), 10)).getValues()[0];
+  var headers = src.getRange(headerRow, 1, 1, Math.min(src.getLastColumn(), 10)).getValues()[0];
   var expectedBase = ["경기일자", "경기번호", "내팀", "상대팀"];
   var goalVariants = ["득점", "득점선수"];
   var assistVariants = ["어시", "어시선수"];
@@ -965,7 +980,7 @@ function _readFutsalPointSchema(sheetName, team) {
   if (String(headers[8] || "").trim() !== "입력시간") return { rows: [], error: "헤더 불일치: expected 입력시간, got " + String(headers[8] || "") };
 
   var colCount = Math.min(src.getLastColumn(), 10);
-  var data = src.getRange(2, 1, lastRow - 1, colCount).getValues();
+  var data = src.getRange(headerRow + 1, 1, lastRow - headerRow, colCount).getValues();
   var rows = [];
   for (var i = 0; i < data.length; i++) {
     var r = data[i];
@@ -1015,16 +1030,18 @@ function _readFutsalPlayerSchema(sheetName, team) {
   if (!src) return { rows: [], error: sheetName + " 없음" };
   var lastRow = src.getLastRow();
   if (lastRow < 2) return { rows: [] };
+  var headerRow = _findHeaderRow(src, "경기일자");
+  if (lastRow <= headerRow) return { rows: [] };
   // 헤더 검증: 13 컬럼 필수
   var expectedHeaders = ["경기일자", "선수명", "골", "어시", "역주행", "실점", "클린시트", "크로바", "고구마", "키퍼경기수", "팀순위점수", "입력시간", "소속팀"];
-  var headers = src.getRange(1, 1, 1, 13).getValues()[0];
+  var headers = src.getRange(headerRow, 1, 1, 13).getValues()[0];
   for (var ci = 0; ci < expectedHeaders.length; ci++) {
     if (String(headers[ci] || "").trim() !== expectedHeaders[ci]) {
       return { rows: [], error: "헤더 불일치: expected " + expectedHeaders[ci] + ", got " + String(headers[ci] || "") };
     }
   }
 
-  var data = src.getRange(2, 1, lastRow - 1, 13).getValues();
+  var data = src.getRange(headerRow + 1, 1, lastRow - headerRow, 13).getValues();
   var rows = [];
   for (var i = 0; i < data.length; i++) {
     var r = data[i];
@@ -1052,16 +1069,18 @@ function _readSoccerPointSchema(sheetName, team) {
   if (!src) return { rows: [], error: sheetName + " 없음" };
   var lastRow = src.getLastRow();
   if (lastRow < 2) return { rows: [] };
+  var headerRow = _findHeaderRow(src, "경기일자");
+  if (lastRow <= headerRow) return { rows: [] };
   // 헤더 검증: 8 컬럼 필수
   var expectedHeaders = ["경기일자", "경기번호", "상대팀명", "득점", "어시", "실점", "자책골", "입력시간"];
-  var headers = src.getRange(1, 1, 1, 8).getValues()[0];
+  var headers = src.getRange(headerRow, 1, 1, 8).getValues()[0];
   for (var ci = 0; ci < expectedHeaders.length; ci++) {
     if (String(headers[ci] || "").trim() !== expectedHeaders[ci]) {
       return { rows: [], error: "헤더 불일치: expected " + expectedHeaders[ci] + ", got " + String(headers[ci] || "") };
     }
   }
 
-  var data = src.getRange(2, 1, lastRow - 1, 8).getValues();
+  var data = src.getRange(headerRow + 1, 1, lastRow - headerRow, 8).getValues();
   var rows = [];
   for (var i = 0; i < data.length; i++) {
     var r = data[i];
@@ -1117,16 +1136,18 @@ function _readSoccerPlayerSchema(sheetName, team) {
   if (!src) return { rows: [], error: sheetName + " 없음" };
   var lastRow = src.getLastRow();
   if (lastRow < 2) return { rows: [] };
-  // 헤더 검증: 11 컬럼 필수
+  var headerRow = _findHeaderRow(src, "경기일자");
+  if (lastRow <= headerRow) return { rows: [] };
+  // 헤더 검증: 11 컬럼 필수 (12번째 주석 컬럼은 무시)
   var expectedHeaders = ["경기일자", "선수명", "전체경기", "필드경기", "키퍼경기", "골", "어시", "클린시트", "실점", "자책골", "입력시간"];
-  var headers = src.getRange(1, 1, 1, 11).getValues()[0];
+  var headers = src.getRange(headerRow, 1, 1, 11).getValues()[0];
   for (var ci = 0; ci < expectedHeaders.length; ci++) {
     if (String(headers[ci] || "").trim() !== expectedHeaders[ci]) {
       return { rows: [], error: "헤더 불일치: expected " + expectedHeaders[ci] + ", got " + String(headers[ci] || "") };
     }
   }
 
-  var data = src.getRange(2, 1, lastRow - 1, 11).getValues();
+  var data = src.getRange(headerRow + 1, 1, lastRow - headerRow, 11).getValues();
   var rows = [];
   for (var i = 0; i < data.length; i++) {
     var r = data[i];
