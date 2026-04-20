@@ -228,7 +228,9 @@ export default function SoccerApp({ authUser, teamContext, isNewGame, gameMode, 
       const [r1, r2, r3, r4, r5] = results;
       const legacyOk = r1.status === 'fulfilled' && r2.status === 'fulfilled' && r3.status === 'fulfilled';
       if (!legacyOk) throw new Error('기존 시트 저장 실패');
-      await AppSync.finalizeState(gameId);
+      // Firebase에 확정 state 저장 (HistoryView/PlayerAnalytics 소스)
+      await FirebaseSync.saveFinalized(teamContext?.team, gameId, gameState);
+      // active 클리어 (목록/이어하기에서 제거)
       await FirebaseSync.clearState(teamContext?.team, gameId);
       const r1v = r1.value, r2v = r2.value, r3v = r3.value;
       const r4v = r4.status === 'fulfilled' ? r4.value : null;

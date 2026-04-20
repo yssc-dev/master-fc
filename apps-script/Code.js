@@ -207,7 +207,7 @@ function doPost(e) {
     } else if (action === "clearState") {
       return _jsonResponse(_clearGameState(body.team, body.gameId));
     } else if (action === "finalizeState") {
-      return _jsonResponse(_finalizeGameState(body.team, body.gameId));
+      return _jsonResponse(_finalizeGameState(body.team, body.gameId, body.state));
     } else if (action === "writePointLog") {
       return _jsonResponse(_writePointLog(body.data, body.pointLogSheet || ""));
     } else if (action === "writePlayerLog") {
@@ -365,11 +365,8 @@ function _findStateRowByGameId(sheet, team, gameId) {
   return -1;
 }
 
-function _saveGameState(state, team, gameId) {
-  if (!state) return { success: false, error: "state is empty" };
-  if (!team) team = "기본팀";
-  if (!gameId) gameId = state.gameId || "";
-  // 경기일자: gameId 타임스탬프(경기 생성 시점) 사용, 없으면 현재 날짜
+// 경기일자: gameId 타임스탬프(경기 생성 시점) 사용, 없으면 현재 날짜
+function _stateRowGameDate(gameId) {
   var gameDate = _kstDate();
   if (gameId && gameId.indexOf("g_") === 0) {
     try {
@@ -377,6 +374,21 @@ function _saveGameState(state, team, gameId) {
       if (ts > 0) gameDate = Utilities.formatDate(new Date(ts), "Asia/Seoul", "yyyy-MM-dd");
     } catch(e) {}
   }
+  return gameDate;
+}
+
+function _stateRowSummary(gameId, state) {
+  var evtCount = (state.allEvents || []).length;
+  var matchCount = (state.completedMatches || []).length;
+  var creator = state.gameCreator || state.lastEditor || "?";
+  return gameId + " | " + creator + " | " + (state.phase || "?") + " | 이벤트 " + evtCount + "건 | 완료 " + matchCount + "경기";
+}
+
+function _saveGameState(state, team, gameId) {
+  if (!state) return { success: false, error: "state is empty" };
+  if (!team) team = "기본팀";
+  if (!gameId) gameId = state.gameId || "";
+  var gameDate = _stateRowGameDate(gameId);
 
   var lock = LockService.getScriptLock();
   if (!lock.tryLock(10000)) return { success: false, error: "다른 저장이 진행 중입니다. 잠시 후 다시 시도하세요" };
@@ -385,11 +397,7 @@ function _saveGameState(state, team, gameId) {
     var sheet = _getOrCreateStateSheet();
     var json = JSON.stringify(state);
     var now = _kstNow();
-
-    var evtCount = (state.allEvents || []).length;
-    var matchCount = (state.completedMatches || []).length;
-    var creator = state.gameCreator || state.lastEditor || "?";
-    var summary = gameId + " | " + creator + " | " + (state.phase || "?") + " | 이벤트 " + evtCount + "건 | 완료 " + matchCount + "경기";
+    var summary = _stateRowSummary(gameId, state);
 
     // gameId로 기존 행 찾기
     var row = gameId ? _findStateRowByGameId(sheet, team, gameId) : -1;
@@ -488,18 +496,17 @@ function _clearGameState(team, gameId) {
   }
 }
 
-function _finalizeGameState(team, gameId) {
+// Firebase 단일화 이후 진행중 행이 없을 수 있으므로, state가 제공되면 확정 행을 신규 insert.
+function _finalizeGameState(team, gameId, state) {
   if (!team) team = "기본팀";
 
   var lock = LockService.getScriptLock();
   if (!lock.tryLock(10000)) return { success: false, error: "잠금 획득 실패" };
 
   try {
-    var ss = SpreadsheetApp.getActiveSpreadsheet();
-    var sheet = ss.getSheetByName(STATE_SHEET_NAME);
-    if (!sheet) return { success: false, error: "시트 없음" };
-
+    var sheet = _getOrCreateStateSheet();
     var colCount = sheet.getLastColumn();
+    var now = _kstNow();
 
     if (colCount >= 6) {
       var row = gameId ? _findStateRowByGameId(sheet, team, gameId) : -1;
@@ -507,11 +514,29 @@ function _finalizeGameState(team, gameId) {
         var rows = _findAllStateRows(sheet, team, "진행중");
         row = rows.length > 0 ? rows[0] : -1;
       }
-      if (row < 0) return { success: false, error: "진행중인 경기 없음" };
 
-      sheet.getRange(row, 3).setValue("확정");
-      sheet.getRange(row, 5).setValue(_kstNow());
-      return { success: true, message: "경기 확정 완료" };
+      if (row > 0) {
+        if (state) {
+          var gameDate = _stateRowGameDate(gameId);
+          var json = JSON.stringify(state);
+          var summary = _stateRowSummary(gameId, state);
+          sheet.getRange(row, 2, 1, 5).setValues([[gameDate, "확정", json, now, summary]]);
+        } else {
+          sheet.getRange(row, 3).setValue("확정");
+          sheet.getRange(row, 5).setValue(now);
+        }
+        return { success: true, message: "경기 확정 완료" };
+      }
+
+      if (state) {
+        var gameDate2 = _stateRowGameDate(gameId);
+        var json2 = JSON.stringify(state);
+        var summary2 = _stateRowSummary(gameId, state);
+        var lastRow = sheet.getLastRow();
+        sheet.getRange(lastRow + 1, 1, 1, 6).setValues([[team, gameDate2, "확정", json2, now, summary2]]);
+        return { success: true, message: "경기 확정 신규 저장" };
+      }
+      return { success: false, error: "진행중인 경기 없음 (state 없음)" };
     }
 
     sheet.getRange("A2:C2").clearContent();

@@ -71,14 +71,14 @@ const AppSync = {
     } catch (e) { console.warn("상태 삭제 실패:", e.message); }
   },
 
-  async finalizeState(gameId) {
+  async finalizeState(gameId, state) {
     if (!this.enabled()) return;
     try {
       const team = this._getTeam();
       const resp = await fetch(APPS_SCRIPT_URL, {
         method: "POST",
         headers: { "Content-Type": "text/plain" },
-        body: JSON.stringify({ action: "finalizeState", team, gameId, authToken: this._getAuthToken() }),
+        body: JSON.stringify({ action: "finalizeState", team, gameId, state, authToken: this._getAuthToken() }),
       });
       return await resp.json();
     } catch (e) { console.warn("상태 확정 실패:", e.message); return null; }

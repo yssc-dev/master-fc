@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import AppSync from '../../services/appSync';
+import FirebaseSync from '../../services/firebaseSync';
 import { useTheme } from '../../hooks/useTheme';
 import { TEAM_COLORS } from '../../config/constants';
 import { calcMatchScore } from '../../utils/scoring';
@@ -68,9 +68,13 @@ export default function HistoryView({ teamContext, onBack }) {
   const [loading, setLoading] = useState(true);
   const [history, setHistory] = useState([]);
   const [selectedGame, setSelectedGame] = useState(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+
+  const team = teamContext?.team;
 
   useEffect(() => {
-    AppSync.getHistory().then(data => {
+    if (!team) { setLoading(false); return; }
+    FirebaseSync.loadFinalizedList(team).then(data => {
       const sorted = [...data].sort((a, b) => {
         const da = new Date(a.gameDate), db = new Date(b.gameDate);
         if (!isNaN(da) && !isNaN(db)) return db - da;
@@ -78,7 +82,17 @@ export default function HistoryView({ teamContext, onBack }) {
       });
       setHistory(sorted);
     }).finally(() => setLoading(false));
-  }, []);
+  }, [team]);
+
+  const handleSelect = async (h) => {
+    setDetailLoading(true);
+    try {
+      const stateJson = await FirebaseSync.loadFinalizedOne(team, h.gameId);
+      setSelectedGame({ ...h, stateJson: stateJson || "" });
+    } finally {
+      setDetailLoading(false);
+    }
+  };
 
   const hs = {
     container: { background: C.bg, minHeight: "100vh", color: C.white, fontFamily: "'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif", maxWidth: 500, margin: "0 auto" },
@@ -258,8 +272,8 @@ export default function HistoryView({ teamContext, onBack }) {
             const evtInfo = parts[3] || "";
             const matchInfo = parts[4] || "";
             return (
-              <div key={i} onClick={() => setSelectedGame(h)}
-                style={{ ...hs.card, cursor: "pointer", border: `1px solid ${C.grayDark}` }}>
+              <div key={i} onClick={() => !detailLoading && handleSelect(h)}
+                style={{ ...hs.card, cursor: detailLoading ? "wait" : "pointer", border: `1px solid ${C.grayDark}`, opacity: detailLoading ? 0.6 : 1 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <div>
                     <div style={{ fontSize: 15, fontWeight: 700, color: C.white }}>{formatDate(h.gameDate)} 경기</div>

@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useTheme } from '../../hooks/useTheme';
 import AppSync from '../../services/appSync';
+import FirebaseSync from '../../services/firebaseSync';
 import { fetchSheetData } from '../../services/sheetService';
 import { getSettings, getEffectiveSettings, saveSettings, loadSettingsFromFirebase } from '../../config/settings';
 import { parseGameHistory, calcDefenseStats, calcWinContribution, calcSynergy, calcWinStatsFromPointLog, calcDefenseFromMembers } from '../../utils/gameStateAnalyzer';
@@ -283,7 +284,7 @@ export default function PlayerAnalytics({ teamName, teamMode, initialTab, isAdmi
     if (needsGameRecords.includes(tab)) {
       if (!gameRecords && !gameRecordsLoading) {
         setGameRecordsLoading(true);
-        AppSync.getHistory().then(history => {
+        FirebaseSync.loadFinalizedAll(teamName).then(history => {
           setGameRecords(parseGameHistory(history));
         }).catch(err => {
           console.warn("상태JSON 로드 실패:", err);
