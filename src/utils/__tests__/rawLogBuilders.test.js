@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { RAW_EVENT_COLUMNS, RAW_PLAYER_GAME_COLUMNS, buildRawEventsFromFutsal, buildRawPlayerGamesFromFutsal, buildRawEventsFromSoccer, buildRawPlayerGamesFromSoccer } from '../rawLogBuilders';
+import { RAW_EVENT_COLUMNS, RAW_PLAYER_GAME_COLUMNS, buildRawEventsFromFutsal, buildRawPlayerGamesFromFutsal, buildRawEventsFromSoccer, buildRawPlayerGamesFromSoccer, buildRawPlayerGamesFromTournament } from '../rawLogBuilders';
 
 describe('raw log column constants', () => {
   it('RAW_EVENT_COLUMNS: 13개, 스펙 순서대로', () => {
@@ -217,5 +217,105 @@ describe('buildRawPlayerGamesFromSoccer', () => {
 
   it('빈 players → 빈 배열', () => {
     expect(buildRawPlayerGamesFromSoccer({ team: 'X', players: [] })).toEqual([]);
+  });
+});
+
+describe('buildRawPlayerGamesFromTournament', () => {
+  const base = {
+    team: '하버FC', tournamentId: 'T1', inputTime: 't',
+  };
+
+  it('날짜 × 선수 단위로 집계, mode="대회", tournament_id 세팅', () => {
+    const rows = buildRawPlayerGamesFromTournament({
+      ...base,
+      events: [
+        { gameDate: '2026-05-01', matchNum: 1, event: '출전', player: 'A', position: 'GK', relatedPlayer: '' },
+        { gameDate: '2026-05-01', matchNum: 1, event: '출전', player: 'B', position: 'FW', relatedPlayer: '' },
+        { gameDate: '2026-05-01', matchNum: 1, event: '골', player: 'B', relatedPlayer: '' },
+      ],
+    });
+    const a = rows.find(r => r.player === 'A');
+    const b = rows.find(r => r.player === 'B');
+    expect(a).toMatchObject({ team: '하버FC', sport: '축구', mode: '대회', tournament_id: 'T1', date: '2026-05-01', session_team: '하버FC', games: 1, keeper_games: 1, field_games: 0, cleansheets: 1 });
+    expect(b).toMatchObject({ games: 1, field_games: 1, keeper_games: 0, goals: 1, cleansheets: 0 });
+  });
+
+  it('여러 경기 합산 (같은 날짜)', () => {
+    const rows = buildRawPlayerGamesFromTournament({
+      ...base,
+      events: [
+        { gameDate: '2026-05-01', matchNum: 1, event: '출전', player: 'A', position: 'FW' },
+        { gameDate: '2026-05-01', matchNum: 1, event: '골', player: 'A' },
+        { gameDate: '2026-05-01', matchNum: 2, event: '출전', player: 'A', position: 'FW' },
+        { gameDate: '2026-05-01', matchNum: 2, event: '골', player: 'A' },
+        { gameDate: '2026-05-01', matchNum: 2, event: '골', player: 'A' },
+      ],
+    });
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ player: 'A', games: 2, field_games: 2, goals: 3 });
+  });
+
+  it('다른 날짜는 별개 row', () => {
+    const rows = buildRawPlayerGamesFromTournament({
+      ...base,
+      events: [
+        { gameDate: '2026-05-01', event: '출전', player: 'A', position: 'FW' },
+        { gameDate: '2026-05-02', event: '출전', player: 'A', position: 'FW' },
+      ],
+    });
+    expect(rows).toHaveLength(2);
+    expect(rows.map(r => r.date).sort()).toEqual(['2026-05-01', '2026-05-02']);
+  });
+
+  it('골 + 어시스트 (relatedPlayer)', () => {
+    const rows = buildRawPlayerGamesFromTournament({
+      ...base,
+      events: [
+        { gameDate: '2026-05-01', event: '골', player: 'A', relatedPlayer: 'B' },
+      ],
+    });
+    expect(rows.find(r => r.player === 'A').goals).toBe(1);
+    expect(rows.find(r => r.player === 'B').assists).toBe(1);
+  });
+
+  it('실점은 player(GK) 에게 카운트, cleansheets 0', () => {
+    const rows = buildRawPlayerGamesFromTournament({
+      ...base,
+      events: [
+        { gameDate: '2026-05-01', event: '출전', player: 'A', position: 'GK' },
+        { gameDate: '2026-05-01', event: '실점', player: 'A', position: 'GK' },
+      ],
+    });
+    const a = rows.find(r => r.player === 'A');
+    expect(a.conceded).toBe(1);
+    expect(a.cleansheets).toBe(0);
+    expect(a.keeper_games).toBe(1);
+  });
+
+  it('자책골', () => {
+    const rows = buildRawPlayerGamesFromTournament({
+      ...base,
+      events: [
+        { gameDate: '2026-05-01', event: '자책골', player: 'A' },
+      ],
+    });
+    expect(rows[0].owngoals).toBe(1);
+  });
+
+  it('교체 in → games/field 증가', () => {
+    const rows = buildRawPlayerGamesFromTournament({
+      ...base,
+      events: [
+        { gameDate: '2026-05-01', event: '교체', player: 'IN', relatedPlayer: 'OUT', position: 'FW' },
+      ],
+    });
+    const inR = rows.find(r => r.player === 'IN');
+    expect(inR).toMatchObject({ games: 1, field_games: 1, keeper_games: 0 });
+    // OUT 은 별도 row 없음 (교체로 들어온 IN만 카운트)
+    expect(rows.find(r => r.player === 'OUT')).toBeUndefined();
+  });
+
+  it('빈 events → 빈 배열', () => {
+    expect(buildRawPlayerGamesFromTournament({ ...base, events: [] })).toEqual([]);
   });
 });

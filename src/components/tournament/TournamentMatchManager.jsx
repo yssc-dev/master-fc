@@ -8,7 +8,7 @@ import { firebaseDb } from '../../config/firebase';
 import { calcSoccerScore, buildEventLogRows } from '../../utils/soccerScoring';
 import { generateEventId } from '../../utils/idGenerator';
 import AppSync from '../../services/appSync';
-import { buildRawEventsFromSoccer } from '../../utils/rawLogBuilders';
+import { buildRawEventsFromSoccer, buildRawPlayerGamesFromTournament } from '../../utils/rawLogBuilders';
 
 export default function TournamentMatchManager({ tournament, schedule: rawSchedule, ourTeamName, attendees: rawAttendees, gameSettings, onScheduleUpdate }) {
   const schedule = rawSchedule || [];
@@ -150,6 +150,18 @@ export default function TournamentMatchManager({ tournament, schedule: rawSchedu
     }
     Object.values(pStats).forEach(p => { p.point = p.goals + p.assists + (p.owngoals * gameSettings.ownGoalPoint) + (p.cleanSheets * gameSettings.cleanSheetPoint); });
     await AppSync.writeTournamentPlayerRecord(tournament.id, { players: Object.values(pStats) });
+
+    // 로그_선수경기 (통합 로그) — 대회 스코프 재집계하여 replaceBy 로 덮어쓰기
+    const rawPlayerGames = buildRawPlayerGamesFromTournament({
+      team: ourTeamName,
+      tournamentId: tournament.id,
+      inputTime: new Date().toLocaleString("ko-KR"),
+      events: allEvents,
+    });
+    await AppSync.writeRawPlayerGames({
+      rows: rawPlayerGames,
+      replaceBy: { team: ourTeamName, sport: '축구', mode: '대회', tournament_id: tournament.id },
+    });
 
     // clear Firebase activeGame
     await set(ref(firebaseDb, fbPath), null);

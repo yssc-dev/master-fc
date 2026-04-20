@@ -94,7 +94,6 @@ export function buildRawEventsFromSoccer({ team, mode = '기본', tournamentId =
 
 /**
  * 축구 기본 playerLogRows → 로그_선수경기 rows.
- * 대회 모드는 append-only와 증분 집계가 충돌하므로 이 함수로 생성하지 않음.
  */
 export function buildRawPlayerGamesFromSoccer({ team, inputTime, players }) {
   return (players || []).map(p => ({
@@ -108,6 +107,53 @@ export function buildRawPlayerGamesFromSoccer({ team, inputTime, players }) {
     owngoals: Number(p.owngoals) || 0,
     conceded: Number(p.conceded) || 0,
     cleansheets: Number(p.cleanSheets) || 0,
+    crova: 0, goguma: 0, 역주행: 0, rank_score: 0,
+    input_time: inputTime || '',
+  }));
+}
+
+/**
+ * 대회 이벤트로그 전체 → 로그_선수경기 rows (date × player 단위 집계).
+ * 매 경기 종료마다 호출 — replaceBy 옵션과 함께 써서 기존 rows 덮어쓰기.
+ * @param {{ team, tournamentId, inputTime, events }} input
+ *   events: 대회_xxx_이벤트로그 형식 (event, player, relatedPlayer, position, gameDate, matchNum, ...)
+ */
+export function buildRawPlayerGamesFromTournament({ team, tournamentId, inputTime, events }) {
+  const byDatePlayer = {}; // "date|player" → stats
+  const ensure = (date, name) => {
+    const k = date + '|' + name;
+    if (!byDatePlayer[k]) {
+      byDatePlayer[k] = { date, player: name, games: 0, field_games: 0, keeper_games: 0, goals: 0, assists: 0, owngoals: 0, conceded: 0, cleansheets: 0 };
+    }
+    return byDatePlayer[k];
+  };
+  (events || []).forEach(e => {
+    const d = e.gameDate || '';
+    if (e.event === '출전') {
+      const s = ensure(d, e.player); s.games++;
+      if (e.position === 'GK') s.keeper_games++; else s.field_games++;
+    } else if (e.event === '골') {
+      ensure(d, e.player).goals++;
+      if (e.relatedPlayer) ensure(d, e.relatedPlayer).assists++;
+    } else if (e.event === '자책골') {
+      ensure(d, e.player).owngoals++;
+    } else if (e.event === '실점' && e.player) {
+      ensure(d, e.player).conceded++;
+    } else if (e.event === '교체') {
+      const s = ensure(d, e.player); s.games++;
+      if (e.position === 'GK') s.keeper_games++; else s.field_games++;
+    }
+  });
+  // cleansheets: GK 출전 있고 실점 0 → 1
+  Object.values(byDatePlayer).forEach(s => {
+    s.cleansheets = (s.keeper_games > 0 && s.conceded === 0) ? 1 : 0;
+  });
+  return Object.values(byDatePlayer).map(s => ({
+    team, sport: '축구', mode: '대회', tournament_id: tournamentId || '',
+    date: s.date, player: s.player, session_team: team,
+    games: s.games, field_games: s.field_games, keeper_games: s.keeper_games,
+    goals: s.goals, assists: s.assists, owngoals: s.owngoals,
+    conceded: s.conceded, cleansheets: s.cleansheets,
     crova: 0, goguma: 0, 역주행: 0, rank_score: 0,
     input_time: inputTime || '',
   }));

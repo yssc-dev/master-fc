@@ -882,22 +882,27 @@ function _writeRawPlayerGames(data) {
   if (!data || !data.rows) return { success: false, error: "rows 누락" };
   _ensureRawSheets();
   var rows = data.rows;
-  if (rows.length === 0) return { success: true, count: 0, skipped: 0 };
+  if (rows.length === 0 && !data.replaceBy) return { success: true, count: 0, skipped: 0 };
   // skipDedupe=true: Legacy import 용. 같은 선수가 한 날짜에 복수 세션 기록된 케이스 보존.
   var skipDedupe = data.skipDedupe === true;
+  // replaceBy={team, sport, mode, tournament_id}: 대회 재집계용.
+  // 해당 스코프의 기존 행을 삭제한 뒤 새 rows insert.
+  var replaceBy = data.replaceBy && typeof data.replaceBy === 'object' ? data.replaceBy : null;
 
   var lock = LockService.getScriptLock();
   if (!lock.tryLock(15000)) return { success: false, error: "잠금 획득 실패" };
   try {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     var sheet = ss.getSheetByName(RAW_PLAYER_GAMES_SHEET);
-    var existingKeys = skipDedupe ? {} : _loadRawPlayerGameKeys(sheet);
+    var removed = 0;
+    if (replaceBy) removed = _removeRawPlayerGamesMatching(sheet, replaceBy);
+    var existingKeys = (skipDedupe || replaceBy) ? {} : _loadRawPlayerGameKeys(sheet);
 
     var toInsert = [];
     var skipped = 0;
     for (var i = 0; i < rows.length; i++) {
       var r = rows[i];
-      if (!skipDedupe) {
+      if (!skipDedupe && !replaceBy) {
         var key = _rawPlayerGameKey(r);
         if (existingKeys[key]) { skipped++; continue; }
         existingKeys[key] = true;
@@ -908,10 +913,27 @@ function _writeRawPlayerGames(data) {
       var lastRow = sheet.getLastRow();
       sheet.getRange(lastRow + 1, 1, toInsert.length, RAW_PLAYER_GAMES_HEADERS.length).setValues(toInsert);
     }
-    return { success: true, count: toInsert.length, skipped: skipped };
+    return { success: true, count: toInsert.length, skipped: skipped, removed: removed };
   } finally {
     lock.releaseLock();
   }
+}
+
+// replaceBy 스코프 (team, sport, mode, tournament_id) 매칭 기존 행 삭제. 반환: 삭제 건수.
+function _removeRawPlayerGamesMatching(sheet, filter) {
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return 0;
+  var data = sheet.getRange(2, 1, lastRow - 1, RAW_PLAYER_GAMES_HEADERS.length).getValues();
+  var ft = filter.team || "", fs = filter.sport || "", fm = filter.mode || "", fti = filter.tournament_id || "";
+  var removed = 0;
+  for (var i = data.length - 1; i >= 0; i--) {
+    var r = data[i];
+    if (r[0] === ft && r[1] === fs && r[2] === fm && r[3] === fti) {
+      sheet.deleteRow(i + 2);
+      removed++;
+    }
+  }
+  return removed;
 }
 
 function _rawPlayerGameKey(r) {
