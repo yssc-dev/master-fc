@@ -1,10 +1,10 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useTheme } from '../../hooks/useTheme';
 import AppSync from '../../services/appSync';
-import FirebaseSync from '../../services/firebaseSync';
 import { fetchSheetData } from '../../services/sheetService';
 import { getSettings, getEffectiveSettings, saveSettings, loadSettingsFromFirebase } from '../../config/settings';
-import { parseGameHistory, calcDefenseStats, calcWinContribution, calcSynergy, calcWinStatsFromPointLog, calcDefenseFromMembers } from '../../utils/gameStateAnalyzer';
+import { calcDefenseStats, calcWinContribution, calcSynergy, calcWinStatsFromPointLog, calcDefenseFromMembers } from '../../utils/gameStateAnalyzer';
+import { buildGameRecordsFromLogs } from '../../utils/gameRecordBuilder';
 import { calcComboEfficiency, calcCrovaGogumaFreq, calcRoundMidpointTimePattern } from '../../utils/playerAnalyticsUtils';
 import PlayerCardTab from './PlayerCardTab';
 import SynergyTab from './SynergyTab';
@@ -281,18 +281,23 @@ export default function PlayerAnalytics({ teamName, teamMode, initialTab, isAdmi
   const needsGameRecords = ["playercard", "synergy", "timepattern", "combo2", "crovaguma"];
 
   useEffect(() => {
-    if (needsGameRecords.includes(tab)) {
-      if (!gameRecords && !gameRecordsLoading) {
-        setGameRecordsLoading(true);
-        FirebaseSync.loadFinalizedAll(teamName).then(history => {
-          setGameRecords(parseGameHistory(history));
-        }).catch(err => {
-          console.warn("상태JSON 로드 실패:", err);
-          setGameRecords([]);
-        }).finally(() => setGameRecordsLoading(false));
-      }
-    }
-  }, [tab, gameRecords, gameRecordsLoading]);
+    if (!needsGameRecords.includes(tab)) return;
+    setGameRecordsLoading(true);
+    Promise.all([
+      AppSync.getMatchLog({ sport: isSoccer ? '축구' : '풋살' }),
+      AppSync.getEventLog({ sport: isSoccer ? '축구' : '풋살' }),
+    ])
+      .then(([matchRes, eventRes]) => {
+        const matchRows = matchRes?.rows || [];
+        const eventRows = eventRes?.rows || [];
+        setGameRecords(buildGameRecordsFromLogs(matchRows, eventRows));
+      })
+      .catch(err => {
+        console.warn("로그_매치/로그_이벤트 로드 실패:", err);
+        setGameRecords([]);
+      })
+      .finally(() => setGameRecordsLoading(false));
+  }, [teamName, tab, isSoccer]);
 
   const isCrovaGogumaMode = useMemo(() => {
     if (isSoccer) return false;
@@ -345,12 +350,16 @@ export default function PlayerAnalytics({ teamName, teamMode, initialTab, isAdmi
   , [crovaGogumaFreq]);
   const gameRecordsSummary = useMemo(() => {
     if (!gameRecords || gameRecords.length === 0) return null;
-    const dates = gameRecords.map(g => g.gameDate).filter(Boolean).sort();
-    const totalRounds = gameRecords.reduce(
-      (sum, r) => sum + (r.matches || []).filter(m => !m.isExtra).length,
-      0,
-    );
-    return { count: gameRecords.length, totalRounds, from: dates[0], to: dates[dates.length - 1] };
+    const sessionIds = new Set();
+    let roundCount = 0;
+    let legacyCount = 0;
+    for (const gr of gameRecords) {
+      const gid = gr.gameDate + '|' + (gr.teamNames?.[0] || '');
+      sessionIds.add(gid);
+      roundCount += (gr.matches || []).filter(m => !m.isExtra).length;
+      if ((gr.matches || []).some(m => String(m.matchId || '').startsWith('legacy_'))) legacyCount++;
+    }
+    return { sessionCount: sessionIds.size, roundCount, legacyCount };
   }, [gameRecords]);
 
   const allTabs = [
@@ -360,8 +369,8 @@ export default function PlayerAnalytics({ teamName, teamMode, initialTab, isAdmi
     { key: "combo2", label: "득점콤비" },
     !isSoccer && { key: "crovaguma", label: isCrovaGogumaMode ? "🍀/🍠" : "승·꼴" },
     { key: "playercard", label: "선수카드" },
-    !isSoccer && { key: "synergy", label: "시너지" },
-    !isSoccer && { key: "timepattern", label: "시간대" },
+    { key: "synergy", label: "시너지" },
+    { key: "timepattern", label: "시간대" },
     ...(initialTab === "dualteam" ? [{ key: "dualteam", label: "팀전" }] : []),
   ].filter(Boolean);
   const tabs = allTabs;
@@ -650,7 +659,8 @@ export default function PlayerAnalytics({ teamName, teamMode, initialTab, isAdmi
 
       {needsGameRecords.includes(tab) && gameRecordsSummary && (
         <div style={{ fontSize: 10, color: C.gray, textAlign: "center", marginBottom: 8, padding: "4px 8px", background: `${C.grayDarker}44`, borderRadius: 6 }}>
-          앱 기록 {gameRecordsSummary.count}세션 / 총 {gameRecordsSummary.totalRounds}라운드 기준 ({gameRecordsSummary.from} ~ {gameRecordsSummary.to}) · 수비력/승리기여/시너지는 앱 기록 경기만 분석
+          분석 범위: {gameRecordsSummary.sessionCount}세션 / 총 {gameRecordsSummary.roundCount}라운드
+          {gameRecordsSummary.legacyCount > 0 && <span style={{ color: C.orange || '#f97316' }}> · 레거시 추정 {gameRecordsSummary.legacyCount}건 포함 (근사)</span>}
         </div>
       )}
 
