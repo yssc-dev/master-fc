@@ -275,6 +275,10 @@ function doPost(e) {
       return _jsonResponse(_ensureEventLogHasGameId());
     } else if (action === "backupSheet") {
       return _jsonResponse(_backupSheet(body.sheetName));
+    } else if (action === "writeRawMatches") {
+      return _jsonResponse(_writeRawMatches(body.data));
+    } else if (action === "deleteRawMatchesByDate") {
+      return _jsonResponse(_deleteRawMatchesByDate(body.team, body.sport, body.date));
     } else if (action === "createTournament") {
       return _jsonResponse(_createTournament(body.data));
     } else if (action === "deleteTournament") {
@@ -936,6 +940,83 @@ function _loadRawEventKeys(sheet) {
     keys[key] = true;
   }
   return keys;
+}
+
+function _writeRawMatches(data) {
+  if (!data || !data.rows) return { success: false, error: "rows 누락" };
+  _ensureRawSheets();
+  var rows = data.rows;
+  if (rows.length === 0) return { success: true, count: 0, skipped: 0 };
+
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(15000)) return { success: false, error: "잠금 획득 실패" };
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getSheetByName(RAW_MATCHES_SHEET);
+    var existingKeys = _loadRawMatchKeys(sheet);
+
+    var toInsert = [];
+    var skipped = 0;
+    for (var i = 0; i < rows.length; i++) {
+      var r = rows[i];
+      var key = (r.game_id || "") + "|" + (r.match_id || "");
+      if (existingKeys[key]) { skipped++; continue; }
+      existingKeys[key] = true;
+      toInsert.push(_rawMatchToArray(r));
+    }
+    if (toInsert.length > 0) {
+      var lastRow = sheet.getLastRow();
+      sheet.getRange(lastRow + 1, 1, toInsert.length, RAW_MATCHES_HEADERS.length).setValues(toInsert);
+    }
+    return { success: true, count: toInsert.length, skipped: skipped };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function _loadRawMatchKeys(sheet) {
+  var lastRow = sheet.getLastRow();
+  var keys = {};
+  if (lastRow < 2) return keys;
+  var data = sheet.getRange(2, 6, lastRow - 1, 5).getValues(); // game_id=col6, match_id=col10 → 6..10
+  for (var i = 0; i < data.length; i++) {
+    var key = (data[i][0] || "") + "|" + (data[i][4] || "");
+    keys[key] = true;
+  }
+  return keys;
+}
+
+function _rawMatchToArray(r) {
+  return [
+    r.team||"", r.sport||"", r.mode||"", r.tournament_id||"",
+    r.date||"", r.game_id||"", r.match_idx||0,
+    r.round_idx===null||r.round_idx===undefined?"":r.round_idx,
+    r.court_id===null||r.court_id===undefined?"":r.court_id,
+    r.match_id||"",
+    r.our_team_name||"", r.opponent_team_name||"",
+    r.our_members_json||"[]", r.opponent_members_json||"[]",
+    r.our_score||0, r.opponent_score||0,
+    r.our_gk||"", r.opponent_gk||"",
+    r.formation||"", r.our_defenders_json||"[]",
+    r.is_extra===true, r.input_time||""
+  ];
+}
+
+function _deleteRawMatchesByDate(team, sport, date) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(RAW_MATCHES_SHEET);
+  if (!sheet) return { removed: 0 };
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return { removed: 0 };
+  var data = sheet.getRange(2, 1, lastRow - 1, RAW_MATCHES_HEADERS.length).getValues();
+  var removed = 0;
+  for (var i = data.length - 1; i >= 0; i--) {
+    if (data[i][0] === team && data[i][1] === sport && _toDateStr(data[i][4]) === date) {
+      sheet.deleteRow(i + 2);
+      removed++;
+    }
+  }
+  return { removed: removed };
 }
 
 function _writeRawPlayerGames(data) {
