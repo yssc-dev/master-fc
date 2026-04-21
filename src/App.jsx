@@ -7,6 +7,7 @@ import { snakeDraft } from './utils/draft';
 import { generate4Team2Court, generate5Team2Court, generate6Team2Court, generate6TeamSecondHalf, generate1Court } from './utils/brackets';
 import { generateEventId } from './utils/idGenerator';
 import { buildRawEventsFromFutsal, buildRawPlayerGamesFromFutsal } from './utils/rawLogBuilders';
+import { buildRoundRowsFromFutsal } from './utils/matchRowBuilder';
 import { fetchSheetData, fetchAttendanceData } from './services/sheetService';
 import AppSync from './services/appSync';
 import FirebaseSync from './services/firebaseSync';
@@ -583,10 +584,18 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
     }).filter(Boolean);
 
     const team = teamContext?.team || '';
-    const rawEvents = buildRawEventsFromFutsal({ team, events: pointEvents });
+    const rawEvents = buildRawEventsFromFutsal({ team, gameId: gameState.gameId, events: pointEvents });
     const rawPlayerGames = buildRawPlayerGamesFromFutsal({
       team, inputTime,
       players: playerData.map(p => ({ ...p, playerTeam: getPlayerTeamName(p.name) })),
+    });
+    const matchRows = buildRoundRowsFromFutsal({
+      team,
+      mode: '기본',
+      tournamentId: '',
+      date: dateStr,
+      stateJSON: gameState,
+      inputTime,
     });
 
     try {
@@ -595,8 +604,9 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
         AppSync.writePlayerLog({ players: playerData }, ES.playerLogSheet),
         AppSync.writeRawEvents({ rows: rawEvents }),
         AppSync.writeRawPlayerGames({ rows: rawPlayerGames }),
+        AppSync.writeMatchLog(matchRows),
       ]);
-      const [r1, r2, r3, r4] = results;
+      const [r1, r2, r3, r4, r5] = results;
       const legacyOk = r1.status === 'fulfilled' && r2.status === 'fulfilled';
       if (!legacyOk) throw new Error('기존 시트 저장 실패');
       // Firebase에 확정 state 저장 (HistoryView/PlayerAnalytics 소스)
@@ -606,7 +616,8 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
       const r1v = r1.value, r2v = r2.value;
       const r3v = r3.status === 'fulfilled' ? r3.value : null;
       const r4v = r4.status === 'fulfilled' ? r4.value : null;
-      alert(`기록 확정 완료!\n\n포인트로그: ${r1v?.count || 0}건\n선수별집계: ${r2v?.count || 0}명\n로그_이벤트: ${r3v?.count || 0}건${r3v?.skipped ? ` (skip ${r3v.skipped})` : ''}\n로그_선수경기: ${r4v?.count || 0}명${r4v?.skipped ? ` (skip ${r4v.skipped})` : ''}`);
+      const r5v = r5.status === 'fulfilled' ? r5.value : null;
+      alert(`기록 확정 완료!\n\n포인트로그: ${r1v?.count || 0}건\n선수별집계: ${r2v?.count || 0}명\n로그_이벤트: ${r3v?.count || 0}건${r3v?.skipped ? ` (skip ${r3v.skipped})` : ''}\n로그_선수경기: ${r4v?.count || 0}명${r4v?.skipped ? ` (skip ${r4v.skipped})` : ''}\n로그_매치: ${r5v?.count || 0}건${r5v?.skipped ? ` (skip ${r5v.skipped})` : ''}`);
       onBackToMenu?.();
     } catch (err) {
       alert("시트 저장 실패: " + err.message);
