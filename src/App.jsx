@@ -1017,33 +1017,75 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
   // MATCH PHASE
   if (phase === "match") {
     const _showModalBonus = matchMode !== "push" && courtCount === 2 && (state.settingsSnapshot?.useCrovaGoguma ?? gameSettings.useCrovaGoguma ?? false);
+    const pillBtnStyle = ({ tone = "neutral", strong = false } = {}) => {
+      const toneMap = {
+        neutral: { bg: "var(--app-bg-row)", fg: "var(--app-text-primary)", border: "0.5px solid var(--app-divider)" },
+        green:   { bg: strong ? "var(--app-green)" : "rgba(52,199,89,0.12)",  fg: strong ? "#fff" : "var(--app-green)",  border: "none" },
+        orange:  { bg: strong ? "var(--app-orange)" : "rgba(255,149,0,0.12)", fg: strong ? "#fff" : "var(--app-orange)", border: "none" },
+        red:     { bg: strong ? "var(--app-red)" : "rgba(255,59,48,0.12)",    fg: strong ? "#fff" : "var(--app-red)",    border: "none" },
+      };
+      const t = toneMap[tone] || toneMap.neutral;
+      return {
+        flexShrink: 0, padding: "7px 14px", borderRadius: 999,
+        background: t.bg, color: t.fg, border: t.border,
+        fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit",
+        letterSpacing: "-0.01em", whiteSpace: "nowrap",
+      };
+    };
     return (
       <div style={s.app}>
-        <div style={s.header}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <button onClick={onBackToMenu} style={{ position: "absolute", left: 16, background: "rgba(255,255,255,0.15)", color: "#fff", border: "none", borderRadius: 8, padding: "4px 10px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>홈</button>
-            <div style={s.title}>⚽ 경기 진행</div>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-            <div style={s.subtitle}>{matchMode === "schedule" ? `${allRoundsComplete ? "전체 라운드 완료" : `라운드 ${currentRoundIdx + 1}/${schedule.length}`}` : matchMode === "push" ? `밀어내기 · ${completedMatches.length}경기` : `자유대전 · ${completedMatches.length}매치`}</div>
+        <div style={{
+          padding: "20px 16px 12px", background: "var(--app-bg-grouped)",
+          position: "sticky", top: 0, zIndex: 100,
+          borderBottom: "0.5px solid var(--app-divider)",
+        }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+            <button onClick={onBackToMenu} aria-label="홈으로" style={{
+              width: 36, height: 36, borderRadius: 999,
+              background: "var(--app-bg-row)", border: "0.5px solid var(--app-divider)",
+              color: "var(--app-text-primary)", cursor: "pointer", padding: 0,
+              display: "inline-flex", alignItems: "center", justifyContent: "center",
+            }}>
+              <BackIcon width={16} />
+            </button>
+            <div style={{ flex: 1 }} />
             {AppSync.enabled() && syncStatus && (
-              <div style={{ fontSize: 9, padding: "2px 6px", borderRadius: 4, background: syncStatus === "saved" ? "#22c55e22" : syncStatus === "saving" ? "#3b82f622" : "#ef444422", color: syncStatus === "saved" ? "#22c55e" : syncStatus === "saving" ? "#3b82f6" : "#ef4444", fontWeight: 600 }}>
-                {syncStatus === "saving" ? "저장 중..." : syncStatus === "saved" ? "저장됨" : "저장 실패"}
+              <div style={{
+                fontSize: 11, padding: "4px 10px", borderRadius: 999, fontWeight: 500,
+                background: syncStatus === "saved" ? "rgba(52,199,89,0.12)" : syncStatus === "saving" ? "rgba(0,122,255,0.12)" : "rgba(255,59,48,0.12)",
+                color: syncStatus === "saved" ? "var(--app-green)" : syncStatus === "saving" ? "var(--app-blue)" : "var(--app-red)",
+              }}>
+                {syncStatus === "saving" ? "저장 중…" : syncStatus === "saved" ? "저장됨" : "저장 실패"}
               </div>
             )}
           </div>
-          <div style={{ display: "flex", gap: 6, justifyContent: "center", marginTop: 8, flexWrap: "wrap" }}>
-            {matchMode === "schedule" && <button onClick={() => set('matchModal', 'schedule')} style={{ ...s.btnSm(C.grayDark, C.white), fontSize: 11 }}>대진표</button>}
-            <button onClick={() => set('matchModal', 'teamRoster')} style={{ ...s.btnSm(C.grayDark, C.white), fontSize: 11 }}>팀명단</button>
-            <button onClick={() => set('matchModal', 'standings')} style={{ ...s.btnSm(C.grayDark, C.white), fontSize: 11 }}>팀순위</button>
-            <button onClick={() => set('matchModal', 'playerStats')} style={{ ...s.btnSm(C.grayDark, C.white), fontSize: 11 }}>개인기록</button>
+          <h1 style={{
+            fontSize: 28, fontWeight: 700, letterSpacing: "-0.022em",
+            color: "var(--app-text-primary)", margin: 0, lineHeight: 1.1,
+          }}>경기 진행</h1>
+          <div style={{ fontSize: 14, color: "var(--app-text-secondary)", marginTop: 4 }}>
+            {matchMode === "schedule"
+              ? (allRoundsComplete ? "전체 라운드 완료" : `라운드 ${currentRoundIdx + 1} / ${schedule.length}`)
+              : matchMode === "push" ? `밀어내기 · ${completedMatches.length}경기`
+              : `자유대전 · ${completedMatches.length}매치`}
+          </div>
+          <div style={{
+            display: "flex", gap: 6, marginTop: 12, overflowX: "auto",
+            scrollbarWidth: "none", paddingBottom: 2,
+          }}>
+            {matchMode === "schedule" && (
+              <button onClick={() => set('matchModal', 'schedule')} style={pillBtnStyle()}>대진표</button>
+            )}
+            <button onClick={() => set('matchModal', 'teamRoster')} style={pillBtnStyle()}>팀명단</button>
+            <button onClick={() => set('matchModal', 'standings')} style={pillBtnStyle()}>팀순위</button>
+            <button onClick={() => set('matchModal', 'playerStats')} style={pillBtnStyle()}>개인기록</button>
             {(allRoundsComplete || matchMode === "free" || (matchMode === "push" && completedMatches.length > 0)) && (
-              <button onClick={() => set('phase', 'summary')} style={{ ...s.btnSm(C.green, C.bg), fontSize: 11, fontWeight: 700 }}>경기마감</button>
+              <button onClick={() => set('phase', 'summary')} style={pillBtnStyle({ tone: "green", strong: true })}>경기마감</button>
             )}
             {matchMode === "schedule" && !allRoundsComplete && Object.keys(confirmedRounds).length > 0 && (
               earlyFinish
-                ? <button onClick={() => set('phase', 'summary')} style={{ ...s.btnSm(C.green, C.bg), fontSize: 11, fontWeight: 700 }}>최종집계</button>
-                : <button onClick={handleEarlyFinish} style={{ ...s.btnSm(C.orange, C.bg), fontSize: 11, fontWeight: 700 }}>조기마감</button>
+                ? <button onClick={() => set('phase', 'summary')} style={pillBtnStyle({ tone: "green", strong: true })}>최종집계</button>
+                : <button onClick={handleEarlyFinish} style={pillBtnStyle({ tone: "orange", strong: true })}>조기마감</button>
             )}
             {teamContext?.role === "관리자" && (
               <button onClick={async () => {
@@ -1052,7 +1094,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
                 await FirebaseSync.clearState(teamContext?.team, gameId);
                 await AppSync.clearState(gameId);
                 window.location.reload();
-              }} style={{ ...s.btnSm(C.red, C.white), fontSize: 11 }}>경기삭제</button>
+              }} style={pillBtnStyle({ tone: "red" })}>경기삭제</button>
             )}
           </div>
         </div>

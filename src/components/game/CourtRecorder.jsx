@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useTheme } from '../../hooks/useTheme';
 import { calcMatchScore } from '../../utils/scoring';
 import { isSpeechSupported, startListening, parseVoiceText, fuzzyMatchPlayer } from '../../utils/speechRecord';
-import { MicIcon, XIcon, PlusIcon, SoccerBallIcon, GloveIcon } from '../common/icons';
+import { MicIcon, XIcon, PlusIcon, GloveIcon } from '../common/icons';
 import EventLog from './EventLog';
 
 function MercPicker({ side, candidates, opposingPlayers, teamName, onAdd, onClose }) {
@@ -234,66 +234,67 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
   const addMerc = (player, side) => { setMercs(prev => [...prev, { player, side }]); setShowMercPicker(null); };
   const removeMerc = (player) => { setMercs(prev => prev.filter(m => m.player !== player)); };
 
-  const renderPlayerRow = (player, isHome, mercsArr) => {
+  const renderPlayerCard = (player, isHome) => {
+    const mercsArr = isHome ? homeMercs : awayMercs;
     const isMerc = mercsArr.includes(player);
     const isGk = (isHome ? homeGk : awayGk) === player;
     const color = isHome ? homeColor : awayColor;
 
     return (
-      <div key={player} style={{ marginBottom: 6 }}>
-        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-          <button onClick={() => toggleGk(player, isHome)}
-            aria-label="골키퍼 지정"
-            style={{
-              width: 32, height: 32, borderRadius: 999,
-              background: isGk ? "var(--app-blue)" : "var(--app-bg-row-hover)",
-              color: isGk ? "#fff" : "var(--app-text-tertiary)",
-              border: "none", fontSize: 11, fontWeight: 600,
-              cursor: "pointer", flexShrink: 0,
-              display: "inline-flex", alignItems: "center", justifyContent: "center",
-              padding: 0,
-            }}>GK</button>
-          <div style={{
-            flex: 1, minWidth: 0, minHeight: 44,
-            padding: "8px 12px", borderRadius: 10,
-            background: "var(--app-bg-row)",
-            display: "flex", alignItems: "center", gap: 6,
-            fontSize: 15, fontWeight: 500, color: "var(--app-text-primary)",
-            borderLeft: `3px solid ${color?.bg || "transparent"}`,
-          }}>
-            {isMerc && (
-              <span style={{
-                fontSize: 10, padding: "1px 5px", borderRadius: 4, fontWeight: 500,
-                background: "rgba(255,149,0,0.15)", color: "var(--app-orange)",
-              }}>용병</span>
-            )}
-            <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{player}</span>
-            {isMerc && (
-              <button onClick={(e) => { e.stopPropagation(); removeMerc(player); }}
-                style={{
-                  background: "transparent", border: "none", cursor: "pointer",
-                  width: 20, height: 20, borderRadius: 999,
-                  display: "inline-flex", alignItems: "center", justifyContent: "center",
-                  color: "var(--app-red)", padding: 0,
-                }} aria-label="용병 제거">
-                <XIcon width={11} />
-              </button>
-            )}
-          </div>
-          {!readOnly && (
-            <button onClick={() => handleGoalTap(player, isHome)}
-              aria-label="골 기록"
-              style={{
-                width: 36, height: 36, borderRadius: 999,
-                border: "none", background: "var(--app-blue)", color: "#fff",
-                cursor: "pointer", flexShrink: 0,
-                display: "inline-flex", alignItems: "center", justifyContent: "center",
-                padding: 0,
-              }}>
-              <SoccerBallIcon color="#fff" width={18} />
-            </button>
+      <div key={player} style={{ position: "relative" }}>
+        <button
+          onClick={() => handleGoalTap(player, isHome)}
+          onContextMenu={(e) => { e.preventDefault(); toggleGk(player, isHome); }}
+          aria-label={`${player} 골 기록 (길게 눌러 GK 지정)`}
+          style={{
+            width: "100%",
+            background: isGk ? "rgba(0,122,255,0.12)" : "var(--app-bg-row-hover)",
+            color: isGk ? "var(--app-blue)" : "var(--app-text-primary)",
+            border: isGk ? "0.5px solid var(--app-blue)" : "0.5px solid transparent",
+            borderLeft: isGk ? "0.5px solid var(--app-blue)" : `3px solid ${color?.bg || "transparent"}`,
+            borderRadius: 10,
+            padding: "12px 8px", minHeight: 56,
+            display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+            gap: 2, cursor: "pointer", fontFamily: "inherit",
+            fontSize: 14, fontWeight: 500,
+            position: "relative",
+          }}
+        >
+          {isGk && (
+            <span style={{
+              position: "absolute", top: 4, right: 6,
+              fontSize: 10, fontWeight: 600,
+              color: "var(--app-blue)",
+            }}>GK</span>
           )}
-        </div>
+          {isMerc && (
+            <span style={{
+              position: "absolute", top: 4, left: 6,
+              fontSize: 9, fontWeight: 600,
+              padding: "1px 4px", borderRadius: 3,
+              background: "rgba(255,149,0,0.2)", color: "var(--app-orange)",
+              letterSpacing: 0,
+            }}>용병</span>
+          )}
+          <span style={{
+            overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "100%",
+          }}>{player}</span>
+        </button>
+        {isMerc && !readOnly && (
+          <button
+            onClick={(e) => { e.stopPropagation(); removeMerc(player); }}
+            aria-label="용병 제거"
+            style={{
+              position: "absolute", bottom: 4, right: 4,
+              width: 18, height: 18, borderRadius: 999,
+              background: "rgba(255,59,48,0.15)", color: "var(--app-red)",
+              border: "none", cursor: "pointer", padding: 0,
+              display: "inline-flex", alignItems: "center", justifyContent: "center",
+            }}
+          >
+            <XIcon width={9} color="var(--app-red)" />
+          </button>
+        )}
       </div>
     );
   };
@@ -426,33 +427,64 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
         </div>
       </div>
 
-      <div style={{ display: "flex", gap: 10 }}>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 9, color: C.grayDark, textAlign: "center", marginBottom: 8 }}>{homeTeam}</div>
-          {homePlayers.map(p => renderPlayerRow(p, true, homeMercs))}
+      <div style={{ marginTop: 4 }}>
+        <div style={{
+          fontSize: 12, fontWeight: 500, color: "var(--app-text-secondary)",
+          marginLeft: 4, marginBottom: 6,
+          display: "inline-flex", alignItems: "center", gap: 6,
+        }}>
+          <span style={{ width: 8, height: 8, borderRadius: 2, background: homeColor?.bg }} />
+          {homeTeam}
         </div>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 9, color: C.grayDark, textAlign: "center", marginBottom: 8 }}>{awayTeam}</div>
-          {awayPlayers.map(p => renderPlayerRow(p, false, awayMercs))}
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(84px, 1fr))",
+          gap: 8, marginBottom: 14,
+        }}>
+          {homePlayers.map(p => renderPlayerCard(p, true))}
+        </div>
+        <div style={{
+          fontSize: 12, fontWeight: 500, color: "var(--app-text-secondary)",
+          marginLeft: 4, marginBottom: 6,
+          display: "inline-flex", alignItems: "center", gap: 6,
+        }}>
+          <span style={{ width: 8, height: 8, borderRadius: 2, background: awayColor?.bg }} />
+          {awayTeam}
+        </div>
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(84px, 1fr))",
+          gap: 8,
+        }}>
+          {awayPlayers.map(p => renderPlayerCard(p, false))}
         </div>
       </div>
 
       {!readOnly && (
-        <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+        <div style={{
+          fontSize: 11, color: "var(--app-text-tertiary)", textAlign: "center",
+          marginTop: 10, letterSpacing: "-0.01em",
+        }}>
+          탭해서 골 기록 · 길게 눌러 GK 지정
+        </div>
+      )}
+
+      {!readOnly && (
+        <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
           <button onClick={() => setShowMercPicker("home")} style={{
             flex: 1, background: "rgba(255,149,0,0.12)",
             border: "none", borderRadius: 10,
             padding: "10px", fontSize: 13, fontWeight: 500,
             color: "var(--app-orange)", cursor: "pointer", fontFamily: "inherit",
             display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 4,
-          }}><PlusIcon width={13} color="var(--app-orange)" /> 용병</button>
+          }}><PlusIcon width={13} color="var(--app-orange)" /> {homeTeam} 용병</button>
           <button onClick={() => setShowMercPicker("away")} style={{
             flex: 1, background: "rgba(255,149,0,0.12)",
             border: "none", borderRadius: 10,
             padding: "10px", fontSize: 13, fontWeight: 500,
             color: "var(--app-orange)", cursor: "pointer", fontFamily: "inherit",
             display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 4,
-          }}><PlusIcon width={13} color="var(--app-orange)" /> 용병</button>
+          }}><PlusIcon width={13} color="var(--app-orange)" /> {awayTeam} 용병</button>
         </div>
       )}
 
