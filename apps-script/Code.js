@@ -279,6 +279,10 @@ function doPost(e) {
       return _jsonResponse(_writeRawMatches(body.data));
     } else if (action === "deleteRawMatchesByDate") {
       return _jsonResponse(_deleteRawMatchesByDate(body.team, body.sport, body.date));
+    } else if (action === "migrateEventTypes") {
+      return _jsonResponse(migrateEventTypes());
+    } else if (action === "migrateMatchIds") {
+      return _jsonResponse(migrateMatchIds());
     } else if (action === "createTournament") {
       return _jsonResponse(_createTournament(body.data));
     } else if (action === "deleteTournament") {
@@ -1017,6 +1021,73 @@ function _deleteRawMatchesByDate(team, sport, date) {
     }
   }
   return { removed: removed };
+}
+
+function migrateEventTypes() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(RAW_EVENTS_SHEET);
+  if (!sheet) return { success: false, error: "로그_이벤트 시트 없음" };
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return { success: true, updated: 0 };
+  var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  var col = headers.indexOf("event_type") + 1;
+  if (col < 1) return { success: false, error: "event_type 컬럼 없음" };
+  var range = sheet.getRange(2, col, lastRow - 1, 1);
+  var vals = range.getValues();
+  var updated = 0;
+  for (var i = 0; i < vals.length; i++) {
+    var v = String(vals[i][0] || "");
+    var next = v;
+    if (v === "ownGoal") next = "owngoal";
+    else if (v === "opponentGoal") next = "concede";
+    if (next !== v) { vals[i][0] = next; updated++; }
+  }
+  if (updated > 0) range.setValues(vals);
+  return { success: true, updated: updated };
+}
+
+function migrateMatchIds() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(RAW_EVENTS_SHEET);
+  if (!sheet) return { success: false, error: "로그_이벤트 시트 없음" };
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return { success: true, updated: 0, unrecognized: [] };
+  var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  var midCol = headers.indexOf("match_id") + 1;
+  var sportCol = headers.indexOf("sport") + 1;
+  if (midCol < 1 || sportCol < 1) return { success: false, error: "match_id/sport 컬럼 없음" };
+  var data = sheet.getRange(2, 1, lastRow - 1, sheet.getLastColumn()).getValues();
+  var updated = 0;
+  var unrecognized = {};
+  for (var i = 0; i < data.length; i++) {
+    var raw = String(data[i][midCol - 1] || "").trim();
+    var sport = String(data[i][sportCol - 1] || "").trim();
+    var next = _normalizeMatchIdAS(raw, sport);
+    if (next !== raw) {
+      sheet.getRange(i + 2, midCol).setValue(next);
+      updated++;
+    } else if (raw && !_isStandardMatchId(raw, sport)) {
+      unrecognized[raw] = (unrecognized[raw] || 0) + 1;
+    }
+  }
+  return { success: true, updated: updated, unrecognized: unrecognized };
+}
+
+function _normalizeMatchIdAS(raw, sport) {
+  if (!raw) return raw;
+  var s = String(raw).trim();
+  if (/^R\d+_C\d+$/.test(s)) return s;
+  var m1 = s.match(/^(\d+)라운드\s*매치(\d+)$/);
+  if (m1) return "R" + m1[1] + "_C" + (parseInt(m1[2], 10) - 1);
+  var m2 = s.match(/^(\d+)경기$/);
+  var n = m2 ? m2[1] : (/^\d+$/.test(s) ? s : null);
+  if (n !== null) return sport === "풋살" ? "R" + n + "_C0" : n;
+  return s;
+}
+
+function _isStandardMatchId(s, sport) {
+  if (sport === "풋살") return /^R\d+_C\d+$/.test(s);
+  return /^\d+$/.test(s);
 }
 
 function _writeRawPlayerGames(data) {
