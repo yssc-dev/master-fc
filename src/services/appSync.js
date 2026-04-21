@@ -261,6 +261,58 @@ const AppSync = {
     } catch (e) { console.warn("로그_선수경기 저장 실패:", e.message); return null; }
   },
 
+  async writeMatchLog(rows) {
+    if (!this.enabled()) return null;
+    try {
+      const team = this._getTeam();
+      const resp = await fetch(APPS_SCRIPT_URL, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain" },
+        body: JSON.stringify({ action: "writeRawMatches", data: { rows, team }, authToken: this._getAuthToken() }),
+      });
+      return await resp.json();
+    } catch (e) { console.warn("로그_매치 저장 실패:", e.message); return null; }
+  },
+
+  async getMatchLog({ sport = '', dateFrom = '', dateTo = '' } = {}) {
+    if (!this.enabled()) return null;
+    try {
+      const team = this._getTeam();
+      const resp = await fetch(APPS_SCRIPT_URL, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain" },
+        body: JSON.stringify({ action: "getRawMatches", team, sport, dateFrom, dateTo, authToken: this._getAuthToken() }),
+      });
+      return await resp.json();
+    } catch (e) { console.warn("로그_매치 조회 실패:", e.message); return null; }
+  },
+
+  async getEventLog({ sport = '', dateFrom = '', dateTo = '' } = {}) {
+    if (!this.enabled()) return null;
+    try {
+      const team = this._getTeam();
+      const resp = await fetch(APPS_SCRIPT_URL, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain" },
+        body: JSON.stringify({ action: "getRawEvents", team, sport, dateFrom, dateTo, authToken: this._getAuthToken() }),
+      });
+      return await resp.json();
+    } catch (e) { console.warn("로그_이벤트 조회 실패:", e.message); return null; }
+  },
+
+  async deleteMatchLogByDate({ sport, date }) {
+    if (!this.enabled()) return null;
+    try {
+      const team = this._getTeam();
+      const resp = await fetch(APPS_SCRIPT_URL, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain" },
+        body: JSON.stringify({ action: "deleteRawMatchesByDate", team, sport, date, authToken: this._getAuthToken() }),
+      });
+      return await resp.json();
+    } catch (e) { console.warn("로그_매치 삭제 실패:", e.message); return null; }
+  },
+
   // ── 대회 ──
 
   async createTournament(data) {

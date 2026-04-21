@@ -279,6 +279,10 @@ function doPost(e) {
       return _jsonResponse(_writeRawMatches(body.data));
     } else if (action === "deleteRawMatchesByDate") {
       return _jsonResponse(_deleteRawMatchesByDate(body.team, body.sport, body.date));
+    } else if (action === "getRawMatches") {
+      return _jsonResponse(_getRawMatches(body.team, body.sport, body.dateFrom, body.dateTo));
+    } else if (action === "getRawEvents") {
+      return _jsonResponse(_getRawEvents(body.team, body.sport, body.dateFrom, body.dateTo));
     } else if (action === "migrateEventTypes") {
       return _jsonResponse(migrateEventTypes());
     } else if (action === "migrateMatchIds") {
@@ -1021,6 +1025,53 @@ function _deleteRawMatchesByDate(team, sport, date) {
     }
   }
   return { removed: removed };
+}
+
+function _getRawMatches(team, sport, dateFrom, dateTo) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(RAW_MATCHES_SHEET);
+  if (!sheet) { _ensureRawSheets(); sheet = ss.getSheetByName(RAW_MATCHES_SHEET); }
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return { success: true, rows: [] };
+  var data = sheet.getRange(2, 1, lastRow - 1, RAW_MATCHES_HEADERS.length).getValues();
+  var out = [];
+  for (var i = 0; i < data.length; i++) {
+    var r = data[i];
+    if (team && r[0] !== team) continue;
+    if (sport && r[1] !== sport) continue;
+    var d = _toDateStr(r[4]);
+    if (dateFrom && d < dateFrom) continue;
+    if (dateTo && d > dateTo) continue;
+    var row = {};
+    for (var j = 0; j < RAW_MATCHES_HEADERS.length; j++) row[RAW_MATCHES_HEADERS[j]] = r[j];
+    row.date = d;
+    out.push(row);
+  }
+  return { success: true, rows: out };
+}
+
+function _getRawEvents(team, sport, dateFrom, dateTo) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(RAW_EVENTS_SHEET);
+  if (!sheet) { _ensureRawSheets(); sheet = ss.getSheetByName(RAW_EVENTS_SHEET); }
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return { success: true, rows: [] };
+  var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  var data = sheet.getRange(2, 1, lastRow - 1, headers.length).getValues();
+  var out = [];
+  for (var i = 0; i < data.length; i++) {
+    var r = data[i];
+    if (team && r[0] !== team) continue;
+    if (sport && r[1] !== sport) continue;
+    var d = _toDateStr(r[4]);
+    if (dateFrom && d < dateFrom) continue;
+    if (dateTo && d > dateTo) continue;
+    var row = {};
+    for (var j = 0; j < headers.length; j++) row[headers[j]] = r[j];
+    row.date = d;
+    out.push(row);
+  }
+  return { success: true, rows: out };
 }
 
 function migrateEventTypes() {
