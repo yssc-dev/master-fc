@@ -101,6 +101,69 @@ related_player = playerOut
 position       = "GK" | "DF" | "MF" | "FW"
 ```
 
+### `match_id` 포맷 표준화
+
+기존 `로그_이벤트`의 `match_id`가 4가지 포맷으로 혼재되어 있어 정규화 필요. 정규화하지 않으면 legacy `로그_매치` 재구성 시 같은 라운드가 다른 match_id로 중복 생성됨.
+
+**관찰된 레거시 포맷:**
+
+| 포맷 | 예시 | 출처 추정 |
+|---|---|---|
+| `R{n}_C{n}` | `R3_C0` | 풋살 표준 (rawLogBuilders) |
+| `N경기` | `3경기` | 축구 또는 풋살 단일 코트 레거시 |
+| `N라운드 매치M` | `3라운드 매치1` | 풋살 변형 (Apps Script `formatMatchId`) |
+| 순수 숫자 | `3` | 단순 번호 레거시 |
+
+**정규화 규칙:**
+
+```js
+function normalizeMatchId(raw, sport) {
+  if (!raw) return raw;
+  const s = String(raw).trim();
+
+  // 1. 이미 표준 풋살 포맷
+  if (/^R\d+_C\d+$/.test(s)) return s;
+
+  // 2. "N라운드 매치M" → R{N}_C{M-1}
+  const m1 = s.match(/^(\d+)라운드\s*매치(\d+)$/);
+  if (m1) return `R${m1[1]}_C${parseInt(m1[2]) - 1}`;
+
+  // 3. "N경기" 또는 순수 숫자 "N"
+  const m2 = s.match(/^(\d+)경기$/);
+  const n = m2 ? m2[1] : (/^\d+$/.test(s) ? s : null);
+  if (n) {
+    return sport === '풋살' ? `R${n}_C0` : n;  // 풋살 레거시는 단일 코트 가정
+  }
+
+  return s;  // 알 수 없는 포맷은 그대로 + 리포트
+}
+```
+
+**표준 저장 포맷:**
+- **풋살**: `R{round_idx}_C{court_id}` (court 0-indexed)
+- **축구**: 숫자 문자열 `"1"`, `"2"`, ...
+
+**풋살 레거시 한계:**
+- `N경기`/`N` 포맷은 원본에 코트 정보 없음 → `C0` 강제
+- 실제로 복수 코트였으면 라운드 중복 생성 위험 (드문 케이스)
+- 정규화 리포트에 "알 수 없는 포맷" 카운트 노출
+
+**저장 로직 통일:**
+
+`src/utils/rawLogBuilders.js`에 단일 헬퍼 추가:
+
+```js
+export function buildStandardMatchId({ sport, round_idx, court_id, match_idx }) {
+  if (sport === '풋살') return `R${round_idx}_C${court_id ?? 0}`;
+  return String(match_idx);
+}
+```
+
+적용 지점:
+1. `buildEventRows()` — 이벤트 기록 시
+2. `buildRoundRows()` — `로그_매치` 기록 시
+3. Apps Script `_writeRawEventLog` — 수신 값이 비표준이면 `normalizeMatchId` 재검증 후 저장 (이중 방어)
+
 ### `로그_선수경기` 변경
 
 **없음.** 스키마/데이터 모두 불변. 시즌레이스/선수카드가 계속 직접 사용.
@@ -135,6 +198,7 @@ position       = "GK" | "DF" | "MF" | "FW"
 - `_ensureEventLogHasGameId()` — `로그_이벤트` 헤더에 `game_id` 컬럼 없으면 뒤에 추가
 - `_backupSheet(sheetName)` — 해당 시트를 `{name}_백업_{YYYYMMDD_HHMM}` 로 duplicate
 - `migrateEventTypes()` — 1회성 event_type 표준화 UPDATE
+- `migrateMatchIds()` — 1회성 match_id 정규화 UPDATE (`normalizeMatchId` 적용, 실패 케이스는 리포트)
 - `backfillMatchLogFromLegacy()` — 로그_이벤트 + 로그_선수경기 기반 `로그_매치` 재구성
 - `overwriteMatchLogFromFirebase(rows)` — Firebase stateJSON 기반 정확 덮어쓰기 수신
 
@@ -267,12 +331,14 @@ Section 3의 `_writeRoundLog`가 확정 시 완전한 `로그_매치` 기록.
 ```
 1. Apps Script API 호출: _backupSheet("로그_이벤트") / _backupSheet("로그_선수경기")
 2. Apps Script API 호출: _ensureEventLogHasGameId() (game_id 컬럼 추가)
-3. Apps Script API 호출: migrateEventTypes() (event_type 표준화를 먼저 수행 — 이후 복원 로직이 표준값만 다룸)
-4. 로그_매치 시트 신규 생성 (헤더만)
-5. --dry-run 실행 및 리포트 확인 (라운드 수, members 복원 개수, 0:0 추정 누락, 매칭 실패)
-6. --apply --phase=legacy (전 기간 근사 복원)
-7. --apply --phase=firebase (3일치 정확 덮어쓰기)
-8. 검증: 샘플 세션 수치 확인, PlayerAnalytics 기존 분석과 신규 분석 일치 여부
+3. Apps Script API 호출: migrateEventTypes() (event_type 표준화)
+4. Apps Script API 호출: migrateMatchIds() (match_id 포맷 정규화)
+   — 3·4 순서로 표준화를 먼저 끝내고, 이후 복원 로직은 표준값만 처리
+5. 로그_매치 시트 신규 생성 (헤더만)
+6. --dry-run 실행 및 리포트 확인 (라운드 수, members 복원 개수, 0:0 추정 누락, match_id 미인식 포맷, 매칭 실패)
+7. --apply --phase=legacy (전 기간 근사 복원)
+8. --apply --phase=firebase (3일치 정확 덮어쓰기)
+9. 검증: 샘플 세션 수치 확인, PlayerAnalytics 기존 분석과 신규 분석 일치 여부
 ```
 
 ### 롤백 절차
@@ -352,6 +418,8 @@ Section 3의 `_writeRoundLog`가 확정 시 완전한 `로그_매치` 기록.
 | `로그_이벤트` 데이터 손상 | `_backupSheet` 의무 실행, 롤백 절차 문서화 |
 | 세션 내 팀 이동한 선수 | legacy 복원 시 1명이 여러 session_team에 등장 → members 중복 가능. dedup 처리 |
 | 축구 `soccerMatches[]` 구조 다름 | 축구 전용 `buildRoundRows` 분기 구현 |
+| `match_id` 포맷 혼재 (4가지) | `migrateMatchIds` 1회 실행으로 표준화. 미인식 포맷은 리포트 후 개별 검토 |
+| 풋살 레거시의 코트 정보 손실 | `N경기`/`N` 포맷은 `C0` 강제. 복수 코트 세션이었던 경우 중복 발생 → 리포트로 탐지 후 수동 교정 |
 
 ---
 
