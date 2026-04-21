@@ -85,6 +85,20 @@ function _ensureEventLogHasGameId() {
   return { success: true, added: true, col: newCol };
 }
 
+function _backupSheet(sheetName) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var src = ss.getSheetByName(sheetName);
+  if (!src) return { success: false, error: "시트 없음: " + sheetName };
+  var stamp = Utilities.formatDate(new Date(), "Asia/Seoul", "yyyyMMdd_HHmm");
+  var backupName = sheetName + "_백업_" + stamp;
+  if (ss.getSheetByName(backupName)) {
+    return { success: true, name: backupName, skipped: true };
+  }
+  var copy = src.copyTo(ss);
+  copy.setName(backupName);
+  return { success: true, name: backupName, skipped: false };
+}
+
 // ─── 한국시간 헬퍼 ───
 
 function _kstNow() {
@@ -259,6 +273,8 @@ function doPost(e) {
       return _jsonResponse(_writeRawPlayerGames(body.data));
     } else if (action === "ensureEventLogHasGameId") {
       return _jsonResponse(_ensureEventLogHasGameId());
+    } else if (action === "backupSheet") {
+      return _jsonResponse(_backupSheet(body.sheetName));
     } else if (action === "createTournament") {
       return _jsonResponse(_createTournament(body.data));
     } else if (action === "deleteTournament") {
