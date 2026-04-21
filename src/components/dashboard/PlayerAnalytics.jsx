@@ -295,6 +295,8 @@ export default function PlayerAnalytics({ teamName, teamMode, initialTab, isAdmi
     }
   }, [tab, teamName]);
 
+  const needsGameRecords = ["playercard", "synergy", "timepattern", "combo2", "crovaguma"];
+
   const isCrovaGogumaMode = useMemo(() => {
     if (isSoccer) return false;
     return getEffectiveSettings(teamName, "풋살")?.useCrovaGoguma === true;
