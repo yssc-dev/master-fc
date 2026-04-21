@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest';
 import { RAW_EVENT_COLUMNS, RAW_PLAYER_GAME_COLUMNS, buildRawEventsFromFutsal, buildRawPlayerGamesFromFutsal, buildRawEventsFromSoccer, buildRawPlayerGamesFromSoccer, buildRawPlayerGamesFromTournament } from '../rawLogBuilders';
 
 describe('raw log column constants', () => {
-  it('RAW_EVENT_COLUMNS: 13개, 스펙 순서대로', () => {
-    expect(RAW_EVENT_COLUMNS).toHaveLength(13);
+  it('RAW_EVENT_COLUMNS: 14개, 스펙 순서대로', () => {
+    expect(RAW_EVENT_COLUMNS).toHaveLength(14);
     expect(RAW_EVENT_COLUMNS[0]).toBe('team');
     expect(RAW_EVENT_COLUMNS[8]).toBe('event_type');
     expect(RAW_EVENT_COLUMNS[12]).toBe('input_time');
@@ -55,7 +55,7 @@ describe('buildRawEventsFromFutsal', () => {
       }],
     });
     expect(rows).toHaveLength(1);
-    expect(rows[0].event_type).toBe('ownGoal');
+    expect(rows[0].event_type).toBe('owngoal');
     expect(rows[0].player).toBe('이영수');
     expect(rows[0].related_player).toBe('');
   });
@@ -154,9 +154,9 @@ describe('buildRawEventsFromSoccer', () => {
     expect(rows[0].related_player).toBe('C');
   });
 
-  it('자책골 → ownGoal', () => {
+  it('자책골 → owngoal', () => {
     const rows = buildRawEventsFromSoccer(mk({ event: '자책골', player: 'D', relatedPlayer: '', position: '', inputTime: 't' }));
-    expect(rows[0].event_type).toBe('ownGoal');
+    expect(rows[0].event_type).toBe('owngoal');
   });
 
   it('실점 → concede, position GK', () => {
@@ -317,5 +317,59 @@ describe('buildRawPlayerGamesFromTournament', () => {
 
   it('빈 events → 빈 배열', () => {
     expect(buildRawPlayerGamesFromTournament({ ...base, events: [] })).toEqual([]);
+  });
+});
+
+describe('RAW_EVENT_COLUMNS with game_id', () => {
+  it('game_id 포함, 총 14개 컬럼', () => {
+    expect(RAW_EVENT_COLUMNS).toHaveLength(14);
+    expect(RAW_EVENT_COLUMNS).toContain('game_id');
+    expect(RAW_EVENT_COLUMNS.indexOf('game_id')).toBe(13);
+  });
+});
+
+describe('buildRawEventsFromFutsal event_type 표준화 + game_id', () => {
+  it('ownGoal → owngoal 표준값 사용, game_id 포함', () => {
+    const rows = buildRawEventsFromFutsal({
+      team: '마스터FC',
+      gameId: 'g_1713000000000',
+      events: [{
+        gameDate: '2026-04-10', matchId: 'R1_C0',
+        myTeam: '블루', opponentTeam: '레드',
+        ownGoalPlayer: '홍길동', inputTime: '2026-04-10 20:00:00',
+      }],
+    });
+    expect(rows[0].event_type).toBe('owngoal');
+    expect(rows[0].game_id).toBe('g_1713000000000');
+  });
+
+  it('match_id 이미 표준 포맷이면 그대로 유지', () => {
+    const rows = buildRawEventsFromFutsal({
+      team: '마스터FC',
+      gameId: 'g_1',
+      events: [{
+        gameDate: '2026-04-10', matchId: '3라운드 매치1',
+        myTeam: '블루', opponentTeam: '레드',
+        scorer: '홍길동', inputTime: '',
+      }],
+    });
+    expect(rows[0].match_id).toBe('R3_C0');
+  });
+});
+
+describe('buildRawEventsFromSoccer event_type 표준화 + game_id', () => {
+  it('자책골 → owngoal, 실점 → concede', () => {
+    const rows = buildRawEventsFromSoccer({
+      team: 'FC테스트',
+      gameId: 's_1713000000000',
+      events: [
+        { event: '자책골', player: 'A', gameDate: '2026-04-10', matchNum: 1, inputTime: '' },
+        { event: '실점', player: 'B', gameDate: '2026-04-10', matchNum: 1, inputTime: '' },
+      ],
+    });
+    expect(rows[0].event_type).toBe('owngoal');
+    expect(rows[1].event_type).toBe('concede');
+    expect(rows[0].game_id).toBe('s_1713000000000');
+    expect(rows[1].game_id).toBe('s_1713000000000');
   });
 });

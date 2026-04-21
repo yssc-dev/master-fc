@@ -1,11 +1,13 @@
 // 통합 로우 로그 (로그_이벤트, 로그_선수경기) 쓰기용 row 빌더 모음.
 // React/DOM 의존성 없음. Apps Script 스키마와 1:1 대응.
 
+import { normalizeMatchId } from './matchIdNormalizer';
+
 export const RAW_EVENT_COLUMNS = [
   "team", "sport", "mode", "tournament_id",
   "date", "match_id", "our_team", "opponent",
   "event_type", "player", "related_player", "position",
-  "input_time",
+  "input_time", "game_id",
 ];
 
 export const RAW_PLAYER_GAME_COLUMNS = [
@@ -19,22 +21,23 @@ export const RAW_PLAYER_GAME_COLUMNS = [
 
 /**
  * 풋살 pointEvents → 로그_이벤트 rows
- * @param {{ team:string, events:Array<object> }} input
- * @returns {Array<object>} RAW_EVENT_COLUMNS 스키마 row 배열
+ * @param {{ team:string, gameId?:string, events:Array<object> }} input
  */
-export function buildRawEventsFromFutsal({ team, events }) {
+export function buildRawEventsFromFutsal({ team, gameId = '', events }) {
   const out = [];
   (events || []).forEach(e => {
     const common = {
       team, sport: '풋살', mode: '기본', tournament_id: '',
-      date: e.gameDate || '', match_id: e.matchId || '',
+      date: e.gameDate || '',
+      match_id: normalizeMatchId(e.matchId || '', '풋살'),
       our_team: e.myTeam || '', opponent: e.opponentTeam || '',
       position: '', input_time: e.inputTime || '',
+      game_id: gameId,
     };
     if (e.scorer) {
       out.push({ ...common, event_type: 'goal', player: e.scorer, related_player: e.assist || '' });
     } else if (e.ownGoalPlayer) {
-      out.push({ ...common, event_type: 'ownGoal', player: e.ownGoalPlayer, related_player: '' });
+      out.push({ ...common, event_type: 'owngoal', player: e.ownGoalPlayer, related_player: '' });
     } else if (e.concedingGk) {
       out.push({ ...common, event_type: 'concede', player: e.concedingGk, related_player: '' });
     }
@@ -42,9 +45,6 @@ export function buildRawEventsFromFutsal({ team, events }) {
   return out;
 }
 
-/**
- * 풋살 playerData → 로그_선수경기 rows
- */
 export function buildRawPlayerGamesFromFutsal({ team, inputTime, players }) {
   return (players || []).map(p => ({
     team, sport: '풋살', mode: '기본', tournament_id: '',
@@ -66,35 +66,34 @@ export function buildRawPlayerGamesFromFutsal({ team, inputTime, players }) {
 const SOCCER_EVENT_MAP = {
   '출전': 'lineup',
   '골': 'goal',
-  '자책골': 'ownGoal',
+  '자책골': 'owngoal',
   '실점': 'concede',
   '교체': 'sub',
 };
 
 /**
  * 축구 이벤트로그 row → 로그_이벤트 rows (기본/대회 공통)
- * @param {{ team, mode, tournamentId, events }} input
+ * @param {{ team, mode, tournamentId, gameId, events }} input
  */
-export function buildRawEventsFromSoccer({ team, mode = '기본', tournamentId = '', events }) {
+export function buildRawEventsFromSoccer({ team, mode = '기본', tournamentId = '', gameId = '', events }) {
   const out = [];
   (events || []).forEach(e => {
     const type = SOCCER_EVENT_MAP[e.event];
     if (!type) return;
     out.push({
       team, sport: '축구', mode, tournament_id: tournamentId || '',
-      date: e.gameDate || '', match_id: String(e.matchNum ?? ''),
+      date: e.gameDate || '',
+      match_id: normalizeMatchId(String(e.matchNum ?? ''), '축구'),
       our_team: team, opponent: e.opponent || '',
       event_type: type,
       player: e.player || '', related_player: e.relatedPlayer || '',
       position: e.position || '', input_time: e.inputTime || '',
+      game_id: gameId,
     });
   });
   return out;
 }
 
-/**
- * 축구 기본 playerLogRows → 로그_선수경기 rows.
- */
 export function buildRawPlayerGamesFromSoccer({ team, inputTime, players }) {
   return (players || []).map(p => ({
     team, sport: '축구', mode: '기본', tournament_id: '',
@@ -112,14 +111,8 @@ export function buildRawPlayerGamesFromSoccer({ team, inputTime, players }) {
   }));
 }
 
-/**
- * 대회 이벤트로그 전체 → 로그_선수경기 rows (date × player 단위 집계).
- * 매 경기 종료마다 호출 — replaceBy 옵션과 함께 써서 기존 rows 덮어쓰기.
- * @param {{ team, tournamentId, inputTime, events }} input
- *   events: 대회_xxx_이벤트로그 형식 (event, player, relatedPlayer, position, gameDate, matchNum, ...)
- */
 export function buildRawPlayerGamesFromTournament({ team, tournamentId, inputTime, events }) {
-  const byDatePlayer = {}; // "date|player" → stats
+  const byDatePlayer = {};
   const ensure = (date, name) => {
     const k = date + '|' + name;
     if (!byDatePlayer[k]) {
@@ -144,7 +137,6 @@ export function buildRawPlayerGamesFromTournament({ team, tournamentId, inputTim
       if (e.position === 'GK') s.keeper_games++; else s.field_games++;
     }
   });
-  // cleansheets: GK 출전 있고 실점 0 → 1
   Object.values(byDatePlayer).forEach(s => {
     s.cleansheets = (s.keeper_games > 0 && s.conceded === 0) ? 1 : 0;
   });

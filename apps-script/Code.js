@@ -13,12 +13,25 @@ var PLAYER_LOG_SHEET = "선수별집계기록로그";
 
 var RAW_EVENTS_SHEET = "로그_이벤트";
 var RAW_PLAYER_GAMES_SHEET = "로그_선수경기";
+var RAW_MATCHES_SHEET = "로그_매치";
 
 var RAW_EVENTS_HEADERS = [
   "team","sport","mode","tournament_id",
   "date","match_id","our_team","opponent",
   "event_type","player","related_player","position",
-  "input_time"
+  "input_time","game_id"
+];
+
+var RAW_MATCHES_HEADERS = [
+  "team","sport","mode","tournament_id",
+  "date","game_id","match_idx",
+  "round_idx","court_id","match_id",
+  "our_team_name","opponent_team_name",
+  "our_members_json","opponent_members_json",
+  "our_score","opponent_score",
+  "our_gk","opponent_gk",
+  "formation","our_defenders_json",
+  "is_extra","input_time"
 ];
 
 var RAW_PLAYER_GAMES_HEADERS = [
@@ -47,7 +60,43 @@ function _ensureRawSheets() {
     pg.getRange(1, 1, 1, RAW_PLAYER_GAMES_HEADERS.length).setFontWeight("bold");
     created.push(RAW_PLAYER_GAMES_SHEET);
   }
+  var mt = ss.getSheetByName(RAW_MATCHES_SHEET);
+  if (!mt) {
+    mt = ss.insertSheet(RAW_MATCHES_SHEET);
+    mt.getRange(1, 1, 1, RAW_MATCHES_HEADERS.length).setValues([RAW_MATCHES_HEADERS]);
+    mt.getRange(1, 1, 1, RAW_MATCHES_HEADERS.length).setFontWeight("bold");
+    created.push(RAW_MATCHES_SHEET);
+  }
   return { created: created };
+}
+
+function _ensureEventLogHasGameId() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(RAW_EVENTS_SHEET);
+  if (!sheet) { _ensureRawSheets(); sheet = ss.getSheetByName(RAW_EVENTS_SHEET); }
+  var lastCol = sheet.getLastColumn();
+  var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+  if (headers.indexOf("game_id") >= 0) {
+    return { success: true, added: false };
+  }
+  var newCol = lastCol + 1;
+  sheet.getRange(1, newCol).setValue("game_id");
+  sheet.getRange(1, newCol).setFontWeight("bold");
+  return { success: true, added: true, col: newCol };
+}
+
+function _backupSheet(sheetName) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var src = ss.getSheetByName(sheetName);
+  if (!src) return { success: false, error: "시트 없음: " + sheetName };
+  var stamp = Utilities.formatDate(new Date(), "Asia/Seoul", "yyyyMMdd_HHmm");
+  var backupName = sheetName + "_백업_" + stamp;
+  if (ss.getSheetByName(backupName)) {
+    return { success: true, name: backupName, skipped: true };
+  }
+  var copy = src.copyTo(ss);
+  copy.setName(backupName);
+  return { success: true, name: backupName, skipped: false };
 }
 
 // ─── 한국시간 헬퍼 ───
@@ -222,6 +271,24 @@ function doPost(e) {
       return _jsonResponse(_writeRawEvents(body.data));
     } else if (action === "writeRawPlayerGames") {
       return _jsonResponse(_writeRawPlayerGames(body.data));
+    } else if (action === "ensureEventLogHasGameId") {
+      return _jsonResponse(_ensureEventLogHasGameId());
+    } else if (action === "backupSheet") {
+      return _jsonResponse(_backupSheet(body.sheetName));
+    } else if (action === "writeRawMatches") {
+      return _jsonResponse(_writeRawMatches(body.data));
+    } else if (action === "deleteRawMatchesByDate") {
+      return _jsonResponse(_deleteRawMatchesByDate(body.team, body.sport, body.date));
+    } else if (action === "getRawMatches") {
+      return _jsonResponse(_getRawMatches(body.team, body.sport, body.dateFrom, body.dateTo));
+    } else if (action === "getRawEvents") {
+      return _jsonResponse(_getRawEvents(body.team, body.sport, body.dateFrom, body.dateTo));
+    } else if (action === "getRawPlayerGames") {
+      return _jsonResponse(_getRawPlayerGames(body.team, body.sport));
+    } else if (action === "migrateEventTypes") {
+      return _jsonResponse(migrateEventTypes());
+    } else if (action === "migrateMatchIds") {
+      return _jsonResponse(migrateMatchIds());
     } else if (action === "createTournament") {
       return _jsonResponse(_createTournament(body.data));
     } else if (action === "deleteTournament") {
@@ -844,6 +911,10 @@ function _writeRawEvents(data) {
     }
     if (toInsert.length > 0) {
       var lastRow = sheet.getLastRow();
+      var lastCol = sheet.getLastColumn();
+      if (lastCol < RAW_EVENTS_HEADERS.length) {
+        _ensureEventLogHasGameId();
+      }
       sheet.getRange(lastRow + 1, 1, toInsert.length, RAW_EVENTS_HEADERS.length).setValues(toInsert);
     }
     return { success: true, count: toInsert.length, skipped: skipped };
@@ -854,28 +925,242 @@ function _writeRawEvents(data) {
 
 function _rawEventKey(r) {
   return [r.team||"", r.sport||"", r.mode||"", r.tournament_id||"", r.date||"", r.match_id||"",
-    r.event_type||"", r.player||"", r.related_player||"", r.input_time||""].join("|");
+    r.event_type||"", r.player||"", r.related_player||"", r.input_time||"", r.game_id||""].join("|");
 }
 
 function _rawEventToArray(r) {
   return [r.team||"", r.sport||"", r.mode||"", r.tournament_id||"",
     r.date||"", r.match_id||"", r.our_team||"", r.opponent||"",
     r.event_type||"", r.player||"", r.related_player||"", r.position||"",
-    r.input_time||""];
+    r.input_time||"", r.game_id||""];
 }
 
 function _loadRawEventKeys(sheet) {
   var lastRow = sheet.getLastRow();
   var keys = {};
   if (lastRow < 2) return keys;
-  var data = sheet.getRange(2, 1, lastRow - 1, RAW_EVENTS_HEADERS.length).getValues();
+  var lastCol = sheet.getLastColumn();
+  var data = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+  var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+  var gidCol = headers.indexOf("game_id");
   for (var i = 0; i < data.length; i++) {
     var r = data[i];
-    // [team, sport, mode, tid, date, match_id, our_team, opponent, event_type, player, related_player, position, input_time]
-    var key = [r[0], r[1], r[2], r[3], _toDateStr(r[4]), r[5], r[8], r[9], r[10], String(r[12])].join("|");
+    var gid = gidCol >= 0 ? String(r[gidCol] || "") : "";
+    var key = [r[0], r[1], r[2], r[3], _toDateStr(r[4]), r[5], r[8], r[9], r[10], String(r[12]), gid].join("|");
     keys[key] = true;
   }
   return keys;
+}
+
+function _writeRawMatches(data) {
+  if (!data || !data.rows) return { success: false, error: "rows 누락" };
+  _ensureRawSheets();
+  var rows = data.rows;
+  if (rows.length === 0) return { success: true, count: 0, skipped: 0 };
+
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(15000)) return { success: false, error: "잠금 획득 실패" };
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getSheetByName(RAW_MATCHES_SHEET);
+    var existingKeys = _loadRawMatchKeys(sheet);
+
+    var toInsert = [];
+    var skipped = 0;
+    for (var i = 0; i < rows.length; i++) {
+      var r = rows[i];
+      var key = (r.game_id || "") + "|" + (r.match_id || "");
+      if (existingKeys[key]) { skipped++; continue; }
+      existingKeys[key] = true;
+      toInsert.push(_rawMatchToArray(r));
+    }
+    if (toInsert.length > 0) {
+      var lastRow = sheet.getLastRow();
+      sheet.getRange(lastRow + 1, 1, toInsert.length, RAW_MATCHES_HEADERS.length).setValues(toInsert);
+    }
+    return { success: true, count: toInsert.length, skipped: skipped };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function _loadRawMatchKeys(sheet) {
+  var lastRow = sheet.getLastRow();
+  var keys = {};
+  if (lastRow < 2) return keys;
+  var data = sheet.getRange(2, 6, lastRow - 1, 5).getValues(); // game_id=col6, match_id=col10 → 6..10
+  for (var i = 0; i < data.length; i++) {
+    var key = (data[i][0] || "") + "|" + (data[i][4] || "");
+    keys[key] = true;
+  }
+  return keys;
+}
+
+function _rawMatchToArray(r) {
+  return [
+    r.team||"", r.sport||"", r.mode||"", r.tournament_id||"",
+    r.date||"", r.game_id||"", r.match_idx||0,
+    r.round_idx===null||r.round_idx===undefined?"":r.round_idx,
+    r.court_id===null||r.court_id===undefined?"":r.court_id,
+    r.match_id||"",
+    r.our_team_name||"", r.opponent_team_name||"",
+    r.our_members_json||"[]", r.opponent_members_json||"[]",
+    r.our_score||0, r.opponent_score||0,
+    r.our_gk||"", r.opponent_gk||"",
+    r.formation||"", r.our_defenders_json||"[]",
+    r.is_extra===true, r.input_time||""
+  ];
+}
+
+function _deleteRawMatchesByDate(team, sport, date) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(RAW_MATCHES_SHEET);
+  if (!sheet) return { removed: 0 };
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return { removed: 0 };
+  var data = sheet.getRange(2, 1, lastRow - 1, RAW_MATCHES_HEADERS.length).getValues();
+  var removed = 0;
+  for (var i = data.length - 1; i >= 0; i--) {
+    if (data[i][0] === team && data[i][1] === sport && _toDateStr(data[i][4]) === date) {
+      sheet.deleteRow(i + 2);
+      removed++;
+    }
+  }
+  return { removed: removed };
+}
+
+function _getRawMatches(team, sport, dateFrom, dateTo) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(RAW_MATCHES_SHEET);
+  if (!sheet) { _ensureRawSheets(); sheet = ss.getSheetByName(RAW_MATCHES_SHEET); }
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return { success: true, rows: [] };
+  var data = sheet.getRange(2, 1, lastRow - 1, RAW_MATCHES_HEADERS.length).getValues();
+  var out = [];
+  for (var i = 0; i < data.length; i++) {
+    var r = data[i];
+    if (team && r[0] !== team) continue;
+    if (sport && r[1] !== sport) continue;
+    var d = _toDateStr(r[4]);
+    if (dateFrom && d < dateFrom) continue;
+    if (dateTo && d > dateTo) continue;
+    var row = {};
+    for (var j = 0; j < RAW_MATCHES_HEADERS.length; j++) row[RAW_MATCHES_HEADERS[j]] = r[j];
+    row.date = d;
+    out.push(row);
+  }
+  return { success: true, rows: out };
+}
+
+function _getRawEvents(team, sport, dateFrom, dateTo) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(RAW_EVENTS_SHEET);
+  if (!sheet) { _ensureRawSheets(); sheet = ss.getSheetByName(RAW_EVENTS_SHEET); }
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return { success: true, rows: [] };
+  var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  var data = sheet.getRange(2, 1, lastRow - 1, headers.length).getValues();
+  var out = [];
+  for (var i = 0; i < data.length; i++) {
+    var r = data[i];
+    if (team && r[0] !== team) continue;
+    if (sport && r[1] !== sport) continue;
+    var d = _toDateStr(r[4]);
+    if (dateFrom && d < dateFrom) continue;
+    if (dateTo && d > dateTo) continue;
+    var row = {};
+    for (var j = 0; j < headers.length; j++) row[headers[j]] = r[j];
+    row.date = d;
+    out.push(row);
+  }
+  return { success: true, rows: out };
+}
+
+function _getRawPlayerGames(team, sport) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(RAW_PLAYER_GAMES_SHEET);
+  if (!sheet) return { success: true, rows: [] };
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return { success: true, rows: [] };
+  var data = sheet.getRange(2, 1, lastRow - 1, RAW_PLAYER_GAMES_HEADERS.length).getValues();
+  var out = [];
+  for (var i = 0; i < data.length; i++) {
+    var r = data[i];
+    if (team && r[0] !== team) continue;
+    if (sport && r[1] !== sport) continue;
+    var row = {};
+    for (var j = 0; j < RAW_PLAYER_GAMES_HEADERS.length; j++) row[RAW_PLAYER_GAMES_HEADERS[j]] = r[j];
+    row.date = _toDateStr(r[4]);
+    out.push(row);
+  }
+  return { success: true, rows: out };
+}
+
+function migrateEventTypes() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(RAW_EVENTS_SHEET);
+  if (!sheet) return { success: false, error: "로그_이벤트 시트 없음" };
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return { success: true, updated: 0 };
+  var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  var col = headers.indexOf("event_type") + 1;
+  if (col < 1) return { success: false, error: "event_type 컬럼 없음" };
+  var range = sheet.getRange(2, col, lastRow - 1, 1);
+  var vals = range.getValues();
+  var updated = 0;
+  for (var i = 0; i < vals.length; i++) {
+    var v = String(vals[i][0] || "");
+    var next = v;
+    if (v === "ownGoal") next = "owngoal";
+    else if (v === "opponentGoal") next = "concede";
+    if (next !== v) { vals[i][0] = next; updated++; }
+  }
+  if (updated > 0) range.setValues(vals);
+  return { success: true, updated: updated };
+}
+
+function migrateMatchIds() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(RAW_EVENTS_SHEET);
+  if (!sheet) return { success: false, error: "로그_이벤트 시트 없음" };
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return { success: true, updated: 0, unrecognized: [] };
+  var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+  var midCol = headers.indexOf("match_id") + 1;
+  var sportCol = headers.indexOf("sport") + 1;
+  if (midCol < 1 || sportCol < 1) return { success: false, error: "match_id/sport 컬럼 없음" };
+  var data = sheet.getRange(2, 1, lastRow - 1, sheet.getLastColumn()).getValues();
+  var updated = 0;
+  var unrecognized = {};
+  for (var i = 0; i < data.length; i++) {
+    var raw = String(data[i][midCol - 1] || "").trim();
+    var sport = String(data[i][sportCol - 1] || "").trim();
+    var next = _normalizeMatchIdAS(raw, sport);
+    if (next !== raw) {
+      sheet.getRange(i + 2, midCol).setValue(next);
+      updated++;
+    } else if (raw && !_isStandardMatchId(raw, sport)) {
+      unrecognized[raw] = (unrecognized[raw] || 0) + 1;
+    }
+  }
+  return { success: true, updated: updated, unrecognized: unrecognized };
+}
+
+function _normalizeMatchIdAS(raw, sport) {
+  if (!raw) return raw;
+  var s = String(raw).trim();
+  if (/^R\d+_C\d+$/.test(s)) return s;
+  var m1 = s.match(/^(\d+)라운드\s*매치(\d+)$/);
+  if (m1) return "R" + m1[1] + "_C" + (parseInt(m1[2], 10) - 1);
+  var m2 = s.match(/^(\d+)경기$/);
+  var n = m2 ? m2[1] : (/^\d+$/.test(s) ? s : null);
+  if (n !== null) return sport === "풋살" ? "R" + n + "_C0" : n;
+  return s;
+}
+
+function _isStandardMatchId(s, sport) {
+  if (sport === "풋살") return /^R\d+_C\d+$/.test(s);
+  return /^\d+$/.test(s);
 }
 
 function _writeRawPlayerGames(data) {

@@ -1,11 +1,13 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useTheme } from '../../hooks/useTheme';
 import AppSync from '../../services/appSync';
-import FirebaseSync from '../../services/firebaseSync';
 import { fetchSheetData } from '../../services/sheetService';
 import { getSettings, getEffectiveSettings, saveSettings, loadSettingsFromFirebase } from '../../config/settings';
-import { parseGameHistory, calcDefenseStats, calcWinContribution, calcSynergy, calcWinStatsFromPointLog, calcDefenseFromMembers } from '../../utils/gameStateAnalyzer';
+import { calcDefenseStats, calcWinContribution, calcSynergy, calcWinStatsFromPointLog, calcDefenseFromMembers } from '../../utils/gameStateAnalyzer';
+import { buildGameRecordsFromLogs } from '../../utils/gameRecordBuilder';
 import { calcComboEfficiency, calcCrovaGogumaFreq, calcRoundMidpointTimePattern } from '../../utils/playerAnalyticsUtils';
+import FirebaseSync from '../../services/firebaseSync';
+import { buildRoundRowsFromFutsal, buildRoundRowsFromSoccer } from '../../utils/matchRowBuilder';
 import PlayerCardTab from './PlayerCardTab';
 import SynergyTab from './SynergyTab';
 import TimePatternTab from './TimePatternTab';
@@ -255,6 +257,8 @@ export default function PlayerAnalytics({ teamName, teamMode, initialTab, isAdmi
   const [gameRecords, setGameRecords] = useState(null);
   const [gameRecordsLoading, setGameRecordsLoading] = useState(false);
   const [dualSettings, setDualSettings] = useState(null);
+  const [fbMigrating, setFbMigrating] = useState(false);
+  const [fbMigrateResult, setFbMigrateResult] = useState(null);
 
   useEffect(() => {
     const s = getSettings(teamName);
@@ -281,18 +285,23 @@ export default function PlayerAnalytics({ teamName, teamMode, initialTab, isAdmi
   const needsGameRecords = ["playercard", "synergy", "timepattern", "combo2", "crovaguma"];
 
   useEffect(() => {
-    if (needsGameRecords.includes(tab)) {
-      if (!gameRecords && !gameRecordsLoading) {
-        setGameRecordsLoading(true);
-        FirebaseSync.loadFinalizedAll(teamName).then(history => {
-          setGameRecords(parseGameHistory(history));
-        }).catch(err => {
-          console.warn("상태JSON 로드 실패:", err);
-          setGameRecords([]);
-        }).finally(() => setGameRecordsLoading(false));
-      }
-    }
-  }, [tab, gameRecords, gameRecordsLoading]);
+    if (!needsGameRecords.includes(tab)) return;
+    setGameRecordsLoading(true);
+    Promise.all([
+      AppSync.getMatchLog({ sport: isSoccer ? '축구' : '풋살' }),
+      AppSync.getEventLog({ sport: isSoccer ? '축구' : '풋살' }),
+    ])
+      .then(([matchRes, eventRes]) => {
+        const matchRows = matchRes?.rows || [];
+        const eventRows = eventRes?.rows || [];
+        setGameRecords(buildGameRecordsFromLogs(matchRows, eventRows));
+      })
+      .catch(err => {
+        console.warn("로그_매치/로그_이벤트 로드 실패:", err);
+        setGameRecords([]);
+      })
+      .finally(() => setGameRecordsLoading(false));
+  }, [teamName, tab, isSoccer]);
 
   const isCrovaGogumaMode = useMemo(() => {
     if (isSoccer) return false;
@@ -345,12 +354,16 @@ export default function PlayerAnalytics({ teamName, teamMode, initialTab, isAdmi
   , [crovaGogumaFreq]);
   const gameRecordsSummary = useMemo(() => {
     if (!gameRecords || gameRecords.length === 0) return null;
-    const dates = gameRecords.map(g => g.gameDate).filter(Boolean).sort();
-    const totalRounds = gameRecords.reduce(
-      (sum, r) => sum + (r.matches || []).filter(m => !m.isExtra).length,
-      0,
-    );
-    return { count: gameRecords.length, totalRounds, from: dates[0], to: dates[dates.length - 1] };
+    const sessionIds = new Set();
+    let roundCount = 0;
+    let legacyCount = 0;
+    for (const gr of gameRecords) {
+      const gid = gr.gameDate + '|' + (gr.teamNames?.[0] || '');
+      sessionIds.add(gid);
+      roundCount += (gr.matches || []).filter(m => !m.isExtra).length;
+      if ((gr.matches || []).some(m => String(m.matchId || '').startsWith('legacy_'))) legacyCount++;
+    }
+    return { sessionCount: sessionIds.size, roundCount, legacyCount };
   }, [gameRecords]);
 
   const allTabs = [
@@ -360,8 +373,8 @@ export default function PlayerAnalytics({ teamName, teamMode, initialTab, isAdmi
     { key: "combo2", label: "득점콤비" },
     !isSoccer && { key: "crovaguma", label: isCrovaGogumaMode ? "🍀/🍠" : "승·꼴" },
     { key: "playercard", label: "선수카드" },
-    !isSoccer && { key: "synergy", label: "시너지" },
-    !isSoccer && { key: "timepattern", label: "시간대" },
+    { key: "synergy", label: "시너지" },
+    { key: "timepattern", label: "시간대" },
     ...(initialTab === "dualteam" ? [{ key: "dualteam", label: "팀전" }] : []),
   ].filter(Boolean);
   const tabs = allTabs;
@@ -404,8 +417,77 @@ export default function PlayerAnalytics({ teamName, teamMode, initialTab, isAdmi
   const cellStyle = { padding: "5px 6px", borderBottom: `1px solid ${C.grayDarker}`, fontSize: 11 };
   const headerCell = { ...cellStyle, fontWeight: 700, color: C.gray, fontSize: 10 };
 
+  async function runFirebasePhaseMigration() {
+    if (!teamName) return;
+    const sport = isSoccer ? '축구' : '풋살';
+    const ok = window.confirm(
+      `[관리자] Firebase stateJSON → 로그_매치 정확 덮어쓰기\n\n` +
+      `team=${teamName} sport=${sport}\n\n` +
+      `최근 확정 세션들의 날짜에 해당하는 로그_매치 rows를 삭제한 뒤 정확한 rows로 재기록합니다. 계속하시겠습니까?`,
+    );
+    if (!ok) return;
+    setFbMigrating(true);
+    setFbMigrateResult(null);
+    try {
+      const history = await FirebaseSync.loadFinalizedAll(teamName);
+      const buildFn = sport === '축구' ? buildRoundRowsFromSoccer : buildRoundRowsFromFutsal;
+      const datesTouched = new Set();
+      const allRows = [];
+      for (const h of history) {
+        if (!h.stateJson) continue;
+        let gs;
+        try { gs = JSON.parse(h.stateJson); } catch { continue; }
+        const rows = buildFn({
+          team: teamName, mode: '기본', tournamentId: '',
+          date: h.gameDate, stateJSON: gs, inputTime: h.savedAt || '',
+        });
+        if (rows.length > 0) {
+          datesTouched.add(h.gameDate);
+          allRows.push(...rows);
+        }
+      }
+      for (const date of datesTouched) {
+        await AppSync.deleteMatchLogByDate({ sport, date });
+      }
+      const BATCH = 200;
+      let total = 0;
+      for (let i = 0; i < allRows.length; i += BATCH) {
+        const res = await AppSync.writeMatchLog(allRows.slice(i, i + BATCH));
+        total += (res && res.count) || 0;
+      }
+      setFbMigrateResult({ ok: true, dates: datesTouched.size, rows: total });
+      console.log('[fb-phase-migration] 완료', { dates: datesTouched.size, rows: total });
+    } catch (err) {
+      console.warn('[fb-phase-migration] 실패', err);
+      setFbMigrateResult({ ok: false, error: String(err?.message || err) });
+    } finally {
+      setFbMigrating(false);
+    }
+  }
+
   return (
     <div>
+      {isAdmin && (
+        <details style={{ marginBottom: 12, padding: '6px 10px', border: `1px solid ${C.grayDarker}`, borderRadius: 6, background: `${C.grayDarker}22` }}>
+          <summary style={{ fontSize: 11, color: C.gray, cursor: 'pointer', fontWeight: 600 }}>관리자 툴</summary>
+          <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <button
+              onClick={runFirebasePhaseMigration}
+              disabled={fbMigrating}
+              style={{ padding: '6px 10px', fontSize: 11, fontWeight: 600, borderRadius: 6, border: 'none', cursor: fbMigrating ? 'not-allowed' : 'pointer', background: C.accent, color: C.bg, opacity: fbMigrating ? 0.6 : 1 }}
+            >
+              {fbMigrating ? '실행 중...' : 'Firebase → 로그_매치 정확 덮어쓰기'}
+            </button>
+            {fbMigrateResult && (
+              <div style={{ fontSize: 10, color: fbMigrateResult.ok ? C.green || '#22c55e' : C.red || '#ef4444' }}>
+                {fbMigrateResult.ok
+                  ? `✓ ${fbMigrateResult.dates}개 날짜, ${fbMigrateResult.rows} rows 덮어쓰기 완료`
+                  : `✗ 실패: ${fbMigrateResult.error}`}
+              </div>
+            )}
+          </div>
+        </details>
+      )}
       {(() => {
         const groups = [
           { title: '개인 분석', keys: ['playercard', 'race', 'killer'] },
@@ -650,7 +732,8 @@ export default function PlayerAnalytics({ teamName, teamMode, initialTab, isAdmi
 
       {needsGameRecords.includes(tab) && gameRecordsSummary && (
         <div style={{ fontSize: 10, color: C.gray, textAlign: "center", marginBottom: 8, padding: "4px 8px", background: `${C.grayDarker}44`, borderRadius: 6 }}>
-          앱 기록 {gameRecordsSummary.count}세션 / 총 {gameRecordsSummary.totalRounds}라운드 기준 ({gameRecordsSummary.from} ~ {gameRecordsSummary.to}) · 수비력/승리기여/시너지는 앱 기록 경기만 분석
+          분석 범위: {gameRecordsSummary.sessionCount}세션 / 총 {gameRecordsSummary.roundCount}라운드
+          {gameRecordsSummary.legacyCount > 0 && <span style={{ color: C.orange || '#f97316' }}> · 레거시 추정 {gameRecordsSummary.legacyCount}건 포함 (근사)</span>}
         </div>
       )}
 
