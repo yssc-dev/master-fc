@@ -748,7 +748,7 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
         {activeTab === "analytics" && (
           <div style={ds.section}>
             <div style={ds.sectionTitle}>선수 분석</div>
-            <PlayerAnalytics teamName={teamName} teamMode={activeSport} />
+            <PlayerAnalytics teamName={teamName} teamMode={activeSport} isAdmin={activeEntry?.role === "관리자"} />
           </div>
         )}
         {activeTab === "games" && renderGames()}
