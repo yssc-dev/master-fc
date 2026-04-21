@@ -897,6 +897,10 @@ function _writeRawEvents(data) {
     }
     if (toInsert.length > 0) {
       var lastRow = sheet.getLastRow();
+      var lastCol = sheet.getLastColumn();
+      if (lastCol < RAW_EVENTS_HEADERS.length) {
+        _ensureEventLogHasGameId();
+      }
       sheet.getRange(lastRow + 1, 1, toInsert.length, RAW_EVENTS_HEADERS.length).setValues(toInsert);
     }
     return { success: true, count: toInsert.length, skipped: skipped };
@@ -907,25 +911,28 @@ function _writeRawEvents(data) {
 
 function _rawEventKey(r) {
   return [r.team||"", r.sport||"", r.mode||"", r.tournament_id||"", r.date||"", r.match_id||"",
-    r.event_type||"", r.player||"", r.related_player||"", r.input_time||""].join("|");
+    r.event_type||"", r.player||"", r.related_player||"", r.input_time||"", r.game_id||""].join("|");
 }
 
 function _rawEventToArray(r) {
   return [r.team||"", r.sport||"", r.mode||"", r.tournament_id||"",
     r.date||"", r.match_id||"", r.our_team||"", r.opponent||"",
     r.event_type||"", r.player||"", r.related_player||"", r.position||"",
-    r.input_time||""];
+    r.input_time||"", r.game_id||""];
 }
 
 function _loadRawEventKeys(sheet) {
   var lastRow = sheet.getLastRow();
   var keys = {};
   if (lastRow < 2) return keys;
-  var data = sheet.getRange(2, 1, lastRow - 1, RAW_EVENTS_HEADERS.length).getValues();
+  var lastCol = sheet.getLastColumn();
+  var data = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+  var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+  var gidCol = headers.indexOf("game_id");
   for (var i = 0; i < data.length; i++) {
     var r = data[i];
-    // [team, sport, mode, tid, date, match_id, our_team, opponent, event_type, player, related_player, position, input_time]
-    var key = [r[0], r[1], r[2], r[3], _toDateStr(r[4]), r[5], r[8], r[9], r[10], String(r[12])].join("|");
+    var gid = gidCol >= 0 ? String(r[gidCol] || "") : "";
+    var key = [r[0], r[1], r[2], r[3], _toDateStr(r[4]), r[5], r[8], r[9], r[10], String(r[12]), gid].join("|");
     keys[key] = true;
   }
   return keys;
