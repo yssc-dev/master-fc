@@ -70,6 +70,21 @@ function _ensureRawSheets() {
   return { created: created };
 }
 
+function _ensureEventLogHasGameId() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(RAW_EVENTS_SHEET);
+  if (!sheet) { _ensureRawSheets(); sheet = ss.getSheetByName(RAW_EVENTS_SHEET); }
+  var lastCol = sheet.getLastColumn();
+  var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+  if (headers.indexOf("game_id") >= 0) {
+    return { success: true, added: false };
+  }
+  var newCol = lastCol + 1;
+  sheet.getRange(1, newCol).setValue("game_id");
+  sheet.getRange(1, newCol).setFontWeight("bold");
+  return { success: true, added: true, col: newCol };
+}
+
 // ─── 한국시간 헬퍼 ───
 
 function _kstNow() {
@@ -242,6 +257,8 @@ function doPost(e) {
       return _jsonResponse(_writeRawEvents(body.data));
     } else if (action === "writeRawPlayerGames") {
       return _jsonResponse(_writeRawPlayerGames(body.data));
+    } else if (action === "ensureEventLogHasGameId") {
+      return _jsonResponse(_ensureEventLogHasGameId());
     } else if (action === "createTournament") {
       return _jsonResponse(_createTournament(body.data));
     } else if (action === "deleteTournament") {
