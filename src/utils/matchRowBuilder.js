@@ -53,3 +53,40 @@ export function buildRoundRowsFromFutsal({ team, mode = '기본', tournamentId =
     };
   });
 }
+
+/**
+ * 축구 stateJSON → 로그_매치 rows.
+ * @param {{ team, mode, tournamentId, date, stateJSON, inputTime }} input
+ */
+export function buildRoundRowsFromSoccer({ team, mode = '기본', tournamentId = '', date, stateJSON, inputTime }) {
+  if (!stateJSON || !Array.isArray(stateJSON.soccerMatches)) return [];
+  return stateJSON.soccerMatches.map(m => {
+    const startedAt = m.startedAt;
+    const gameId = startedAt ? `s_${startedAt}` : `s_${date}_${m.matchIdx}`;
+    const startingPlayers = (m.lineup || []).map(l => l.player).filter(Boolean);
+    const subInPlayers = (m.events || [])
+      .filter(e => e.type === 'sub' && e.playerIn)
+      .map(e => e.playerIn);
+    const allMembers = Array.from(new Set([...startingPlayers, ...subInPlayers]));
+    return {
+      team, sport: '축구', mode, tournament_id: tournamentId,
+      date: date || '',
+      game_id: gameId,
+      match_idx: m.matchIdx,
+      round_idx: null, court_id: null,
+      match_id: String(m.matchIdx),
+      our_team_name: team,
+      opponent_team_name: m.opponent || '',
+      our_members_json: JSON.stringify(allMembers),
+      opponent_members_json: JSON.stringify([]),
+      our_score: Number(m.ourScore) || 0,
+      opponent_score: Number(m.opponentScore) || 0,
+      our_gk: m.gk || '',
+      opponent_gk: '',
+      formation: m.formation || '',
+      our_defenders_json: JSON.stringify(m.defenders || []),
+      is_extra: false,
+      input_time: inputTime || '',
+    };
+  });
+}

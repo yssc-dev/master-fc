@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildRoundRowsFromFutsal, RAW_MATCH_COLUMNS } from '../matchRowBuilder';
+import { buildRoundRowsFromFutsal, buildRoundRowsFromSoccer, RAW_MATCH_COLUMNS } from '../matchRowBuilder';
 
 describe('RAW_MATCH_COLUMNS', () => {
   it('필수 컬럼 순서', () => {
@@ -101,5 +101,76 @@ describe('buildRoundRowsFromFutsal', () => {
     };
     const rows = buildRoundRowsFromFutsal({ team: 't', mode: '기본', date: '2026-04-10', stateJSON: state, inputTime: '' });
     expect(rows.map(r => r.match_idx)).toEqual([1, 2, 3]);
+  });
+});
+
+describe('buildRoundRowsFromSoccer', () => {
+  const baseSoccerState = {
+    soccerMatches: [
+      {
+        matchIdx: 1,
+        opponent: '라이벌FC',
+        lineup: [
+          { player: '손흥민', position: 'FW' },
+          { player: '김민재', position: 'DF' },
+          { player: '이강인', position: 'MF' },
+          { player: '조현우', position: 'GK' },
+          { player: '황희찬', position: 'FW' },
+          { player: '황인범', position: 'MF' },
+          { player: '김영권', position: 'DF' },
+          { player: '이재성', position: 'MF' },
+          { player: '정우영', position: 'MF' },
+          { player: '김진수', position: 'DF' },
+          { player: '송민규', position: 'FW' },
+        ],
+        formation: '4-3-3',
+        gk: '조현우',
+        defenders: ['김민재', '김영권', '김진수'],
+        events: [
+          { type: 'sub', playerIn: '오현규', playerOut: '황희찬', position: 'FW' },
+        ],
+        ourScore: 2, opponentScore: 1,
+        status: 'completed',
+        startedAt: 1713000000000,
+      },
+    ],
+  };
+
+  it('풋살과 동일 스키마, 축구 전용 필드 채움', () => {
+    const rows = buildRoundRowsFromSoccer({
+      team: 'FC테스트', mode: '기본', date: '2026-04-10',
+      stateJSON: baseSoccerState, inputTime: '2026-04-10T22:00:00',
+    });
+    expect(rows).toHaveLength(1);
+    const r = rows[0];
+    expect(r.sport).toBe('축구');
+    expect(r.game_id).toBe('s_1713000000000');
+    expect(r.match_id).toBe('1');
+    expect(r.match_idx).toBe(1);
+    expect(r.round_idx).toBe(null);
+    expect(r.court_id).toBe(null);
+    expect(r.our_team_name).toBe('FC테스트');
+    expect(r.opponent_team_name).toBe('라이벌FC');
+    expect(r.our_score).toBe(2);
+    expect(r.opponent_score).toBe(1);
+    expect(r.our_gk).toBe('조현우');
+    expect(r.opponent_gk).toBe('');
+    expect(r.formation).toBe('4-3-3');
+    expect(JSON.parse(r.our_defenders_json)).toEqual(['김민재', '김영권', '김진수']);
+    const ourMembers = JSON.parse(r.our_members_json);
+    expect(ourMembers).toContain('손흥민');
+    expect(ourMembers).toContain('오현규');
+    expect(ourMembers).toContain('황희찬');
+    expect(JSON.parse(r.opponent_members_json)).toEqual([]);
+  });
+
+  it('startedAt 없으면 s_{date}_{matchIdx} 폴백', () => {
+    const state = { soccerMatches: [{ ...baseSoccerState.soccerMatches[0], startedAt: null }] };
+    const rows = buildRoundRowsFromSoccer({ team: 'T', mode: '기본', date: '2026-04-10', stateJSON: state, inputTime: '' });
+    expect(rows[0].game_id).toBe('s_2026-04-10_1');
+  });
+
+  it('soccerMatches 없으면 빈 배열', () => {
+    expect(buildRoundRowsFromSoccer({ team: 'T', mode: '기본', date: '2026-04-10', stateJSON: {}, inputTime: '' })).toEqual([]);
   });
 });
