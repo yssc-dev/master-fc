@@ -16,8 +16,13 @@ if (!args.team || !args.sport) {
 const PHASE = args.phase || 'all';
 const DRY_RUN = !args.apply;
 const APPS_SCRIPT_URL = process.env.APPS_SCRIPT_URL;
+const AUTH_TOKEN = process.env.AUTH_TOKEN || '';
 if (!APPS_SCRIPT_URL) {
   console.error('환경변수 APPS_SCRIPT_URL 필요 (Apps Script 웹앱 URL)');
+  process.exit(1);
+}
+if (!AUTH_TOKEN) {
+  console.error('환경변수 AUTH_TOKEN 필요 (형식: "팀이름:이름:번호4자리")');
   process.exit(1);
 }
 
@@ -126,7 +131,7 @@ async function callAppsScript(body) {
   const res = await fetch(APPS_SCRIPT_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify(body),
+    body: JSON.stringify({ ...body, authToken: AUTH_TOKEN }),
   });
   if (!res.ok) throw new Error(`Apps Script HTTP ${res.status}`);
   return await res.json();
