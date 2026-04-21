@@ -102,6 +102,7 @@ const AppSync = {
     if (!this.enabled()) return [];
     try {
       const team = this._getTeam();
+      console.log(`[sheet] GET action=getPointLog sheet="${pointLogSheet || ''}" team="${team}"`);
       const resp = await fetch(APPS_SCRIPT_URL, {
         method: "POST",
         headers: { "Content-Type": "text/plain" },
@@ -116,6 +117,7 @@ const AppSync = {
     if (!this.enabled()) return [];
     try {
       const team = this._getTeam();
+      console.log(`[sheet] GET action=getPlayerLog sheet="${playerLogSheet || ''}" team="${team}"`);
       const resp = await fetch(APPS_SCRIPT_URL, {
         method: "POST",
         headers: { "Content-Type": "text/plain" },
@@ -131,6 +133,7 @@ const AppSync = {
     if (!this.enabled()) return null;
     try {
       const team = this._getTeam();
+      console.log(`[sheet] GET action=getRankingHistory sheet="${playerLogSheet || ''}" team="${team}"`);
       const resp = await fetch(APPS_SCRIPT_URL, {
         method: "POST",
         headers: { "Content-Type": "text/plain" },
@@ -278,6 +281,7 @@ const AppSync = {
     if (!this.enabled()) return null;
     try {
       const team = this._getTeam();
+      console.log(`[sheet] GET action=getRawMatches sheet="로그_매치" team="${team}" sport="${sport}"`);
       const resp = await fetch(APPS_SCRIPT_URL, {
         method: "POST",
         headers: { "Content-Type": "text/plain" },
@@ -291,6 +295,7 @@ const AppSync = {
     if (!this.enabled()) return null;
     try {
       const team = this._getTeam();
+      console.log(`[sheet] GET action=getRawEvents sheet="로그_이벤트" team="${team}" sport="${sport}"`);
       const resp = await fetch(APPS_SCRIPT_URL, {
         method: "POST",
         headers: { "Content-Type": "text/plain" },
