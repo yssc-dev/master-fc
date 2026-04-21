@@ -262,16 +262,29 @@ export default function PlayerAnalytics({ teamName, teamMode, initialTab, isAdmi
 
   useEffect(() => {
     const s = getSettings(teamName);
-    console.log("분석 시트설정:", { pointLog: s.pointLogSheet, playerLog: s.playerLogSheet });
+    const sport = isSoccer ? '축구' : '풋살';
+    console.log("분석 시트설정:", { pointLog: s.pointLogSheet, playerLog: s.playerLogSheet, sport });
+    setGameRecordsLoading(true);
     Promise.all([
       AppSync.getPointLog(s.pointLogSheet),
       AppSync.getPlayerLog(s.playerLogSheet),
       fetchSheetData().catch(() => null),
-    ]).then(([evts, plog, sheetData]) => {
+      AppSync.getMatchLog({ sport }).catch(() => ({ rows: [] })),
+      AppSync.getEventLog({ sport }).catch(() => ({ rows: [] })),
+    ]).then(([evts, plog, sheetData, matchRes, eventRes]) => {
       setEvents(evts); setPlayerLog(plog);
       if (sheetData) setMembers(sheetData.players);
-    }).finally(() => setLoading(false));
-  }, [teamName]);
+      const matchRows = matchRes?.rows || [];
+      const eventRows = eventRes?.rows || [];
+      setGameRecords(buildGameRecordsFromLogs(matchRows, eventRows));
+    }).catch(err => {
+      console.warn("분석 데이터 로드 실패:", err);
+      setGameRecords([]);
+    }).finally(() => {
+      setLoading(false);
+      setGameRecordsLoading(false);
+    });
+  }, [teamName, isSoccer]);
 
   useEffect(() => {
     if (tab === "dualteam") {
@@ -281,27 +294,6 @@ export default function PlayerAnalytics({ teamName, teamMode, initialTab, isAdmi
       });
     }
   }, [tab, teamName]);
-
-  const needsGameRecords = ["playercard", "synergy", "timepattern", "combo2", "crovaguma"];
-
-  useEffect(() => {
-    if (!needsGameRecords.includes(tab)) return;
-    setGameRecordsLoading(true);
-    Promise.all([
-      AppSync.getMatchLog({ sport: isSoccer ? '축구' : '풋살' }),
-      AppSync.getEventLog({ sport: isSoccer ? '축구' : '풋살' }),
-    ])
-      .then(([matchRes, eventRes]) => {
-        const matchRows = matchRes?.rows || [];
-        const eventRows = eventRes?.rows || [];
-        setGameRecords(buildGameRecordsFromLogs(matchRows, eventRows));
-      })
-      .catch(err => {
-        console.warn("로그_매치/로그_이벤트 로드 실패:", err);
-        setGameRecords([]);
-      })
-      .finally(() => setGameRecordsLoading(false));
-  }, [teamName, tab, isSoccer]);
 
   const isCrovaGogumaMode = useMemo(() => {
     if (isSoccer) return false;
