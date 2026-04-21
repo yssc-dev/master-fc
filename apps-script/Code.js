@@ -13,12 +13,25 @@ var PLAYER_LOG_SHEET = "선수별집계기록로그";
 
 var RAW_EVENTS_SHEET = "로그_이벤트";
 var RAW_PLAYER_GAMES_SHEET = "로그_선수경기";
+var RAW_MATCHES_SHEET = "로그_매치";
 
 var RAW_EVENTS_HEADERS = [
   "team","sport","mode","tournament_id",
   "date","match_id","our_team","opponent",
   "event_type","player","related_player","position",
-  "input_time"
+  "input_time","game_id"
+];
+
+var RAW_MATCHES_HEADERS = [
+  "team","sport","mode","tournament_id",
+  "date","game_id","match_idx",
+  "round_idx","court_id","match_id",
+  "our_team_name","opponent_team_name",
+  "our_members_json","opponent_members_json",
+  "our_score","opponent_score",
+  "our_gk","opponent_gk",
+  "formation","our_defenders_json",
+  "is_extra","input_time"
 ];
 
 var RAW_PLAYER_GAMES_HEADERS = [
@@ -46,6 +59,13 @@ function _ensureRawSheets() {
     pg.getRange(1, 1, 1, RAW_PLAYER_GAMES_HEADERS.length).setValues([RAW_PLAYER_GAMES_HEADERS]);
     pg.getRange(1, 1, 1, RAW_PLAYER_GAMES_HEADERS.length).setFontWeight("bold");
     created.push(RAW_PLAYER_GAMES_SHEET);
+  }
+  var mt = ss.getSheetByName(RAW_MATCHES_SHEET);
+  if (!mt) {
+    mt = ss.insertSheet(RAW_MATCHES_SHEET);
+    mt.getRange(1, 1, 1, RAW_MATCHES_HEADERS.length).setValues([RAW_MATCHES_HEADERS]);
+    mt.getRange(1, 1, 1, RAW_MATCHES_HEADERS.length).setFontWeight("bold");
+    created.push(RAW_MATCHES_SHEET);
   }
   return { created: created };
 }
