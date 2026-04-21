@@ -1,24 +1,14 @@
 import { useState } from 'react';
 import AppSync from '../../services/appSync';
 import { useTheme } from '../../hooks/useTheme';
+import { SunIcon, MoonIcon } from '../common/icons';
 
 export default function LoginScreen({ onLogin }) {
-  const { C, mode, toggle } = useTheme();
+  const { mode, toggle } = useTheme();
   const [name, setName] = useState("");
   const [phone4, setPhone4] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-
-  const ls = {
-    container: { background: C.bg, minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: "'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif" },
-    card: { background: C.card, borderRadius: 16, padding: 28, width: "100%", maxWidth: 340 },
-    title: { fontSize: 22, fontWeight: 800, color: C.white, textAlign: "center", marginBottom: 4 },
-    subtitle: { fontSize: 13, color: C.gray, textAlign: "center", marginBottom: 24 },
-    label: { fontSize: 12, color: C.gray, marginBottom: 6, display: "block" },
-    input: { background: C.cardLight, border: `1px solid ${C.grayDark}`, borderRadius: 8, padding: "10px 14px", color: C.white, fontSize: 15, outline: "none", width: "100%", marginBottom: 14 },
-    btn: { background: C.accent, color: C.bg, border: "none", borderRadius: 8, padding: "12px", fontSize: 15, fontWeight: 700, cursor: "pointer", width: "100%", marginTop: 4 },
-    error: { fontSize: 12, color: C.red, textAlign: "center", marginBottom: 10 },
-  };
 
   const handleVerify = async () => {
     const trimName = name.trim();
@@ -44,25 +34,71 @@ export default function LoginScreen({ onLogin }) {
   };
 
   return (
-    <div style={ls.container}>
-      <button onClick={toggle} style={{ position: "fixed", top: 16, right: 16, background: C.cardLight, color: C.gray, border: "none", borderRadius: 8, padding: "6px 10px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
-        {mode === "dark" ? "☀️" : "🌙"}
+    <div style={{
+      background: "var(--app-bg-grouped)", minHeight: "100vh",
+      display: "flex", flexDirection: "column",
+      padding: "60px 16px 40px",
+      fontFamily: "var(--app-font-sans)", letterSpacing: "-0.014em",
+      maxWidth: 500, margin: "0 auto", color: "var(--app-text-primary)",
+    }}>
+      <button onClick={toggle} style={{
+        position: "fixed", top: 16, right: 16, zIndex: 10,
+        background: "var(--app-bg-row)", border: "0.5px solid var(--app-divider)",
+        borderRadius: 999, width: 36, height: 36,
+        display: "inline-flex", alignItems: "center", justifyContent: "center",
+        color: "var(--app-text-primary)", cursor: "pointer",
+      }}>
+        {mode === "dark" ? <SunIcon width={16} /> : <MoonIcon width={16} />}
       </button>
-      <div style={ls.card}>
-        <div style={{ fontSize: 32, textAlign: "center", marginBottom: 12 }}>⚽</div>
-        <div style={ls.title}>경기 기록</div>
-        <div style={ls.subtitle}>로그인</div>
-        <label style={ls.label}>이름</label>
-        <input style={ls.input} placeholder="홍길동" value={name} onChange={e => setName(e.target.value)} onKeyDown={e => e.key === "Enter" && handleVerify()} />
-        <label style={ls.label}>휴대폰 뒷자리 (4자리)</label>
-        <input style={ls.input} type="tel" inputMode="numeric" maxLength={4} placeholder="1234" value={phone4}
-          onChange={e => setPhone4(e.target.value.replace(/\D/g, "").slice(0, 4))}
-          onKeyDown={e => e.key === "Enter" && handleVerify()} />
-        {error && <div style={ls.error}>{error}</div>}
-        <button style={{ ...ls.btn, opacity: loading ? 0.6 : 1 }} onClick={handleVerify} disabled={loading}>
-          {loading ? "확인 중..." : "로그인"}
-        </button>
+
+      <div style={{ padding: "32px 4px 40px" }}>
+        <div style={{ fontSize: 13, color: "var(--app-blue)", fontWeight: 600, marginBottom: 8 }}>
+          Master FC
+        </div>
+        <h1 style={{
+          fontSize: 40, fontWeight: 700, letterSpacing: "-0.022em",
+          lineHeight: 1.05, margin: 0, color: "var(--app-text-primary)",
+        }}>
+          모든 경기를<br/>정확하게.
+        </h1>
+        <p style={{ fontSize: 17, color: "var(--app-text-secondary)", marginTop: 16, maxWidth: 320, lineHeight: 1.4 }}>
+          골·어시·실점을 정확히. 팀의 모든 기록은 여기서.
+        </p>
       </div>
+
+      <div className="app-grouped" style={{ marginBottom: 16 }}>
+        <div className="app-row" style={{ padding: "10px 16px" }}>
+          <label style={{ fontSize: 15, color: "var(--app-text-primary)", width: 90 }}>이름</label>
+          <input className="app-input" style={{ flex: 1, background: "transparent", border: "none", padding: "6px 0" }}
+            placeholder="홍길동" value={name} onChange={e => setName(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && handleVerify()} />
+        </div>
+        <div className="app-row" style={{ padding: "10px 16px" }}>
+          <label style={{ fontSize: 15, color: "var(--app-text-primary)", width: 90 }}>휴대폰 뒷자리</label>
+          <input className="app-input" style={{ flex: 1, background: "transparent", border: "none", padding: "6px 0", fontVariantNumeric: "tabular-nums" }}
+            type="tel" inputMode="numeric" maxLength={4} placeholder="1234" value={phone4}
+            onChange={e => setPhone4(e.target.value.replace(/\D/g, "").slice(0, 4))}
+            onKeyDown={e => e.key === "Enter" && handleVerify()} />
+        </div>
+      </div>
+
+      {error && (
+        <div style={{
+          fontSize: 13, color: "var(--app-red)",
+          background: "rgba(255,59,48,0.1)", border: "0.5px solid rgba(255,59,48,0.3)",
+          padding: "10px 14px", borderRadius: 10, marginBottom: 16,
+        }}>{error}</div>
+      )}
+
+      <button onClick={handleVerify} disabled={loading} style={{
+        width: "100%", padding: "14px 16px", borderRadius: 12,
+        background: "var(--app-blue)", color: "#fff",
+        border: "none", fontSize: 16, fontWeight: 600, cursor: "pointer",
+        fontFamily: "inherit", letterSpacing: "-0.01em",
+        opacity: loading ? 0.6 : 1,
+      }}>
+        {loading ? "확인 중..." : "로그인"}
+      </button>
     </div>
   );
 }

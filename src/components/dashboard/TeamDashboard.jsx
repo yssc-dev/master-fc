@@ -4,6 +4,7 @@ import AppSync from '../../services/appSync';
 import { getSettings, getEffectiveSettings } from '../../config/settings';
 import { useTheme } from '../../hooks/useTheme';
 import Modal from '../common/Modal';
+import { SunIcon, MoonIcon, SettingsIcon, BackIcon, HomeIcon, TrophyIcon, ChevronRight, SoccerBallIcon, ListIcon } from '../common/icons';
 import RankingCandlestickChart from './RankingCandlestickChart';
 import PlayerAnalytics from './PlayerAnalytics';
 import TournamentListTab from '../tournament/TournamentListTab';
@@ -107,21 +108,42 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
   }, []);
 
   const ds = useMemo(() => ({
-    container: { background: C.bg, minHeight: "100vh", color: C.white, fontFamily: "'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif", maxWidth: 500, margin: "0 auto" },
-    header: { background: C.headerBg, padding: "16px 16px 12px", position: "sticky", top: 0, zIndex: 100 },
-    section: { padding: "0 16px", marginBottom: 16 },
-    card: { background: C.card, borderRadius: 12, padding: 14 },
-    sectionTitle: { fontSize: 14, fontWeight: 700, color: C.gray, marginBottom: 8, display: "flex", alignItems: "center", gap: 6 },
-    sportTab: (active) => ({ padding: "8px 16px", borderRadius: 20, fontSize: 13, fontWeight: 600, border: "none", cursor: "pointer", background: active ? C.accent : C.cardLight, color: active ? C.bg : C.gray }),
-    btn: (bg, tc = "#fff") => ({ background: bg, color: tc, border: "none", borderRadius: 10, padding: "14px", fontSize: 15, fontWeight: 700, cursor: "pointer", width: "100%" }),
-    thStyle: { padding: "5px 2px", textAlign: "center", color: C.gray, borderBottom: `1px solid ${C.borderColor}`, fontWeight: 600, fontSize: 9, whiteSpace: "nowrap" },
-    tdStyle: (hl = false) => ({ padding: "5px 1px", textAlign: "center", borderBottom: `1px solid ${C.borderColor}`, fontWeight: hl ? 700 : 400, color: hl ? C.white : C.gray, fontSize: 10 }),
-    mainTab: (active) => ({
-      flex: 1, padding: "12px 8px", textAlign: "center", fontSize: 14, fontWeight: 700, border: "none", cursor: "pointer",
-      background: active ? C.card : "transparent", color: active ? C.white : C.gray,
+    container: { background: "var(--app-bg-grouped)", minHeight: "100vh",
+                 color: "var(--app-text-primary)",
+                 fontFamily: "var(--app-font-sans)", fontWeight: 400, letterSpacing: "-0.014em",
+                 maxWidth: 500, margin: "0 auto" },
+    header:    { background: "var(--app-bg-grouped)", padding: "24px 20px 12px",
+                 position: "sticky", top: 0, zIndex: 100 },
+    section:   { padding: "0 20px", marginBottom: 18 },
+    card:      { background: C.card, borderRadius: 14, padding: 14,
+                 border: `1px solid ${C.borderColor}` },
+    sectionTitle: { fontSize: 13, fontWeight: 400,
+                    color: C.gray, marginBottom: 8, paddingLeft: 4,
+                    display: "flex", alignItems: "center", gap: 6 },
+    sportTab: (active) => ({ flex: "0 0 auto", padding: "6px 14px", textAlign: "center",
+      background: active ? C.card : "transparent",
+      color: active ? C.white : C.gray,
+      fontWeight: 500, fontSize: 13,
+      border: "none", borderRadius: 7,
+      boxShadow: active ? "0 1px 2px rgba(0,0,0,0.08)" : "none",
+      cursor: "pointer" }),
+    btn: (bg, tc = "#fff") => ({ background: bg, color: tc, border: "none",
+      borderRadius: 10, padding: "12px 16px", fontSize: 15, fontWeight: 500,
+      letterSpacing: "-0.01em", cursor: "pointer", width: "100%" }),
+    thStyle: { padding: "8px 4px", textAlign: "center", color: C.gray,
+      borderBottom: `1px solid ${C.borderColor}`,
+      fontWeight: 500, fontSize: 12,
+      whiteSpace: "nowrap" },
+    tdStyle: (hl = false) => ({ padding: "9px 4px", textAlign: "center",
+      borderBottom: `0.5px solid ${C.borderColor}`,
+      fontWeight: hl ? 600 : 400, color: hl ? C.white : C.gray, fontSize: 13,
+      fontVariantNumeric: "tabular-nums" }),
+    mainTab: (active) => ({ flex: 1, padding: "12px 8px", textAlign: "center",
+      fontSize: 14, fontWeight: active ? 600 : 500,
+      border: "none", cursor: "pointer", background: "transparent",
+      color: active ? C.accent : C.gray,
       borderBottom: active ? `2px solid ${C.accent}` : "2px solid transparent",
-      position: "relative",
-    }),
+      position: "relative" }),
   }), [C]);
 
   const maxGames = members.length > 0 ? Math.max(...members.map(p => p.games)) : 1;
@@ -131,17 +153,22 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
   const maxPoint = members.length > 0 ? Math.max(...members.map(p => p.point), 1) : 1;
 
   const Bar = ({ value, max, color, height = 10 }) => (
-    <div style={{ background: C.cardLight, borderRadius: height / 2, height, flex: 1, overflow: "hidden" }}>
-      <div style={{ background: color, height: "100%", borderRadius: height / 2, width: `${Math.min(100, (value / (max || 1)) * 100)}%`, transition: "width 0.3s" }} />
+    <div style={{ background: "transparent", border: `1px dashed ${C.grayDarker}`,
+                  borderRadius: height / 2, height, flex: 1, overflow: "hidden" }}>
+      <div style={{ background: C.white, height: "100%", borderRadius: height / 2,
+                    width: `${Math.min(100, (value / (max || 1)) * 100)}%`,
+                    transition: "width 0.3s" }} />
     </div>
   );
 
   const DeltaBadge = ({ value }) => {
     if (!value || value === 0) return <span style={{ minWidth: 28 }} />;
-    const isUp = value > 0;
+    const up = value > 0;
     return (
-      <span style={{ fontSize: 10, padding: "1px 4px", borderRadius: 3, fontWeight: 700, minWidth: 28, textAlign: "center", background: isUp ? "#22c55e22" : "#ef444422", color: isUp ? "#22c55e" : "#ef4444" }}>
-        {isUp ? "+" : ""}{value}
+      <span style={{ fontSize: 10, fontWeight: 500,
+                     minWidth: 28, textAlign: "right",
+                     color: up ? C.white : C.gray }}>
+        {up ? "↑" : "↓"}{Math.abs(value)}
       </span>
     );
   };
@@ -155,30 +182,39 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
           {/* 팀 전적 (축구) */}
           {activeSport === "축구" && teamRecord && (
             <div style={ds.section}>
-              <div style={{ background: C.card, borderRadius: 12, padding: 14 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+              <div style={ds.card}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: C.white }}>팀 전적</span>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: C.accent }}>{teamRecord.games > 0 ? Math.round((teamRecord.wins / teamRecord.games) * 100) : 0}%</span>
+                    <span style={{ fontSize: 10, color: C.gray }}>팀 전적</span>
+                    <span style={{ fontSize: 11, fontWeight: 500, color: C.white, fontVariantNumeric: "tabular-nums" }}>{teamRecord.games > 0 ? Math.round((teamRecord.wins / teamRecord.games) * 100) : 0}%</span>
                   </div>
-                  <div style={{ display: "flex", gap: 3 }}>
+                  <div style={{ display: "flex", gap: 4 }}>
                     {teamRecord.form.map((r, i) => (
                       <span key={i} style={{
-                        width: 22, height: 22, borderRadius: "50%", display: "inline-flex", alignItems: "center", justifyContent: "center",
-                        fontSize: 10, fontWeight: 800,
-                        background: r === "W" ? "#22c55e" : r === "L" ? "#ef4444" : "#6b7280",
-                        color: "#fff",
+                        width: 22, height: 22, borderRadius: "50%",
+                        display: "inline-flex", alignItems: "center", justifyContent: "center",
+                        fontSize: 9, fontWeight: 600,
+                        background: r === "W" ? C.white : "transparent",
+                        color:      r === "W" ? C.bg    : C.gray,
+                        border:     r === "W" ? "none"  : `1px dashed ${C.grayDarker}`,
                       }}>{r}</span>
                     ))}
                   </div>
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-around", textAlign: "center" }}>
-                  <div><div style={{ fontSize: 20, fontWeight: 900, color: C.white }}>{teamRecord.games}</div><div style={{ fontSize: 9, color: C.gray }}>경기</div></div>
-                  <div><div style={{ fontSize: 20, fontWeight: 900, color: "#22c55e" }}>{teamRecord.wins}</div><div style={{ fontSize: 9, color: C.gray }}>승</div></div>
-                  <div><div style={{ fontSize: 20, fontWeight: 900, color: "#6b7280" }}>{teamRecord.draws}</div><div style={{ fontSize: 9, color: C.gray }}>무</div></div>
-                  <div><div style={{ fontSize: 20, fontWeight: 900, color: "#ef4444" }}>{teamRecord.losses}</div><div style={{ fontSize: 9, color: C.gray }}>패</div></div>
-                  <div><div style={{ fontSize: 20, fontWeight: 900, color: C.white }}>{teamRecord.gf}</div><div style={{ fontSize: 9, color: C.gray }}>득점</div></div>
-                  <div><div style={{ fontSize: 20, fontWeight: 900, color: C.white }}>{teamRecord.ga}</div><div style={{ fontSize: 9, color: C.gray }}>실점</div></div>
+                  {[
+                    { label: "경기", value: teamRecord.games },
+                    { label: "승", value: teamRecord.wins },
+                    { label: "무", value: teamRecord.draws },
+                    { label: "패", value: teamRecord.losses },
+                    { label: "득점", value: teamRecord.gf },
+                    { label: "실점", value: teamRecord.ga },
+                  ].map((it, idx) => (
+                    <div key={idx}>
+                      <div style={{ fontSize: 22, fontWeight: 400, letterSpacing: "-0.6px", color: C.white, fontVariantNumeric: "tabular-nums" }}>{it.value}</div>
+                      <div style={{ fontSize: 9, color: C.gray, marginTop: 2 }}>{it.label}</div>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
@@ -189,14 +225,22 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
           <div style={ds.section}>
             <div style={{ display: "flex", gap: 8 }}>
               {[
-                { label: "경기", value: maxGames, color: C.accent },
-                { label: "골", value: totalGoals, color: "#22c55e" },
-                { label: "어시", value: totalAssists, color: "#3b82f6" },
-                { label: "참여", value: activePlayers.length, color: C.orange },
-              ].map((s, i) => (
-                <div key={i} style={{ flex: 1, background: C.card, borderRadius: 10, padding: "12px 8px", textAlign: "center" }}>
-                  <div style={{ fontSize: 22, fontWeight: 800, color: s.color }}>{s.value}</div>
-                  <div style={{ fontSize: 10, color: C.gray, marginTop: 2 }}>{s.label}</div>
+                { label: "경기", value: maxGames },
+                { label: "골", value: totalGoals },
+                { label: "어시", value: totalAssists },
+                { label: "참여", value: activePlayers.length },
+              ].map((stat, i) => (
+                <div key={i} style={{ flex: 1, background: C.card, borderRadius: 16,
+                                      border: `1px solid ${C.borderColor}`,
+                                      padding: "16px 10px", textAlign: "center" }}>
+                  <div style={{ fontSize: 32, fontWeight: 400, letterSpacing: "-0.8px",
+                                fontVariantNumeric: "tabular-nums", color: C.white }}>
+                    {stat.value}
+                  </div>
+                  <div style={{ fontSize: 9,
+                                color: C.gray, marginTop: 4 }}>
+                    {stat.label}
+                  </div>
                 </div>
               ))}
             </div>
@@ -472,10 +516,19 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
   });
 
   const rankBadge = (rank) => {
-    if (rank === 1) return <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 22, height: 22, borderRadius: "50%", background: "linear-gradient(135deg, #fbbf24, #f59e0b)", color: "#78350f", fontSize: 11, fontWeight: 800 }}>1</span>;
-    if (rank === 2) return <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 22, height: 22, borderRadius: "50%", background: "linear-gradient(135deg, #d1d5db, #9ca3af)", color: "#374151", fontSize: 11, fontWeight: 800 }}>2</span>;
-    if (rank === 3) return <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 22, height: 22, borderRadius: "50%", background: "linear-gradient(135deg, #d97706, #92400e)", color: "#fef3c7", fontSize: 11, fontWeight: 800 }}>3</span>;
-    return <span style={{ fontSize: 11, color: C.gray, fontWeight: 600, minWidth: 22, textAlign: "center", display: "inline-block" }}>{rank}</span>;
+    const first = rank === 1;
+    const top3 = rank <= 3;
+    return (
+      <span style={{
+        display: "inline-flex", alignItems: "center", justifyContent: "center",
+        width: 22, height: 22, borderRadius: "50%",
+        background: first ? "var(--app-blue)" : (top3 ? "var(--app-bg-row-hover)" : "transparent"),
+        color:      first ? "#fff"           : (top3 ? "var(--app-text-primary)" : "var(--app-text-tertiary)"),
+        border: "none",
+        fontSize: 11, fontWeight: 600,
+        fontVariantNumeric: "tabular-nums",
+      }}>{rank}</span>
+    );
   };
 
   const renderRoster = () => (
@@ -537,7 +590,7 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
                 const prev = prevRankMap[p.name];
                 const diff = prev ? prev - rank : 0;
                 return (
-                  <tr key={i} style={{ background: isTop3 ? `${C.accent}08` : "transparent" }}>
+                  <tr key={i} style={{ background: rank === 1 ? "rgba(0,122,255,0.06)" : "transparent" }}>
                     <td style={{ ...ds.tdStyle(false), padding: "5px 1px" }}>{rankBadge(rank)}</td>
                     <td style={{ ...ds.tdStyle(true), textAlign: "left", paddingLeft: 4 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
@@ -599,23 +652,26 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
 
                 const isSummary = gs.phase === "summary" || gs.earlyFinish === true;
                 return (
-                  <div key={game.gameId} style={{ ...ds.card, border: `1px solid ${isSummary ? C.orange : C.green}44`, cursor: "pointer", marginBottom: 8 }}
-                    onClick={() => onContinueGame(game.gameId)}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
-                          {dateFmt && <span style={{ fontSize: 12, color: C.gray, fontWeight: 600 }}>{dateFmt}</span>}
-                          <span style={{ fontSize: 14, fontWeight: 700, color: C.white }}>{roundInfo}</span>
+                  <div key={game.gameId} style={{
+                    background: "rgba(0,122,255,0.08)",
+                    border: "0.5px solid rgba(0,122,255,0.25)",
+                    borderRadius: 14, padding: 14, cursor: "pointer", marginBottom: 8,
+                  }} onClick={() => onContinueGame(game.gameId)}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4, flexWrap: "wrap" }}>
+                          {dateFmt && <span style={{ fontSize: 13, color: "var(--app-text-secondary)", fontWeight: 500 }}>{dateFmt}</span>}
+                          <span style={{ fontSize: 15, fontWeight: 600, color: "var(--app-blue)" }}>{roundInfo}</span>
                           {isSummary
-                            ? <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 4, background: `${C.orange}22`, color: C.orange, fontWeight: 600 }}>마감됨</span>
-                            : <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 4, background: "#22c55e22", color: "#22c55e", fontWeight: 600 }}>진행중</span>
+                            ? <span style={{ fontSize: 11, padding: "1px 6px", borderRadius: 4, background: "rgba(255,149,0,0.15)", color: "var(--app-orange)", fontWeight: 500 }}>마감됨</span>
+                            : <span style={{ fontSize: 11, padding: "1px 6px", borderRadius: 4, background: "rgba(52,199,89,0.15)", color: "var(--app-green)", fontWeight: 500 }}>진행중</span>
                           }
                         </div>
-                        <div style={{ fontSize: 12, color: C.gray }}>
-                          작성자: {creator} · {attendeeCount}명 · {gs.teamCount || "?"}팀
+                        <div style={{ fontSize: 13, color: "var(--app-text-secondary)" }}>
+                          {creator} · {attendeeCount}명 · {gs.teamCount || "?"}팀
                         </div>
                       </div>
-                      <span style={{ fontSize: 13, color: C.green, fontWeight: 700 }}>▶</span>
+                      <ChevronRight color="var(--app-blue)" width={16} />
                     </div>
                   </div>
                 );
@@ -626,47 +682,47 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
           <div>
             <div style={ds.sectionTitle}>새 경기</div>
             {activeSport === "축구" ? (
-              <div style={{ ...ds.card, cursor: "pointer", border: `1px solid ${C.borderColor}`, transition: "border-color 0.2s" }}
-                onClick={() => onStartGame("sheetSync")}
-                onMouseEnter={e => e.currentTarget.style.borderColor = C.accent}
-                onMouseLeave={e => e.currentTarget.style.borderColor = C.borderColor}>
-                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                  <div style={{ fontSize: 24 }}>⚽</div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 15, fontWeight: 700, color: C.white }}>경기 시작</div>
-                    <div style={{ fontSize: 12, color: C.gray, marginTop: 2 }}>참석명단 연동 → 포메이션 → 경기 진행</div>
-                  </div>
-                  <span style={{ fontSize: 12, color: C.accent, fontWeight: 600 }}>▶</span>
+              <button onClick={() => onStartGame("sheetSync")} style={{
+                width: "100%", background: "var(--app-blue)", color: "#fff",
+                border: "none", borderRadius: 14, padding: "14px 16px", cursor: "pointer",
+                display: "flex", alignItems: "center", gap: 12, textAlign: "left",
+                fontFamily: "inherit",
+              }}>
+                <SoccerBallIcon color="#fff" width={22} />
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 16, fontWeight: 600 }}>경기 시작</div>
+                  <div style={{ fontSize: 13, color: "rgba(255,255,255,0.85)", marginTop: 2 }}>참석명단 연동 → 포메이션 → 경기 진행</div>
                 </div>
-              </div>
+                <ChevronRight color="rgba(255,255,255,0.9)" width={16} />
+              </button>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                <div style={{ ...ds.card, cursor: "pointer", border: `1px solid ${C.borderColor}`, transition: "border-color 0.2s" }}
-                  onClick={() => onStartGame("sheetSync")}
-                  onMouseEnter={e => e.currentTarget.style.borderColor = C.accent}
-                  onMouseLeave={e => e.currentTarget.style.borderColor = C.borderColor}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                    <div style={{ fontSize: 24 }}>📋</div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 15, fontWeight: 700, color: C.white }}>구글시트 연동</div>
-                      <div style={{ fontSize: 12, color: C.gray, marginTop: 2 }}>시트에서 참석자/팀수를 읽어 자동 편성</div>
-                    </div>
-                    <span style={{ fontSize: 12, color: C.accent, fontWeight: 600 }}>▶</span>
+                <button onClick={() => onStartGame("sheetSync")} style={{
+                  width: "100%", background: "var(--app-blue)", color: "#fff",
+                  border: "none", borderRadius: 14, padding: "14px 16px", cursor: "pointer",
+                  display: "flex", alignItems: "center", gap: 12, textAlign: "left",
+                  fontFamily: "inherit",
+                }}>
+                  <ListIcon color="#fff" width={22} />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 16, fontWeight: 600 }}>구글시트 연동</div>
+                    <div style={{ fontSize: 13, color: "rgba(255,255,255,0.85)", marginTop: 2 }}>시트에서 참석자/팀수를 읽어 자동 편성</div>
                   </div>
-                </div>
-                <div style={{ ...ds.card, cursor: "pointer", border: `1px solid ${C.borderColor}`, transition: "border-color 0.2s" }}
-                  onClick={() => onStartGame("custom")}
-                  onMouseEnter={e => e.currentTarget.style.borderColor = C.accent}
-                  onMouseLeave={e => e.currentTarget.style.borderColor = C.borderColor}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                    <div style={{ fontSize: 24 }}>⚙️</div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 15, fontWeight: 700, color: C.white }}>커스텀 경기</div>
-                      <div style={{ fontSize: 12, color: C.gray, marginTop: 2 }}>참석자 선택 → 팀 편성 → 경기 진행</div>
-                    </div>
-                    <span style={{ fontSize: 12, color: C.accent, fontWeight: 600 }}>▶</span>
+                  <ChevronRight color="rgba(255,255,255,0.9)" width={16} />
+                </button>
+                <button onClick={() => onStartGame("custom")} style={{
+                  width: "100%", background: "rgba(0,122,255,0.1)", color: "var(--app-blue)",
+                  border: "none", borderRadius: 14, padding: "14px 16px", cursor: "pointer",
+                  display: "flex", alignItems: "center", gap: 12, textAlign: "left",
+                  fontFamily: "inherit",
+                }}>
+                  <SettingsIcon color="var(--app-blue)" width={22} />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 16, fontWeight: 600 }}>커스텀 경기</div>
+                    <div style={{ fontSize: 13, color: "var(--app-text-secondary)", marginTop: 2 }}>참석자 선택 → 팀 편성 → 경기 진행</div>
                   </div>
-                </div>
+                  <ChevronRight color="var(--app-blue)" width={16} />
+                </button>
               </div>
             )}
           </div>
@@ -674,47 +730,67 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
       )}
 
       <div style={{ marginTop: 16 }}>
-        <button onClick={onViewHistory} style={{ ...ds.btn(C.cardLight, C.white), width: "100%" }}>과거 경기 조회</button>
+        <button onClick={onViewHistory} style={{
+          width: "100%", background: "transparent", color: "var(--app-blue)",
+          border: "none", borderRadius: 12, padding: "12px 16px", cursor: "pointer",
+          fontSize: 15, fontWeight: 500, fontFamily: "inherit",
+        }}>과거 경기 조회</button>
       </div>
     </div>
   );
 
+  const iconBtnStyle = {
+    background: "var(--app-bg-row)",
+    border: "0.5px solid var(--app-divider)",
+    borderRadius: 999, width: 36, height: 36,
+    display: "inline-flex", alignItems: "center", justifyContent: "center",
+    color: "var(--app-text-primary)", cursor: "pointer",
+    padding: 0,
+  };
+
   return (
     <div style={ds.container}>
       <div style={ds.header}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <div>
-            <div style={{ fontSize: 20, fontWeight: 800, color: "#fff" }}>{tournamentActive && tournamentName ? `🏆 ${tournamentName}` : teamName}</div>
-            <div style={{ fontSize: 12, color: C.headerTextDim, marginTop: 2 }}>
-              {authUser.name}님
-              {activeEntry?.role === "관리자" && <span style={{ marginLeft: 6, fontSize: 10, padding: "2px 6px", borderRadius: 4, background: "rgba(255,255,255,0.2)" }}>관리자</span>}
-            </div>
-          </div>
-          <div style={{ display: "flex", gap: 6 }}>
-            <button onClick={toggle} style={{ background: C.headerBtnBg, color: C.headerBtnColor, border: "none", borderRadius: 8, padding: "6px 10px", fontSize: 12, cursor: "pointer" }}>
-              {mode === "dark" ? "☀️" : "🌙"}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+          <h1 style={{ fontSize: 28, fontWeight: 700, letterSpacing: "-0.022em",
+                       lineHeight: 1.1, color: "var(--app-text-primary)", margin: 0,
+                       display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+            {tournamentActive && tournamentName && <TrophyIcon width={22} color="var(--app-orange)" />}
+            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {tournamentActive && tournamentName ? tournamentName : teamName}
+            </span>
+          </h1>
+          <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+            <button onClick={toggle} style={iconBtnStyle} aria-label="테마 전환">
+              {mode === "dark" ? <SunIcon width={16} /> : <MoonIcon width={16} />}
             </button>
-            <button onClick={onSwitchTeam} style={{ background: C.headerBtnBg, color: C.headerBtnColor, border: "none", borderRadius: 8, padding: "6px 12px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
-              팀 전환
+            <button onClick={onSettings} style={iconBtnStyle} aria-label="설정">
+              <SettingsIcon width={16} />
             </button>
-            <button onClick={onSettings} style={{ background: C.headerBtnBg, color: C.headerBtnColor, border: "none", borderRadius: 8, padding: "6px 12px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
-              설정
-            </button>
-            <button onClick={onLogout} style={{ background: "rgba(255,255,255,0.1)", color: C.headerBtnDimColor, border: "none", borderRadius: 8, padding: "6px 12px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
-              로그아웃
+            <button onClick={onSwitchTeam} style={iconBtnStyle} aria-label="팀 전환">
+              <BackIcon width={16} />
             </button>
             {tournamentActive && (
               <button onClick={() => {
                 if (!confirm("대회 모드에서 홈 화면으로 이동하시겠습니까?")) return;
                 setTournamentActive(false);
                 setActiveTab("records");
-              }} style={{ background: C.accent, color: C.bg, border: "none", borderRadius: 8, padding: "6px 12px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
-                홈
+              }} style={iconBtnStyle} aria-label="홈">
+                <HomeIcon width={16} />
               </button>
             )}
           </div>
         </div>
-        <div style={{ display: "flex", gap: 8, marginTop: 12, overflowX: "auto" }}>
+        <div style={{ fontSize: 15, color: "var(--app-text-secondary)", marginBottom: 10 }}>
+          {authUser.name}
+          {activeEntry?.role === "관리자" && (
+            <span style={{
+              marginLeft: 8, fontSize: 11, padding: "1px 6px", borderRadius: 4,
+              background: "rgba(255,149,0,0.15)", color: "var(--app-orange)", fontWeight: 500,
+            }}>관리자</span>
+          )}
+        </div>
+        <div style={{ display: "flex", gap: 6, padding: 4, background: "var(--app-bg-row-hover)", borderRadius: 10, overflowX: "auto" }}>
           {teamEntries.map(e => (
             <button key={e.mode} style={ds.sportTab(e.mode === activeSport)} onClick={() => setActiveSport(e.mode)}>
               {e.mode}

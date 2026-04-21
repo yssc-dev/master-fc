@@ -107,10 +107,10 @@ export default function EventLog({ matchEvents, allEvents, matchId, homePlayers,
 
   return (
     <div style={{ marginTop: 10 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
-        <span style={{ fontSize: 12, fontWeight: 700, color: C.gray }}>경기 기록 ({matchEvents.length}건)</span>
-        {!readOnly && <span style={{ fontSize: 10, color: C.grayDark }}>← 밀어서 삭제 | ✕ 버튼</span>}
-        {readOnly && <span style={{ fontSize: 10, color: C.orange }}>확정됨 (수정불가)</span>}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+        <span style={{ fontSize: 10, color: C.gray }}>LOG · {matchEvents.length}</span>
+        {!readOnly && <span style={{ fontSize: 10, color: C.grayDark }}>← swipe · ✕</span>}
+        {readOnly && <span style={{ fontSize: 10, color: C.orange }}>LOCKED</span>}
       </div>
       {matchEvents.map((e, localIdx) => {
         const globalIdx = e.id ? allEvents.findIndex(ae => ae.id === e.id) : allEvents.findIndex(ae => ae === e);
@@ -129,16 +129,21 @@ export default function EventLog({ matchEvents, allEvents, matchId, homePlayers,
               style={{
                 ...s.eventLog,
                 flexDirection: "column", alignItems: "stretch",
-                padding: isEditing ? 10 : "6px 10px",
-                background: isEditing ? C.card : C.cardLight,
+                padding: isEditing ? 12 : "10px 12px",
+                background: isEditing ? C.card : "transparent",
                 border: isEditing ? `1px solid ${C.accent}` : "none",
+                borderBottom: isEditing ? `1px solid ${C.accent}` : `1px dashed ${C.grayDarker}`,
+                borderRadius: isEditing ? 12 : 0,
               }}
               onClick={() => {
                 if (readOnly) { alert("확정된 라운드입니다. 수정하려면 확정취소를 먼저 진행해주세요."); return; }
                 setEditingEvent(isEditing ? null : globalIdx);
               }}
             >
-              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 10, color: C.grayDark, width: 22, flexShrink: 0 }}>
+                  #{String(localIdx + 1).padStart(2, "0")}
+                </span>
                 <span style={{ fontSize: 14 }}>{e.type === "goal" ? "⚽" : "🔴"}</span>
                 <div style={{ flex: 1 }}>
                   <span style={{ fontWeight: 600 }}>{e.player}</span>

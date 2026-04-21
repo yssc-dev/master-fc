@@ -191,21 +191,21 @@ export default function PlayerCardTab({ playerLog, members, defenseStats, winSta
 
   return (
     <div>
-      <div style={{ marginBottom: 12 }}>
+      <div style={{ marginBottom: 14 }}>
         <select value={selected || ""} onChange={e => setSelectedPlayer(e.target.value)}
-          style={{ width: "100%", padding: "8px 12px", borderRadius: 8, fontSize: 14, fontWeight: 700, background: C.cardLight, color: C.white, border: `1px solid ${C.grayDark}` }}>
+          style={{ width: "100%", padding: "10px 14px", borderRadius: 50, fontSize: 14, fontWeight: 480, letterSpacing: "-0.14px", background: "transparent", color: C.white, border: `1.2px dashed ${C.grayDark}`, fontFamily: "inherit", appearance: "none", cursor: "pointer" }}>
           {players.map(p => <option key={p} value={p}>{p} ({playerSummary[p].games}경기)</option>)}
         </select>
       </div>
       {selected && (
         <div style={{ textAlign: "center" }}>
-          <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
-            <span style={{ fontSize: 18, fontWeight: 800, color: C.white }}>{selected}</span>
+          <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
+            <span style={{ fontSize: 24, fontWeight: 400, letterSpacing: "-0.6px", color: C.white }}>{selected}</span>
             {type.label && (
-              <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 4, background: type.color + "22", color: type.color }}>{type.label}</span>
+              <span style={{ fontSize: 10, fontWeight: 500, padding: "3px 10px", borderRadius: 50, border: `1px dashed ${type.color}`, color: type.color }}>{type.label}</span>
             )}
             {chaos && (
-              <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 4, background: chaos.color + "22", color: chaos.color }}>{chaos.emoji} {chaos.label}</span>
+              <span style={{ fontSize: 10, fontWeight: 500, padding: "3px 10px", borderRadius: 50, border: `1px dashed ${chaos.color}`, color: chaos.color }}>{chaos.emoji} {chaos.label}</span>
             )}
           </div>
           <RadarChart values={values} C={C} />
@@ -221,10 +221,10 @@ export default function PlayerCardTab({ playerLog, members, defenseStats, winSta
                     { label: "참석률", score: values[4], desc: `${pd.detail.games} / ${maxGames}경기 = ${Math.round(pd.raw.attendance * 100)}%` },
                     { label: "승리기여", score: values[5], desc: `${pd.detail.totalMatches}경기 ${pd.detail.wins}승 ${pd.detail.draws}무 ${pd.detail.losses}패 = 승률 ${Math.round(pd.raw.winRate * 100)}%` },
                   ].map(row => (
-                    <tr key={row.label} style={{ borderBottom: `1px solid ${C.grayDarker}` }}>
-                      <td style={{ padding: "5px 4px", color: C.gray, fontWeight: 600, width: 60 }}>{row.label}</td>
-                      <td style={{ padding: "5px 4px", color: C.accent, fontWeight: 700, width: 30, textAlign: "center" }}>{Math.round(row.score)}</td>
-                      <td style={{ padding: "5px 4px", color: C.grayLight, fontSize: 10 }}>{row.desc}</td>
+                    <tr key={row.label} style={{ borderBottom: `1px dashed ${C.grayDarker}` }}>
+                      <td style={{ padding: "8px 4px", color: C.gray, fontSize: 10, width: 70 }}>{row.label}</td>
+                      <td style={{ padding: "8px 4px", color: C.white, fontWeight: 480, fontSize: 18, letterSpacing: "-0.4px", fontVariantNumeric: "tabular-nums", width: 38, textAlign: "center" }}>{Math.round(row.score)}</td>
+                      <td style={{ padding: "8px 4px", color: C.gray, fontSize: 10 }}>{row.desc}</td>
                     </tr>
                   ))}
                 </tbody>

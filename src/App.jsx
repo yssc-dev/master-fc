@@ -16,6 +16,7 @@ import { getSettings, getEffectiveSettings } from './config/settings';
 import { makeStyles } from './styles/theme';
 import PhaseIndicator from './components/common/PhaseIndicator';
 import Modal from './components/common/Modal';
+import { BackIcon, ListIcon, PlusIcon } from './components/common/icons';
 import ScheduleMatchView from './components/game/ScheduleMatchView';
 import FreeMatchView from './components/game/FreeMatchView';
 import PushMatchView from './components/game/PushMatchView';
@@ -641,98 +642,212 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
 
   // SETUP PHASE
   if (phase === "setup") {
+    const segBar = {
+      display: "flex", gap: 4, padding: 3,
+      background: "var(--app-bg-row-hover)", borderRadius: 8,
+    };
+    const segBtn = (active, disabled) => ({
+      flex: 1, padding: "6px 10px", border: "none", cursor: disabled ? "not-allowed" : "pointer",
+      background: active ? "var(--app-bg-elevated)" : "transparent",
+      color: active ? "var(--app-text-primary)" : "var(--app-text-secondary)",
+      fontWeight: 500, fontSize: 14, borderRadius: 6,
+      boxShadow: active ? "0 1px 2px rgba(0,0,0,0.08)" : "none",
+      opacity: disabled ? 0.3 : 1,
+      fontFamily: "inherit", letterSpacing: "-0.01em",
+    });
+    const scheduleHint = matchMode === "schedule" && courtCount === 2 ? (
+      teamCount === 4 ? "동일팀 4번씩 경기 · 12라운드"
+      : teamCount === 5 ? "동일팀 2번씩 경기 · 10라운드"
+      : teamCount === 6 ? "조별리그 → 순위별 재편성 · 12라운드"
+      : ""
+    ) : "";
+
     return (
-      <div style={s.app}>
-        <div style={s.header}>
-          <div style={s.title}>⚽ {teamContext?.team || "풋살"} 경기기록</div>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-            <div style={s.subtitle}>{new Date().toLocaleDateString("ko-KR")} {teamContext?.mode || "풋살"} 기록기</div>
-            <div style={{ fontSize: 9, padding: "2px 6px", borderRadius: 4, background: dataSource === "sheet" ? "#22c55e22" : "#f9731644", color: dataSource === "sheet" ? "#22c55e" : "#f97316", fontWeight: 600 }}>
-              {dataSource === "sheet" ? "시트 연동" : "오프라인"}
+      <div style={{
+        background: "var(--app-bg-grouped)", minHeight: "100vh",
+        color: "var(--app-text-primary)",
+        fontFamily: "var(--app-font-sans)", letterSpacing: "-0.014em",
+        maxWidth: 500, margin: "0 auto", paddingBottom: 96,
+      }}>
+        <div style={{ padding: "24px 20px 12px", position: "sticky", top: 0, background: "var(--app-bg-grouped)", zIndex: 100 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <h1 style={{ fontSize: 28, fontWeight: 700, letterSpacing: "-0.022em", margin: 0, color: "var(--app-text-primary)" }}>
+              {teamContext?.team || "경기 설정"}
+            </h1>
+            <div style={{ display: "flex", gap: 6 }}>
+              {onBackToMenu && (
+                <button onClick={onBackToMenu} style={{
+                  background: "var(--app-bg-row)", border: "0.5px solid var(--app-divider)",
+                  borderRadius: 999, width: 36, height: 36,
+                  display: "inline-flex", alignItems: "center", justifyContent: "center",
+                  color: "var(--app-text-primary)", cursor: "pointer", padding: 0,
+                }} aria-label="메뉴"><BackIcon width={16} /></button>
+              )}
             </div>
           </div>
-          {authUser && (
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginTop: 4 }}>
-              <span style={{ fontSize: 11, color: "rgba(255,255,255,0.7)" }}>{authUser.name} · {teamContext?.team}</span>
-              {onBackToMenu && <button onClick={onBackToMenu} style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: "rgba(255,255,255,0.15)", color: "rgba(255,255,255,0.7)", border: "none", cursor: "pointer" }}>메뉴</button>}
-              <button onClick={onLogout} style={{ fontSize: 10, padding: "2px 8px", borderRadius: 4, background: "rgba(255,255,255,0.15)", color: "rgba(255,255,255,0.7)", border: "none", cursor: "pointer" }}>로그아웃</button>
-            </div>
-          )}
+          <div style={{ fontSize: 15, color: "var(--app-text-secondary)", marginTop: 4,
+                        display: "flex", alignItems: "center", gap: 8 }}>
+            <span>{authUser?.name} · {teamContext?.mode || "풋살"}</span>
+            <span style={{
+              fontSize: 11, padding: "1px 6px", borderRadius: 4, fontWeight: 500,
+              background: dataSource === "sheet" ? "rgba(52,199,89,0.15)" : "rgba(255,149,0,0.15)",
+              color:      dataSource === "sheet" ? "var(--app-green)" : "var(--app-orange)",
+            }}>{dataSource === "sheet" ? "시트 연동" : "오프라인"}</span>
+          </div>
         </div>
+
         <PhaseIndicator activeIndex={0} />
-        <div style={s.section}>
-          <div style={s.sectionTitle}>⚙️ 경기 설정</div>
-          <div style={s.card}>
-            <div style={{ marginBottom: 12 }}>
-              <div style={{ fontSize: 12, color: C.gray, marginBottom: 6 }}>팀 수</div>
-              <div style={s.row}>{[3, 4, 5, 6].map(n => <button key={n} onClick={() => { dispatch({ type: 'SET_FIELDS', fields: { teamCount: n, ...(n === 3 ? { courtCount: 1 } : {}) } }); }} style={s.btn(teamCount === n ? C.accent : C.grayDark, teamCount === n ? C.bg : C.white)}>{n}팀</button>)}</div>
-            </div>
-            <div style={{ marginBottom: 12 }}>
-              <div style={{ fontSize: 12, color: C.gray, marginBottom: 6 }}>구장 수</div>
-              <div style={s.row}>{[1, 2].map(n => { const disabled = (matchMode === "push" || teamCount === 3) && n !== 1; return <button key={n} onClick={() => { if (!disabled) set('courtCount', n); }} disabled={disabled} style={{ ...s.btn(courtCount === n ? C.accent : C.grayDark, courtCount === n ? C.bg : C.white), opacity: disabled ? 0.3 : 1 }}>{n}코트</button>; })}</div>
-            </div>
-            <div style={{ marginBottom: 12 }}>
-              <div style={{ fontSize: 12, color: C.gray, marginBottom: 6 }}>경기 모드</div>
-              <div style={s.row}>
-                <button onClick={() => set('matchMode', 'schedule')} style={s.btn(matchMode === "schedule" ? C.accent : C.grayDark, matchMode === "schedule" ? C.bg : C.white)}>대진표</button>
-                <button onClick={() => set('matchMode', 'free')} style={s.btn(matchMode === "free" ? C.accent : C.grayDark, matchMode === "free" ? C.bg : C.white)}>자유대진</button>
-                <button onClick={() => { set('matchMode', 'push'); set('courtCount', 1); }} style={s.btn(matchMode === "push" ? C.accent : C.grayDark, matchMode === "push" ? C.bg : C.white)}>밀어내기</button>
+
+        <div style={{ padding: "0 16px", marginBottom: 20 }}>
+          <div className="app-section-label">경기 설정</div>
+          <div className="app-grouped">
+            <div className="app-row" style={{ flexDirection: "column", alignItems: "stretch", gap: 8 }}>
+              <span className="app-row-title">팀 수</span>
+              <div style={segBar}>
+                {[3, 4, 5, 6].map(n => (
+                  <button key={n} onClick={() => dispatch({ type: 'SET_FIELDS', fields: { teamCount: n, ...(n === 3 ? { courtCount: 1 } : {}) } })}
+                    style={segBtn(teamCount === n)}>{n}팀</button>
+                ))}
               </div>
             </div>
-            <div style={{ marginBottom: courtCount === 1 && matchMode === "schedule" ? 12 : 0 }}>
-              <div style={{ fontSize: 12, color: C.gray, marginBottom: 6 }}>팀 편성 방식</div>
-              <div style={s.row}>
-                <button onClick={() => set('draftMode', 'snake')} style={s.btn(draftMode === "snake" ? C.accent : C.grayDark, draftMode === "snake" ? C.bg : C.white)}>스네이크</button>
-                <button onClick={() => set('draftMode', 'free')} style={s.btn(draftMode === "free" ? C.accent : C.grayDark, draftMode === "free" ? C.bg : C.white)}>자유편성</button>
+            <div className="app-row" style={{ flexDirection: "column", alignItems: "stretch", gap: 8 }}>
+              <span className="app-row-title">구장 수</span>
+              <div style={segBar}>
+                {[1, 2].map(n => {
+                  const disabled = (matchMode === "push" || teamCount === 3) && n !== 1;
+                  return <button key={n} onClick={() => { if (!disabled) set('courtCount', n); }} disabled={disabled}
+                    style={segBtn(courtCount === n, disabled)}>{n}코트</button>;
+                })}
+              </div>
+            </div>
+            <div className="app-row" style={{ flexDirection: "column", alignItems: "stretch", gap: 8 }}>
+              <span className="app-row-title">경기 모드</span>
+              <div style={segBar}>
+                <button onClick={() => set('matchMode', 'schedule')} style={segBtn(matchMode === "schedule")}>대진표</button>
+                <button onClick={() => set('matchMode', 'free')} style={segBtn(matchMode === "free")}>자유대진</button>
+                <button onClick={() => { set('matchMode', 'push'); set('courtCount', 1); }} style={segBtn(matchMode === "push")}>밀어내기</button>
+              </div>
+            </div>
+            <div className="app-row" style={{ flexDirection: "column", alignItems: "stretch", gap: 8 }}>
+              <span className="app-row-title">팀 편성 방식</span>
+              <div style={segBar}>
+                <button onClick={() => set('draftMode', 'snake')} style={segBtn(draftMode === "snake")}>스네이크</button>
+                <button onClick={() => set('draftMode', 'free')} style={segBtn(draftMode === "free")}>자유편성</button>
               </div>
             </div>
             {courtCount === 1 && matchMode === "schedule" && (
-              <div>
-                <div style={{ fontSize: 12, color: C.gray, marginBottom: 6 }}>회전 수</div>
-                <div style={s.row}>{[1, 2, 3, 4, 5].map(n => <button key={n} onClick={() => set('rotations', n)} style={s.btn(rotations === n ? C.accent : C.grayDark, rotations === n ? C.bg : C.white)}>{n}회전</button>)}</div>
-              </div>
-            )}
-            {matchMode === "schedule" && courtCount === 2 && (
-              <div style={{ fontSize: 11, color: C.gray, marginTop: 8, background: C.cardLight, padding: 8, borderRadius: 8 }}>
-                {teamCount === 4 && "동일팀 4번씩 경기 · 12라운드"}{teamCount === 5 && "동일팀 2번씩 경기 · 10라운드"}{teamCount === 6 && "조별리그 → 순위별 재편성 · 12라운드"}
-              </div>
-            )}
-          </div>
-        </div>
-        <div style={s.section}>
-          <div style={s.sectionTitle}>👥 참석자 선택 <span style={{ fontSize: 12, fontWeight: 400, color: C.gray }}>({attendees.length}명)</span></div>
-          <div style={{ ...s.row, marginBottom: 10, flexWrap: "wrap" }}>
-            <button onClick={syncAttendance} disabled={attendanceLoading} style={{ ...s.btnSm("#22c55e"), opacity: attendanceLoading ? 0.6 : 1 }}>
-              {attendanceLoading ? "연동 중..." : "📋 시트 연동"}
-            </button>
-            <button onClick={() => dispatch({ type: 'SET_ATTENDEES', attendees: sortedPlayers.filter(p => p.games > 0).map(p => p.name) })} style={s.btnSm(C.grayDark)}>활동선수 전체</button>
-            <button onClick={() => set('attendees', [])} style={s.btnSm(C.grayDark)}>초기화</button>
-            <button onClick={() => set('playerSortMode', playerSortMode === "point" ? "name" : "point")}
-              style={s.btnSm(C.accentDim, C.white)}>
-              {playerSortMode === "point" ? "포인트순" : "이름순"}
-            </button>
-          </div>
-          <div style={s.card}>
-            <div style={{ display: "flex", flexWrap: "wrap" }}>
-              {sortedPlayers.map(p => (
-                <div key={p.name} onClick={() => dispatch({ type: 'TOGGLE_ATTENDEE', name: p.name })} style={s.chip(attendees.includes(p.name))}>
-                  <span>{p.name}</span><span style={{ fontSize: 10, opacity: 0.7 }}>{p.point}p</span>
+              <div className="app-row" style={{ flexDirection: "column", alignItems: "stretch", gap: 8 }}>
+                <span className="app-row-title">회전 수</span>
+                <div style={segBar}>
+                  {[1, 2, 3, 4, 5].map(n => (
+                    <button key={n} onClick={() => set('rotations', n)} style={segBtn(rotations === n)}>{n}회전</button>
+                  ))}
                 </div>
-              ))}
+              </div>
+            )}
+          </div>
+          {scheduleHint && (
+            <div style={{ fontSize: 13, color: "var(--app-text-tertiary)", padding: "8px 16px 0" }}>
+              {scheduleHint}
+            </div>
+          )}
+        </div>
+
+        <div style={{ padding: "0 16px", marginBottom: 20 }}>
+          <div className="app-section-label" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span>참석자</span>
+            <span style={{ fontSize: 12, color: "var(--app-text-tertiary)", textTransform: "none" }}>{attendees.length}명 선택됨</span>
+          </div>
+          <div className="app-grouped">
+            <div className="app-row" style={{ gap: 6, flexWrap: "wrap", padding: "10px 12px" }}>
+              <button onClick={syncAttendance} disabled={attendanceLoading} style={{
+                display: "inline-flex", alignItems: "center", gap: 4,
+                padding: "6px 12px", borderRadius: 999,
+                background: "rgba(52,199,89,0.12)", color: "var(--app-green)",
+                border: "none", fontSize: 13, fontWeight: 500, cursor: "pointer",
+                fontFamily: "inherit", opacity: attendanceLoading ? 0.6 : 1,
+              }}>
+                <ListIcon width={14} /> {attendanceLoading ? "연동 중..." : "시트 연동"}
+              </button>
+              <button onClick={() => dispatch({ type: 'SET_ATTENDEES', attendees: sortedPlayers.filter(p => p.games > 0).map(p => p.name) })} style={{
+                padding: "6px 12px", borderRadius: 999,
+                background: "var(--app-bg-row-hover)", color: "var(--app-text-primary)",
+                border: "none", fontSize: 13, fontWeight: 500, cursor: "pointer", fontFamily: "inherit",
+              }}>활동선수 전체</button>
+              <button onClick={() => set('attendees', [])} style={{
+                padding: "6px 12px", borderRadius: 999,
+                background: "var(--app-bg-row-hover)", color: "var(--app-text-primary)",
+                border: "none", fontSize: 13, fontWeight: 500, cursor: "pointer", fontFamily: "inherit",
+              }}>초기화</button>
+              <button onClick={() => set('playerSortMode', playerSortMode === "point" ? "name" : "point")} style={{
+                padding: "6px 12px", borderRadius: 999,
+                background: "rgba(0,122,255,0.1)", color: "var(--app-blue)",
+                border: "none", fontSize: 13, fontWeight: 500, cursor: "pointer", fontFamily: "inherit", marginLeft: "auto",
+              }}>{playerSortMode === "point" ? "포인트순" : "이름순"}</button>
+            </div>
+            <div className="app-row" style={{ padding: "10px 12px" }}>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, width: "100%" }}>
+                {sortedPlayers.map(p => {
+                  const active = attendees.includes(p.name);
+                  return (
+                    <button key={p.name} onClick={() => dispatch({ type: 'TOGGLE_ATTENDEE', name: p.name })} style={{
+                      display: "inline-flex", alignItems: "center", gap: 4,
+                      padding: "6px 10px", borderRadius: 999,
+                      background: active ? "var(--app-blue)" : "var(--app-bg-row-hover)",
+                      color:      active ? "#fff"             : "var(--app-text-primary)",
+                      border: "none", fontSize: 13, fontWeight: 500, cursor: "pointer",
+                      fontFamily: "inherit",
+                    }}>
+                      <span>{p.name}</span>
+                      <span style={{ fontSize: 11, opacity: 0.75 }}>{p.point}p</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            <div className="app-row" style={{ padding: "10px 12px", gap: 8 }}>
+              <input className="app-input" style={{ flex: 1 }} placeholder="새 선수 이름" value={newPlayer}
+                onChange={e => set('newPlayer', e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === "Enter") { const name = newPlayer.trim(); if (name && !attendees.includes(name)) { dispatch({ type: 'SET_FIELDS', fields: { attendees: [...attendees, name], newPlayer: "" } }); } }
+                }} />
+              <button onClick={() => { const name = newPlayer.trim(); if (name && !attendees.includes(name)) { dispatch({ type: 'SET_FIELDS', fields: { attendees: [...attendees, name], newPlayer: "" } }); } }} style={{
+                padding: "0 16px", borderRadius: 10,
+                background: "var(--app-blue)", color: "#fff",
+                border: "none", fontSize: 15, fontWeight: 600, cursor: "pointer", fontFamily: "inherit",
+                display: "inline-flex", alignItems: "center", gap: 4,
+              }}>
+                <PlusIcon width={14} color="#fff" /> 추가
+              </button>
             </div>
           </div>
-          <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-            <input style={s.input} placeholder="새 선수 이름" value={newPlayer} onChange={e => set('newPlayer', e.target.value)} onKeyDown={e => {
-              if (e.key === "Enter") { const name = newPlayer.trim(); if (name && !attendees.includes(name)) { dispatch({ type: 'SET_FIELDS', fields: { attendees: [...attendees, name], newPlayer: "" } }); } }
-            }} />
-            <button onClick={() => { const name = newPlayer.trim(); if (name && !attendees.includes(name)) { dispatch({ type: 'SET_FIELDS', fields: { attendees: [...attendees, name], newPlayer: "" } }); } }} style={s.btn(C.green)}>추가</button>
-          </div>
         </div>
-        <div style={s.bottomBar}>
-          <button onClick={goToTeamBuild} style={{ ...s.btnFull(C.accent, C.bg), opacity: draftMode === "snake" && attendees.length < teamCount * 2 ? 0.5 : 1 }}>
+
+        <div style={{
+          position: "fixed", bottom: 0, left: 0, right: 0,
+          padding: "12px 16px calc(12px + env(safe-area-inset-bottom))",
+          background: "var(--app-bg-grouped)",
+          borderTop: "0.5px solid var(--app-divider)",
+          maxWidth: 500, margin: "0 auto",
+        }}>
+          <button onClick={goToTeamBuild} disabled={draftMode === "snake" && attendees.length < teamCount * 2} style={{
+            width: "100%", padding: "14px 16px", borderRadius: 12,
+            background: "var(--app-blue)", color: "#fff",
+            border: "none", fontSize: 16, fontWeight: 600, cursor: "pointer",
+            fontFamily: "inherit", letterSpacing: "-0.01em",
+            opacity: draftMode === "snake" && attendees.length < teamCount * 2 ? 0.5 : 1,
+          }}>
             {draftMode === "free" ? `자유 편성 (${teamCount}팀)` : `팀 편성 (${attendees.length}명 → ${teamCount}팀)`}
           </button>
         </div>
+        {onLogout && (
+          <div style={{ textAlign: "center", padding: "8px 16px" }}>
+            <button onClick={onLogout} style={{
+              background: "transparent", color: "var(--app-red)",
+              border: "none", fontSize: 14, cursor: "pointer", fontFamily: "inherit",
+            }}>로그아웃</button>
+          </div>
+        )}
       </div>
     );
   }

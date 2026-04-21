@@ -1,17 +1,85 @@
+import { useEffect } from 'react';
 import { useTheme } from '../../hooks/useTheme';
+import { XIcon } from './icons';
 
 export default function Modal({ onClose, children, title, maxWidth = 460 }) {
   const { C } = useTheme();
+
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === "Escape") onClose?.(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  const isDesktop = typeof window !== "undefined"
+    && window.matchMedia("(min-width: 768px)").matches;
+
   return (
-    <div onClick={onClose} style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.7)", zIndex: 1000, overflow: "auto", display: "flex", alignItems: "flex-start", justifyContent: "center", paddingTop: 40 }}>
-      <div onClick={e => e.stopPropagation()} style={{ background: C.card, borderRadius: 14, padding: 16, width: "90%", maxWidth, maxHeight: "80vh", overflow: "auto" }}>
-        {title && (
-          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12 }}>
-            <span style={{ fontSize: 15, fontWeight: 700, color: C.white }}>{title}</span>
-            <button onClick={onClose} style={{ background: C.grayDark, color: "#fff", border: "none", borderRadius: 6, padding: "6px 12px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>닫기</button>
+    <div
+      onClick={onClose}
+      style={{
+        position: "fixed", inset: 0, zIndex: 1000,
+        background: "rgba(0,0,0,0.35)",
+        backdropFilter: "blur(8px)",
+        WebkitBackdropFilter: "blur(8px)",
+        display: "flex",
+        alignItems: isDesktop ? "center" : "flex-end",
+        justifyContent: "center",
+        animation: "modalFade 180ms ease",
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="app-modal-sheet"
+        style={{
+          background: "var(--app-bg-elevated)",
+          color: C.white,
+          borderTopLeftRadius: 14,
+          borderTopRightRadius: 14,
+          borderBottomLeftRadius: isDesktop ? 14 : 0,
+          borderBottomRightRadius: isDesktop ? 14 : 0,
+          width: "100%", maxWidth,
+          maxHeight: isDesktop ? "80vh" : "90vh",
+          display: "flex", flexDirection: "column",
+          boxShadow: "var(--app-shadow-lg)",
+          animation: "sheetSlideUp 240ms cubic-bezier(.2,.7,.2,1)",
+          overflow: "hidden",
+        }}
+      >
+        {!isDesktop && (
+          <div style={{ display: "flex", justifyContent: "center", padding: "6px 0 0" }}>
+            <div style={{ width: 36, height: 5, borderRadius: 3, background: "var(--app-gray-4)" }} />
           </div>
         )}
-        {children}
+
+        {title && (
+          <div style={{
+            display: "flex", justifyContent: "space-between", alignItems: "center",
+            padding: "10px 16px 8px",
+            borderBottom: "0.5px solid var(--app-divider)",
+          }}>
+            <span style={{ fontSize: 17, fontWeight: 600, color: C.white, letterSpacing: "-0.022em" }}>
+              {title}
+            </span>
+            <button
+              onClick={onClose}
+              aria-label="닫기"
+              style={{
+                background: "var(--app-bg-row-hover)",
+                border: 0, borderRadius: 999,
+                width: 28, height: 28,
+                display: "inline-flex", alignItems: "center", justifyContent: "center",
+                color: "var(--app-text-secondary)",
+                cursor: "pointer",
+              }}
+            >
+              <XIcon width={14} />
+            </button>
+          </div>
+        )}
+        <div style={{ padding: 16, overflow: "auto", WebkitOverflowScrolling: "touch" }}>
+          {children}
+        </div>
       </div>
     </div>
   );

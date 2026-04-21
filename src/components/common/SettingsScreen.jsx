@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useTheme } from '../../hooks/useTheme';
+import { BackIcon, XIcon } from './icons';
 import {
   getEffectiveSettings, SPORT_DEFAULTS, PRESETS,
   saveSettings, getSourceOf, loadSettingsFromFirebase,
@@ -115,29 +116,51 @@ export default function SettingsScreen({ teamName, teamMode, teamEntries, onBack
   };
 
   const ss = {
-    container: { background: C.bg, minHeight: "100vh", color: C.white, fontFamily: "'Pretendard', -apple-system, sans-serif", maxWidth: 500, margin: "0 auto" },
-    header: { background: C.headerBg, padding: 16, textAlign: "center", position: "sticky", top: 0, zIndex: 100 },
+    container: { background: "var(--app-bg-grouped)", minHeight: "100vh",
+                 color: "var(--app-text-primary)",
+                 fontFamily: "var(--app-font-sans)", letterSpacing: "-0.014em",
+                 maxWidth: 500, margin: "0 auto", padding: "0 0 40px" },
+    header: { padding: "24px 20px 12px", background: "var(--app-bg-grouped)",
+              position: "sticky", top: 0, zIndex: 100 },
     section: { padding: "0 16px", marginBottom: 20 },
-    sectionTitle: { fontSize: 14, fontWeight: 700, color: C.white, marginBottom: 10, paddingTop: 16, borderTop: `1px solid ${C.grayDarker}` },
-    row: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, gap: 8 },
-    label: { fontSize: 12, color: C.gray, flex: 1 },
+    row: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 },
+    label: { fontSize: 15, color: "var(--app-text-primary)", flex: 1, fontWeight: 400 },
     select: {
-      flex: 1, maxWidth: 200, padding: "8px 10px", borderRadius: 8, border: `1px solid ${C.grayDark}`,
-      background: C.card, color: C.white, fontSize: 12, outline: "none", appearance: "auto",
+      maxWidth: 200, padding: "6px 10px", borderRadius: 8,
+      border: "0.5px solid var(--app-divider)",
+      background: "var(--app-bg-row)", color: "var(--app-text-primary)",
+      fontSize: 15, outline: "none", appearance: "auto",
+      fontFamily: "inherit",
     },
     input: {
-      flex: 1, maxWidth: 200, padding: "8px 10px", borderRadius: 8, border: `1px solid ${C.grayDark}`,
-      background: C.card, color: C.white, fontSize: 12, outline: "none", boxSizing: "border-box",
+      flex: 1, maxWidth: 200, padding: "6px 10px", borderRadius: 8,
+      border: "0.5px solid var(--app-divider)",
+      background: "var(--app-bg-row)", color: "var(--app-text-primary)",
+      fontSize: 15, outline: "none", boxSizing: "border-box",
+      fontFamily: "inherit",
     },
     numInput: {
-      width: 70, padding: "6px 8px", borderRadius: 6, border: `1px solid ${C.grayDark}`,
-      background: C.card, color: C.white, fontSize: 13, textAlign: "center", outline: "none",
+      width: 72, padding: "6px 8px", borderRadius: 8,
+      border: "0.5px solid var(--app-divider)",
+      background: "var(--app-bg-row)", color: "var(--app-text-primary)",
+      fontSize: 15, textAlign: "center", outline: "none",
+      fontFamily: "inherit", fontVariantNumeric: "tabular-nums",
     },
-    hint: { fontSize: 10, color: C.grayDark },
+    hint: { fontSize: 12, color: "var(--app-text-tertiary)" },
     btn: (bg, color) => ({
-      padding: "10px 16px", borderRadius: 8, border: "none", background: bg, color: color || C.white,
-      fontSize: 14, fontWeight: 600, cursor: "pointer", width: "100%",
+      padding: "12px 16px", borderRadius: 12, border: "none", background: bg, color: color || "#fff",
+      fontSize: 16, fontWeight: 600, cursor: "pointer", width: "100%",
+      fontFamily: "inherit", letterSpacing: "-0.01em",
     }),
+  };
+
+  const iconBtnStyle = {
+    background: "var(--app-bg-row)",
+    border: "0.5px solid var(--app-divider)",
+    borderRadius: 999, width: 36, height: 36,
+    display: "inline-flex", alignItems: "center", justifyContent: "center",
+    color: "var(--app-text-primary)", cursor: "pointer",
+    padding: 0,
   };
 
   const SheetSelect = ({ value, onChange, label }) => (
@@ -187,148 +210,192 @@ export default function SettingsScreen({ teamName, teamMode, teamEntries, onBack
   return (
     <div style={ss.container}>
       <div style={ss.header}>
-        <div style={{ fontSize: 18, fontWeight: 800, color: "#fff" }}>설정</div>
-        <div style={{ fontSize: 12, color: C.headerTextDim, marginTop: 2 }}>{teamName}</div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <h1 style={{ fontSize: 28, fontWeight: 700, letterSpacing: "-0.022em",
+                       margin: 0, color: "var(--app-text-primary)" }}>설정</h1>
+          <button onClick={onBack} style={iconBtnStyle} aria-label="돌아가기">
+            <BackIcon width={16} />
+          </button>
+        </div>
+        <div style={{ fontSize: 15, color: "var(--app-text-secondary)", marginTop: 4 }}>{teamName}</div>
       </div>
 
       <div style={ss.section}>
-        <div style={ss.sectionTitle}>구글시트 설정</div>
-
-        <div style={{ marginBottom: 12 }}>
-          <div style={{ fontSize: 12, color: C.gray, marginBottom: 4 }}>구글시트 ID</div>
-          <input style={{ ...ss.input, maxWidth: "100%", width: "100%" }} value={settings.sheetId}
-            onChange={e => update("sheetId", e.target.value)} />
-          <div style={ss.hint}>구글시트 URL에서 /d/ 뒤의 값</div>
+        <div className="app-section-label">구글시트 설정</div>
+        <div className="app-grouped">
+          <div className="app-row" style={{ flexDirection: "column", alignItems: "stretch", gap: 6, padding: "12px 16px" }}>
+            <div style={{ fontSize: 13, color: "var(--app-text-secondary)" }}>구글시트 ID</div>
+            <input className="app-input" style={{ width: "100%" }} value={settings.sheetId}
+              onChange={e => update("sheetId", e.target.value)} />
+            <div style={ss.hint}>구글시트 URL에서 /d/ 뒤의 값</div>
+          </div>
+          <div className="app-row"><SheetSelect label="참석명단 시트" value={settings.attendanceSheet} onChange={v => update("attendanceSheet", v)} /></div>
+          <div className="app-row"><SheetSelect label="대시보드 시트" value={settings.dashboardSheet} onChange={v => update("dashboardSheet", v)} /></div>
+          <div className="app-row"><SheetSelect label="포인트로그 시트" value={settings.pointLogSheet} onChange={v => update("pointLogSheet", v)} /></div>
+          <div className="app-row"><SheetSelect label="선수별집계 시트" value={settings.playerLogSheet} onChange={v => update("playerLogSheet", v)} /></div>
+          {isSoccer && (
+            <div className="app-row"><SheetSelect label="이벤트로그 시트" value={settings.eventLogSheet} onChange={v => update("eventLogSheet", v)} /></div>
+          )}
         </div>
+      </div>
 
-        <SheetSelect label="참석명단 시트" value={settings.attendanceSheet} onChange={v => update("attendanceSheet", v)} />
-        <SheetSelect label="대시보드 시트" value={settings.dashboardSheet} onChange={v => update("dashboardSheet", v)} />
-        <SheetSelect label="포인트로그 시트" value={settings.pointLogSheet} onChange={v => update("pointLogSheet", v)} />
-        <SheetSelect label="선수별집계 시트" value={settings.playerLogSheet} onChange={v => update("playerLogSheet", v)} />
-        {isSoccer && (
-          <SheetSelect label="이벤트로그 시트" value={settings.eventLogSheet} onChange={v => update("eventLogSheet", v)} />
+      <div style={ss.section}>
+        <div className="app-section-label">경기규칙 설정</div>
+        <div className="app-grouped">
+          <div className="app-row">
+            <div style={ss.row}>
+              <span style={ss.label}>경기규칙 프리셋</span>
+              <select
+                style={ss.select}
+                value={currentPreset || ""}
+                onChange={e => handlePresetChange(e.target.value)}
+              >
+                {Object.keys(PRESETS[sport] || {}).map(p => (
+                  <option key={p} value={p}>{p}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          {PRESETS[sport]?.[currentPreset]?.description && (
+            <div className="app-row" style={{ padding: "8px 16px" }}>
+              <span style={ss.hint}>{PRESETS[sport][currentPreset].description}</span>
+            </div>
+          )}
+          {isSoccer ? (
+            <>
+              <div className="app-row"><NumRow label="자책골 포인트" value={settings.ownGoalPoint} onChange={v => update("ownGoalPoint", v)} defaultVal={getDefaultFor("ownGoalPoint")} settingKey="ownGoalPoint" /></div>
+              <div className="app-row"><NumRow label="클린시트 포인트" value={settings.cleanSheetPoint} onChange={v => update("cleanSheetPoint", v)} defaultVal={getDefaultFor("cleanSheetPoint")} settingKey="cleanSheetPoint" /></div>
+            </>
+          ) : (
+            <>
+              <div className="app-row">
+                <div style={ss.row}>
+                  <label style={ss.label}>
+                    <input type="checkbox"
+                      checked={!!settings.useCrovaGoguma}
+                      onChange={e => update("useCrovaGoguma", e.target.checked)}
+                      style={{ marginRight: 8, accentColor: "var(--app-blue)" }} />
+                    크로바/고구마 사용<SourceBadge k="useCrovaGoguma" />
+                  </label>
+                  {(!!settings.useCrovaGoguma !== !!getDefaultFor("useCrovaGoguma")) && (
+                    <span style={ss.hint}>기본: {getDefaultFor("useCrovaGoguma") ? "켜짐" : "꺼짐"}</span>
+                  )}
+                </div>
+              </div>
+              <div className="app-row"><NumRow label="자책골 포인트" value={settings.ownGoalPoint} onChange={v => update("ownGoalPoint", v)} defaultVal={getDefaultFor("ownGoalPoint")} settingKey="ownGoalPoint" /></div>
+              {settings.useCrovaGoguma && (
+                <>
+                  <div className="app-row"><NumRow label="크로바(1위팀)" value={settings.crovaPoint} onChange={v => update("crovaPoint", v)} defaultVal={getDefaultFor("crovaPoint")} settingKey="crovaPoint" /></div>
+                  <div className="app-row"><NumRow label="고구마(꼴찌팀)" value={settings.gogumaPoint} onChange={v => update("gogumaPoint", v)} defaultVal={getDefaultFor("gogumaPoint")} settingKey="gogumaPoint" /></div>
+                  <div className="app-row"><NumRow label="황금크로바/탄고구마" value={settings.bonusMultiplier} onChange={v => update("bonusMultiplier", v)} defaultVal={getDefaultFor("bonusMultiplier")} suffix="배" settingKey="bonusMultiplier" /></div>
+                </>
+              )}
+            </>
+          )}
+        </div>
+        {!isSoccer && settings.useCrovaGoguma && (
+          <>
+            <div style={{ fontSize: 12, color: "var(--app-text-tertiary)", padding: "8px 16px 0" }}>
+              ※ 크로바/고구마 점수는 2구장 경기에서만 적용됩니다.
+            </div>
+            <details style={{ fontSize: 13, color: "var(--app-text-secondary)", margin: "8px 0", padding: "0 16px" }}>
+              <summary style={{ cursor: "pointer", padding: "6px 0" }}>황금크로바 / 탄고구마 설명</summary>
+              <div style={{ background: "var(--app-bg-row)", borderRadius: 10, padding: 12, marginTop: 4, border: "0.5px solid var(--app-divider)" }}>
+                시즌 누적 크로바 1위가 꼴등팀 소속 → 고구마 {settings.gogumaPoint} × {settings.bonusMultiplier} = {settings.gogumaPoint * settings.bonusMultiplier}<br/>
+                시즌 누적 고구마 1위가 1등팀 소속 → 크로바 {settings.crovaPoint} × {settings.bonusMultiplier} = {settings.crovaPoint * settings.bonusMultiplier}
+              </div>
+            </details>
+          </>
         )}
       </div>
 
       <div style={ss.section}>
-        <div style={ss.sectionTitle}>경기규칙 설정</div>
-        <div style={ss.row}>
-          <span style={ss.label}>경기규칙 프리셋</span>
-          <select
-            style={ss.select}
-            value={currentPreset || ""}
-            onChange={e => handlePresetChange(e.target.value)}
-          >
-            {Object.keys(PRESETS[sport] || {}).map(p => (
-              <option key={p} value={p}>{p}</option>
-            ))}
-          </select>
-        </div>
-        <div style={ss.hint}>
-          {PRESETS[sport]?.[currentPreset]?.description || ""}
-        </div>
-        {isSoccer ? (
-          <>
-            <NumRow label="자책골 포인트" value={settings.ownGoalPoint} onChange={v => update("ownGoalPoint", v)} defaultVal={getDefaultFor("ownGoalPoint")} settingKey="ownGoalPoint" />
-            <NumRow label="클린시트 포인트" value={settings.cleanSheetPoint} onChange={v => update("cleanSheetPoint", v)} defaultVal={getDefaultFor("cleanSheetPoint")} settingKey="cleanSheetPoint" />
-          </>
-        ) : (
-          <>
-            <div style={ss.row}>
-              <label style={ss.label}>
-                <input type="checkbox"
-                  checked={!!settings.useCrovaGoguma}
-                  onChange={e => update("useCrovaGoguma", e.target.checked)}
-                  style={{ marginRight: 6 }} />
-                크로바/고구마 사용<SourceBadge k="useCrovaGoguma" />
-              </label>
-              {(!!settings.useCrovaGoguma !== !!getDefaultFor("useCrovaGoguma")) && (
-                <span style={ss.hint}>기본: {getDefaultFor("useCrovaGoguma") ? "켜짐" : "꺼짐"}</span>
+        <div className="app-section-label">상대팀 관리</div>
+        <div className="app-grouped">
+          <div className="app-row" style={{ flexDirection: "column", alignItems: "stretch", gap: 10, padding: "12px 16px" }}>
+            <div style={{ fontSize: 13, color: "var(--app-text-secondary)" }}>등록된 상대팀</div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+              {(settings.opponents || []).map(name => (
+                <div key={name} style={{
+                  display: "inline-flex", alignItems: "center", gap: 4,
+                  padding: "4px 4px 4px 10px", borderRadius: 999,
+                  background: "var(--app-bg-row-hover)",
+                  fontSize: 13, color: "var(--app-text-primary)",
+                }}>
+                  <span>{name}</span>
+                  <button onClick={() => {
+                    const next = (settings.opponents || []).filter(n => n !== name);
+                    update("opponents", next);
+                  }} style={{
+                    background: "transparent", border: "none", cursor: "pointer",
+                    width: 20, height: 20, borderRadius: 999,
+                    display: "inline-flex", alignItems: "center", justifyContent: "center",
+                    color: "var(--app-red)", padding: 0,
+                  }} aria-label={`${name} 제거`}>
+                    <XIcon width={12} />
+                  </button>
+                </div>
+              ))}
+              {(settings.opponents || []).length === 0 && (
+                <span style={{ fontSize: 13, color: "var(--app-text-tertiary)" }}>없음</span>
               )}
             </div>
-
-            <NumRow label="자책골 포인트" value={settings.ownGoalPoint} onChange={v => update("ownGoalPoint", v)} defaultVal={getDefaultFor("ownGoalPoint")} settingKey="ownGoalPoint" />
-
-            {settings.useCrovaGoguma && (
-              <>
-                <NumRow label="크로바(1위팀)" value={settings.crovaPoint} onChange={v => update("crovaPoint", v)} defaultVal={getDefaultFor("crovaPoint")} settingKey="crovaPoint" />
-                <NumRow label="고구마(꼴찌팀)" value={settings.gogumaPoint} onChange={v => update("gogumaPoint", v)} defaultVal={getDefaultFor("gogumaPoint")} settingKey="gogumaPoint" />
-                <NumRow label="황금크로바/탄고구마" value={settings.bonusMultiplier} onChange={v => update("bonusMultiplier", v)} defaultVal={getDefaultFor("bonusMultiplier")} suffix="배" settingKey="bonusMultiplier" />
-                <div style={{ fontSize: 10, color: C.grayDark, marginBottom: 8 }}>※ 크로바/고구마 점수는 2구장 경기에서만 적용됩니다.</div>
-                <details style={{ fontSize: 11, color: C.gray, marginTop: 4 }}>
-                  <summary style={{ cursor: "pointer", padding: "6px 0" }}>황금크로바 / 탄고구마 설명</summary>
-                  <div style={{ background: C.card, borderRadius: 8, padding: 10, marginTop: 4 }}>
-                    시즌 누적 크로바 1위가 꼴등팀 소속 → 고구마 {settings.gogumaPoint} × {settings.bonusMultiplier} = {settings.gogumaPoint * settings.bonusMultiplier}<br/>
-                    시즌 누적 고구마 1위가 1등팀 소속 → 크로바 {settings.crovaPoint} × {settings.bonusMultiplier} = {settings.crovaPoint * settings.bonusMultiplier}
-                  </div>
-                </details>
-              </>
-            )}
-          </>
-        )}
-      </div>
-
-      <div style={ss.section}>
-        <div style={ss.sectionTitle}>상대팀 관리</div>
-        {/* 상대팀 관리 */}
-        <div style={{ marginBottom: 16 }}>
-          <div style={{ fontSize: 12, color: C.gray, marginBottom: 6 }}>등록된 상대팀</div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 8 }}>
-            {(settings.opponents || []).map(name => (
-              <div key={name} style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 10px", borderRadius: 6, background: C.cardLight, fontSize: 12, color: C.white }}>
-                <span>{name}</span>
-                <span onClick={() => {
-                  const next = (settings.opponents || []).filter(n => n !== name);
-                  update("opponents", next);
-                }} style={{ fontSize: 10, color: C.red, cursor: "pointer", fontWeight: 700 }}>✕</span>
-              </div>
-            ))}
-            {(settings.opponents || []).length === 0 && <span style={{ fontSize: 12, color: C.grayDark }}>없음</span>}
-          </div>
-          <div style={{ display: "flex", gap: 6 }}>
-            <input placeholder="새 상대팀 이름" value={newOpponent} onChange={e => setNewOpponent(e.target.value)}
-              onKeyDown={e => {
-                if (e.key === "Enter") {
-                  const name = newOpponent.trim();
-                  if (name && !(settings.opponents || []).includes(name)) {
-                    update("opponents", [...(settings.opponents || []), name]);
-                    setNewOpponent("");
+            <div style={{ display: "flex", gap: 8 }}>
+              <input placeholder="새 상대팀 이름" value={newOpponent} onChange={e => setNewOpponent(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === "Enter") {
+                    const name = newOpponent.trim();
+                    if (name && !(settings.opponents || []).includes(name)) {
+                      update("opponents", [...(settings.opponents || []), name]);
+                      setNewOpponent("");
+                    }
                   }
+                }}
+                className="app-input" style={{ flex: 1 }} />
+              <button onClick={() => {
+                const name = newOpponent.trim();
+                if (name && !(settings.opponents || []).includes(name)) {
+                  update("opponents", [...(settings.opponents || []), name]);
+                  setNewOpponent("");
                 }
-              }}
-              style={{ flex: 1, padding: "8px 12px", borderRadius: 8, fontSize: 13, background: C.cardLight, color: C.white, border: `1px solid ${C.grayDark}` }} />
-            <button onClick={() => {
-              const name = newOpponent.trim();
-              if (name && !(settings.opponents || []).includes(name)) {
-                update("opponents", [...(settings.opponents || []), name]);
-                setNewOpponent("");
-              }
-            }} style={{ padding: "8px 14px", borderRadius: 8, background: C.accent, color: C.bg, border: "none", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>추가</button>
+              }} style={{
+                padding: "0 16px", borderRadius: 10, background: "var(--app-blue)",
+                color: "#fff", border: "none", fontWeight: 600, fontSize: 15, cursor: "pointer",
+                fontFamily: "inherit",
+              }}>추가</button>
+            </div>
           </div>
         </div>
       </div>
 
       <div style={{ padding: "0 16px 24px", display: "flex", flexDirection: "column", gap: 8 }}>
-        <button onClick={handleSave} style={ss.btn(saved ? C.green : C.accent, C.bg)}>
+        <button onClick={handleSave} style={ss.btn(saved ? "var(--app-green)" : "var(--app-blue)", "#fff")}>
           {saved ? "저장 완료" : "설정 저장"}
         </button>
-        <button onClick={handleReset} style={ss.btn(C.grayDark, C.gray)}>기본값으로 초기화</button>
-        <button onClick={onBack} style={ss.btn(C.grayDarker, C.white)}>돌아가기</button>
+        <button onClick={handleReset} style={{
+          ...ss.btn("rgba(0,122,255,0.1)", "var(--app-blue)"),
+        }}>기본값으로 초기화</button>
       </div>
 
       {presetChangeDialog && (
         <div style={{
-          position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)",
+          position: "fixed", inset: 0,
+          background: "rgba(0,0,0,0.35)", backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)",
           display: "flex", alignItems: "center", justifyContent: "center", zIndex: 500,
         }}>
-          <div style={{ background: C.bg, borderRadius: 12, padding: 20, maxWidth: 360, width: "90%" }}>
-            <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 12, color: C.white }}>
+          <div style={{
+            background: "var(--app-bg-elevated)", borderRadius: 14, padding: 20,
+            maxWidth: 360, width: "90%", boxShadow: "var(--app-shadow-lg)",
+            border: "0.5px solid var(--app-divider)",
+          }}>
+            <div style={{ fontSize: 17, fontWeight: 600, marginBottom: 12,
+                          color: "var(--app-text-primary)", letterSpacing: "-0.022em" }}>
               "{currentPreset}" → "{presetChangeDialog.newPreset}"
             </div>
             {presetChangeDialog.diffs.length > 0 && (
               <>
-                <div style={{ fontSize: 12, color: C.gray, marginBottom: 6 }}>다음 값이 바뀝니다:</div>
-                <ul style={{ fontSize: 12, color: C.white, paddingLeft: 20, marginBottom: 12 }}>
+                <div style={{ fontSize: 13, color: "var(--app-text-secondary)", marginBottom: 6 }}>다음 값이 바뀝니다:</div>
+                <ul style={{ fontSize: 13, color: "var(--app-text-primary)", paddingLeft: 20, marginBottom: 12 }}>
                   {presetChangeDialog.diffs.map(d => (
                     <li key={d.key}>{d.key}: {String(d.from)} → {String(d.to)}</li>
                   ))}
@@ -337,10 +404,10 @@ export default function SettingsScreen({ teamName, teamMode, teamEntries, onBack
             )}
             {Object.keys(presetChangeDialog.overrides).length > 0 && (
               <>
-                <div style={{ fontSize: 12, color: C.gray, marginBottom: 6 }}>
+                <div style={{ fontSize: 13, color: "var(--app-text-secondary)", marginBottom: 6 }}>
                   이 팀이 덮어쓴 값({Object.keys(presetChangeDialog.overrides).length}개):
                 </div>
-                <ul style={{ fontSize: 11, color: C.grayDark, paddingLeft: 20, marginBottom: 12 }}>
+                <ul style={{ fontSize: 12, color: "var(--app-text-tertiary)", paddingLeft: 20, marginBottom: 12 }}>
                   {Object.entries(presetChangeDialog.overrides).map(([k, v]) => (
                     <li key={k}>{k} = {String(v)}</li>
                   ))}
@@ -349,14 +416,14 @@ export default function SettingsScreen({ teamName, teamMode, teamEntries, onBack
             )}
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {Object.keys(presetChangeDialog.overrides).length > 0 && (
-                <button onClick={() => applyPresetChange(true)} style={ss.btn(C.grayDark, C.white)}>
+                <button onClick={() => applyPresetChange(true)} style={ss.btn("rgba(0,122,255,0.1)", "var(--app-blue)")}>
                   오버라이드 유지
                 </button>
               )}
-              <button onClick={() => applyPresetChange(false)} style={ss.btn(C.accent, C.bg)}>
+              <button onClick={() => applyPresetChange(false)} style={ss.btn("var(--app-blue)", "#fff")}>
                 전부 초기화
               </button>
-              <button onClick={() => setPresetChangeDialog(null)} style={ss.btn(C.grayDarker, C.gray)}>
+              <button onClick={() => setPresetChangeDialog(null)} style={ss.btn("transparent", "var(--app-text-secondary)")}>
                 취소
               </button>
             </div>

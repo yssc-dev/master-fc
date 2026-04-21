@@ -1,46 +1,76 @@
+// src/hooks/useTheme.jsx — Apple HIG palette.
+// Signature preserved (`{ mode, C, toggle }`) so existing consumers keep working.
+// C values are CSS variables from app_tokens.css.
+
 import { createContext, useContext, useState, useEffect } from 'react';
 
 const THEME_KEY = "masterfc_theme";
 
-const dark = {
-  bg: "#0f172a", card: "#1e293b", cardLight: "#334155",
-  accent: "#22d3ee", accentDim: "#0891b2",
-  green: "#10b981", greenDim: "#059669",
-  red: "#ef4444", redDim: "#dc2626",
-  orange: "#f97316", yellow: "#eab308", purple: "#a855f7",
-  white: "#f8fafc", gray: "#94a3b8", grayDark: "#475569", grayDarker: "#334155",
-  headerBg: "linear-gradient(135deg, #0891b2, #6366f1)",
-  overlay: "rgba(0,0,0,0.7)",
-  overlayLight: "rgba(0,0,0,0.6)",
-  headerTextDim: "rgba(255,255,255,0.7)",
-  headerBtnBg: "rgba(255,255,255,0.15)",
-  headerBtnColor: "#fff",
-  headerBtnDimColor: "rgba(255,255,255,0.6)",
-  borderColor: "#334155",
+const light = {
+  bg:          "var(--app-bg-grouped)",
+  card:        "var(--app-bg-row)",
+  cardLight:   "var(--app-bg-row-hover)",
+  borderColor: "var(--app-divider)",
+
+  accent:     "var(--app-blue)",
+  accentDim:  "var(--app-blue)",
+
+  white:      "var(--app-text-primary)",
+  gray:       "var(--app-text-secondary)",
+  grayLight:  "var(--app-text-tertiary)",
+  grayDark:   "var(--app-text-tertiary)",
+  grayDarker: "var(--app-divider)",
+
+  green:   "var(--app-green)",  greenDim: "var(--app-green)",
+  red:     "var(--app-red)",    redDim:   "var(--app-red)",
+  orange:  "var(--app-orange)",
+  yellow:  "var(--app-yellow)",
+  purple:  "var(--app-purple)",
+
+  headerBg:           "rgba(255,255,255,0.8)",
+  overlay:            "rgba(0,0,0,0.45)",
+  overlayLight:       "rgba(0,0,0,0.25)",
+  headerTextDim:      "var(--app-text-secondary)",
+  headerBtnBg:        "var(--app-bg-row-hover)",
+  headerBtnColor:     "var(--app-blue)",
+  headerBtnDimColor:  "var(--app-text-secondary)",
 };
 
-const light = {
-  bg: "#f1f5f9", card: "#ffffff", cardLight: "#e2e8f0",
-  accent: "#0891b2", accentDim: "#0e7490",
-  green: "#059669", greenDim: "#047857",
-  red: "#dc2626", redDim: "#b91c1c",
-  orange: "#ea580c", yellow: "#ca8a04", purple: "#9333ea",
-  white: "#0f172a", gray: "#64748b", grayDark: "#cbd5e1", grayDarker: "#e2e8f0",
-  headerBg: "linear-gradient(135deg, #0891b2, #6366f1)",
-  overlay: "rgba(0,0,0,0.4)",
-  overlayLight: "rgba(0,0,0,0.3)",
-  headerTextDim: "rgba(255,255,255,0.7)",
-  headerBtnBg: "rgba(255,255,255,0.2)",
-  headerBtnColor: "#fff",
-  headerBtnDimColor: "rgba(255,255,255,0.6)",
-  borderColor: "#cbd5e1",
+const dark = {
+  bg:          "var(--app-bg-grouped)",
+  card:        "var(--app-bg-row)",
+  cardLight:   "var(--app-bg-row-hover)",
+  borderColor: "var(--app-divider)",
+
+  accent:     "var(--app-blue)",
+  accentDim:  "var(--app-blue)",
+
+  white:      "var(--app-text-primary)",
+  gray:       "var(--app-text-secondary)",
+  grayLight:  "var(--app-text-tertiary)",
+  grayDark:   "var(--app-text-tertiary)",
+  grayDarker: "var(--app-divider)",
+
+  green:   "var(--app-green)",  greenDim: "var(--app-green)",
+  red:     "var(--app-red)",    redDim:   "var(--app-red)",
+  orange:  "var(--app-orange)",
+  yellow:  "var(--app-yellow)",
+  purple:  "var(--app-purple)",
+
+  headerBg:           "rgba(0,0,0,0.8)",
+  overlay:            "rgba(0,0,0,0.6)",
+  overlayLight:       "rgba(0,0,0,0.4)",
+  headerTextDim:      "var(--app-text-secondary)",
+  headerBtnBg:        "var(--app-bg-row-hover)",
+  headerBtnColor:     "var(--app-blue)",
+  headerBtnDimColor:  "var(--app-text-secondary)",
 };
 
 const ThemeContext = createContext();
 
 export function ThemeProvider({ children }) {
   const [mode, setMode] = useState(() => {
-    try { return localStorage.getItem(THEME_KEY) || "dark"; } catch { return "dark"; }
+    try { return localStorage.getItem(THEME_KEY) || "light"; } catch { return "light"; }
   });
 
   useEffect(() => {

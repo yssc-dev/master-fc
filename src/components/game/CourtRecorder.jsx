@@ -2,16 +2,22 @@ import { useState } from 'react';
 import { useTheme } from '../../hooks/useTheme';
 import { calcMatchScore } from '../../utils/scoring';
 import { isSpeechSupported, startListening, parseVoiceText, fuzzyMatchPlayer } from '../../utils/speechRecord';
+import { MicIcon, XIcon, PlusIcon, SoccerBallIcon, GloveIcon } from '../common/icons';
 import EventLog from './EventLog';
 
-function MercPicker({ side, candidates, opposingPlayers, teamName, onAdd, onClose, C, s }) {
+function MercPicker({ side, candidates, opposingPlayers, teamName, onAdd, onClose }) {
   return (
-    <div style={{ background: C.cardLight, borderRadius: 10, padding: 12, marginTop: 8 }}>
-      <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, color: C.orange }}>{teamName}에 선수 추가</div>
+    <div style={{
+      background: "var(--app-bg-row)", borderRadius: 12, padding: 14, marginTop: 10,
+      border: "0.5px solid var(--app-divider)",
+    }}>
+      <div style={{ fontSize: 13, marginBottom: 10, color: "var(--app-orange)", fontWeight: 500 }}>
+        + {teamName}에 추가
+      </div>
       {candidates.length === 0 ? (
-        <div style={{ fontSize: 12, color: C.gray }}>추가 가능한 선수가 없습니다.</div>
+        <div style={{ fontSize: 13, color: "var(--app-text-tertiary)" }}>추가 가능한 선수가 없습니다.</div>
       ) : (
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
           {[...candidates].sort((a, b) => {
             const aOpp = opposingPlayers.includes(a) ? 1 : 0;
             const bOpp = opposingPlayers.includes(b) ? 1 : 0;
@@ -20,15 +26,29 @@ function MercPicker({ side, candidates, opposingPlayers, teamName, onAdd, onClos
           }).map(p => {
             const isOpposing = opposingPlayers.includes(p);
             return (
-              <button key={p} onClick={() => onAdd(p, side)}
-                style={{ ...s.btnSm(C.grayDarker, isOpposing ? C.orange : C.white), padding: "6px 10px", border: isOpposing ? `1px dashed ${C.orange}` : "none" }}>
-                {isOpposing && <span style={{ fontSize: 8, marginRight: 3 }}>상대</span>}{p}
+              <button key={p} onClick={() => onAdd(p, side)} style={{
+                padding: "6px 10px", borderRadius: 999,
+                background: isOpposing ? "rgba(255,149,0,0.12)" : "var(--app-bg-row-hover)",
+                color:      isOpposing ? "var(--app-orange)"   : "var(--app-text-primary)",
+                border: "none", fontSize: 13, fontWeight: 500, cursor: "pointer",
+                fontFamily: "inherit",
+                display: "inline-flex", alignItems: "center", gap: 4,
+              }}>
+                {isOpposing && <span style={{
+                  fontSize: 10, fontWeight: 500, padding: "1px 5px", borderRadius: 4,
+                  background: "rgba(255,149,0,0.2)",
+                }}>용병</span>}
+                {p}
               </button>
             );
           })}
         </div>
       )}
-      <button onClick={onClose} style={{ ...s.btnSm(C.grayDark), marginTop: 8 }}>닫기</button>
+      <button onClick={onClose} style={{
+        marginTop: 10, padding: "6px 12px", borderRadius: 999,
+        background: "transparent", color: "var(--app-text-secondary)",
+        border: "none", fontSize: 13, fontWeight: 500, cursor: "pointer", fontFamily: "inherit",
+      }}>닫기</button>
     </div>
   );
 }
@@ -218,39 +238,60 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
     const isMerc = mercsArr.includes(player);
     const isGk = (isHome ? homeGk : awayGk) === player;
     const color = isHome ? homeColor : awayColor;
-    const isPendingGoal = pendingGoalPlayer?.player === player;
-    const isPendingAssistMode = pendingGoalPlayer && !isPendingGoal && pendingGoalPlayer.isHome === isHome;
 
     return (
-      <div key={player} style={{ marginBottom: 3 }}>
-        <div style={{ display: "flex", gap: 3, alignItems: "center" }}>
+      <div key={player} style={{ marginBottom: 6 }}>
+        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
           <button onClick={() => toggleGk(player, isHome)}
+            aria-label="골키퍼 지정"
             style={{
-              border: "none", borderRadius: 6, padding: "6px 6px", fontSize: 10, fontWeight: 700,
-              cursor: "pointer", minWidth: 32, flexShrink: 0,
-              background: isGk ? (C.yellow + "33") : C.grayDarker,
-              color: isGk ? C.yellow : C.grayLight,
-            }}>
-            GK
-          </button>
+              width: 32, height: 32, borderRadius: 999,
+              background: isGk ? "var(--app-blue)" : "var(--app-bg-row-hover)",
+              color: isGk ? "#fff" : "var(--app-text-tertiary)",
+              border: "none", fontSize: 11, fontWeight: 600,
+              cursor: "pointer", flexShrink: 0,
+              display: "inline-flex", alignItems: "center", justifyContent: "center",
+              padding: 0,
+            }}>GK</button>
           <div style={{
-            ...s.matchBtn(color), flex: 1, marginBottom: 0, minWidth: 0,
-            display: "flex", alignItems: "center", justifyContent: "center", gap: 3,
+            flex: 1, minWidth: 0, minHeight: 44,
+            padding: "8px 12px", borderRadius: 10,
+            background: "var(--app-bg-row)",
+            display: "flex", alignItems: "center", gap: 6,
+            fontSize: 15, fontWeight: 500, color: "var(--app-text-primary)",
+            borderLeft: `3px solid ${color?.bg || "transparent"}`,
           }}>
-            {isMerc && <span style={{ fontSize: 8, color: C.orange }}>용</span>}
-            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{player}</span>
             {isMerc && (
-              <span onClick={(e) => { e.stopPropagation(); removeMerc(player); }}
-                style={{ fontSize: 9, color: C.red, fontWeight: 700, cursor: "pointer", marginLeft: 2 }}>✕</span>
+              <span style={{
+                fontSize: 10, padding: "1px 5px", borderRadius: 4, fontWeight: 500,
+                background: "rgba(255,149,0,0.15)", color: "var(--app-orange)",
+              }}>용병</span>
+            )}
+            <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{player}</span>
+            {isMerc && (
+              <button onClick={(e) => { e.stopPropagation(); removeMerc(player); }}
+                style={{
+                  background: "transparent", border: "none", cursor: "pointer",
+                  width: 20, height: 20, borderRadius: 999,
+                  display: "inline-flex", alignItems: "center", justifyContent: "center",
+                  color: "var(--app-red)", padding: 0,
+                }} aria-label="용병 제거">
+                <XIcon width={11} />
+              </button>
             )}
           </div>
           {!readOnly && (
             <button onClick={() => handleGoalTap(player, isHome)}
+              aria-label="골 기록"
               style={{
-                border: "none", borderRadius: 6, padding: "6px 8px", fontSize: 12,
-                fontWeight: 700, cursor: "pointer", background: `${C.green}30`, color: C.green,
-                flexShrink: 0,
-              }}>⚽</button>
+                width: 36, height: 36, borderRadius: 999,
+                border: "none", background: "var(--app-blue)", color: "#fff",
+                cursor: "pointer", flexShrink: 0,
+                display: "inline-flex", alignItems: "center", justifyContent: "center",
+                padding: 0,
+              }}>
+              <SoccerBallIcon color="#fff" width={18} />
+            </button>
           )}
         </div>
       </div>
@@ -258,82 +299,160 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
   };
 
   return (
-    <div style={{ ...s.card, border: `1px solid ${C.grayDark}`, position: "relative" }}>
+    <div style={{
+      background: "var(--app-bg-row)", borderRadius: 14, padding: 14,
+      border: "0.5px solid var(--app-divider)",
+      position: "relative",
+    }}>
 
-      {/* 어시 선택 모달 */}
+      {/* 골/어시 선택 — 바텀 시트 */}
       {pendingGoalPlayer && (
         <div style={{
-          position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: 200,
-          background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center",
-          padding: 16,
+          position: "fixed", inset: 0, zIndex: 200,
+          background: "rgba(0,0,0,0.35)",
+          backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)",
+          display: "flex", alignItems: "flex-end", justifyContent: "center",
         }} onClick={() => setPendingGoalPlayer(null)}>
           <div style={{
-            background: C.card, borderRadius: 16, padding: 20, maxWidth: 360, width: "100%",
+            background: "var(--app-bg-elevated)", width: "100%", maxWidth: 500,
+            borderTopLeftRadius: 14, borderTopRightRadius: 14,
+            padding: "10px 20px 24px",
             maxHeight: "80vh", overflowY: "auto",
+            boxShadow: "var(--app-shadow-lg)",
           }} onClick={e => e.stopPropagation()}>
-            <div style={{ textAlign: "center", marginBottom: 14 }}>
-              <div style={{ fontSize: 16, fontWeight: 800, color: C.white }}>
-                ⚽ {pendingGoalPlayer.player} 골!
-              </div>
-              <div style={{ fontSize: 12, color: C.gray, marginTop: 4 }}>어시스트 선수를 선택하세요</div>
+            <div style={{ display: "flex", justifyContent: "center", padding: "6px 0 12px" }}>
+              <div style={{ width: 36, height: 5, borderRadius: 3, background: "var(--app-gray-4)" }} />
             </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+
+            <div style={{ marginBottom: 16 }}>
+              <div style={{
+                fontSize: 11, color: "var(--app-blue)", fontWeight: 600, letterSpacing: "0.02em",
+                marginBottom: 4,
+              }}>GOAL</div>
+              <div style={{ fontSize: 24, fontWeight: 700, letterSpacing: "-0.022em",
+                            lineHeight: 1.2, color: "var(--app-text-primary)" }}>
+                {pendingGoalPlayer.player}
+              </div>
+              <div style={{ fontSize: 14, color: "var(--app-text-secondary)", marginTop: 4 }}>
+                어시스트 선수를 선택하세요.
+              </div>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 }}>
               {(pendingGoalPlayer.isHome ? homePlayers : awayPlayers).filter(p => p !== pendingGoalPlayer.player).map(p => (
-                <button key={p} onClick={() => handleAssistSelect(p)}
-                  style={{
-                    border: "none", borderRadius: 10, padding: "10px 14px", fontSize: 14,
-                    fontWeight: 600, cursor: "pointer", background: C.grayDarker, color: C.white,
-                    textAlign: "center",
-                  }}>{p}</button>
+                <button key={p} onClick={() => handleAssistSelect(p)} style={{
+                  padding: "12px 12px", borderRadius: 10,
+                  background: "var(--app-bg-row)", border: "0.5px solid var(--app-divider)",
+                  fontSize: 15, fontWeight: 500,
+                  color: "var(--app-text-primary)", cursor: "pointer", fontFamily: "inherit",
+                }}>{p}</button>
               ))}
             </div>
-            <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-              <button onClick={handleNoAssist}
-                style={{ flex: 1, border: "none", borderRadius: 10, padding: "10px 0", fontSize: 13, fontWeight: 700, cursor: "pointer", background: C.grayDark, color: C.gray }}>
-                어시없음
-              </button>
-              <button onClick={handleOwnGoalFromInline}
-                style={{ flex: 1, border: "none", borderRadius: 10, padding: "10px 0", fontSize: 13, fontWeight: 700, cursor: "pointer", background: `${C.red}30`, color: C.red }}>
-                자책골
-              </button>
+
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={handleNoAssist} style={{
+                flex: 1, padding: "12px 0", borderRadius: 10,
+                background: "var(--app-bg-row-hover)", border: "none",
+                fontSize: 14, fontWeight: 500, color: "var(--app-text-secondary)",
+                cursor: "pointer", fontFamily: "inherit",
+              }}>어시 없음</button>
+              <button onClick={handleOwnGoalFromInline} style={{
+                flex: 1, padding: "12px 0", borderRadius: 10,
+                background: "rgba(255,59,48,0.1)", border: "none",
+                fontSize: 14, fontWeight: 500, color: "var(--app-red)",
+                cursor: "pointer", fontFamily: "inherit",
+              }}>자책골</button>
             </div>
-            <button onClick={() => setPendingGoalPlayer(null)}
-              style={{ width: "100%", border: "none", borderRadius: 10, padding: "10px 0", fontSize: 13, fontWeight: 600, cursor: "pointer", background: `${C.grayDarker}`, color: C.grayLight, marginTop: 8 }}>
-              취소
-            </button>
+            <button onClick={() => setPendingGoalPlayer(null)} style={{
+              width: "100%", padding: "12px 0", borderRadius: 10,
+              background: "transparent", border: "none",
+              fontSize: 14, color: "var(--app-text-tertiary)",
+              cursor: "pointer", marginTop: 8, fontFamily: "inherit",
+            }}>취소</button>
           </div>
         </div>
       )}
 
-      {courtLabel && <div style={{ fontSize: 11, color: C.gray, marginBottom: 6, textAlign: "center" }}>{courtLabel}</div>}
-
-      <div style={s.scoreboard}>
-        <div style={{ textAlign: "center" }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: homeColor?.bg, marginBottom: 4 }}>{homeTeam}</div>
-          <div style={{ color: homeScore > awayScore ? C.green : C.white }}>{homeScore}</div>
+      {courtLabel && (
+        <div style={{ fontSize: 13, color: "var(--app-text-tertiary)", marginBottom: 8, textAlign: "center", fontWeight: 500 }}>
+          {courtLabel}
         </div>
-        <div style={{ fontSize: 18, color: C.gray }}>:</div>
-        <div style={{ textAlign: "center" }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: awayColor?.bg, marginBottom: 4 }}>{awayTeam}</div>
-          <div style={{ color: awayScore > homeScore ? C.green : C.white }}>{awayScore}</div>
+      )}
+
+      <div style={{
+        display: "grid", gridTemplateColumns: "1fr auto 1fr",
+        alignItems: "center", gap: 12, padding: "12px 0 16px",
+      }}>
+        <div style={{ textAlign: "center", opacity: homeScore < awayScore ? 0.5 : 1, transition: "opacity .2s" }}>
+          <div style={{
+            fontSize: 13, color: "var(--app-text-secondary)", fontWeight: 500,
+            display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6,
+          }}>
+            <span style={{ width: 8, height: 8, borderRadius: "50%", background: homeColor?.bg }} />
+            {homeTeam}
+          </div>
+          <div style={{
+            fontSize: 52, fontWeight: 700, letterSpacing: "-0.022em", lineHeight: 1.05,
+            fontVariantNumeric: "tabular-nums", color: "var(--app-text-primary)", marginTop: 2,
+          }}>{homeScore}</div>
+          {homeGk && (
+            <div style={{ fontSize: 12, color: "var(--app-text-tertiary)", marginTop: 4,
+                          display: "inline-flex", alignItems: "center", gap: 4 }}>
+              <GloveIcon width={11} color="var(--app-text-tertiary)" />
+              {homeGk}
+            </div>
+          )}
+        </div>
+        <div style={{ fontSize: 13, fontWeight: 500, color: "var(--app-text-tertiary)", paddingBottom: 10 }}>VS</div>
+        <div style={{ textAlign: "center", opacity: awayScore < homeScore ? 0.5 : 1, transition: "opacity .2s" }}>
+          <div style={{
+            fontSize: 13, color: "var(--app-text-secondary)", fontWeight: 500,
+            display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6,
+          }}>
+            <span style={{ width: 8, height: 8, borderRadius: "50%", background: awayColor?.bg }} />
+            {awayTeam}
+          </div>
+          <div style={{
+            fontSize: 52, fontWeight: 700, letterSpacing: "-0.022em", lineHeight: 1.05,
+            fontVariantNumeric: "tabular-nums", color: "var(--app-text-primary)", marginTop: 2,
+          }}>{awayScore}</div>
+          {awayGk && (
+            <div style={{ fontSize: 12, color: "var(--app-text-tertiary)", marginTop: 4,
+                          display: "inline-flex", alignItems: "center", gap: 4 }}>
+              <GloveIcon width={11} color="var(--app-text-tertiary)" />
+              {awayGk}
+            </div>
+          )}
         </div>
       </div>
 
-      <div style={{ display: "flex", gap: 8 }}>
+      <div style={{ display: "flex", gap: 10 }}>
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 10, color: C.gray, textAlign: "center", marginBottom: 4 }}>{homeTeam}</div>
+          <div style={{ fontSize: 9, color: C.grayDark, textAlign: "center", marginBottom: 8 }}>{homeTeam}</div>
           {homePlayers.map(p => renderPlayerRow(p, true, homeMercs))}
         </div>
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 10, color: C.gray, textAlign: "center", marginBottom: 4 }}>{awayTeam}</div>
+          <div style={{ fontSize: 9, color: C.grayDark, textAlign: "center", marginBottom: 8 }}>{awayTeam}</div>
           {awayPlayers.map(p => renderPlayerRow(p, false, awayMercs))}
         </div>
       </div>
 
       {!readOnly && (
-        <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
-          <button onClick={() => setShowMercPicker("home")} style={{ ...s.btnSm(C.grayDark, C.orange), flex: 1, fontSize: 11 }}>+ 선수추가</button>
-          <button onClick={() => setShowMercPicker("away")} style={{ ...s.btnSm(C.grayDark, C.orange), flex: 1, fontSize: 11 }}>+ 선수추가</button>
+        <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+          <button onClick={() => setShowMercPicker("home")} style={{
+            flex: 1, background: "rgba(255,149,0,0.12)",
+            border: "none", borderRadius: 10,
+            padding: "10px", fontSize: 13, fontWeight: 500,
+            color: "var(--app-orange)", cursor: "pointer", fontFamily: "inherit",
+            display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 4,
+          }}><PlusIcon width={13} color="var(--app-orange)" /> 용병</button>
+          <button onClick={() => setShowMercPicker("away")} style={{
+            flex: 1, background: "rgba(255,149,0,0.12)",
+            border: "none", borderRadius: 10,
+            padding: "10px", fontSize: 13, fontWeight: 500,
+            color: "var(--app-orange)", cursor: "pointer", fontFamily: "inherit",
+            display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 4,
+          }}><PlusIcon width={13} color="var(--app-orange)" /> 용병</button>
         </div>
       )}
 
@@ -341,25 +460,28 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
         <MercPicker side={showMercPicker} candidates={getMercCandidates(showMercPicker)}
           opposingPlayers={showMercPicker === "home" ? awayPlayers : homePlayers}
           teamName={showMercPicker === "home" ? homeTeam : awayTeam}
-          onAdd={addMerc} onClose={() => setShowMercPicker(null)} C={C} s={s} />
+          onAdd={addMerc} onClose={() => setShowMercPicker(null)} />
       )}
 
       {!readOnly && isSpeechSupported() && (
-        <div style={{ marginTop: 10, textAlign: "center" }}>
+        <div style={{ marginTop: 14, textAlign: "center" }}>
           <button
             onTouchStart={handleVoiceStart} onTouchEnd={handleVoiceEnd}
             onMouseDown={handleVoiceStart} onMouseUp={handleVoiceEnd}
             style={{
-              border: "none", borderRadius: 12, padding: "12px 24px", fontSize: 14, fontWeight: 700,
-              cursor: "pointer", width: "100%",
-              background: isListening ? `${C.red}30` : `${C.accent}20`,
-              color: isListening ? C.red : C.accent,
+              width: "100%", padding: "14px 20px", borderRadius: 12,
+              background: isListening ? "var(--app-red)" : "var(--app-blue)",
+              color: "#fff", border: "none",
+              fontSize: 16, fontWeight: 600, letterSpacing: "-0.01em",
+              cursor: "pointer", fontFamily: "inherit",
+              display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8,
               transition: "all 0.15s",
             }}>
-            {isListening ? "🎤 듣는 중..." : "🎤 꾹 눌러서 말하기"}
+            <MicIcon width={18} color="#fff" />
+            {isListening ? "듣는 중…" : "꾹 눌러서 음성으로 기록"}
           </button>
           {isListening && interimText && (
-            <div style={{ marginTop: 6, fontSize: 13, color: C.white, fontWeight: 600 }}>
+            <div style={{ marginTop: 8, fontSize: 14, color: "var(--app-text-secondary)", fontStyle: "italic" }}>
               "{interimText}"
             </div>
           )}
@@ -367,14 +489,20 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
       )}
 
       {voiceResult && (
-        <div style={{ marginTop: 6, padding: 8, borderRadius: 8, fontSize: 12,
-          background: voiceResult.error ? `${C.red}15` : voiceResult.ambiguous ? `${C.orange}15` : `${C.green}15`,
-          color: voiceResult.error ? C.red : voiceResult.ambiguous ? C.orange : C.green,
+        <div style={{
+          marginTop: 8, padding: 10, borderRadius: 10, fontSize: 13,
+          background: voiceResult.error ? "rgba(255,59,48,0.1)"
+                    : voiceResult.ambiguous ? "rgba(255,149,0,0.1)"
+                    : "rgba(52,199,89,0.1)",
+          color:      voiceResult.error ? "var(--app-red)"
+                    : voiceResult.ambiguous ? "var(--app-orange)"
+                    : "var(--app-green)",
+          border: `0.5px solid ${voiceResult.error ? "rgba(255,59,48,0.3)" : voiceResult.ambiguous ? "rgba(255,149,0,0.3)" : "rgba(52,199,89,0.3)"}`,
         }}>
           {voiceResult.error && <div>{voiceResult.error}</div>}
           {voiceResult.success && (
-            <div>
-              {voiceResult.type === "owngoal" ? "🔴" : "⚽"} {voiceResult.scorer}
+            <div style={{ fontWeight: 500 }}>
+              {voiceResult.scorer}
               {voiceResult.type === "goal" && voiceResult.assist ? ` ← ${voiceResult.assist}(어시)` : ""}
               {voiceResult.type === "goal" && !voiceResult.assist ? " (단독골)" : ""}
               {voiceResult.type === "owngoal" ? " (자책골)" : ""}
@@ -382,19 +510,29 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
           )}
           {voiceResult.ambiguous && (
             <div>
-              <div style={{ marginBottom: 4 }}>"{voiceResult.text}" — 선수를 선택하세요:</div>
-              <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+              <div style={{ marginBottom: 6 }}>"{voiceResult.text}" — 선수를 선택하세요:</div>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                 {voiceResult.ambiguous.candidates.map(p => (
-                  <button key={p} onClick={() => handleAmbiguousSelect(p)}
-                    style={{ ...s.btnSm(C.grayDarker, C.white), padding: "4px 10px", fontSize: 12 }}>{p}</button>
+                  <button key={p} onClick={() => handleAmbiguousSelect(p)} style={{
+                    padding: "4px 10px", borderRadius: 999,
+                    background: "var(--app-bg-row)", color: "var(--app-text-primary)",
+                    border: "none", fontSize: 13, fontWeight: 500, cursor: "pointer",
+                    fontFamily: "inherit",
+                  }}>{p}</button>
                 ))}
-                <button onClick={() => setVoiceResult(null)}
-                  style={{ ...s.btnSm(C.redDim, C.white), padding: "4px 10px", fontSize: 12 }}>취소</button>
+                <button onClick={() => setVoiceResult(null)} style={{
+                  padding: "4px 10px", borderRadius: 999,
+                  background: "rgba(255,59,48,0.12)", color: "var(--app-red)",
+                  border: "none", fontSize: 13, fontWeight: 500, cursor: "pointer",
+                  fontFamily: "inherit",
+                }}>취소</button>
               </div>
             </div>
           )}
           {voiceResult.text && !voiceResult.ambiguous && (
-            <div style={{ fontSize: 10, color: C.grayLight, marginTop: 2 }}>인식: "{voiceResult.text}"</div>
+            <div style={{ fontSize: 11, color: "var(--app-text-tertiary)", marginTop: 4 }}>
+              인식: "{voiceResult.text}"
+            </div>
           )}
         </div>
       )}
