@@ -52,25 +52,25 @@ function MercPicker({ side, candidates, opposingPlayers, teamName, onAdd, onClos
   );
 }
 
-const popoverBtn = (tone = "neutral", disabled = false, active = false) => {
-  const toneMap = {
-    neutral: { bg: "var(--app-bg-row)", fg: "var(--app-text-primary)" },
-    green:   { bg: "rgba(52,199,89,0.18)", fg: "var(--app-green)" },
-    blue:    { bg: "rgba(0,122,255,0.18)", fg: "var(--app-blue)" },
-    red:     { bg: "rgba(255,59,48,0.14)", fg: "var(--app-red)" },
-    ghost:   { bg: "transparent", fg: "var(--app-text-tertiary)" },
-  };
-  const t = toneMap[tone] || toneMap.neutral;
+// Apple UIMenu-style: uniform neutral background, blue tint only when active, text-tertiary when cancel/disabled
+const popoverBtn = ({ active = false, disabled = false, subtle = false, isLast = false } = {}) => {
+  const color = disabled ? "var(--app-text-tertiary)"
+              : active ? "var(--app-blue)"
+              : subtle ? "var(--app-text-secondary)"
+              : "var(--app-text-primary)";
   return {
-    padding: "8px 10px", borderRadius: 8,
-    background: t.bg, color: t.fg,
-    border: active ? `0.5px solid ${t.fg}` : "0.5px solid transparent",
-    fontSize: 13, fontWeight: 600, letterSpacing: "-0.01em",
+    padding: "10px 8px",
+    background: "transparent",
+    color,
+    border: "none",
+    borderRight: isLast ? "none" : "0.5px solid var(--app-divider)",
+    fontSize: 14, fontWeight: active ? 600 : 500, letterSpacing: "-0.01em",
     cursor: disabled ? "not-allowed" : "pointer",
-    opacity: disabled ? 0.35 : 1,
+    opacity: disabled ? 0.4 : 1,
     fontFamily: "inherit",
     flex: 1, minWidth: 0,
     whiteSpace: "nowrap",
+    transition: "background 0.1s",
   };
 };
 
@@ -313,31 +313,34 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
               zIndex: 40,
               background: "var(--app-bg-elevated)",
               border: "0.5px solid var(--app-divider)",
-              borderRadius: 10, padding: 6,
-              boxShadow: "var(--app-shadow-lg)",
-              display: "flex", gap: 4,
-              minWidth: 220,
+              borderRadius: 12,
+              boxShadow: "0 6px 20px rgba(0,0,0,0.14)",
+              backdropFilter: "blur(20px)",
+              WebkitBackdropFilter: "blur(20px)",
+              display: "flex", alignItems: "stretch",
+              minWidth: 240,
+              overflow: "hidden",
             }}>
               <button
                 onClick={(e) => { e.stopPropagation(); applyGoalRole(player, isHome); setOpenPopover(null); }}
-                style={popoverBtn(roleInCompose === 'scorer' ? "green" : "neutral", false, roleInCompose === 'scorer')}
-              >{roleInCompose === 'scorer' ? "✓골" : "골"}</button>
+                style={popoverBtn({ active: roleInCompose === 'scorer' })}
+              >{roleInCompose === 'scorer' ? "✓ 골" : "골"}</button>
               <button
-                onClick={(e) => { e.stopPropagation(); if (canAssist || roleInCompose === 'assist') { applyAssistRole(player, isHome); setOpenPopover(null); } }}
-                disabled={!canAssist && roleInCompose !== 'assist'}
-                style={popoverBtn(roleInCompose === 'assist' ? "blue" : "neutral", !canAssist && roleInCompose !== 'assist', roleInCompose === 'assist')}
-              >{roleInCompose === 'assist' ? "✓어시" : "어시"}</button>
+                onClick={(e) => { e.stopPropagation(); if (canAssist) { applyAssistRole(player, isHome); setOpenPopover(null); } }}
+                disabled={!canAssist}
+                style={popoverBtn({ disabled: !canAssist })}
+              >어시</button>
               <button
                 onClick={(e) => { e.stopPropagation(); toggleGk(player, isHome); setOpenPopover(null); }}
-                style={popoverBtn(isGk ? "blue" : "neutral", false, isGk)}
-              >{isGk ? "✓GK" : "GK"}</button>
+                style={popoverBtn({ active: isGk })}
+              >{isGk ? "✓ GK" : "GK"}</button>
               <button
                 onClick={(e) => { e.stopPropagation(); applyOwnGoalRole(player); setOpenPopover(null); }}
-                style={popoverBtn("red")}
+                style={popoverBtn()}
               >자책</button>
               <button
                 onClick={(e) => { e.stopPropagation(); setOpenPopover(null); }}
-                style={popoverBtn("ghost")}
+                style={popoverBtn({ subtle: true, isLast: true })}
               >취소</button>
             </div>
           );
