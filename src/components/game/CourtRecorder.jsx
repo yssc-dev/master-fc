@@ -1,8 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useTheme } from '../../hooks/useTheme';
 import { calcMatchScore } from '../../utils/scoring';
-import { isSpeechSupported, startListening, parseVoiceText, fuzzyMatchPlayer } from '../../utils/speechRecord';
-import { MicIcon, XIcon, PlusIcon, GloveIcon } from '../common/icons';
+import { XIcon, PlusIcon, GloveIcon } from '../common/icons';
 import EventLog from './EventLog';
 
 function MercPicker({ side, candidates, opposingPlayers, teamName, onAdd, onClose }) {
@@ -81,10 +80,6 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
   const [awayGk, setAwayGk] = useState(matchInfo.awayGk || null);
   const [mercs, setMercs] = useState([]);
   const [showMercPicker, setShowMercPicker] = useState(null);
-  const [isListening, setIsListening] = useState(false);
-  const [interimText, setInterimText] = useState("");
-  const [voiceResult, setVoiceResult] = useState(null);
-  const [speechRef, setSpeechRef] = useState(null);
   const [openPopover, setOpenPopover] = useState(null); // { player, isHome }
 
   const { homeIdx, awayIdx, matchId, homeTeam, awayTeam, homeColor, awayColor } = matchInfo;
@@ -93,8 +88,6 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
   const awayMercs = mercs.filter(m => m.side === "away").map(m => m.player);
   const homePlayers = [...initHomePlayers.filter(p => !awayMercs.includes(p)), ...homeMercs].sort((a, b) => a.localeCompare(b, 'ko'));
   const awayPlayers = [...initAwayPlayers.filter(p => !homeMercs.includes(p)), ...awayMercs].sort((a, b) => a.localeCompare(b, 'ko'));
-  const allPlayerNames = [...homePlayers, ...awayPlayers];
-
   const getMercCandidates = (side) => {
     const myPlayers = side === "home" ? homePlayers : awayPlayers;
     return (attendees || []).filter(p => !myPlayers.includes(p));
@@ -200,72 +193,6 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
   };
 
   const cancelCompose = () => setCompose(null);
-
-  // ── 음성 기록 ──
-  const handleVoiceStart = () => {
-    if (readOnly) { readOnlyAlert(); return; }
-    if (!checkGk()) return;
-    if (!isSpeechSupported()) { alert("이 브라우저에서는 음성 인식이 지원되지 않습니다."); return; }
-    setVoiceResult(null);
-    setInterimText("");
-    setIsListening(true);
-    const { recognition, promise } = startListening((text) => setInterimText(text));
-    setSpeechRef(recognition);
-    promise.then(text => {
-      setIsListening(false);
-      setSpeechRef(null);
-      if (!text) return;
-      const parsed = parseVoiceText(text, allPlayerNames);
-      if (!parsed.type) {
-        setVoiceResult({ text, error: "인식 실패: 골/어시/자책을 구분할 수 없습니다" });
-        return;
-      }
-      let scorer = parsed.scorer;
-      let assist = parsed.assist;
-      if (scorer) {
-        const candidates = fuzzyMatchPlayer(scorer, allPlayerNames);
-        if (candidates.length === 0) { setVoiceResult({ text, error: `"${scorer}" 선수를 찾을 수 없습니다` }); return; }
-        if (candidates.length > 1) { setVoiceResult({ text, ambiguous: { field: "scorer", candidates, parsed, text } }); return; }
-        scorer = candidates[0];
-      }
-      if (assist) {
-        const candidates = fuzzyMatchPlayer(assist, allPlayerNames);
-        if (candidates.length === 0) { setVoiceResult({ text, error: `"${assist}" 선수를 찾을 수 없습니다` }); return; }
-        if (candidates.length > 1) { setVoiceResult({ text, ambiguous: { field: "assist", candidates, parsed: { ...parsed, scorer }, text } }); return; }
-        assist = candidates[0];
-      }
-      if (!scorer) { setVoiceResult({ text, error: "골 선수를 인식할 수 없습니다" }); return; }
-      if (parsed.type === "owngoal") { recordOwnGoalEvent(scorer); }
-      else { recordGoalEvent(scorer, assist); }
-      setVoiceResult({ text, success: true, scorer, assist, type: parsed.type });
-    }).catch(err => {
-      setIsListening(false);
-      setSpeechRef(null);
-      if (err.message !== "aborted") setVoiceResult({ text: "", error: "음성 인식 오류: " + err.message });
-    });
-  };
-
-  const handleVoiceEnd = () => {
-    if (speechRef) { try { speechRef.stop(); } catch (e) { /* ignore */ } }
-  };
-
-  const handleAmbiguousSelect = (player) => {
-    if (!voiceResult?.ambiguous) return;
-    const { field, parsed } = voiceResult.ambiguous;
-    let scorer = parsed.scorer;
-    let assist = parsed.assist;
-    if (field === "scorer") scorer = player;
-    else assist = player;
-    if (typeof scorer === "string" && !allPlayerNames.includes(scorer)) {
-      const m = fuzzyMatchPlayer(scorer, allPlayerNames);
-      scorer = m.length === 1 ? m[0] : null;
-    }
-    if (scorer) {
-      if (parsed.type === "owngoal") recordOwnGoalEvent(scorer);
-      else recordGoalEvent(scorer, assist);
-    }
-    setVoiceResult(null);
-  };
 
   const addMerc = (player, side) => { setMercs(prev => [...prev, { player, side }]); setShowMercPicker(null); };
   const removeMerc = (player) => { setMercs(prev => prev.filter(m => m.player !== player)); };
@@ -589,80 +516,6 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
           opposingPlayers={showMercPicker === "home" ? awayPlayers : homePlayers}
           teamName={showMercPicker === "home" ? homeTeam : awayTeam}
           onAdd={addMerc} onClose={() => setShowMercPicker(null)} />
-      )}
-
-      {!readOnly && isSpeechSupported() && (
-        <div style={{ marginTop: 14, textAlign: "center" }}>
-          <button
-            onTouchStart={handleVoiceStart} onTouchEnd={handleVoiceEnd}
-            onMouseDown={handleVoiceStart} onMouseUp={handleVoiceEnd}
-            style={{
-              width: "100%", padding: "14px 20px", borderRadius: 12,
-              background: isListening ? "var(--app-red)" : "var(--app-blue)",
-              color: "#fff", border: "none",
-              fontSize: 16, fontWeight: 600, letterSpacing: "-0.01em",
-              cursor: "pointer", fontFamily: "inherit",
-              display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8,
-              transition: "all 0.15s",
-            }}>
-            <MicIcon width={18} color="#fff" />
-            {isListening ? "듣는 중…" : "꾹 눌러서 음성으로 기록"}
-          </button>
-          {isListening && interimText && (
-            <div style={{ marginTop: 8, fontSize: 14, color: "var(--app-text-secondary)", fontStyle: "italic" }}>
-              "{interimText}"
-            </div>
-          )}
-        </div>
-      )}
-
-      {voiceResult && (
-        <div style={{
-          marginTop: 8, padding: 10, borderRadius: 10, fontSize: 13,
-          background: voiceResult.error ? "rgba(255,59,48,0.1)"
-                    : voiceResult.ambiguous ? "rgba(255,149,0,0.1)"
-                    : "rgba(52,199,89,0.1)",
-          color:      voiceResult.error ? "var(--app-red)"
-                    : voiceResult.ambiguous ? "var(--app-orange)"
-                    : "var(--app-green)",
-          border: `0.5px solid ${voiceResult.error ? "rgba(255,59,48,0.3)" : voiceResult.ambiguous ? "rgba(255,149,0,0.3)" : "rgba(52,199,89,0.3)"}`,
-        }}>
-          {voiceResult.error && <div>{voiceResult.error}</div>}
-          {voiceResult.success && (
-            <div style={{ fontWeight: 500 }}>
-              {voiceResult.scorer}
-              {voiceResult.type === "goal" && voiceResult.assist ? ` ← ${voiceResult.assist}(어시)` : ""}
-              {voiceResult.type === "goal" && !voiceResult.assist ? " (단독골)" : ""}
-              {voiceResult.type === "owngoal" ? " (자책골)" : ""}
-            </div>
-          )}
-          {voiceResult.ambiguous && (
-            <div>
-              <div style={{ marginBottom: 6 }}>"{voiceResult.text}" — 선수를 선택하세요:</div>
-              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                {voiceResult.ambiguous.candidates.map(p => (
-                  <button key={p} onClick={() => handleAmbiguousSelect(p)} style={{
-                    padding: "4px 10px", borderRadius: 999,
-                    background: "var(--app-bg-row)", color: "var(--app-text-primary)",
-                    border: "none", fontSize: 13, fontWeight: 500, cursor: "pointer",
-                    fontFamily: "inherit",
-                  }}>{p}</button>
-                ))}
-                <button onClick={() => setVoiceResult(null)} style={{
-                  padding: "4px 10px", borderRadius: 999,
-                  background: "rgba(255,59,48,0.12)", color: "var(--app-red)",
-                  border: "none", fontSize: 13, fontWeight: 500, cursor: "pointer",
-                  fontFamily: "inherit",
-                }}>취소</button>
-              </div>
-            </div>
-          )}
-          {voiceResult.text && !voiceResult.ambiguous && (
-            <div style={{ fontSize: 11, color: "var(--app-text-tertiary)", marginTop: 4 }}>
-              인식: "{voiceResult.text}"
-            </div>
-          )}
-        </div>
       )}
 
       <EventLog
