@@ -52,8 +52,19 @@ function MercPicker({ side, candidates, opposingPlayers, teamName, onAdd, onClos
   );
 }
 
-// Apple UIMenu-style: uniform neutral background, blue tint only when active, text-tertiary when cancel/disabled
-const popoverBtn = ({ active = false, disabled = false, subtle = false, isLast = false } = {}) => {
+// Apple UIMenu-style: uniform neutral; 골은 primary(blue filled), active는 blue text
+const popoverBtn = ({ primary = false, active = false, disabled = false, subtle = false, isLast = false } = {}) => {
+  if (primary) {
+    return {
+      padding: "10px 14px",
+      background: "var(--app-blue)", color: "#fff",
+      border: "none",
+      borderRight: isLast ? "none" : "0.5px solid rgba(255,255,255,0.2)",
+      fontSize: 14, fontWeight: 600, letterSpacing: "-0.01em",
+      cursor: "pointer", fontFamily: "inherit",
+      flex: 1, minWidth: 0, whiteSpace: "nowrap",
+    };
+  }
   const color = disabled ? "var(--app-text-tertiary)"
               : active ? "var(--app-blue)"
               : subtle ? "var(--app-text-secondary)"
@@ -208,12 +219,16 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
     const isPopoverOpen = openPopover?.player === player && openPopover.isHome === isHome;
     const stats = playerStats[player];
 
+    const isComposeActive = !!myCompose?.scorer;
+    const isCrossTeamDuringCompose = isComposeActive && myCompose.scorerIsHome !== isHome;
+    const isAssistCandidate = isComposeActive && myCompose.scorerIsHome === isHome && myCompose.scorer !== player;
+
     const ringColor = roleInCompose === 'scorer' ? "var(--app-green)"
-                    : roleInCompose === 'assist' ? "var(--app-blue)"
+                    : isAssistCandidate ? "var(--app-blue)"
                     : null;
 
     const cardBg = roleInCompose === 'scorer' ? "rgba(52,199,89,0.14)"
-                 : roleInCompose === 'assist' ? "rgba(0,122,255,0.12)"
+                 : isAssistCandidate ? "rgba(0,122,255,0.08)"
                  : "var(--app-bg-elevated)";
 
     const border = ringColor
@@ -229,8 +244,10 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
         <button
           onClick={() => {
             if (readOnly) { readOnlyAlert(); return; }
+            // Block cross-team during compose
+            if (isCrossTeamDuringCompose) return;
             // Fast-path: compose active + same team + not scorer → instant assist+save
-            if (myCompose?.scorer && myCompose.scorerIsHome === isHome && myCompose.scorer !== player) {
+            if (isAssistCandidate) {
               if (!checkGk()) return;
               recordGoalEvent(myCompose.scorer, player);
               setCompose(null);
@@ -238,6 +255,7 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
             }
             setOpenPopover(isPopoverOpen ? null : { player, isHome });
           }}
+          disabled={isCrossTeamDuringCompose}
           aria-label={`${player} 역할 선택`}
           style={{
             width: "100%",
@@ -247,10 +265,13 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
             borderRadius: 10,
             padding: "14px 6px", minHeight: 68,
             display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-            gap: 4, cursor: "pointer", fontFamily: "inherit",
+            gap: 4,
+            cursor: isCrossTeamDuringCompose ? "not-allowed" : "pointer",
+            opacity: isCrossTeamDuringCompose ? 0.35 : 1,
+            fontFamily: "inherit",
             fontSize: 14, fontWeight: 600, letterSpacing: "-0.01em",
             position: "relative",
-            transition: "background 0.15s, border-color 0.15s",
+            transition: "background 0.15s, border-color 0.15s, opacity 0.15s",
           }}
         >
           {isGk && (
@@ -300,12 +321,11 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
           </button>
         )}
         {isPopoverOpen && (() => {
-          const sameTeam = myCompose && myCompose.scorerIsHome === isHome;
-          const canAssist = !!(myCompose?.scorer) && sameTeam && myCompose.scorer !== player;
           const below = !placeBelow ? false : true;
           const popPos = below
             ? { top: "calc(100% + 6px)" }
             : { bottom: "calc(100% + 6px)" };
+          const isScorer = roleInCompose === 'scorer';
           return (
             <div style={{
               position: "absolute", left: 0, right: 0,
@@ -318,18 +338,13 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
               backdropFilter: "blur(20px)",
               WebkitBackdropFilter: "blur(20px)",
               display: "flex", alignItems: "stretch",
-              minWidth: 240,
+              minWidth: 220,
               overflow: "hidden",
             }}>
               <button
                 onClick={(e) => { e.stopPropagation(); applyGoalRole(player, isHome); setOpenPopover(null); }}
-                style={popoverBtn({ active: roleInCompose === 'scorer' })}
-              >{roleInCompose === 'scorer' ? "✓ 골" : "골"}</button>
-              <button
-                onClick={(e) => { e.stopPropagation(); if (canAssist) { applyAssistRole(player, isHome); setOpenPopover(null); } }}
-                disabled={!canAssist}
-                style={popoverBtn({ disabled: !canAssist })}
-              >어시</button>
+                style={popoverBtn({ primary: !isScorer, active: isScorer })}
+              >{isScorer ? "✓ 골" : "골"}</button>
               <button
                 onClick={(e) => { e.stopPropagation(); toggleGk(player, isHome); setOpenPopover(null); }}
                 style={popoverBtn({ active: isGk })}
