@@ -283,19 +283,15 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
 
     const ringColor = roleInCompose === 'scorer' ? "var(--app-green)"
                     : roleInCompose === 'assist' ? "var(--app-blue)"
-                    : isGk ? "var(--app-orange)"
                     : null;
 
     const cardBg = roleInCompose === 'scorer' ? "rgba(52,199,89,0.14)"
                  : roleInCompose === 'assist' ? "rgba(0,122,255,0.12)"
-                 : "var(--app-bg-row-hover)";
+                 : "var(--app-bg-elevated)";
 
     const border = ringColor
       ? `0.5px solid ${ringColor}`
-      : "0.5px solid transparent";
-    const borderLeft = ringColor
-      ? `0.5px solid ${ringColor}`
-      : `3px solid ${color?.bg || "transparent"}`;
+      : "0.5px solid var(--app-divider)";
 
     return (
       <div
@@ -320,12 +316,12 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
             width: "100%",
             background: cardBg,
             color: "var(--app-text-primary)",
-            border, borderLeft,
+            border,
             borderRadius: 10,
-            padding: "12px 8px", minHeight: 60,
+            padding: "14px 6px", minHeight: 68,
             display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-            gap: 3, cursor: "pointer", fontFamily: "inherit",
-            fontSize: 14, fontWeight: 500,
+            gap: 4, cursor: "pointer", fontFamily: "inherit",
+            fontSize: 14, fontWeight: 600, letterSpacing: "-0.01em",
             position: "relative",
             transition: "background 0.15s, border-color 0.15s",
           }}
