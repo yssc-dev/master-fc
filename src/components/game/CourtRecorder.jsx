@@ -34,11 +34,11 @@ function MercPicker({ side, candidates, opposingPlayers, teamName, onAdd, onClos
                 fontFamily: "inherit",
                 display: "inline-flex", alignItems: "center", gap: 4,
               }}>
+                {p}
                 {isOpposing && <span style={{
                   fontSize: 10, fontWeight: 500, padding: "1px 5px", borderRadius: 4,
                   background: "rgba(255,149,0,0.2)",
-                }}>용병</span>}
-                {p}
+                }}>상대팀</span>}
               </button>
             );
           })}
@@ -534,48 +534,46 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
         </div>
       </div>
 
-      {/* Home team panel */}
+      {/* Teams side-by-side */}
       <div style={{
-        background: homePanelTint, padding: "10px 10px 12px",
-        borderRadius: 10, marginBottom: 10,
+        display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8,
       }}>
-        <div style={{
-          fontSize: 12, fontWeight: 500, color: "var(--app-text-secondary)",
-          marginLeft: 2, marginBottom: 8,
-          display: "inline-flex", alignItems: "center", gap: 6,
-        }}>
-          <span style={{ width: 8, height: 8, borderRadius: 2, background: homeColor?.bg }} />
-          {homeTeam}
-        </div>
-        <div style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(84px, 1fr))",
-          gap: 8,
-        }}>
-          {homePlayers.map(p => renderPlayerCard(p, true, true))}
-        </div>
-      </div>
-
-      {/* Away team panel */}
-      <div style={{
-        background: awayPanelTint, padding: "10px 10px 12px",
-        borderRadius: 10,
-      }}>
-        <div style={{
-          fontSize: 12, fontWeight: 500, color: "var(--app-text-secondary)",
-          marginLeft: 2, marginBottom: 8,
-          display: "inline-flex", alignItems: "center", gap: 6,
-        }}>
-          <span style={{ width: 8, height: 8, borderRadius: 2, background: awayColor?.bg }} />
-          {awayTeam}
-        </div>
-        <div style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(84px, 1fr))",
-          gap: 8,
-        }}>
-          {awayPlayers.map(p => renderPlayerCard(p, false, false))}
-        </div>
+        {[
+          { tint: homePanelTint, color: homeColor, teamName: homeTeam, players: homePlayers, isHome: true, side: "home" },
+          { tint: awayPanelTint, color: awayColor, teamName: awayTeam, players: awayPlayers, isHome: false, side: "away" },
+        ].map(t => (
+          <div key={t.side} style={{
+            background: t.tint, padding: "10px 8px 10px",
+            borderRadius: 10,
+            display: "flex", flexDirection: "column",
+          }}>
+            <div style={{
+              fontSize: 12, fontWeight: 500, color: "var(--app-text-secondary)",
+              marginLeft: 2, marginBottom: 8,
+              display: "inline-flex", alignItems: "center", gap: 6,
+            }}>
+              <span style={{ width: 8, height: 8, borderRadius: 2, background: t.color?.bg }} />
+              {t.teamName}
+            </div>
+            <div style={{
+              display: "grid",
+              gridTemplateColumns: "1fr 1fr",
+              gap: 6, flex: 1,
+            }}>
+              {t.players.map(p => renderPlayerCard(p, t.isHome, t.isHome))}
+            </div>
+            {!readOnly && (
+              <button onClick={() => setShowMercPicker(t.side)} style={{
+                marginTop: 8, background: "transparent",
+                border: "1px dashed rgba(255,149,0,0.5)", borderRadius: 10,
+                padding: "9px", fontSize: 12, fontWeight: 500,
+                color: "var(--app-orange)", cursor: "pointer", fontFamily: "inherit",
+                display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 4,
+                width: "100%",
+              }}><PlusIcon width={12} color="var(--app-orange)" /> 용병</button>
+            )}
+          </div>
+        ))}
       </div>
 
       {!readOnly && (
@@ -584,25 +582,6 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
           marginTop: 10, letterSpacing: "-0.01em",
         }}>
           탭 → 역할 선택 · 골 선택 후 같은 팀 선수 탭 = 어시+저장, [단독] = 단독 저장
-        </div>
-      )}
-
-      {!readOnly && (
-        <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-          <button onClick={() => setShowMercPicker("home")} style={{
-            flex: 1, background: "transparent",
-            border: "1px dashed rgba(255,149,0,0.5)", borderRadius: 10,
-            padding: "10px", fontSize: 13, fontWeight: 500,
-            color: "var(--app-orange)", cursor: "pointer", fontFamily: "inherit",
-            display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 4,
-          }}><PlusIcon width={13} color="var(--app-orange)" /> {homeTeam} 용병</button>
-          <button onClick={() => setShowMercPicker("away")} style={{
-            flex: 1, background: "transparent",
-            border: "1px dashed rgba(255,149,0,0.5)", borderRadius: 10,
-            padding: "10px", fontSize: 13, fontWeight: 500,
-            color: "var(--app-orange)", cursor: "pointer", fontFamily: "inherit",
-            display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 4,
-          }}><PlusIcon width={13} color="var(--app-orange)" /> {awayTeam} 용병</button>
         </div>
       )}
 
