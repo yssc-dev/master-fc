@@ -557,6 +557,9 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
               gap: 6, flex: 1,
             }}>
               {t.players.map(p => renderPlayerCard(p, t.isHome, t.isHome))}
+              {Array.from({ length: Math.max(homePlayers.length, awayPlayers.length) - t.players.length }).map((_, i) => (
+                <div key={`pad-${t.side}-${i}`} style={{ visibility: "hidden", minHeight: 68 }} aria-hidden="true" />
+              ))}
             </div>
             {!readOnly && (
               <button onClick={() => setShowMercPicker(t.side)} style={{
