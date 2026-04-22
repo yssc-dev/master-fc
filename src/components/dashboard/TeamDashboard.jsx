@@ -636,7 +636,7 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <colgroup>
               <col style={{ width: 28 }} />
-              <col style={{ width: 50 }} />
+              <col style={{ width: 64 }} />
             </colgroup>
             <thead>
               <tr>
@@ -658,8 +658,8 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
                 return (
                   <tr key={i} style={{ background: rank === 1 ? "rgba(0,122,255,0.06)" : "transparent" }}>
                     <td style={{ ...ds.tdStyle(false), padding: "5px 1px" }}>{rankBadge(rank)}</td>
-                    <td style={{ ...ds.tdStyle(true), textAlign: "left", paddingLeft: 4 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
+                    <td style={{ ...ds.tdStyle(true), textAlign: "left", paddingLeft: 4, whiteSpace: "nowrap" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 2, whiteSpace: "nowrap" }}>
                         <span onClick={() => handlePlayerClick(p.name)}
                           style={{ cursor: "pointer", borderBottom: `1px dashed ${C.accent}44` }}>{p.name}</span>
                         {diff !== 0 && (
