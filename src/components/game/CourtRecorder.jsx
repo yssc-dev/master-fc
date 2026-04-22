@@ -181,8 +181,9 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
     if (!myCompose || !myCompose.scorer) return;
     if (myCompose.scorerIsHome !== isHome) return;
     if (myCompose.scorer === player) return;
-    if (myCompose.assist === player) { setCompose({ ...myCompose, assist: null }); return; }
-    setCompose({ ...myCompose, assist: player });
+    if (!checkGk()) return;
+    recordGoalEvent(myCompose.scorer, player);
+    setCompose(null);
   };
 
   const applyOwnGoalRole = (player) => {
@@ -191,10 +192,10 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
     recordOwnGoalEvent(player);
   };
 
-  const saveCompose = () => {
+  const saveSolo = () => {
     if (!myCompose || !myCompose.scorer) return;
     if (!checkGk()) return;
-    recordGoalEvent(myCompose.scorer, myCompose.assist);
+    recordGoalEvent(myCompose.scorer, null);
     setCompose(null);
   };
 
@@ -305,6 +306,13 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
         <button
           onClick={() => {
             if (readOnly) { readOnlyAlert(); return; }
+            // Fast-path: compose active + same team + not scorer → instant assist+save
+            if (myCompose?.scorer && myCompose.scorerIsHome === isHome && myCompose.scorer !== player) {
+              if (!checkGk()) return;
+              recordGoalEvent(myCompose.scorer, player);
+              setCompose(null);
+              return;
+            }
             setOpenPopover(isPopoverOpen ? null : { player, isHome });
           }}
           aria-label={`${player} 역할 선택`}
@@ -440,21 +448,12 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
               fontSize: 12, fontWeight: 600,
               display: "inline-flex", alignItems: "center", gap: 4,
             }}>⚽ {myCompose.scorer}</span>
-            {myCompose.assist ? (
-              <span style={{
-                padding: "4px 8px", borderRadius: 6,
-                background: "rgba(0,122,255,0.18)", color: "var(--app-blue)",
-                fontSize: 12, fontWeight: 600,
-                display: "inline-flex", alignItems: "center", gap: 4,
-              }}>🅰 {myCompose.assist}</span>
-            ) : (
-              <span style={{
-                padding: "4px 8px", borderRadius: 6,
-                background: "transparent", color: "var(--app-text-tertiary)",
-                fontSize: 12, fontWeight: 500,
-                border: "0.5px dashed var(--app-divider)",
-              }}>🅰 ─</span>
-            )}
+            <span style={{
+              padding: "4px 8px", borderRadius: 6,
+              background: "transparent", color: "var(--app-text-tertiary)",
+              fontSize: 11, fontWeight: 500,
+              border: "0.5px dashed var(--app-divider)",
+            }}>어시: 선수 탭</span>
             {(() => {
               const concGk = myCompose.scorerIsHome ? awayGk : homeGk;
               return concGk ? (
@@ -467,14 +466,14 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
               ) : null;
             })()}
           </div>
-          <button onClick={saveCompose} disabled={!myCompose.scorer}
+          <button onClick={saveSolo} disabled={!myCompose.scorer}
             style={{
               padding: "8px 14px", borderRadius: 8,
               background: "var(--app-blue)", color: "#fff",
               border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer",
               fontFamily: "inherit", opacity: myCompose.scorer ? 1 : 0.4,
               letterSpacing: "-0.01em",
-            }}>저장</button>
+            }}>단독</button>
           <button onClick={cancelCompose}
             style={{
               padding: "8px 10px", borderRadius: 8,
@@ -584,7 +583,7 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
           fontSize: 11, color: "var(--app-text-tertiary)", textAlign: "center",
           marginTop: 10, letterSpacing: "-0.01em",
         }}>
-          탭해서 역할 선택 · 골+어시 → 저장
+          탭 → 역할 선택 · 골 선택 후 같은 팀 선수 탭 = 어시+저장, [단독] = 단독 저장
         </div>
       )}
 
