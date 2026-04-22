@@ -1,9 +1,10 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { TEAM_COLORS } from '../../config/constants';
 import { BackIcon } from '../common/icons';
 import CourtRecorder from './CourtRecorder';
 
 export default function ScheduleMatchView({ schedule, currentRoundIdx, viewingRoundIdx, setViewingRoundIdx, confirmedRounds, onConfirmRound, teams, teamNames, teamColorIndices, gks, gksHistory, courtCount, allEvents, onRecordEvent, onUndoEvent, onDeleteEvent, onEditEvent, completedMatches, attendees, onGkChange, splitPhase, styles: s }) {
+  const [compose, setCompose] = useState(null);
   const round = schedule[viewingRoundIdx];
   const matches = round?.matches || [];
   const isConfirmed = confirmedRounds[viewingRoundIdx] || false;
@@ -116,6 +117,8 @@ export default function ScheduleMatchView({ schedule, currentRoundIdx, viewingRo
             courtLabel={courtLabel}
             attendees={attendees}
             readOnly={isConfirmed}
+            compose={compose}
+            setCompose={setCompose}
           />
         </div>
         );

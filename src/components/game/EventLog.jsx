@@ -140,25 +140,41 @@ export default function EventLog({ matchEvents, allEvents, matchId, homePlayers,
                 setEditingEvent(isEditing ? null : globalIdx);
               }}
             >
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ fontSize: 10, color: C.grayDark, width: 22, flexShrink: 0 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                <span style={{
+                  fontSize: 10, color: "var(--app-text-tertiary)",
+                  width: 22, flexShrink: 0, fontVariantNumeric: "tabular-nums",
+                }}>
                   #{String(localIdx + 1).padStart(2, "0")}
                 </span>
-                <span style={{ fontSize: 14 }}>{e.type === "goal" ? "⚽" : "🔴"}</span>
-                <div style={{ flex: 1 }}>
-                  <span style={{ fontWeight: 600 }}>{e.player}</span>
-                  <span style={{ color: C.gray, fontSize: 11 }}>({e.type === "goal" ? "골" : "자책골"})</span>
+                <div style={{ display: "inline-flex", alignItems: "center", gap: 6, flex: 1, flexWrap: "wrap", minWidth: 0 }}>
+                  <span style={{
+                    padding: "3px 8px", borderRadius: 6,
+                    background: e.type === "owngoal" ? "rgba(255,59,48,0.14)" : "rgba(52,199,89,0.18)",
+                    color: e.type === "owngoal" ? "var(--app-red)" : "var(--app-green)",
+                    fontSize: 12, fontWeight: 600,
+                  }}>
+                    {e.type === "owngoal" ? "🔴" : "⚽"} {e.player}
+                  </span>
                   {e.type === "goal" && e.assist && (
-                    <span style={{ color: C.gray, fontSize: 11 }}> ← {e.assist}<span style={{ opacity: 0.7 }}>(어시)</span></span>
-                  )}
-                  {e.type === "goal" && !e.assist && (
-                    <span style={{ color: C.grayDark, fontSize: 11 }}> (어시 없음)</span>
+                    <span style={{
+                      padding: "3px 8px", borderRadius: 6,
+                      background: "rgba(0,122,255,0.18)", color: "var(--app-blue)",
+                      fontSize: 12, fontWeight: 600,
+                    }}>🅰 {e.assist}</span>
                   )}
                   {e.concedingGk && (
-                    <span style={{ color: C.gray, fontSize: 11 }}> / 실점: {e.concedingGk}{e.type === "owngoal" ? " (2점)" : ""}</span>
+                    <span style={{
+                      padding: "3px 8px", borderRadius: 6,
+                      background: "var(--app-bg-row-hover)", color: "var(--app-text-secondary)",
+                      fontSize: 12, fontWeight: 500,
+                    }}>🧤 {e.concedingGk}{e.type === "owngoal" ? "·2" : ""}</span>
                   )}
                 </div>
-                <span style={{ color: e.scoringTeam === homeTeam ? homeColor?.bg : awayColor?.bg, fontSize: 11, fontWeight: 600, marginRight: 4 }}>{e.scoringTeam}</span>
+                <span style={{
+                  color: e.scoringTeam === homeTeam ? homeColor?.bg : awayColor?.bg,
+                  fontSize: 11, fontWeight: 600, marginRight: 4,
+                }}>{e.scoringTeam}</span>
                 {!readOnly && <button
                   onClick={(ev) => { ev.stopPropagation(); onDeleteEvent(globalIdx); setEditingEvent(null); }}
                   style={{

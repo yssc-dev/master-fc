@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useTheme } from '../../hooks/useTheme';
 import { calcMatchScore } from '../../utils/scoring';
 import { isSpeechSupported, startListening, parseVoiceText, fuzzyMatchPlayer } from '../../utils/speechRecord';
@@ -53,9 +53,30 @@ function MercPicker({ side, candidates, opposingPlayers, teamName, onAdd, onClos
   );
 }
 
-export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers, awayPlayers: initAwayPlayers, allEvents, onRecordEvent, onUndoEvent, onDeleteEvent, onEditEvent, onFinish, onMatchInfoUpdate, onGkChange, styles: s, courtLabel, attendees, readOnly }) {
+const popoverBtn = (tone = "neutral", disabled = false, active = false) => {
+  const toneMap = {
+    neutral: { bg: "var(--app-bg-row)", fg: "var(--app-text-primary)" },
+    green:   { bg: "rgba(52,199,89,0.18)", fg: "var(--app-green)" },
+    blue:    { bg: "rgba(0,122,255,0.18)", fg: "var(--app-blue)" },
+    red:     { bg: "rgba(255,59,48,0.14)", fg: "var(--app-red)" },
+    ghost:   { bg: "transparent", fg: "var(--app-text-tertiary)" },
+  };
+  const t = toneMap[tone] || toneMap.neutral;
+  return {
+    padding: "8px 10px", borderRadius: 8,
+    background: t.bg, color: t.fg,
+    border: active ? `0.5px solid ${t.fg}` : "0.5px solid transparent",
+    fontSize: 13, fontWeight: 600, letterSpacing: "-0.01em",
+    cursor: disabled ? "not-allowed" : "pointer",
+    opacity: disabled ? 0.35 : 1,
+    fontFamily: "inherit",
+    flex: 1, minWidth: 0,
+    whiteSpace: "nowrap",
+  };
+};
+
+export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers, awayPlayers: initAwayPlayers, allEvents, onRecordEvent, onUndoEvent, onDeleteEvent, onEditEvent, onFinish, onMatchInfoUpdate, onGkChange, styles: s, courtLabel, attendees, readOnly, compose, setCompose }) {
   const { C } = useTheme();
-  const [pendingGoalPlayer, setPendingGoalPlayer] = useState(null);
   const [homeGk, setHomeGk] = useState(matchInfo.homeGk || null);
   const [awayGk, setAwayGk] = useState(matchInfo.awayGk || null);
   const [mercs, setMercs] = useState([]);
@@ -64,6 +85,7 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
   const [interimText, setInterimText] = useState("");
   const [voiceResult, setVoiceResult] = useState(null);
   const [speechRef, setSpeechRef] = useState(null);
+  const [openPopover, setOpenPopover] = useState(null); // { player, isHome }
 
   const { homeIdx, awayIdx, matchId, homeTeam, awayTeam, homeColor, awayColor } = matchInfo;
 
@@ -82,6 +104,34 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
   const homeScore = calcMatchScore(allEvents, matchId, homeTeam);
   const awayScore = calcMatchScore(allEvents, matchId, awayTeam);
 
+  const myCompose = compose && compose.pitchId === matchId ? compose : null;
+
+  const playerStats = useMemo(() => {
+    const stats = {};
+    matchEvents.forEach(e => {
+      if (e.type === "goal") {
+        if (!stats[e.player]) stats[e.player] = { g: 0, a: 0 };
+        stats[e.player].g += 1;
+        if (e.assist) {
+          if (!stats[e.assist]) stats[e.assist] = { g: 0, a: 0 };
+          stats[e.assist].a += 1;
+        }
+      }
+    });
+    return stats;
+  }, [matchEvents]);
+
+  useEffect(() => {
+    if (!openPopover) return;
+    const handler = (e) => {
+      if (!e.target.closest || !e.target.closest('[data-popover-region="1"]')) {
+        setOpenPopover(null);
+      }
+    };
+    document.addEventListener('pointerdown', handler);
+    return () => document.removeEventListener('pointerdown', handler);
+  }, [openPopover]);
+
   const readOnlyAlert = () => alert("확정된 라운드입니다. 수정하려면 확정취소를 먼저 진행해주세요.");
 
   const checkGk = () => {
@@ -91,7 +141,6 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
 
   const isPlayerHome = (player) => homePlayers.includes(player);
 
-  // ── GK 토글 ──
   const toggleGk = (player, isHome) => {
     if (readOnly) { readOnlyAlert(); return; }
     const currentGk = isHome ? homeGk : awayGk;
@@ -100,52 +149,6 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
     if (onGkChange) onGkChange(isHome ? homeIdx : awayIdx, newGk);
   };
 
-  // ── 골 기록 (터치) ──
-  const handleGoalTap = (player, isHome) => {
-    if (readOnly) { readOnlyAlert(); return; }
-    if (!checkGk()) return;
-    setPendingGoalPlayer({ player, isHome });
-  };
-
-  const handleAssistSelect = (assistPlayer) => {
-    if (!pendingGoalPlayer) return;
-    const gp = pendingGoalPlayer;
-    onRecordEvent(courtLabel, {
-      type: "goal", matchId, player: gp.player, assist: assistPlayer,
-      team: gp.isHome ? homeTeam : awayTeam, scoringTeam: gp.isHome ? homeTeam : awayTeam,
-      concedingTeam: gp.isHome ? awayTeam : homeTeam, concedingGk: gp.isHome ? awayGk : homeGk,
-      concedingGkLoss: 1, homeTeam, awayTeam,
-    });
-    setPendingGoalPlayer(null);
-  };
-
-  const handleNoAssist = () => {
-    if (!pendingGoalPlayer) return;
-    const gp = pendingGoalPlayer;
-    onRecordEvent(courtLabel, {
-      type: "goal", matchId, player: gp.player, assist: null,
-      team: gp.isHome ? homeTeam : awayTeam, scoringTeam: gp.isHome ? homeTeam : awayTeam,
-      concedingTeam: gp.isHome ? awayTeam : homeTeam, concedingGk: gp.isHome ? awayGk : homeGk,
-      concedingGkLoss: 1, homeTeam, awayTeam,
-    });
-    setPendingGoalPlayer(null);
-  };
-
-  const handleOwnGoalFromInline = () => {
-    if (!pendingGoalPlayer) return;
-    const gp = pendingGoalPlayer;
-    const ownTeam = gp.isHome ? homeTeam : awayTeam;
-    const scoringTeam = gp.isHome ? awayTeam : homeTeam;
-    const ownGk = gp.isHome ? homeGk : awayGk;
-    onRecordEvent(courtLabel, {
-      type: "owngoal", matchId, player: gp.player,
-      team: ownTeam, scoringTeam, concedingTeam: ownTeam,
-      concedingGk: ownGk, concedingGkLoss: 2, assist: null, homeTeam, awayTeam,
-    });
-    setPendingGoalPlayer(null);
-  };
-
-  // ── 음성 기록 ──
   const recordGoalEvent = (scorer, assist) => {
     const isHome = isPlayerHome(scorer);
     onRecordEvent(courtLabel, {
@@ -166,6 +169,38 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
     });
   };
 
+  // ── 역할 조작 ──
+  const applyGoalRole = (player, isHome) => {
+    if (readOnly) { readOnlyAlert(); return; }
+    if (myCompose?.scorer === player) { setCompose(null); return; }
+    setCompose({ pitchId: matchId, scorer: player, scorerIsHome: isHome, assist: null });
+  };
+
+  const applyAssistRole = (player, isHome) => {
+    if (readOnly) { readOnlyAlert(); return; }
+    if (!myCompose || !myCompose.scorer) return;
+    if (myCompose.scorerIsHome !== isHome) return;
+    if (myCompose.scorer === player) return;
+    if (myCompose.assist === player) { setCompose({ ...myCompose, assist: null }); return; }
+    setCompose({ ...myCompose, assist: player });
+  };
+
+  const applyOwnGoalRole = (player) => {
+    if (readOnly) { readOnlyAlert(); return; }
+    if (!checkGk()) return;
+    recordOwnGoalEvent(player);
+  };
+
+  const saveCompose = () => {
+    if (!myCompose || !myCompose.scorer) return;
+    if (!checkGk()) return;
+    recordGoalEvent(myCompose.scorer, myCompose.assist);
+    setCompose(null);
+  };
+
+  const cancelCompose = () => setCompose(null);
+
+  // ── 음성 기록 ──
   const handleVoiceStart = () => {
     if (readOnly) { readOnlyAlert(); return; }
     if (!checkGk()) return;
@@ -234,37 +269,66 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
   const addMerc = (player, side) => { setMercs(prev => [...prev, { player, side }]); setShowMercPicker(null); };
   const removeMerc = (player) => { setMercs(prev => prev.filter(m => m.player !== player)); };
 
-  const renderPlayerCard = (player, isHome) => {
+  const renderPlayerCard = (player, isHome, placeBelow) => {
     const mercsArr = isHome ? homeMercs : awayMercs;
     const isMerc = mercsArr.includes(player);
     const isGk = (isHome ? homeGk : awayGk) === player;
     const color = isHome ? homeColor : awayColor;
+    const roleInCompose = myCompose?.scorer === player ? 'scorer'
+                        : myCompose?.assist === player ? 'assist'
+                        : null;
+    const isPopoverOpen = openPopover?.player === player && openPopover.isHome === isHome;
+    const stats = playerStats[player];
+
+    const ringColor = roleInCompose === 'scorer' ? "var(--app-green)"
+                    : roleInCompose === 'assist' ? "var(--app-blue)"
+                    : isGk ? "var(--app-orange)"
+                    : null;
+
+    const cardBg = roleInCompose === 'scorer' ? "rgba(52,199,89,0.14)"
+                 : roleInCompose === 'assist' ? "rgba(0,122,255,0.12)"
+                 : "var(--app-bg-row-hover)";
+
+    const border = ringColor
+      ? `0.5px solid ${ringColor}`
+      : "0.5px solid transparent";
+    const borderLeft = ringColor
+      ? `0.5px solid ${ringColor}`
+      : `3px solid ${color?.bg || "transparent"}`;
 
     return (
-      <div key={player} style={{ position: "relative" }}>
+      <div
+        key={player}
+        style={{ position: "relative" }}
+        {...(isPopoverOpen ? { 'data-popover-region': '1' } : {})}
+      >
         <button
-          onClick={() => handleGoalTap(player, isHome)}
-          onContextMenu={(e) => { e.preventDefault(); toggleGk(player, isHome); }}
-          aria-label={`${player} 골 기록 (길게 눌러 GK 지정)`}
+          onClick={() => {
+            if (readOnly) { readOnlyAlert(); return; }
+            setOpenPopover(isPopoverOpen ? null : { player, isHome });
+          }}
+          aria-label={`${player} 역할 선택`}
           style={{
             width: "100%",
-            background: isGk ? "rgba(0,122,255,0.12)" : "var(--app-bg-row-hover)",
-            color: isGk ? "var(--app-blue)" : "var(--app-text-primary)",
-            border: isGk ? "0.5px solid var(--app-blue)" : "0.5px solid transparent",
-            borderLeft: isGk ? "0.5px solid var(--app-blue)" : `3px solid ${color?.bg || "transparent"}`,
+            background: cardBg,
+            color: "var(--app-text-primary)",
+            border, borderLeft,
             borderRadius: 10,
-            padding: "12px 8px", minHeight: 56,
+            padding: "12px 8px", minHeight: 60,
             display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-            gap: 2, cursor: "pointer", fontFamily: "inherit",
+            gap: 3, cursor: "pointer", fontFamily: "inherit",
             fontSize: 14, fontWeight: 500,
             position: "relative",
+            transition: "background 0.15s, border-color 0.15s",
           }}
         >
           {isGk && (
             <span style={{
               position: "absolute", top: 4, right: 6,
-              fontSize: 10, fontWeight: 600,
-              color: "var(--app-blue)",
+              width: 16, height: 16, borderRadius: 3,
+              background: "var(--app-orange)", color: "#fff",
+              display: "inline-flex", alignItems: "center", justifyContent: "center",
+              fontSize: 9, fontWeight: 700, letterSpacing: 0, lineHeight: 1,
             }}>GK</span>
           )}
           {isMerc && (
@@ -279,6 +343,15 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
           <span style={{
             overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "100%",
           }}>{player}</span>
+          {stats && (stats.g > 0 || stats.a > 0) && (
+            <span style={{
+              fontSize: 10, color: "var(--app-text-tertiary)", fontVariantNumeric: "tabular-nums",
+              display: "inline-flex", gap: 5,
+            }}>
+              {stats.g > 0 && <span>⚽{stats.g}</span>}
+              {stats.a > 0 && <span>🅰{stats.a}</span>}
+            </span>
+          )}
         </button>
         {isMerc && !readOnly && (
           <button
@@ -295,9 +368,55 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
             <XIcon width={9} color="var(--app-red)" />
           </button>
         )}
+        {isPopoverOpen && (() => {
+          const sameTeam = myCompose && myCompose.scorerIsHome === isHome;
+          const canAssist = !!(myCompose?.scorer) && sameTeam && myCompose.scorer !== player;
+          const below = !placeBelow ? false : true;
+          const popPos = below
+            ? { top: "calc(100% + 6px)" }
+            : { bottom: "calc(100% + 6px)" };
+          return (
+            <div style={{
+              position: "absolute", left: 0, right: 0,
+              ...popPos,
+              zIndex: 40,
+              background: "var(--app-bg-elevated)",
+              border: "0.5px solid var(--app-divider)",
+              borderRadius: 10, padding: 6,
+              boxShadow: "var(--app-shadow-lg)",
+              display: "flex", gap: 4,
+              minWidth: 220,
+            }}>
+              <button
+                onClick={(e) => { e.stopPropagation(); applyGoalRole(player, isHome); setOpenPopover(null); }}
+                style={popoverBtn(roleInCompose === 'scorer' ? "green" : "neutral", false, roleInCompose === 'scorer')}
+              >{roleInCompose === 'scorer' ? "✓골" : "골"}</button>
+              <button
+                onClick={(e) => { e.stopPropagation(); if (canAssist || roleInCompose === 'assist') { applyAssistRole(player, isHome); setOpenPopover(null); } }}
+                disabled={!canAssist && roleInCompose !== 'assist'}
+                style={popoverBtn(roleInCompose === 'assist' ? "blue" : "neutral", !canAssist && roleInCompose !== 'assist', roleInCompose === 'assist')}
+              >{roleInCompose === 'assist' ? "✓어시" : "어시"}</button>
+              <button
+                onClick={(e) => { e.stopPropagation(); toggleGk(player, isHome); setOpenPopover(null); }}
+                style={popoverBtn(isGk ? "blue" : "neutral", false, isGk)}
+              >{isGk ? "✓GK" : "GK"}</button>
+              <button
+                onClick={(e) => { e.stopPropagation(); applyOwnGoalRole(player); setOpenPopover(null); }}
+                style={popoverBtn("red")}
+              >자책</button>
+              <button
+                onClick={(e) => { e.stopPropagation(); setOpenPopover(null); }}
+                style={popoverBtn("ghost")}
+              >취소</button>
+            </div>
+          );
+        })()}
       </div>
     );
   };
+
+  const homePanelTint = homeColor?.bg ? `color-mix(in srgb, ${homeColor.bg} 7%, transparent)` : "transparent";
+  const awayPanelTint = awayColor?.bg ? `color-mix(in srgb, ${awayColor.bg} 7%, transparent)` : "transparent";
 
   return (
     <div style={{
@@ -306,85 +425,72 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
       position: "relative",
     }}>
 
-      {/* 골/어시 선택 — 바텀 시트 */}
-      {pendingGoalPlayer && (
+      {/* Compose bar */}
+      {myCompose && (
         <div style={{
-          position: "fixed", inset: 0, zIndex: 200,
-          background: "rgba(0,0,0,0.35)",
-          backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)",
-          display: "flex", alignItems: "flex-end", justifyContent: "center",
-        }} onClick={() => setPendingGoalPlayer(null)}>
-          <div style={{
-            background: "var(--app-bg-elevated)", width: "100%", maxWidth: 500,
-            borderTopLeftRadius: 14, borderTopRightRadius: 14,
-            padding: "10px 20px 24px",
-            maxHeight: "80vh", overflowY: "auto",
-            boxShadow: "var(--app-shadow-lg)",
-          }} onClick={e => e.stopPropagation()}>
-            <div style={{ display: "flex", justifyContent: "center", padding: "6px 0 12px" }}>
-              <div style={{ width: 36, height: 5, borderRadius: 3, background: "var(--app-gray-4)" }} />
-            </div>
-
-            <div style={{ marginBottom: 16 }}>
-              <div style={{
-                fontSize: 11, color: "var(--app-blue)", fontWeight: 600, letterSpacing: "0.02em",
-                marginBottom: 4,
-              }}>GOAL</div>
-              <div style={{ fontSize: 24, fontWeight: 700, letterSpacing: "-0.022em",
-                            lineHeight: 1.2, color: "var(--app-text-primary)" }}>
-                {pendingGoalPlayer.player}
-              </div>
-              <div style={{ fontSize: 14, color: "var(--app-text-secondary)", marginTop: 4 }}>
-                어시스트 선수를 선택하세요.
-              </div>
-            </div>
-
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 }}>
-              {(pendingGoalPlayer.isHome ? homePlayers : awayPlayers).filter(p => p !== pendingGoalPlayer.player).map(p => (
-                <button key={p} onClick={() => handleAssistSelect(p)} style={{
-                  padding: "12px 12px", borderRadius: 10,
-                  background: "var(--app-bg-row)", border: "0.5px solid var(--app-divider)",
-                  fontSize: 15, fontWeight: 500,
-                  color: "var(--app-text-primary)", cursor: "pointer", fontFamily: "inherit",
-                }}>{p}</button>
-              ))}
-            </div>
-
-            <div style={{ display: "flex", gap: 8 }}>
-              <button onClick={handleNoAssist} style={{
-                flex: 1, padding: "12px 0", borderRadius: 10,
-                background: "var(--app-bg-row-hover)", border: "none",
-                fontSize: 14, fontWeight: 500, color: "var(--app-text-secondary)",
-                cursor: "pointer", fontFamily: "inherit",
-              }}>어시 없음</button>
-              <button onClick={handleOwnGoalFromInline} style={{
-                flex: 1, padding: "12px 0", borderRadius: 10,
-                background: "rgba(255,59,48,0.1)", border: "none",
-                fontSize: 14, fontWeight: 500, color: "var(--app-red)",
-                cursor: "pointer", fontFamily: "inherit",
-              }}>자책골</button>
-            </div>
-            <button onClick={() => setPendingGoalPlayer(null)} style={{
-              width: "100%", padding: "12px 0", borderRadius: 10,
-              background: "transparent", border: "none",
-              fontSize: 14, color: "var(--app-text-tertiary)",
-              cursor: "pointer", marginTop: 8, fontFamily: "inherit",
-            }}>취소</button>
+          marginBottom: 12, padding: "10px 10px 10px 12px", borderRadius: 12,
+          background: "var(--app-bg-elevated)",
+          border: "0.5px solid var(--app-divider)",
+          display: "flex", alignItems: "center", gap: 8,
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, flex: 1, flexWrap: "wrap", minWidth: 0 }}>
+            <span style={{
+              padding: "4px 8px", borderRadius: 6,
+              background: "rgba(52,199,89,0.18)", color: "var(--app-green)",
+              fontSize: 12, fontWeight: 600,
+              display: "inline-flex", alignItems: "center", gap: 4,
+            }}>⚽ {myCompose.scorer}</span>
+            {myCompose.assist ? (
+              <span style={{
+                padding: "4px 8px", borderRadius: 6,
+                background: "rgba(0,122,255,0.18)", color: "var(--app-blue)",
+                fontSize: 12, fontWeight: 600,
+                display: "inline-flex", alignItems: "center", gap: 4,
+              }}>🅰 {myCompose.assist}</span>
+            ) : (
+              <span style={{
+                padding: "4px 8px", borderRadius: 6,
+                background: "transparent", color: "var(--app-text-tertiary)",
+                fontSize: 12, fontWeight: 500,
+                border: "0.5px dashed var(--app-divider)",
+              }}>🅰 ─</span>
+            )}
+            {(() => {
+              const concGk = myCompose.scorerIsHome ? awayGk : homeGk;
+              return concGk ? (
+                <span style={{
+                  padding: "4px 8px", borderRadius: 6,
+                  background: "var(--app-bg-row)", color: "var(--app-text-secondary)",
+                  fontSize: 12, fontWeight: 500,
+                  display: "inline-flex", alignItems: "center", gap: 4,
+                }}>🧤 {concGk}</span>
+              ) : null;
+            })()}
           </div>
+          <button onClick={saveCompose} disabled={!myCompose.scorer}
+            style={{
+              padding: "8px 14px", borderRadius: 8,
+              background: "var(--app-blue)", color: "#fff",
+              border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer",
+              fontFamily: "inherit", opacity: myCompose.scorer ? 1 : 0.4,
+              letterSpacing: "-0.01em",
+            }}>저장</button>
+          <button onClick={cancelCompose}
+            style={{
+              padding: "8px 10px", borderRadius: 8,
+              background: "var(--app-bg-row)", color: "var(--app-text-secondary)",
+              border: "0.5px solid var(--app-divider)", fontSize: 13, fontWeight: 500,
+              cursor: "pointer", fontFamily: "inherit",
+            }}>취소</button>
         </div>
       )}
 
-      {courtLabel && (
-        <div style={{ fontSize: 13, color: "var(--app-text-tertiary)", marginBottom: 8, textAlign: "center", fontWeight: 500 }}>
-          {courtLabel}
-        </div>
-      )}
-
+      {/* Scoreboard */}
       <div style={{
         display: "grid", gridTemplateColumns: "1fr auto 1fr",
-        alignItems: "center", gap: 12, padding: "12px 0 16px",
+        alignItems: "center", gap: 12, padding: "8px 0 14px",
       }}>
-        <div style={{ textAlign: "center", opacity: homeScore < awayScore ? 0.5 : 1, transition: "opacity .2s" }}>
+        <div style={{ textAlign: "center", opacity: homeScore < awayScore ? 0.55 : 1, transition: "opacity .2s" }}>
           <div style={{
             fontSize: 13, color: "var(--app-text-secondary)", fontWeight: 500,
             display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6,
@@ -393,8 +499,9 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
             {homeTeam}
           </div>
           <div style={{
-            fontSize: 52, fontWeight: 700, letterSpacing: "-0.022em", lineHeight: 1.05,
-            fontVariantNumeric: "tabular-nums", color: "var(--app-text-primary)", marginTop: 2,
+            fontSize: 40, fontWeight: 700, letterSpacing: "-0.022em", lineHeight: 1.05,
+            fontVariantNumeric: "tabular-nums",
+            color: homeColor?.bg || "var(--app-text-primary)", marginTop: 2,
           }}>{homeScore}</div>
           {homeGk && (
             <div style={{ fontSize: 12, color: "var(--app-text-tertiary)", marginTop: 4,
@@ -404,8 +511,8 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
             </div>
           )}
         </div>
-        <div style={{ fontSize: 13, fontWeight: 500, color: "var(--app-text-tertiary)", paddingBottom: 10 }}>VS</div>
-        <div style={{ textAlign: "center", opacity: awayScore < homeScore ? 0.5 : 1, transition: "opacity .2s" }}>
+        <div style={{ fontSize: 13, fontWeight: 500, color: "var(--app-text-tertiary)", paddingBottom: 8 }}>VS</div>
+        <div style={{ textAlign: "center", opacity: awayScore < homeScore ? 0.55 : 1, transition: "opacity .2s" }}>
           <div style={{
             fontSize: 13, color: "var(--app-text-secondary)", fontWeight: 500,
             display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6,
@@ -414,8 +521,9 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
             {awayTeam}
           </div>
           <div style={{
-            fontSize: 52, fontWeight: 700, letterSpacing: "-0.022em", lineHeight: 1.05,
-            fontVariantNumeric: "tabular-nums", color: "var(--app-text-primary)", marginTop: 2,
+            fontSize: 40, fontWeight: 700, letterSpacing: "-0.022em", lineHeight: 1.05,
+            fontVariantNumeric: "tabular-nums",
+            color: awayColor?.bg || "var(--app-text-primary)", marginTop: 2,
           }}>{awayScore}</div>
           {awayGk && (
             <div style={{ fontSize: 12, color: "var(--app-text-tertiary)", marginTop: 4,
@@ -427,10 +535,14 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
         </div>
       </div>
 
-      <div style={{ marginTop: 4 }}>
+      {/* Home team panel */}
+      <div style={{
+        background: homePanelTint, padding: "10px 10px 12px",
+        borderRadius: 10, marginBottom: 10,
+      }}>
         <div style={{
           fontSize: 12, fontWeight: 500, color: "var(--app-text-secondary)",
-          marginLeft: 4, marginBottom: 6,
+          marginLeft: 2, marginBottom: 8,
           display: "inline-flex", alignItems: "center", gap: 6,
         }}>
           <span style={{ width: 8, height: 8, borderRadius: 2, background: homeColor?.bg }} />
@@ -439,13 +551,20 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
         <div style={{
           display: "grid",
           gridTemplateColumns: "repeat(auto-fit, minmax(84px, 1fr))",
-          gap: 8, marginBottom: 14,
+          gap: 8,
         }}>
-          {homePlayers.map(p => renderPlayerCard(p, true))}
+          {homePlayers.map(p => renderPlayerCard(p, true, true))}
         </div>
+      </div>
+
+      {/* Away team panel */}
+      <div style={{
+        background: awayPanelTint, padding: "10px 10px 12px",
+        borderRadius: 10,
+      }}>
         <div style={{
           fontSize: 12, fontWeight: 500, color: "var(--app-text-secondary)",
-          marginLeft: 4, marginBottom: 6,
+          marginLeft: 2, marginBottom: 8,
           display: "inline-flex", alignItems: "center", gap: 6,
         }}>
           <span style={{ width: 8, height: 8, borderRadius: 2, background: awayColor?.bg }} />
@@ -456,7 +575,7 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
           gridTemplateColumns: "repeat(auto-fit, minmax(84px, 1fr))",
           gap: 8,
         }}>
-          {awayPlayers.map(p => renderPlayerCard(p, false))}
+          {awayPlayers.map(p => renderPlayerCard(p, false, false))}
         </div>
       </div>
 
@@ -465,22 +584,22 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
           fontSize: 11, color: "var(--app-text-tertiary)", textAlign: "center",
           marginTop: 10, letterSpacing: "-0.01em",
         }}>
-          탭해서 골 기록 · 길게 눌러 GK 지정
+          탭해서 역할 선택 · 골+어시 → 저장
         </div>
       )}
 
       {!readOnly && (
         <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
           <button onClick={() => setShowMercPicker("home")} style={{
-            flex: 1, background: "rgba(255,149,0,0.12)",
-            border: "none", borderRadius: 10,
+            flex: 1, background: "transparent",
+            border: "1px dashed rgba(255,149,0,0.5)", borderRadius: 10,
             padding: "10px", fontSize: 13, fontWeight: 500,
             color: "var(--app-orange)", cursor: "pointer", fontFamily: "inherit",
             display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 4,
           }}><PlusIcon width={13} color="var(--app-orange)" /> {homeTeam} 용병</button>
           <button onClick={() => setShowMercPicker("away")} style={{
-            flex: 1, background: "rgba(255,149,0,0.12)",
-            border: "none", borderRadius: 10,
+            flex: 1, background: "transparent",
+            border: "1px dashed rgba(255,149,0,0.5)", borderRadius: 10,
             padding: "10px", fontSize: 13, fontWeight: 500,
             color: "var(--app-orange)", cursor: "pointer", fontFamily: "inherit",
             display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 4,
