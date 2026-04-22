@@ -11,6 +11,7 @@ import { buildRoundRowsFromFutsal, buildRoundRowsFromSoccer } from '../../utils/
 import PlayerCardTab from './PlayerCardTab';
 import SynergyTab from './SynergyTab';
 import TimePatternTab from './TimePatternTab';
+import AssistSynergyDonut from './AssistSynergyDonut';
 
 function analyzeData(events) {
   // 득점자별 데이터
@@ -518,26 +519,18 @@ export default function PlayerAnalytics({ teamName, teamMode, initialTab, isAdmi
       })()}
 
       {tab === "combo" && (
-        <div>
-          <div style={{ fontSize: 11, color: C.gray, marginBottom: 8 }}>득점 상위 TOP5 어시스트 분포</div>
-          {analysis.goldenCombos.map((g, gi) => (
-            <div key={gi} style={{ padding: "10px 0", borderBottom: `1px solid ${C.grayDarker}` }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: C.white, marginBottom: 6 }}>{g.scorer}</div>
-              <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                <DonutChart slices={g.slices} total={g.total} size={100} />
-                <div style={{ flex: 1 }}>
-                  {g.slices.map((s, si) => (
-                    <div key={si} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, marginBottom: 2 }}>
-                      <div style={{ width: 10, height: 10, borderRadius: 2, background: PIE_COLORS[si], flexShrink: 0 }} />
-                      <span style={{ color: C.white, fontWeight: 600 }}>{s.label}</span>
-                      <span style={{ color: C.accent, fontWeight: 700 }}>{s.count}</span>
-                      <span style={{ color: C.gray }}>({(s.count / g.total * 100).toFixed(0)}%)</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          ))}
+        <div style={{ display: "grid", gap: 14 }}>
+          {analysis.goldenCombos.map((g, gi) => {
+            const assisters = g.slices.map(s => ({
+              name: s.label,
+              count: s.count,
+              pct: g.total > 0 ? (s.count / g.total) * 100 : 0,
+            }));
+            return (
+              <AssistSynergyDonut key={gi}
+                scorer={g.scorer} total={g.total} assisters={assisters} />
+            );
+          })}
         </div>
       )}
 

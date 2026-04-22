@@ -220,47 +220,113 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
             </div>
           )}
 
-          {/* 시즌 요약 카드 (풋살만) */}
+          {/* 시즌 요약 카드 (풋살만) — Stats C Widget */}
           {activeSport !== "축구" && (
-          <div style={ds.section}>
-            <div style={{ display: "flex", gap: 8 }}>
-              {[
-                { label: "경기", value: maxGames },
-                { label: "골", value: totalGoals },
-                { label: "어시", value: totalAssists },
-                { label: "참여", value: activePlayers.length },
-              ].map((stat, i) => (
-                <div key={i} style={{ flex: 1, background: C.card, borderRadius: 16,
-                                      border: `1px solid ${C.borderColor}`,
-                                      padding: "16px 10px", textAlign: "center" }}>
-                  <div style={{ fontSize: 32, fontWeight: 400, letterSpacing: "-0.8px",
-                                fontVariantNumeric: "tabular-nums", color: C.white }}>
-                    {stat.value}
-                  </div>
-                  <div style={{ fontSize: 9,
-                                color: C.gray, marginTop: 4 }}>
-                    {stat.label}
-                  </div>
+            <div style={ds.section}>
+              <div style={{
+                background: C.card,
+                border: `0.5px solid ${C.borderColor}`,
+                borderRadius: 18,
+                padding: "18px 18px 14px",
+              }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <div style={{ fontSize: 13, fontWeight: 500, color: C.gray }}>이번 시즌</div>
                 </div>
-              ))}
+                <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginTop: 6 }}>
+                  <div style={{
+                    fontSize: 56, fontWeight: 700, lineHeight: 1,
+                    color: C.white, letterSpacing: "-0.03em",
+                    fontVariantNumeric: "tabular-nums",
+                  }}>{totalGoals}</div>
+                  <div style={{ fontSize: 17, fontWeight: 500, color: C.gray }}>골</div>
+                </div>
+                <div style={{
+                  marginTop: 14, paddingTop: 12,
+                  borderTop: `0.5px solid ${C.borderColor}`,
+                  display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8,
+                }}>
+                  {[
+                    { label: "경기", value: maxGames },
+                    { label: "어시", value: totalAssists },
+                    { label: "참여", value: activePlayers.length },
+                  ].map((stat) => (
+                    <div key={stat.label}>
+                      <div style={{
+                        fontSize: 20, fontWeight: 600, color: C.white,
+                        letterSpacing: "-0.022em", fontVariantNumeric: "tabular-nums",
+                      }}>{stat.value}</div>
+                      <div style={{ fontSize: 12, color: C.gray, marginTop: 2 }}>{stat.label}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
-          </div>
           )}
 
-          {/* 포인트 TOP 5 */}
+          {/* 포인트 TOP 5 — Lead B Grouped List */}
           {members.length > 0 && (
             <div style={ds.section}>
               <div style={ds.sectionTitle}>포인트 TOP 5</div>
-              <div style={ds.card}>
-                {members.slice(0, 5).map((p, i) => (
-                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 0", borderBottom: i < 4 ? `1px solid ${C.borderColor}` : "none" }}>
-                    <span style={{ fontSize: 12, fontWeight: 800, color: i < 3 ? C.orange : C.gray, minWidth: 18 }}>{i + 1}</span>
-                    <span style={{ fontSize: 13, fontWeight: 600, minWidth: 52 }}>{p.name}</span>
-                    <Bar value={p.point} max={maxPoint} color={C.accent} />
-                    <span style={{ fontSize: 13, fontWeight: 700, color: C.accent, minWidth: 36, textAlign: "right" }}>{p.point}</span>
-                    <DeltaBadge value={(p.goalsDelta || 0) + (p.assistsDelta || 0) + (p.ownGoalsDelta || 0) + (p.cleanSheetsDelta || 0)} />
-                  </div>
-                ))}
+              <div style={{
+                background: C.card,
+                border: `0.5px solid ${C.borderColor}`,
+                borderRadius: 14,
+                overflow: "hidden",
+              }}>
+                {members.slice(0, 5).map((p, i) => {
+                  const isFirst = i === 0;
+                  const delta = (p.goalsDelta || 0) + (p.assistsDelta || 0)
+                              + (p.ownGoalsDelta || 0) + (p.cleanSheetsDelta || 0);
+                  return (
+                    <div key={i} style={{
+                      display: "grid",
+                      gridTemplateColumns: "28px 1fr auto",
+                      alignItems: "center", gap: 12,
+                      padding: "12px 16px",
+                      borderBottom: i < 4 ? `0.5px solid ${C.borderColor}` : "none",
+                    }}>
+                      <div style={{
+                        width: 24, height: 24, borderRadius: 999,
+                        background: isFirst ? C.accent : C.cardLight,
+                        color:      isFirst ? "#fff"   : C.gray,
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        fontSize: 12, fontWeight: 600, fontVariantNumeric: "tabular-nums",
+                      }}>{i + 1}</div>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: 15, fontWeight: 500, color: C.white }}>{p.name}</div>
+                        <div style={{
+                          marginTop: 5, height: 3, maxWidth: 160,
+                          background: C.cardLight, borderRadius: 2, overflow: "hidden",
+                        }}>
+                          <div style={{
+                            height: "100%", borderRadius: 2,
+                            width: `${Math.min(100, (p.point / (maxPoint || 1)) * 100)}%`,
+                            background: isFirst ? C.accent : C.grayLight,
+                            transition: "width 0.3s",
+                          }} />
+                        </div>
+                      </div>
+                      <div style={{ textAlign: "right" }}>
+                        <div style={{
+                          fontSize: 20, fontWeight: 600, color: C.white,
+                          letterSpacing: "-0.022em", fontVariantNumeric: "tabular-nums",
+                        }}>{p.point}</div>
+                        {delta > 0 && (
+                          <div style={{
+                            fontSize: 11, fontWeight: 500, color: C.green, marginTop: 1,
+                            fontVariantNumeric: "tabular-nums",
+                          }}>↑ {delta}</div>
+                        )}
+                        {delta < 0 && (
+                          <div style={{
+                            fontSize: 11, fontWeight: 500, color: C.red, marginTop: 1,
+                            fontVariantNumeric: "tabular-nums",
+                          }}>↓ {Math.abs(delta)}</div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
