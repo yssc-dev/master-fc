@@ -34,7 +34,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
     matchMode, rotations, draftMode, freeSelectTeam, teams, teamNames,
     teamColorIndices, gks, gksHistory, editingTeamName, moveSource, schedule, currentRoundIdx,
     viewingRoundIdx, confirmedRounds, completedMatches, allEvents, isExtraRound,
-    splitPhase, earlyFinish, matchModal, matchModal_sortKey, playerSortMode, pushState, teamEditMode,
+    splitPhase, earlyFinish, gameFinalized, matchModal, matchModal_sortKey, playerSortMode, pushState, teamEditMode,
     settingsSnapshot,
   } = state;
 
@@ -223,11 +223,11 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
     gameCreator: state.gameCreator || authUser?.name || "알 수 없음",
     phase, teams, teamNames, teamColorIndices, gks, gksHistory, allEvents,
     completedMatches, schedule, currentRoundIdx, confirmedRounds, attendees,
-    teamCount, courtCount, matchMode, isExtraRound, splitPhase, rotations, earlyFinish, pushState,
+    teamCount, courtCount, matchMode, isExtraRound, splitPhase, rotations, earlyFinish, gameFinalized, pushState,
     settingsSnapshot,
     lastEditor: authUser?.name || "알 수 없음",
     lastEditTime: Date.now(),
-  }), [phase, teams, teamNames, teamColorIndices, gks, gksHistory, allEvents, completedMatches, schedule, currentRoundIdx, confirmedRounds, attendees, teamCount, courtCount, matchMode, isExtraRound, splitPhase, rotations, earlyFinish, pushState, settingsSnapshot, authUser, gameId]);
+  }), [phase, teams, teamNames, teamColorIndices, gks, gksHistory, allEvents, completedMatches, schedule, currentRoundIdx, confirmedRounds, attendees, teamCount, courtCount, matchMode, isExtraRound, splitPhase, rotations, earlyFinish, gameFinalized, pushState, settingsSnapshot, authUser, gameId]);
 
   const autoSave = useCallback(() => {
     if (isSyncingRef.current) return;
@@ -542,7 +542,10 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
     const inputTime = new Date().toLocaleString("ko-KR");
     const ES = state.settingsSnapshot || gameSettings;
 
-    if (!confirm(`${gameD.getMonth() + 1}월 ${gameD.getDate()}일 풋살기록을 확정하시겠습니까?\n\n시트에 포인트로그 + 선수별집계를 저장합니다.`)) return;
+    const reconfirmMsg = gameFinalized
+      ? `⚠️ 이미 전송된 기록입니다.\n재전송 시 구글시트에 중복 저장될 수 있습니다.\n\n수정된 내용을 재전송하시겠습니까?`
+      : `${gameD.getMonth() + 1}월 ${gameD.getDate()}일 풋살기록을 확정하시겠습니까?\n\n시트에 포인트로그 + 선수별집계를 저장합니다.`;
+    if (!confirm(reconfirmMsg)) return;
 
     const formatMatchId = (mid) => {
       const pPush = mid?.match(/^P(\d+)_C0$/);
@@ -618,8 +621,8 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
       const r3v = r3.status === 'fulfilled' ? r3.value : null;
       const r4v = r4.status === 'fulfilled' ? r4.value : null;
       const r5v = r5.status === 'fulfilled' ? r5.value : null;
-      alert(`기록 확정 완료!\n\n포인트로그: ${r1v?.count || 0}건\n선수별집계: ${r2v?.count || 0}명\n로그_이벤트: ${r3v?.count || 0}건${r3v?.skipped ? ` (skip ${r3v.skipped})` : ''}\n로그_선수경기: ${r4v?.count || 0}명${r4v?.skipped ? ` (skip ${r4v.skipped})` : ''}\n로그_매치: ${r5v?.count || 0}건${r5v?.skipped ? ` (skip ${r5v.skipped})` : ''}`);
-      onBackToMenu?.();
+      alert(`기록 확정 완료!\n\n포인트로그: ${r1v?.count || 0}건\n선수별집계: ${r2v?.count || 0}명\n로그_이벤트: ${r3v?.count || 0}건${r3v?.skipped ? ` (skip ${r3v.skipped})` : ''}\n로그_선수경기: ${r4v?.count || 0}명${r4v?.skipped ? ` (skip ${r4v.skipped})` : ''}\n로그_매치: ${r5v?.count || 0}건${r5v?.skipped ? ` (skip ${r5v.skipped})` : ''}\n\n수정이 필요하면 "경기로" 버튼으로 돌아갈 수 있습니다.`);
+      set('gameFinalized', true);
     } catch (err) {
       alert("시트 저장 실패: " + err.message);
     }
@@ -1299,10 +1302,18 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
         <div style={s.bottomBar}>
           <button onClick={() => set('phase', 'match')} style={s.btn(C.grayDark)}>경기로</button>
           <button onClick={handleFinalize}
-            style={{ ...s.btn(C.green), flex: 1, opacity: teamContext?.role === "관리자" ? 1 : 0.4 }}
+            style={{ ...s.btn(gameFinalized ? C.orange : C.green), flex: 1, opacity: teamContext?.role === "관리자" ? 1 : 0.4 }}
             disabled={teamContext?.role !== "관리자"}>
-            {teamContext?.role === "관리자" ? "기록확정(구글시트로 데이터전송)" : "기록확정 (관리자만)"}
+            {teamContext?.role === "관리자"
+              ? (gameFinalized ? "수정 후 재전송" : "기록확정(구글시트로 데이터전송)")
+              : "기록확정 (관리자만)"}
           </button>
+          {gameFinalized && onBackToMenu && (
+            <button onClick={async () => {
+              await FirebaseSync.clearState(teamContext?.team, gameId);
+              onBackToMenu();
+            }} style={s.btn(C.grayDark)}>메뉴로</button>
+          )}
         </div>
       </div>
     );

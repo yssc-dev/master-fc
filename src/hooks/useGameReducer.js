@@ -35,6 +35,7 @@ const initialState = {
   splitPhase: "first",
   gameCreator: "",
   earlyFinish: false,
+  gameFinalized: false,
   matchModal: null,
   matchModal_sortKey: "total",
   playerSortMode: "point",
@@ -104,6 +105,7 @@ function gameReducer(state, action) {
       }
       if (s.confirmedRounds != null) updates.confirmedRounds = s.confirmedRounds;
       if (s.earlyFinish != null) updates.earlyFinish = s.earlyFinish;
+      if (s.gameFinalized != null) updates.gameFinalized = s.gameFinalized;
       if (s.pushState != null) updates.pushState = s.pushState;
       if (s.soccerMatches != null) updates.soccerMatches = s.soccerMatches;
       if (s.currentMatchIdx != null) updates.currentMatchIdx = s.currentMatchIdx;
@@ -313,6 +315,7 @@ function gameReducer(state, action) {
         confirmedRounds: {},
         matchModal: null,
         phase: "match",
+        gameFinalized: false,
         pushState: initPushState || null,
         soccerMatches: [],
         currentMatchIdx: -1,
