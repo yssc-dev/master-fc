@@ -222,12 +222,12 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
     gameId: gameId || "legacy",
     gameCreator: state.gameCreator || authUser?.name || "알 수 없음",
     phase, teams, teamNames, teamColorIndices, gks, gksHistory, allEvents,
-    completedMatches, schedule, currentRoundIdx, viewingRoundIdx, confirmedRounds, attendees,
+    completedMatches, schedule, currentRoundIdx, confirmedRounds, attendees,
     teamCount, courtCount, matchMode, isExtraRound, splitPhase, rotations, earlyFinish, pushState,
     settingsSnapshot,
     lastEditor: authUser?.name || "알 수 없음",
     lastEditTime: Date.now(),
-  }), [phase, teams, teamNames, teamColorIndices, gks, gksHistory, allEvents, completedMatches, schedule, currentRoundIdx, viewingRoundIdx, confirmedRounds, attendees, teamCount, courtCount, matchMode, isExtraRound, splitPhase, rotations, earlyFinish, pushState, settingsSnapshot, authUser, gameId]);
+  }), [phase, teams, teamNames, teamColorIndices, gks, gksHistory, allEvents, completedMatches, schedule, currentRoundIdx, confirmedRounds, attendees, teamCount, courtCount, matchMode, isExtraRound, splitPhase, rotations, earlyFinish, pushState, settingsSnapshot, authUser, gameId]);
 
   const autoSave = useCallback(() => {
     if (isSyncingRef.current) return;
@@ -385,7 +385,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
   const makeTeamName = (members) => {
     const top = [...members].sort((a, b) => getPlayerPoint(b, seasonPlayers) - getPlayerPoint(a, seasonPlayers))[0];
     const firstName = top.length > 1 ? top.slice(1) : top;
-    return `팀 ${firstName}`;
+    return `팀${firstName}`;
   };
 
   const goToTeamBuild = () => {

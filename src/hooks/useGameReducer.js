@@ -67,7 +67,9 @@ function gameReducer(state, action) {
       if (s.matchMode != null) updates.matchMode = s.matchMode;
       if (s.rotations != null) updates.rotations = s.rotations;
       if (s.teams != null) updates.teams = s.teams;
-      if (s.teamNames != null) updates.teamNames = s.teamNames;
+      // 팀명 정규화: 구버전 "팀 X" (공백 포함) → "팀X" 통일
+      const normalizeTeamName = (n) => (typeof n === 'string' ? n.replace(/^팀 /, '팀') : n);
+      if (s.teamNames != null) updates.teamNames = s.teamNames.map(normalizeTeamName);
       if (s.teamColorIndices != null) updates.teamColorIndices = s.teamColorIndices;
       if (s.gks != null) updates.gks = s.gks;
       if (s.gksHistory != null) updates.gksHistory = s.gksHistory;
@@ -77,13 +79,28 @@ function gameReducer(state, action) {
         const maxIdx = (updates.schedule || s.schedule || state.schedule || []).length - 1;
         updates.currentRoundIdx = maxIdx >= 0 ? Math.min(s.currentRoundIdx, maxIdx) : s.currentRoundIdx;
       }
-      if (s.completedMatches != null) updates.completedMatches = s.completedMatches;
-      if (s.allEvents != null) updates.allEvents = s.allEvents;
+      if (s.completedMatches != null) {
+        updates.completedMatches = s.completedMatches.map(m => ({
+          ...m,
+          homeTeam: normalizeTeamName(m.homeTeam),
+          awayTeam: normalizeTeamName(m.awayTeam),
+        }));
+      }
+      if (s.allEvents != null) {
+        updates.allEvents = s.allEvents.map(e => ({
+          ...e,
+          team: normalizeTeamName(e.team),
+          scoringTeam: normalizeTeamName(e.scoringTeam),
+          concedingTeam: normalizeTeamName(e.concedingTeam),
+        }));
+      }
       if (s.isExtraRound != null) updates.isExtraRound = s.isExtraRound;
       if (s.splitPhase != null) updates.splitPhase = s.splitPhase;
-      if (s.viewingRoundIdx != null) {
+      // viewingRoundIdx는 로컬 전용 — 원격 저장값 무시, currentRoundIdx 기준으로 설정
+      {
+        const resolvedCurrent = updates.currentRoundIdx ?? state.currentRoundIdx ?? 0;
         const maxIdx2 = (updates.schedule || s.schedule || state.schedule || []).length - 1;
-        updates.viewingRoundIdx = maxIdx2 >= 0 ? Math.min(s.viewingRoundIdx, maxIdx2) : s.viewingRoundIdx;
+        updates.viewingRoundIdx = maxIdx2 >= 0 ? Math.min(resolvedCurrent, maxIdx2) : resolvedCurrent;
       }
       if (s.confirmedRounds != null) updates.confirmedRounds = s.confirmedRounds;
       if (s.earlyFinish != null) updates.earlyFinish = s.earlyFinish;
@@ -165,7 +182,7 @@ function gameReducer(state, action) {
       if (newSplitPhase) updates.splitPhase = newSplitPhase;
       if (nextRoundIdx != null) {
         updates.currentRoundIdx = nextRoundIdx;
-        updates.viewingRoundIdx = nextRoundIdx;
+        // viewingRoundIdx는 건드리지 않음 — 유저가 보던 라운드 유지
       }
       return { ...state, ...updates };
     }
