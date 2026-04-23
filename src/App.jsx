@@ -1308,11 +1308,16 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
               ? (gameFinalized ? "수정 후 재전송" : "기록확정(구글시트로 데이터전송)")
               : "기록확정 (관리자만)"}
           </button>
-          {gameFinalized && onBackToMenu && (
-            <button onClick={async () => {
-              await FirebaseSync.clearState(teamContext?.team, gameId);
-              onBackToMenu();
-            }} style={s.btn(C.grayDark)}>메뉴로</button>
+          {onBackToMenu && (
+            <button
+              disabled={!gameFinalized}
+              onClick={async () => {
+                await FirebaseSync.clearState(teamContext?.team, gameId);
+                onBackToMenu();
+              }}
+              style={{ ...s.btn(C.grayDark), opacity: gameFinalized ? 1 : 0.3, cursor: gameFinalized ? "pointer" : "not-allowed" }}>
+              Archive
+            </button>
           )}
         </div>
       </div>
