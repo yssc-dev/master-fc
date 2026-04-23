@@ -717,6 +717,7 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
                 const dateFmt = gameDate ? `${gameDate.getMonth() + 1}/${gameDate.getDate()}` : "";
 
                 const isSummary = gs.phase === "summary" || gs.earlyFinish === true;
+                const isFinalized = gs.gameFinalized === true;
                 return (
                   <div key={game.gameId} style={{
                     background: "rgba(0,122,255,0.08)",
@@ -728,9 +729,11 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
                         <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4, flexWrap: "wrap" }}>
                           {dateFmt && <span style={{ fontSize: 13, color: "var(--app-text-secondary)", fontWeight: 500 }}>{dateFmt}</span>}
                           <span style={{ fontSize: 15, fontWeight: 600, color: "var(--app-blue)" }}>{roundInfo}</span>
-                          {isSummary
-                            ? <span style={{ fontSize: 11, padding: "1px 6px", borderRadius: 4, background: "rgba(255,149,0,0.15)", color: "var(--app-orange)", fontWeight: 500 }}>마감됨</span>
-                            : <span style={{ fontSize: 11, padding: "1px 6px", borderRadius: 4, background: "rgba(52,199,89,0.15)", color: "var(--app-green)", fontWeight: 500 }}>진행중</span>
+                          {isFinalized
+                            ? <span style={{ fontSize: 11, padding: "1px 6px", borderRadius: 4, background: "rgba(52,199,89,0.15)", color: "var(--app-green)", fontWeight: 500 }}>전송완료</span>
+                            : isSummary
+                              ? <span style={{ fontSize: 11, padding: "1px 6px", borderRadius: 4, background: "rgba(255,149,0,0.15)", color: "var(--app-orange)", fontWeight: 500 }}>마감됨</span>
+                              : <span style={{ fontSize: 11, padding: "1px 6px", borderRadius: 4, background: "rgba(52,199,89,0.15)", color: "var(--app-green)", fontWeight: 500 }}>진행중</span>
                           }
                         </div>
                         <div style={{ fontSize: 13, color: "var(--app-text-secondary)" }}>
