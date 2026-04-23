@@ -134,6 +134,8 @@ export default function EventLog({ matchEvents, allEvents, matchId, homePlayers,
                 border: isEditing ? `1px solid ${C.accent}` : "none",
                 borderBottom: isEditing ? `1px solid ${C.accent}` : `1px dashed ${C.grayDarker}`,
                 borderRadius: isEditing ? 12 : 0,
+                borderLeft: `3px solid ${e.scoringTeam === homeTeam ? (homeColor?.bg || "var(--app-blue)") : (awayColor?.bg || "var(--app-orange)")}`,
+                paddingLeft: isEditing ? 10 : 10,
               }}
               onClick={() => {
                 if (readOnly) { alert("확정된 라운드입니다. 수정하려면 확정취소를 먼저 진행해주세요."); return; }
@@ -172,8 +174,10 @@ export default function EventLog({ matchEvents, allEvents, matchId, homePlayers,
                   )}
                 </div>
                 <span style={{
-                  color: e.scoringTeam === homeTeam ? homeColor?.bg : awayColor?.bg,
-                  fontSize: 11, fontWeight: 600, marginRight: 4,
+                  padding: "2px 7px", borderRadius: 6,
+                  background: `${e.scoringTeam === homeTeam ? (homeColor?.bg || "var(--app-blue)") : (awayColor?.bg || "var(--app-orange)")}22`,
+                  color: e.scoringTeam === homeTeam ? (homeColor?.bg || "var(--app-blue)") : (awayColor?.bg || "var(--app-orange)"),
+                  fontSize: 11, fontWeight: 700, flexShrink: 0,
                 }}>{e.scoringTeam}</span>
                 {!readOnly && <button
                   onClick={(ev) => { ev.stopPropagation(); onDeleteEvent(globalIdx); setEditingEvent(null); }}

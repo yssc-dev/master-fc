@@ -232,6 +232,30 @@ function gameReducer(state, action) {
       state.teams.forEach((team, i) => {
         if (newGks[i] && !team.includes(newGks[i])) delete newGks[i];
       });
+      // 팀명이 바뀐 경우 기존 이벤트의 팀명 문자열도 새 이름으로 동기화
+      const snap = state.teamEditSnapshot;
+      const nameMap = {};
+      if (snap) {
+        snap.teamNames.forEach((oldName, i) => {
+          if (oldName !== state.teamNames[i]) nameMap[oldName] = state.teamNames[i];
+        });
+      }
+      const remapTeamName = (name) => nameMap[name] ?? name;
+      const remappedEvents = Object.keys(nameMap).length > 0
+        ? state.allEvents.map(e => ({
+            ...e,
+            team: remapTeamName(e.team),
+            scoringTeam: remapTeamName(e.scoringTeam),
+            concedingTeam: remapTeamName(e.concedingTeam),
+          }))
+        : state.allEvents;
+      const remappedCompleted = Object.keys(nameMap).length > 0
+        ? state.completedMatches.map(m => ({
+            ...m,
+            homeTeam: remapTeamName(m.homeTeam),
+            awayTeam: remapTeamName(m.awayTeam),
+          }))
+        : state.completedMatches;
       return {
         ...state,
         teamEditMode: false,
@@ -240,6 +264,8 @@ function gameReducer(state, action) {
         phase: 'match',
         moveSource: null,
         editingTeamName: null,
+        allEvents: remappedEvents,
+        completedMatches: remappedCompleted,
       };
     }
     case 'EXIT_TEAM_EDIT_CANCEL': {
