@@ -615,8 +615,9 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
       if (!legacyOk) throw new Error('기존 시트 저장 실패');
       // Firebase에 확정 state 저장 (HistoryView/PlayerAnalytics 소스)
       await FirebaseSync.saveFinalized(teamContext?.team, gameId, gameState);
-      // active 클리어 (목록/이어하기에서 제거)
-      await FirebaseSync.clearState(teamContext?.team, gameId);
+      // active state에 gameFinalized:true 즉시 저장 (debounce 없이) → 목록에 "전송완료" 뱃지 표시
+      const team = teamContext?.team || '';
+      await FirebaseSync.saveState(team, gameId || "legacy", { ...gameState, gameFinalized: true });
       const r1v = r1.value, r2v = r2.value;
       const r3v = r3.status === 'fulfilled' ? r3.value : null;
       const r4v = r4.status === 'fulfilled' ? r4.value : null;
