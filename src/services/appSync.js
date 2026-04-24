@@ -305,6 +305,20 @@ const AppSync = {
     } catch (e) { console.warn("로그_이벤트 조회 실패:", e.message); return null; }
   },
 
+  async getPlayerGameLog({ sport = '', dateFrom = '', dateTo = '' } = {}) {
+    if (!this.enabled()) return null;
+    try {
+      const team = this._getTeam();
+      console.log(`[sheet] GET action=getRawPlayerGames sheet="로그_선수경기" team="${team}" sport="${sport}"`);
+      const resp = await fetch(APPS_SCRIPT_URL, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain" },
+        body: JSON.stringify({ action: "getRawPlayerGames", team, sport, dateFrom, dateTo, authToken: this._getAuthToken() }),
+      });
+      return await resp.json();
+    } catch (e) { console.warn("로그_선수경기 조회 실패:", e.message); return null; }
+  },
+
   async deleteMatchLogByDate({ sport, date }) {
     if (!this.enabled()) return null;
     try {
