@@ -1224,7 +1224,13 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
     return (
       <div style={s.app}>
         <div style={s.header}>
-          <div style={s.title}>📊 최종 집계</div>
+          <div style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <button onClick={() => set('phase', 'match')} style={{
+              position: "absolute", left: 0, background: "none", border: "none",
+              color: "var(--app-text-primary)", fontSize: 22, cursor: "pointer", padding: "0 4px", lineHeight: 1,
+            }}>‹</button>
+            <div style={s.title}>📊 최종 집계</div>
+          </div>
           <div style={s.subtitle}>{new Date().toLocaleDateString("ko-KR")} · {completedMatches.length}매치</div>
         </div>
         <PhaseIndicator activeIndex={3} />
