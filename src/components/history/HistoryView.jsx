@@ -270,6 +270,21 @@ export default function HistoryView({ teamContext, onBack }) {
           <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
             {teamContext?.role === "관리자" && (
               <button onClick={async () => {
+                if (!confirm("이 경기 기록을 Archive에서 영구 삭제하시겠습니까?\n되돌릴 수 없습니다.")) return;
+                try {
+                  await FirebaseSync.deleteFinalized(team, selectedGame.gameId);
+                  alert("삭제 완료");
+                  setSelectedGame(null);
+                  setHistory(prev => prev.filter(h => h.gameId !== selectedGame.gameId));
+                } catch (e) {
+                  alert("삭제 실패: " + e.message);
+                }
+              }} style={{ background: "rgba(255,59,48,0.12)", color: "var(--app-red)", border: "none", borderRadius: 8, padding: "10px 14px", fontSize: 14, fontWeight: 600, cursor: "pointer" }}>
+                삭제
+              </button>
+            )}
+            {teamContext?.role === "관리자" && (
+              <button onClick={async () => {
                 if (!confirm("이 경기를 수정 가능한 상태로 복구하시겠습니까?\n경기관리 목록에 다시 표시됩니다.")) return;
                 try {
                   const stateObj = JSON.parse(selectedGame.stateJson);
