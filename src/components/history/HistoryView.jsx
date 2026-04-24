@@ -130,7 +130,13 @@ export default function HistoryView({ teamContext, onBack }) {
     return (
       <div style={hs.container}>
         <div style={hs.header}>
-          <div style={{ fontSize: 18, fontWeight: 800, color: "#fff" }}>{formatDate(selectedGame.gameDate)} 경기 기록</div>
+          <div style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <button onClick={() => setSelectedGame(null)} style={{
+              position: "absolute", left: 0, background: "none", border: "none",
+              color: "#fff", fontSize: 22, cursor: "pointer", padding: "0 4px", lineHeight: 1,
+            }}>‹</button>
+            <div style={{ fontSize: 18, fontWeight: 800, color: "#fff" }}>{formatDate(selectedGame.gameDate)} 경기 기록</div>
+          </div>
           <div style={{ fontSize: 12, color: C.headerTextDim, marginTop: 2 }}>
             {teamContext.team} · {isPush ? "밀어내기" : matchMode === "schedule" ? "대진표" : "자유대진"} · {matches.length}경기
           </div>
