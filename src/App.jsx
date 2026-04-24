@@ -1225,7 +1225,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
       <div style={s.app}>
         <div style={s.header}>
           <div style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <button onClick={() => set('phase', 'match')} style={{
+            <button onClick={onBackToMenu} style={{
               position: "absolute", left: 0, background: "none", border: "none",
               color: "var(--app-text-primary)", fontSize: 22, cursor: "pointer", padding: "0 4px", lineHeight: 1,
             }}>‹</button>
