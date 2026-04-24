@@ -284,7 +284,7 @@ export default function HistoryView({ teamContext, onBack }) {
   return (
     <div style={hs.container}>
       <div style={hs.header}>
-        <div style={{ fontSize: 18, fontWeight: 800, color: "#fff" }}>과거 경기 조회</div>
+        <div style={{ fontSize: 18, fontWeight: 800, color: "#fff" }}>Archive</div>
         <div style={{ fontSize: 12, color: C.headerTextDim, marginTop: 2 }}>{teamContext.team}</div>
       </div>
       <div style={{ padding: 16 }}>

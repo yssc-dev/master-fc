@@ -803,7 +803,7 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
           width: "100%", background: "transparent", color: "var(--app-blue)",
           border: "none", borderRadius: 12, padding: "12px 16px", cursor: "pointer",
           fontSize: 15, fontWeight: 500, fontFamily: "inherit",
-        }}>과거 경기 조회</button>
+        }}>Archive</button>
       </div>
     </div>
   );
