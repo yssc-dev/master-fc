@@ -247,10 +247,26 @@ export default function HistoryView({ teamContext, onBack }) {
             <div style={{ textAlign: "center", color: C.gray, padding: 20 }}>상세 기록이 없습니다</div>
           )}
 
-          <button onClick={() => setSelectedGame(null)}
-            style={{ background: C.grayDark, color: C.white, border: "none", borderRadius: 8, padding: "10px 16px", fontSize: 14, fontWeight: 600, cursor: "pointer", width: "100%", marginTop: 12 }}>
-            목록으로
-          </button>
+          <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+            {teamContext?.role === "관리자" && (
+              <button onClick={async () => {
+                if (!confirm("이 경기를 수정 가능한 상태로 복구하시겠습니까?\n경기관리 목록에 다시 표시됩니다.")) return;
+                try {
+                  const stateObj = JSON.parse(selectedGame.stateJson);
+                  await FirebaseSync.saveState(team, selectedGame.gameId, { ...stateObj, gameFinalized: true });
+                  alert("복구 완료!\n경기관리 탭에서 \"전송완료\" 상태로 확인할 수 있습니다.");
+                } catch (e) {
+                  alert("복구 실패: " + e.message);
+                }
+              }} style={{ background: "rgba(255,149,0,0.18)", color: "var(--app-orange)", border: "none", borderRadius: 8, padding: "10px 16px", fontSize: 14, fontWeight: 600, cursor: "pointer", flex: 1 }}>
+                복구
+              </button>
+            )}
+            <button onClick={() => setSelectedGame(null)}
+              style={{ background: C.grayDark, color: C.white, border: "none", borderRadius: 8, padding: "10px 16px", fontSize: 14, fontWeight: 600, cursor: "pointer", flex: 1 }}>
+              목록으로
+            </button>
+          </div>
         </div>
       </div>
     );
