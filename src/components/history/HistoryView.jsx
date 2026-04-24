@@ -20,7 +20,8 @@ function calcStandings(completedMatches, teamNames) {
   return Object.entries(stats).map(([name, s]) => ({ name, ...s })).sort((a, b) => (b.points - a.points) || ((b.gf - b.ga) - (a.gf - a.ga)) || (b.gf - a.gf));
 }
 
-function calcPlayerStats(allEvents, completedMatches, attendees, teams, teamNames, ownGoalPoint) {
+function calcPlayerStats(allEvents, completedMatches, attendees, teams, teamNames, es) {
+  const { ownGoalPoint, crovaPoint, gogumaPoint, useCrovaGoguma } = es;
   const pStats = {};
   attendees.forEach(p => { pStats[p] = { goals: 0, assists: 0, owngoals: 0, conceded: 0, keeperGames: 0, cleanSheets: 0 }; });
   allEvents.forEach(e => {
@@ -32,10 +33,17 @@ function calcPlayerStats(allEvents, completedMatches, attendees, teams, teamName
     if (m.awayGk && pStats[m.awayGk]) { pStats[m.awayGk].keeperGames++; if (m.homeScore === 0) pStats[m.awayGk].cleanSheets++; }
   });
   const getTeam = (player) => { for (let i = 0; i < teams.length; i++) { if (teams[i].includes(player)) return teamNames[i]; } return ""; };
+  // 크로바/고구마: 1위팀 전원 crova, 꼴찌팀 전원 goguma
+  const standings = calcStandings(completedMatches, teamNames);
+  const firstTeam = standings[0]?.name || "";
+  const lastTeam = standings[standings.length - 1]?.name || "";
   return attendees.map(p => {
     const st = pStats[p] || {};
-    const total = (st.goals || 0) + (st.assists || 0) + (st.owngoals || 0) * ownGoalPoint + (st.cleanSheets || 0);
-    return { name: p, team: getTeam(p), ...st, total };
+    const pt = getTeam(p);
+    const crova = useCrovaGoguma && pt === firstTeam ? (crovaPoint || 1) : 0;
+    const goguma = useCrovaGoguma && pt === lastTeam ? (gogumaPoint || -1) : 0;
+    const total = (st.goals || 0) + (st.assists || 0) + (st.owngoals || 0) * ownGoalPoint + (st.cleanSheets || 0) + crova + goguma;
+    return { name: p, team: pt, ...st, crova, goguma, total };
   }).sort((a, b) => {
     const d = b.total - a.total;
     if (d !== 0) return d;
@@ -124,8 +132,12 @@ export default function HistoryView({ teamContext, onBack }) {
     const isPush = matchMode === "push";
 
     const standings = calcStandings(matches, teamNames);
-    const es = getEffectiveSettings(teamContext.team, teamContext.mode);
-    const playerRows = calcPlayerStats(events, matches, attendees, teams, teamNames, es.ownGoalPoint);
+    const esBase = getEffectiveSettings(teamContext.team, teamContext.mode);
+    const esSnap = gs?.settingsSnapshot || {};
+    const es = { ...esBase, ...esSnap };
+    const courtCount = gs?.courtCount || 1;
+    const showBonus = es.useCrovaGoguma && courtCount === 2 && !isPush;
+    const playerRows = calcPlayerStats(events, matches, attendees, teams, teamNames, es);
 
     return (
       <div style={hs.container}>
@@ -182,7 +194,7 @@ export default function HistoryView({ teamContext, onBack }) {
               <div style={hs.card}>
                 <table style={{ width: "100%", borderCollapse: "collapse" }}>
                   <thead><tr>
-                    {["선수", "골", "어시", "역주행", "클린", "실점", "GK", "총점"].map(h => <th key={h} style={hs.th}>{h}</th>)}
+                    {["선수", "골", "어시", "역주행", "클린", ...(showBonus ? ["🍀", "🍠"] : []), "실점", "GK", "총점"].map(h => <th key={h} style={hs.th}>{h}</th>)}
                   </tr></thead>
                   <tbody>
                     {playerRows.map((p, i) => (
@@ -194,6 +206,8 @@ export default function HistoryView({ teamContext, onBack }) {
                         <td style={hs.td(p.assists > 0)}>{p.assists}</td>
                         <td style={{ ...hs.td(p.owngoals > 0), color: p.owngoals > 0 ? C.red : C.white }}>{p.owngoals > 0 ? p.owngoals * es.ownGoalPoint : 0}</td>
                         <td style={hs.td(p.cleanSheets > 0)}>{p.cleanSheets}</td>
+                        {showBonus && <td style={{ ...hs.td(p.crova > 0), color: p.crova > 0 ? C.green : C.white }}>{p.crova || ""}</td>}
+                        {showBonus && <td style={{ ...hs.td(p.goguma < 0), color: p.goguma < 0 ? C.red : C.white }}>{p.goguma || ""}</td>}
                         <td style={hs.td(false)}>{p.conceded}</td>
                         <td style={hs.td(false)}>{p.keeperGames}</td>
                         <td style={{ ...hs.td(true), fontSize: 13, fontWeight: 800, color: p.total > 0 ? C.green : p.total < 0 ? C.red : C.white }}>{p.total}</td>
