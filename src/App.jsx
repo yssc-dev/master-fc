@@ -1313,6 +1313,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
             <button
               disabled={!gameFinalized}
               onClick={async () => {
+                if (!confirm("경기를 아카이브하면 더 이상 수정할 수 없습니다.\n수정이 필요하면 '과거 경기 조회'에서 복구할 수 있습니다.\n\n아카이브하시겠습니까?")) return;
                 await FirebaseSync.clearState(teamContext?.team, gameId);
                 onBackToMenu();
               }}
