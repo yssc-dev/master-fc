@@ -254,7 +254,10 @@ export default function HistoryView({ teamContext, onBack }) {
                 try {
                   const stateObj = JSON.parse(selectedGame.stateJson);
                   await FirebaseSync.saveState(team, selectedGame.gameId, { ...stateObj, gameFinalized: true });
+                  await FirebaseSync.deleteFinalized(team, selectedGame.gameId);
                   alert("복구 완료!\n경기관리 탭에서 \"전송완료\" 상태로 확인할 수 있습니다.");
+                  setSelectedGame(null);
+                  setHistory(prev => prev.filter(h => h.gameId !== selectedGame.gameId));
                 } catch (e) {
                   alert("복구 실패: " + e.message);
                 }

@@ -171,6 +171,15 @@ const FirebaseSync = {
     } catch (e) { console.warn("확정 전체 로드 실패:", e.message); return []; }
   },
 
+  async deleteFinalized(team, gameId) {
+    try {
+      await Promise.all([
+        remove(ref(firebaseDb, "games/" + this._safeTeam(team) + "/finalized/_meta/" + gameId)),
+        remove(ref(firebaseDb, "games/" + this._safeTeam(team) + "/finalized/_states/" + gameId)),
+      ]);
+    } catch (e) { console.warn("확정 삭제 실패:", e.message); }
+  },
+
   async clearState(team, gameId) {
     try {
       await remove(this._gameRef(team, gameId));
