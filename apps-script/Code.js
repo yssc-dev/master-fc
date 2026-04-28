@@ -2,6 +2,7 @@
 // 풋살 웹앱 Apps Script v2.0
 //
 // CHANGELOG
+// 2026-04-28: reimportPointLog 액션 추가 (HTTP 노출, 풋살/축구 디스패치)
 // 2026-04-28: _importTournamentEventLogs — owngoal 정규화 + concede_gk 필드 추가 (누락 수정)
 // 2026-04-28: _readSoccerPointSchema 통합 스키마 변환 + event_type owngoal 정규화 + concede_gk 필드 추가
 // 2026-04-28: 로그_이벤트 스키마 변경 — concede_gk 컬럼 추가, goal/owngoal 행에 실점 GK 통합 기록
@@ -277,6 +278,8 @@ function doPost(e) {
       return _jsonResponse(_writeSoccerPlayerLog(body.data, body.playerLogSheet || ""));
     } else if (action === "writeRawEvents") {
       return _jsonResponse(_writeRawEvents(body.data));
+    } else if (action === "reimportPointLog") {
+      return _jsonResponse(_reimportPointLog(body.team, body.sport, body.pointSheet));
     } else if (action === "writeRawPlayerGames") {
       return _jsonResponse(_writeRawPlayerGames(body.data));
     } else if (action === "deleteRawPlayerGamesByDate") {
@@ -1767,6 +1770,60 @@ function _runImport() {
       }
     ]
   });
+}
+
+function _reimportPointLog(team, sport, pointSheet) {
+  if (!team || !sport || !pointSheet) return { success: false, error: "team/sport/pointSheet 필요" };
+  if (sport === "풋살") return _reimportFutsalPointForTeam(team, pointSheet);
+  if (sport === "축구") return _reimportSoccerPointForTeam(team, pointSheet);
+  return { success: false, error: "지원하지 않는 sport: " + sport };
+}
+
+function _reimportSoccerPointForTeam(team, pointSheet) {
+  // _reimportFutsalPointForTeam 과 동일 패턴, 단 _readSoccerPointSchema 호출
+  _ensureRawSheets();
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(RAW_EVENTS_SHEET);
+  if (!sheet) return { success: false, error: "로그_이벤트 시트 없음" };
+
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(15000)) return { success: false, error: "잠금 획득 실패" };
+  try {
+    var lastRow = sheet.getLastRow();
+    var deleted = 0;
+    if (lastRow >= 2) {
+      var lastCol = sheet.getLastColumn();
+      var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+      var teamCol = headers.indexOf("team");
+      var sportCol = headers.indexOf("sport");
+      if (teamCol < 0 || sportCol < 0) return { success: false, error: "team/sport 컬럼 없음" };
+      var data = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+      var keep = [];
+      for (var i = 0; i < data.length; i++) {
+        var rowTeam = String(data[i][teamCol] || "").trim();
+        var rowSport = String(data[i][sportCol] || "").trim();
+        if (rowTeam === team && rowSport === "축구") { deleted++; continue; }
+        keep.push(data[i]);
+      }
+      sheet.deleteRows(2, lastRow - 1);
+      if (keep.length > 0) {
+        sheet.getRange(2, 1, keep.length, lastCol).setValues(keep);
+      }
+    }
+
+    var pointData = _readSoccerPointSchema(pointSheet, team);
+    var rows = pointData.rows || [];
+    if (pointData.error) return { success: false, deleted: deleted, error: pointData.error };
+
+    var inserted = 0;
+    if (rows.length > 0) {
+      var write = _writeRawEvents({ rows: rows, skipDedupe: true });
+      inserted = write.count || 0;
+    }
+    return { success: true, deleted: deleted, inserted: inserted };
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 /**
