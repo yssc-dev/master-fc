@@ -1820,6 +1820,7 @@ function _reimportSoccerPointForTeam(team, pointSheet) {
       var write = _writeRawEvents({ rows: rows, skipDedupe: true });
       inserted = write.count || 0;
     }
+    Logger.log(JSON.stringify({ team: team, sport: "축구", deleted: deleted, inserted: inserted }));
     return { success: true, deleted: deleted, inserted: inserted };
   } finally {
     lock.releaseLock();
