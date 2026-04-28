@@ -2,6 +2,7 @@
 // 풋살 웹앱 Apps Script v2.0
 //
 // CHANGELOG
+// 2026-04-28: 로그_이벤트 스키마 변경 — concede_gk 컬럼 추가, goal/owngoal 행에 실점 GK 통합 기록
 // 2026-04-28: deleteRawEventsByDate 액션 추가 (로그_이벤트 날짜별 삭제)
 // 2026-04-08: 응답 표준화, 입력 검증, 팀 접근 제어, LockService 동시성 제어 (v2)
 //
@@ -20,7 +21,7 @@ var RAW_MATCHES_SHEET = "로그_매치";
 var RAW_EVENTS_HEADERS = [
   "team","sport","mode","tournament_id",
   "date","match_id","our_team","opponent",
-  "event_type","player","related_player","position",
+  "event_type","player","related_player","concede_gk","position",
   "input_time","game_id"
 ];
 
@@ -79,6 +80,9 @@ function _ensureEventLogHasGameId() {
   var lastCol = sheet.getLastColumn();
   var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
   if (headers.indexOf("game_id") >= 0) {
+    if (sheet.getLastColumn() < RAW_EVENTS_HEADERS.length) {
+      sheet.getRange(1, 1, 1, RAW_EVENTS_HEADERS.length).setValues([RAW_EVENTS_HEADERS]);
+    }
     return { success: true, added: false };
   }
   var newCol = lastCol + 1;
@@ -931,13 +935,13 @@ function _writeRawEvents(data) {
 
 function _rawEventKey(r) {
   return [r.team||"", r.sport||"", r.mode||"", r.tournament_id||"", r.date||"", r.match_id||"",
-    r.event_type||"", r.player||"", r.related_player||"", r.input_time||"", r.game_id||""].join("|");
+    r.event_type||"", r.player||"", r.related_player||"", r.concede_gk||"", r.input_time||"", r.game_id||""].join("|");
 }
 
 function _rawEventToArray(r) {
   return [r.team||"", r.sport||"", r.mode||"", r.tournament_id||"",
     r.date||"", r.match_id||"", r.our_team||"", r.opponent||"",
-    r.event_type||"", r.player||"", r.related_player||"", r.position||"",
+    r.event_type||"", r.player||"", r.related_player||"", r.concede_gk||"", r.position||"",
     r.input_time||"", r.game_id||""];
 }
 
@@ -952,7 +956,7 @@ function _loadRawEventKeys(sheet) {
   for (var i = 0; i < data.length; i++) {
     var r = data[i];
     var gid = gidCol >= 0 ? String(r[gidCol] || "") : "";
-    var key = [r[0], r[1], r[2], r[3], _toDateStr(r[4]), r[5], r[8], r[9], r[10], String(r[12]), gid].join("|");
+    var key = [r[0], r[1], r[2], r[3], _toDateStr(r[4]), r[5], r[8], r[9], r[10], String(r[11]||""), String(r[13]), gid].join("|");
     keys[key] = true;
   }
   return keys;
