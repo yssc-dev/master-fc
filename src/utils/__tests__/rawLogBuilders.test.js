@@ -2,11 +2,12 @@ import { describe, it, expect } from 'vitest';
 import { RAW_EVENT_COLUMNS, RAW_PLAYER_GAME_COLUMNS, buildRawEventsFromFutsal, buildRawPlayerGamesFromFutsal, buildRawEventsFromSoccer, buildRawPlayerGamesFromSoccer, buildRawPlayerGamesFromTournament } from '../rawLogBuilders';
 
 describe('raw log column constants', () => {
-  it('RAW_EVENT_COLUMNS: 14개, 스펙 순서대로', () => {
-    expect(RAW_EVENT_COLUMNS).toHaveLength(14);
+  it('RAW_EVENT_COLUMNS: 15개, 스펙 순서대로', () => {
+    expect(RAW_EVENT_COLUMNS).toHaveLength(15);
     expect(RAW_EVENT_COLUMNS[0]).toBe('team');
     expect(RAW_EVENT_COLUMNS[8]).toBe('event_type');
-    expect(RAW_EVENT_COLUMNS[12]).toBe('input_time');
+    expect(RAW_EVENT_COLUMNS[11]).toBe('concede_gk');
+    expect(RAW_EVENT_COLUMNS[13]).toBe('input_time');
   });
 
   it('RAW_PLAYER_GAME_COLUMNS: 20개, 풋살 전용 필드 포함', () => {
@@ -37,7 +38,7 @@ describe('buildRawEventsFromFutsal', () => {
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({
       team: '마스터FC', sport: '풋살', mode: '기본', tournament_id: '',
-      date: '2026-04-10', match_id: '1라운드 A구장',
+      date: '2026-04-10', match_id: 'R1_C0',
       our_team: '블루', opponent: '레드',
       event_type: 'goal', player: '홍길동', related_player: '김철수',
       position: '', input_time: '2026-04-10 20:00:00',
@@ -321,10 +322,11 @@ describe('buildRawPlayerGamesFromTournament', () => {
 });
 
 describe('RAW_EVENT_COLUMNS with game_id', () => {
-  it('game_id 포함, 총 14개 컬럼', () => {
-    expect(RAW_EVENT_COLUMNS).toHaveLength(14);
+  it('game_id, concede_gk 포함, 총 15개 컬럼', () => {
+    expect(RAW_EVENT_COLUMNS).toHaveLength(15);
     expect(RAW_EVENT_COLUMNS).toContain('game_id');
-    expect(RAW_EVENT_COLUMNS.indexOf('game_id')).toBe(13);
+    expect(RAW_EVENT_COLUMNS).toContain('concede_gk');
+    expect(RAW_EVENT_COLUMNS.indexOf('game_id')).toBe(14);
   });
 });
 
@@ -354,6 +356,35 @@ describe('buildRawEventsFromFutsal event_type 표준화 + game_id', () => {
       }],
     });
     expect(rows[0].match_id).toBe('R3_C0');
+  });
+});
+
+describe('buildRawEventsFromFutsal concede_gk 컬럼', () => {
+  it('한 포인트 이벤트(scorer + concedingGk) → 한 로그_이벤트 행 (concede_gk 컬럼)', () => {
+    const events = [{
+      gameDate: '2026-04-28', matchId: 'R1_C0', myTeam: 'A', opponentTeam: 'B',
+      scorer: '홍길동', assist: '김철수', ownGoalPlayer: '', concedingGk: '박GK',
+      inputTime: '2026-04-28 10:00:00'
+    }];
+    const rows = buildRawEventsFromFutsal({ team: '마스터FC', gameId: 'g1', events });
+    expect(rows).toHaveLength(1);
+    expect(rows[0].event_type).toBe('goal');
+    expect(rows[0].player).toBe('홍길동');
+    expect(rows[0].related_player).toBe('김철수');
+    expect(rows[0].concede_gk).toBe('박GK');
+  });
+
+  it('자책골 + concedingGk → 한 owngoal 행', () => {
+    const events = [{
+      gameDate: '2026-04-28', matchId: 'R1_C0', myTeam: 'A', opponentTeam: 'B',
+      scorer: '', assist: '', ownGoalPlayer: '나자책', concedingGk: '나GK',
+      inputTime: 't'
+    }];
+    const rows = buildRawEventsFromFutsal({ team: '마스터FC', events });
+    expect(rows).toHaveLength(1);
+    expect(rows[0].event_type).toBe('owngoal');
+    expect(rows[0].player).toBe('나자책');
+    expect(rows[0].concede_gk).toBe('나GK');
   });
 });
 
