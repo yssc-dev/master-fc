@@ -388,6 +388,23 @@ describe('buildRawEventsFromFutsal concede_gk 컬럼', () => {
   });
 });
 
+describe('buildRawEventsFromSoccer concede_gk 컬럼', () => {
+  it('축구 실점 이벤트는 concede_gk = player 로 채움', () => {
+    const events = [{ event: '실점', gameDate: '2026-04-28', matchNum: '1', player: '박GK', opponent: 'B', inputTime: 't' }];
+    const rows = buildRawEventsFromSoccer({ team: 'X', events });
+    expect(rows).toHaveLength(1);
+    expect(rows[0].event_type).toBe('concede');
+    expect(rows[0].player).toBe('박GK');
+    expect(rows[0].concede_gk).toBe('박GK');
+  });
+
+  it('축구 일반 이벤트는 concede_gk 빈 값', () => {
+    const events = [{ event: '골', gameDate: '2026-04-28', matchNum: '1', player: '홍', relatedPlayer: '김', opponent: 'B', inputTime: 't' }];
+    const rows = buildRawEventsFromSoccer({ team: 'X', events });
+    expect(rows[0].concede_gk).toBe('');
+  });
+});
+
 describe('buildRawEventsFromSoccer event_type 표준화 + game_id', () => {
   it('자책골 → owngoal, 실점 → concede', () => {
     const rows = buildRawEventsFromSoccer({

@@ -87,6 +87,7 @@ export function buildRawEventsFromSoccer({ team, mode = '기본', tournamentId =
       our_team: team, opponent: e.opponent || '',
       event_type: type,
       player: e.player || '', related_player: e.relatedPlayer || '',
+      concede_gk: type === 'concede' ? (e.player || '') : '',
       position: e.position || '', input_time: e.inputTime || '',
       game_id: gameId,
     });
