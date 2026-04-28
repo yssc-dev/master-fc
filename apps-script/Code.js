@@ -1387,35 +1387,28 @@ function _readFutsalPointSchema(sheetName, team) {
       date: gameDate, match_id: matchId, our_team: myTeam, opponent: opponent,
       position: "", input_time: inputTime
     };
-    // 한 행에 (scorer, ownGoal, concedingGk)가 동시에 있을 수 있음 (정상골+실점키퍼, 자책골+실점키퍼).
-    // 각 컬럼은 독립 이벤트이므로 else-if 가 아니라 모두 발행해야 원본과 1:1 일치.
+    // 한 포인트로그 행 → 한 로그_이벤트 행 (concede_gk 컬럼에 실점 키퍼 통합)
     if (scorer) {
       rows.push({
         team: common.team, sport: common.sport, mode: common.mode, tournament_id: common.tournament_id,
         date: common.date, match_id: common.match_id, our_team: common.our_team, opponent: common.opponent,
         position: common.position, input_time: common.input_time,
-        event_type: "goal", player: scorer, related_player: assist
+        event_type: "goal", player: scorer, related_player: assist, concede_gk: concedingGk
       });
-    }
-    if (ownGoal) {
+    } else if (ownGoal) {
       rows.push({
         team: common.team, sport: common.sport, mode: common.mode, tournament_id: common.tournament_id,
         date: common.date, match_id: common.match_id, our_team: common.our_team, opponent: common.opponent,
         position: common.position, input_time: common.input_time,
-        event_type: "owngoal", player: ownGoal, related_player: ""
+        event_type: "owngoal", player: ownGoal, related_player: "", concede_gk: concedingGk
       });
-    }
-    if (concedingGk) {
-      // 같은 행의 scorer가 있으면 그 골은 our_team(=myTeam)이 넣은 것 → concedingGk는 상대팀 GK.
-      // ownGoal만 있으면 자책골 → conceding 측이 myTeam, GK도 myTeam.
-      // 단독 concedingGk 는 모호 — 내팀 유지 (실제 데이터엔 거의 없음).
-      var cOurTeam = common.our_team, cOpponent = common.opponent;
-      if (scorer) { cOurTeam = common.opponent; cOpponent = common.our_team; }
+    } else if (concedingGk) {
+      // 단독 실점 (득점자 미상) — 드물지만 보존
       rows.push({
         team: common.team, sport: common.sport, mode: common.mode, tournament_id: common.tournament_id,
-        date: common.date, match_id: common.match_id, our_team: cOurTeam, opponent: cOpponent,
+        date: common.date, match_id: common.match_id, our_team: common.our_team, opponent: common.opponent,
         position: common.position, input_time: common.input_time,
-        event_type: "concede", player: concedingGk, related_player: ""
+        event_type: "concede", player: concedingGk, related_player: "", concede_gk: concedingGk
       });
     }
   }
