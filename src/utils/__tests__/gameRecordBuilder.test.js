@@ -87,6 +87,24 @@ describe('buildGameRecordsFromLogs', () => {
     expect(buildGameRecordsFromLogs([], [])).toEqual([]);
   });
 
+  it('goal 행의 concede_gk → events에 concede 항목 합성', () => {
+    const matchRows = [{
+      game_id: 'g1', date: '2026-04-28', match_idx: 0, match_id: 'R1_C0',
+      our_team_name: 'A', opponent_team_name: 'B',
+      our_members_json: '["a1"]', opponent_members_json: '["b1"]',
+      our_score: 1, opponent_score: 0, our_gk: 'aGK', opponent_gk: 'bGK',
+    }];
+    const eventRows = [{
+      game_id: 'g1', date: '2026-04-28', match_id: 'R1_C0', our_team: 'A', opponent: 'B',
+      event_type: 'goal', player: 'a1', related_player: '', concede_gk: 'bGK', input_time: 't',
+    }];
+    const records = buildGameRecordsFromLogs(matchRows, eventRows);
+    expect(records).toHaveLength(1);
+    const ev = records[0].events;
+    expect(ev.find(e => e.type === 'goal' && e.player === 'a1')).toBeDefined();
+    expect(ev.find(e => e.type === 'concede' && e.player === 'bGK')).toBeDefined();
+  });
+
   it('owngoal event_type은 ownGoal로 매핑 (기존 계산 함수 호환)', () => {
     const matchRows = [
       {

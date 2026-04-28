@@ -84,6 +84,18 @@ export function buildGameRecordsFromLogs(matchRows, eventRows) {
           scoringTeam: undefined,
           concedingTeam: undefined,
         });
+        // 신규 스키마: goal/owngoal 행에 concede_gk 가 포함되면 별도 concede 항목 합성
+        if ((e.event_type === 'goal' || e.event_type === 'owngoal') && e.concede_gk) {
+          events.push({
+            type: 'concede',
+            matchId: m.match_id,
+            player: e.concede_gk,
+            assist: '',
+            timestamp: e.input_time || '',
+            scoringTeam: undefined,
+            concedingTeam: undefined,
+          });
+        }
       }
     }
     records.push({ gameDate, teams, teamNames, attendees: [], matches, events });
