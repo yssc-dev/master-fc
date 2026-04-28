@@ -1,15 +1,17 @@
 // ═══════════════════════════════════════════════════════════════
 // 풋살 웹앱 Apps Script v2.0
-// 최종 수정: 2026-04-08 v2
-// 개선: 응답 표준화, 입력 검증, 팀 접근 제어, LockService 동시성 제어
 //
-// 배포: 배포 → 새 배포 → 웹 앱 → 실행 대상: 나, 액세스: 모든 사용자
+// CHANGELOG
+// 2026-04-28: deleteRawEventsByDate 액션 추가 (로그_이벤트 날짜별 삭제)
+// 2026-04-08: 응답 표준화, 입력 검증, 팀 접근 제어, LockService 동시성 제어 (v2)
+//
+// 배포: 배포 관리 → 편집 → 새 버전 (URL 고정 유지)
 // ═══════════════════════════════════════════════════════════════
 
 var STATE_SHEET_NAME = "앱_경기상태";
 var AUTH_SHEET_NAME = "회원인증";
-var POINT_LOG_SHEET = "포인트로그";
-var PLAYER_LOG_SHEET = "선수별집계기록로그";
+var POINT_LOG_SHEET = "";
+var PLAYER_LOG_SHEET = "";
 
 var RAW_EVENTS_SHEET = "로그_이벤트";
 var RAW_PLAYER_GAMES_SHEET = "로그_선수경기";
@@ -271,6 +273,8 @@ function doPost(e) {
       return _jsonResponse(_writeRawEvents(body.data));
     } else if (action === "writeRawPlayerGames") {
       return _jsonResponse(_writeRawPlayerGames(body.data));
+    } else if (action === "deleteRawPlayerGamesByDate") {
+      return _jsonResponse(_deleteRawPlayerGamesByDate(body.team, body.sport, body.date));
     } else if (action === "ensureEventLogHasGameId") {
       return _jsonResponse(_ensureEventLogHasGameId());
     } else if (action === "backupSheet") {
@@ -279,6 +283,8 @@ function doPost(e) {
       return _jsonResponse(_writeRawMatches(body.data));
     } else if (action === "deleteRawMatchesByDate") {
       return _jsonResponse(_deleteRawMatchesByDate(body.team, body.sport, body.date));
+    } else if (action === "deleteRawEventsByDate") {
+      return _jsonResponse(_deleteRawEventsByDate(body.team, body.sport, body.date));
     } else if (action === "getRawMatches") {
       return _jsonResponse(_getRawMatches(body.team, body.sport, body.dateFrom, body.dateTo));
     } else if (action === "getRawEvents") {
@@ -1012,6 +1018,23 @@ function _rawMatchToArray(r) {
   ];
 }
 
+function _deleteRawPlayerGamesByDate(team, sport, date) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(RAW_PLAYER_GAMES_SHEET);
+  if (!sheet) return { removed: 0 };
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return { removed: 0 };
+  var data = sheet.getRange(2, 1, lastRow - 1, RAW_PLAYER_GAMES_HEADERS.length).getValues();
+  var removed = 0;
+  for (var i = data.length - 1; i >= 0; i--) {
+    if (data[i][0] === team && data[i][1] === sport && _toDateStr(data[i][4]) === date) {
+      sheet.deleteRow(i + 2);
+      removed++;
+    }
+  }
+  return { removed: removed };
+}
+
 function _deleteRawMatchesByDate(team, sport, date) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName(RAW_MATCHES_SHEET);
@@ -1019,6 +1042,23 @@ function _deleteRawMatchesByDate(team, sport, date) {
   var lastRow = sheet.getLastRow();
   if (lastRow < 2) return { removed: 0 };
   var data = sheet.getRange(2, 1, lastRow - 1, RAW_MATCHES_HEADERS.length).getValues();
+  var removed = 0;
+  for (var i = data.length - 1; i >= 0; i--) {
+    if (data[i][0] === team && data[i][1] === sport && _toDateStr(data[i][4]) === date) {
+      sheet.deleteRow(i + 2);
+      removed++;
+    }
+  }
+  return { removed: removed };
+}
+
+function _deleteRawEventsByDate(team, sport, date) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(RAW_EVENTS_SHEET);
+  if (!sheet) return { removed: 0 };
+  var lastRow = sheet.getLastRow();
+  if (lastRow < 2) return { removed: 0 };
+  var data = sheet.getRange(2, 1, lastRow - 1, RAW_EVENTS_HEADERS.length).getValues();
   var removed = 0;
   for (var i = data.length - 1; i >= 0; i--) {
     if (data[i][0] === team && data[i][1] === sport && _toDateStr(data[i][4]) === date) {
@@ -1152,6 +1192,9 @@ function _normalizeMatchIdAS(raw, sport) {
   if (/^R\d+_C\d+$/.test(s)) return s;
   var m1 = s.match(/^(\d+)라운드\s*매치(\d+)$/);
   if (m1) return "R" + m1[1] + "_C" + (parseInt(m1[2], 10) - 1);
+  // "1라운드 A구장" → R1_C0, "1라운드 B구장" → R1_C1 (코트 알파벳 인덱스)
+  var m3 = s.match(/^(\d+)라운드\s*([A-Z])구장$/);
+  if (m3) return "R" + m3[1] + "_C" + (m3[2].charCodeAt(0) - 65);
   var m2 = s.match(/^(\d+)경기$/);
   var n = m2 ? m2[1] : (/^\d+$/.test(s) ? s : null);
   if (n !== null) return sport === "풋살" ? "R" + n + "_C0" : n;
@@ -1340,6 +1383,8 @@ function _readFutsalPointSchema(sheetName, team) {
       date: gameDate, match_id: matchId, our_team: myTeam, opponent: opponent,
       position: "", input_time: inputTime
     };
+    // 한 행에 (scorer, ownGoal, concedingGk)가 동시에 있을 수 있음 (정상골+실점키퍼, 자책골+실점키퍼).
+    // 각 컬럼은 독립 이벤트이므로 else-if 가 아니라 모두 발행해야 원본과 1:1 일치.
     if (scorer) {
       rows.push({
         team: common.team, sport: common.sport, mode: common.mode, tournament_id: common.tournament_id,
@@ -1347,17 +1392,24 @@ function _readFutsalPointSchema(sheetName, team) {
         position: common.position, input_time: common.input_time,
         event_type: "goal", player: scorer, related_player: assist
       });
-    } else if (ownGoal) {
+    }
+    if (ownGoal) {
       rows.push({
         team: common.team, sport: common.sport, mode: common.mode, tournament_id: common.tournament_id,
         date: common.date, match_id: common.match_id, our_team: common.our_team, opponent: common.opponent,
         position: common.position, input_time: common.input_time,
-        event_type: "ownGoal", player: ownGoal, related_player: ""
+        event_type: "owngoal", player: ownGoal, related_player: ""
       });
-    } else if (concedingGk) {
+    }
+    if (concedingGk) {
+      // 같은 행의 scorer가 있으면 그 골은 our_team(=myTeam)이 넣은 것 → concedingGk는 상대팀 GK.
+      // ownGoal만 있으면 자책골 → conceding 측이 myTeam, GK도 myTeam.
+      // 단독 concedingGk 는 모호 — 내팀 유지 (실제 데이터엔 거의 없음).
+      var cOurTeam = common.our_team, cOpponent = common.opponent;
+      if (scorer) { cOurTeam = common.opponent; cOpponent = common.our_team; }
       rows.push({
         team: common.team, sport: common.sport, mode: common.mode, tournament_id: common.tournament_id,
-        date: common.date, match_id: common.match_id, our_team: common.our_team, opponent: common.opponent,
+        date: common.date, match_id: common.match_id, our_team: cOurTeam, opponent: cOpponent,
         position: common.position, input_time: common.input_time,
         event_type: "concede", player: concedingGk, related_player: ""
       });
@@ -1713,6 +1765,64 @@ function _runImport() {
       }
     ]
   });
+}
+
+/**
+ * 특정 팀/종목의 로그_이벤트 행만 삭제 후 포인트 시트에서 재import.
+ * _readFutsalPointSchema 같은 변환 로직이 바뀌었을 때 안전하게 재적용.
+ * 로그_선수경기는 건드리지 않음.
+ */
+function _reimportFutsalPointForTeam(team, pointSheet) {
+  _ensureRawSheets();
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(RAW_EVENTS_SHEET);
+  if (!sheet) return { success: false, error: "로그_이벤트 시트 없음" };
+
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(15000)) return { success: false, error: "잠금 획득 실패" };
+  try {
+    var lastRow = sheet.getLastRow();
+    var deleted = 0;
+    if (lastRow >= 2) {
+      var lastCol = sheet.getLastColumn();
+      var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+      var teamCol = headers.indexOf("team");
+      var sportCol = headers.indexOf("sport");
+      if (teamCol < 0 || sportCol < 0) return { success: false, error: "team/sport 컬럼 없음" };
+      var data = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+      // 보존 행만 모아서 한 번에 다시 씀
+      var keep = [];
+      for (var i = 0; i < data.length; i++) {
+        var rowTeam = String(data[i][teamCol] || "").trim();
+        var rowSport = String(data[i][sportCol] || "").trim();
+        if (rowTeam === team && rowSport === "풋살") { deleted++; continue; }
+        keep.push(data[i]);
+      }
+      sheet.deleteRows(2, lastRow - 1);
+      if (keep.length > 0) {
+        sheet.getRange(2, 1, keep.length, lastCol).setValues(keep);
+      }
+    }
+
+    var pointData = _readFutsalPointSchema(pointSheet, team);
+    var rows = pointData.rows || [];
+    if (pointData.error) return { success: false, deleted: deleted, error: pointData.error };
+
+    var inserted = 0;
+    if (rows.length > 0) {
+      var write = _writeRawEvents({ rows: rows, skipDedupe: true });
+      inserted = write.count || 0;
+    }
+    Logger.log(JSON.stringify({ deleted: deleted, inserted: inserted }));
+    return { success: true, deleted: deleted, inserted: inserted };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/** Apps Script 편집기에서 직접 실행. 마스터FC/풋살 로그_이벤트 재import. */
+function _reimportMasterFCFutsalPoint() {
+  return _reimportFutsalPointForTeam("마스터FC", "마스터FC 포인트 로그");
 }
 
 // ═══════════════════════════════════════════════════════════════

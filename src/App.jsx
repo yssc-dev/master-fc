@@ -561,7 +561,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
       return `${p[1]}라운드 ${court}`;
     };
     const pointEvents = allEvents.filter(e => e.type === "goal" || e.type === "owngoal").map(e => ({
-      gameDate: dateStr, matchId: formatMatchId(e.matchId),
+      gameDate: dateStr, matchId: e.matchId || "",
       myTeam: e.team || "",
       opponentTeam: e.type === "goal" ? (e.concedingTeam || "") : (e.scoringTeam || ""),
       scorer: e.type === "goal" ? e.player : "", assist: e.assist || "",

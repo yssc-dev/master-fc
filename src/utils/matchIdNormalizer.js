@@ -11,6 +11,13 @@ export function normalizeMatchId(raw, sport) {
   const m1 = s.match(/^(\d+)라운드\s*매치(\d+)$/);
   if (m1) return `R${m1[1]}_C${parseInt(m1[2], 10) - 1}`;
 
+  // "1라운드 A구장" / "1라운드 B구장" / "1라운드" (단일구장)
+  const mCourt = s.match(/^(\d+)라운드(?:\s+(A|B)구장)?$/);
+  if (mCourt) {
+    const court = mCourt[2] === 'B' ? 1 : 0;
+    return `R${mCourt[1]}_C${court}`;
+  }
+
   const m2 = s.match(/^(\d+)경기$/);
   const n = m2 ? m2[1] : (/^\d+$/.test(s) ? s : null);
   if (n !== null) {
