@@ -3,13 +3,15 @@ import { calcSynergyMatrix } from '../../../utils/analyticsV2/calcSynergyMatrix'
 
 export default function SynergyMatrixTab({ matchLogs, C }) {
   const [hover, setHover] = useState(null);
+  const [selected, setSelected] = useState(null);
   const data = useMemo(() => calcSynergyMatrix({ matchLogs: matchLogs || [], minRounds: 5 }), [matchLogs]);
 
   if (!matchLogs || matchLogs.length === 0) {
     return <div style={{ textAlign: "center", padding: 30, color: C.gray }}>로그_매치 데이터가 없습니다.</div>;
   }
 
-  const colorFor = (cell, isDiag) => {
+  const colorFor = (cell, isDiag, isSelected) => {
+    if (isSelected) return "rgba(255,255,255,0.25)";
     if (isDiag) return "#1a1a1a";
     if (!cell || cell.games < data.minRounds) return "#2a2a2a";
     const wr = cell.winRate;
@@ -20,22 +22,13 @@ export default function SynergyMatrixTab({ matchLogs, C }) {
 
   const cellSize = 24;
   const nameColWidth = 60;
+  const active = selected || hover;
+  const isCellSelected = (a, b) => selected && ((selected.a === a && selected.b === b) || (selected.a === b && selected.b === a));
 
   return (
-    <div>
+    <div style={{ paddingBottom: 56 }}>
       <div style={{ fontSize: 11, color: C.gray, marginBottom: 10, lineHeight: 1.5 }}>
-        같은팀 출전 라운드의 팀승률. 초록=고승률, 빨강=저승률, 회색=표본 부족(&lt; {data.minRounds}경기).
-      </div>
-      <div style={{ position: "sticky", top: 0, zIndex: 10, marginBottom: 8, padding: "6px 10px", background: C.cardLight, borderRadius: 6, fontSize: 11, color: hover ? C.white : C.gray, minHeight: 28, boxSizing: "border-box" }}>
-        {hover ? (
-          hover.a === hover.b ? (
-            <><b>{hover.a}</b> 개인 전체: {hover.cell.games}경기 {hover.cell.wins}승 {hover.cell.draws}무 {hover.cell.losses}패 · 승률 {Math.round(hover.cell.winRate * 100)}%</>
-          ) : (
-            <><b>{hover.a} × {hover.b}</b>: {hover.cell.games}경기 {hover.cell.wins}승 {hover.cell.draws}무 {hover.cell.losses}패 · 승률 {Math.round(hover.cell.winRate * 100)}%</>
-          )
-        ) : (
-          <span>셀에 마우스를 올리면 상세가 표시됩니다.</span>
-        )}
+        같은팀 출전 라운드의 팀승률. 초록=고승률, 빨강=저승률, 회색=표본 부족(&lt; {data.minRounds}경기). 셀을 탭하면 아래 상세가 고정됩니다.
       </div>
       <div style={{ overflow: "auto" }}>
         <table style={{ borderCollapse: "collapse", fontSize: 9 }}>
@@ -43,7 +36,7 @@ export default function SynergyMatrixTab({ matchLogs, C }) {
             <tr>
               <th style={{ width: nameColWidth }}></th>
               {data.players.map(p => (
-                <th key={p} style={{ width: cellSize, writingMode: "vertical-rl", color: C.gray, fontWeight: 500, padding: 2, position: "sticky", top: 28, zIndex: 9, background: C.bg }}>{p}</th>
+                <th key={p} style={{ width: cellSize, writingMode: "vertical-rl", color: C.gray, fontWeight: 500, padding: 2, position: "sticky", top: 0, zIndex: 9, background: C.bg }}>{p}</th>
               ))}
             </tr>
           </thead>
@@ -56,15 +49,22 @@ export default function SynergyMatrixTab({ matchLogs, C }) {
                   const key = `${sortedKey[0]}|${sortedKey[1]}`;
                   const cell = data.cells[key];
                   const isDiag = a === b;
+                  const tappable = cell && cell.games >= data.minRounds;
+                  const sel = isCellSelected(a, b);
                   return (
                     <td key={b}
-                      onMouseEnter={() => !isDiag && cell && cell.games >= data.minRounds && setHover({ a, b, cell })}
+                      onMouseEnter={() => !isDiag && tappable && setHover({ a, b, cell })}
                       onMouseLeave={() => setHover(null)}
+                      onClick={() => {
+                        if (isDiag || !tappable) return;
+                        if (sel) setSelected(null);
+                        else setSelected({ a, b, cell });
+                      }}
                       style={{
                         width: cellSize, height: cellSize,
-                        background: colorFor(cell, isDiag),
-                        border: `1px solid ${C.grayDarker}`,
-                        cursor: !isDiag && cell ? "pointer" : "default",
+                        background: colorFor(cell, isDiag, sel),
+                        border: sel ? `1px solid ${C.white}` : `1px solid ${C.grayDarker}`,
+                        cursor: !isDiag && tappable ? "pointer" : "default",
                       }} />
                   );
                 })}
@@ -72,6 +72,32 @@ export default function SynergyMatrixTab({ matchLogs, C }) {
             ))}
           </tbody>
         </table>
+      </div>
+      <div style={{
+        position: "sticky", bottom: 0, zIndex: 10,
+        marginTop: 12, padding: "10px 12px",
+        background: C.cardLight, borderRadius: 8,
+        fontSize: 12, color: active ? C.white : C.gray, minHeight: 36, boxSizing: "border-box",
+        display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8,
+        boxShadow: "0 -2px 8px rgba(0,0,0,0.4)",
+      }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          {active ? (
+            active.a === active.b ? (
+              <><b>{active.a}</b> 개인 전체: {active.cell.games}경기 {active.cell.wins}승 {active.cell.draws}무 {active.cell.losses}패 · 승률 {Math.round(active.cell.winRate * 100)}%</>
+            ) : (
+              <><b>{active.a} × {active.b}</b>: {active.cell.games}경기 {active.cell.wins}승 {active.cell.draws}무 {active.cell.losses}패 · 승률 {Math.round(active.cell.winRate * 100)}%</>
+            )
+          ) : (
+            <span>셀을 탭하거나 호버하면 상세가 표시됩니다.</span>
+          )}
+        </div>
+        {selected && (
+          <button onClick={() => setSelected(null)}
+            style={{ padding: "4px 8px", fontSize: 10, borderRadius: 4, border: `1px solid ${C.grayDarker}`, background: "transparent", color: C.gray, cursor: "pointer", whiteSpace: "nowrap" }}>
+            해제
+          </button>
+        )}
       </div>
     </div>
   );
