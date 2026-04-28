@@ -57,16 +57,10 @@ export default function HallOfFameTab({ playerGameLogs, matchLogs, C }) {
           ) : <div style={rowStyle}><span style={{ color: C.gray }}>🅰 최다어시</span><span style={{ color: C.gray }}>-</span></div>}
           {pr.longestCleanSheet ? (
             <div style={rowStyle}>
-              <span style={{ color: C.gray }}>🧤 GK 최장 무실점</span>
-              <span style={{ color: C.white, fontWeight: 700 }}>{pr.longestCleanSheet.value}세션 <span style={{ color: C.gray, fontWeight: 400 }}>({pr.longestCleanSheet.startDate}~{pr.longestCleanSheet.endDate})</span></span>
+              <span style={{ color: C.gray }} title="GK로 출전한 경기일을 시간순으로 봤을 때 무실점이 연속된 최대 길이">🧤 GK 최장 무실점</span>
+              <span style={{ color: C.white, fontWeight: 700 }}>{pr.longestCleanSheet.value}회 <span style={{ color: C.gray, fontWeight: 400 }}>({pr.longestCleanSheet.startDate}~{pr.longestCleanSheet.endDate})</span></span>
             </div>
           ) : <div style={rowStyle}><span style={{ color: C.gray }}>🧤 GK 최장 무실점</span><span style={{ color: C.gray }}>-</span></div>}
-          {pr.bestRankScore ? (
-            <div style={rowStyle}>
-              <span style={{ color: C.gray }}>🏆 최고 rank_score</span>
-              <span style={{ color: C.white, fontWeight: 700 }}>{pr.bestRankScore.value} <span style={{ color: C.gray, fontWeight: 400 }}>({pr.bestRankScore.date})</span></span>
-            </div>
-          ) : null}
         </div>
       )}
 

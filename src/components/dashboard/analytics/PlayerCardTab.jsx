@@ -86,33 +86,49 @@ function getChaosBadge(chaosRate) {
 export default function PlayerCardTab({ playerLog, members, defenseStats, winStats, gameRecords, playerGameLogs, matchLogs, C }) {
   const [selectedPlayer, setSelectedPlayer] = useState(null);
 
+  // 용어: 게임 = 하루 모임(날짜), 경기 = 한 라운드(5:5)
   const playerSummary = useMemo(() => {
-    if (members && members.length > 0) {
-      const map = {};
-      members.forEach(m => {
-        map[m.name] = {
-          games: m.games || 0, goals: m.goals || 0, assists: m.assists || 0,
-          keeperGames: m.keeperGames || 0, conceded: m.conceded || 0,
-          ownGoals: m.ownGoals || 0,
-        };
-      });
-      return map;
-    }
     const map = {};
-    playerLog.forEach(p => {
-      if (!map[p.name]) map[p.name] = { games: 0, goals: 0, assists: 0, keeperGames: 0, conceded: 0, ownGoals: 0 };
-      map[p.name].games++;
-      map[p.name].goals += p.goals || 0;
-      map[p.name].assists += p.assists || 0;
-      map[p.name].keeperGames += p.keeperGames || 0;
-      map[p.name].conceded += p.conceded || 0;
-      map[p.name].ownGoals += p.ownGoals || 0;
+    const ensure = (name) => {
+      if (!map[name]) map[name] = { games: 0, rounds: 0, goals: 0, assists: 0, keeperRounds: 0, conceded: 0, ownGoals: 0 };
+      return map[name];
+    };
+    (playerGameLogs || []).forEach(p => {
+      const name = p.player;
+      if (!name) return;
+      const s = ensure(name);
+      s.goals += Number(p.goals) || 0;
+      s.assists += Number(p.assists) || 0;
+      s.keeperRounds += Number(p.keeper_games || p.keeperGames) || 0;
+      s.conceded += Number(p.conceded) || 0;
+      s.ownGoals += Number(p.own_goals || p.ownGoals) || 0;
+    });
+    const seenRound = new Set();
+    const seenGame = new Set();
+    (matchLogs || []).forEach(m => {
+      const key = `${m.date}|${m.match_id}`;
+      let home = [], away = [];
+      try { home = JSON.parse(m.our_members_json || '[]'); } catch {}
+      try { away = JSON.parse(m.opponent_members_json || '[]'); } catch {}
+      [...home, ...away].forEach(name => {
+        if (!name) return;
+        const roundDedup = `${key}|${name}`;
+        if (!seenRound.has(roundDedup)) {
+          seenRound.add(roundDedup);
+          ensure(name).rounds++;
+        }
+        const gameDedup = `${m.date}|${name}`;
+        if (!seenGame.has(gameDedup)) {
+          seenGame.add(gameDedup);
+          ensure(name).games++;
+        }
+      });
     });
     return map;
-  }, [playerLog, members]);
+  }, [playerGameLogs, matchLogs]);
 
-  const players = useMemo(() => Object.keys(playerSummary).filter(n => playerSummary[n].games >= 3).sort((a, b) => a.localeCompare(b, "ko")), [playerSummary]);
-  const maxGames = useMemo(() => Math.max(...Object.values(playerSummary).map(s => s.games), 1), [playerSummary]);
+  const players = useMemo(() => Object.keys(playerSummary).filter(n => playerSummary[n].rounds >= 3).sort((a, b) => a.localeCompare(b, "ko")), [playerSummary]);
+  const maxRounds = useMemo(() => Math.max(...Object.values(playerSummary).map(s => s.rounds), 1), [playerSummary]);
 
   const allRawValues = useMemo(() => {
     const scoring = [], creativity = [], defense = [], keeping = [], attendance = [], winRate = [];
@@ -120,35 +136,35 @@ export default function PlayerCardTab({ playerLog, members, defenseStats, winSta
       const s = playerSummary[name];
       const d = defenseStats[name];
       const w = winStats[name];
-      scoring.push(s.games > 0 ? s.goals / s.games : 0);
-      creativity.push(s.games > 0 ? s.assists / s.games : 0);
+      scoring.push(s.rounds > 0 ? s.goals / s.rounds : 0);
+      creativity.push(s.rounds > 0 ? s.assists / s.rounds : 0);
       defense.push(d ? d.avgConceded : 999);
-      keeping.push(s.keeperGames > 0 ? s.conceded / s.keeperGames : 999);
-      attendance.push(s.games / maxGames);
+      keeping.push(s.keeperRounds > 0 ? s.conceded / s.keeperRounds : 999);
+      attendance.push(s.rounds / maxRounds);
       winRate.push(w ? w.winRate : 0);
     });
     return { scoring, creativity, defense, keeping, attendance, winRate };
-  }, [players, playerSummary, defenseStats, winStats, maxGames]);
+  }, [players, playerSummary, defenseStats, winStats, maxRounds]);
 
   const getPlayerData = (name) => {
     const s = playerSummary[name];
     const d = defenseStats[name];
     const w = winStats[name];
     if (!s) return { values: [50, 50, 50, 50, 50, 50], raw: {} };
-    const chaosRate = s.games > 0 ? Math.abs(s.ownGoals || 0) / s.games : 0;
+    const chaosRate = s.rounds > 0 ? Math.abs(s.ownGoals || 0) / s.rounds : 0;
     const raw = {
-      scoring: s.games > 0 ? s.goals / s.games : 0,
-      creativity: s.games > 0 ? s.assists / s.games : 0,
+      scoring: s.rounds > 0 ? s.goals / s.rounds : 0,
+      creativity: s.rounds > 0 ? s.assists / s.rounds : 0,
       defense: d ? d.avgConceded : 999,
-      keeping: s.keeperGames > 0 ? s.conceded / s.keeperGames : 999,
-      attendance: s.games / maxGames,
+      keeping: s.keeperRounds > 0 ? s.conceded / s.keeperRounds : 999,
+      attendance: s.rounds / maxRounds,
       winRate: w ? w.winRate : 0,
       chaosRate,
     };
     const detail = {
-      goals: s.goals, assists: s.assists, games: s.games, ownGoals: Math.abs(s.ownGoals || 0),
-      keeperGames: s.keeperGames, conceded: s.conceded,
-      fieldMatches: d?.fieldMatches || 0, fieldConceded: d?.totalConceded || 0,
+      goals: s.goals, assists: s.assists, games: s.games, rounds: s.rounds, ownGoals: Math.abs(s.ownGoals || 0),
+      keeperRounds: s.keeperRounds, conceded: s.conceded,
+      fieldRounds: d?.fieldMatches || 0, fieldConceded: d?.totalConceded || 0,
       wins: w?.wins || 0, draws: w?.draws || 0, losses: w?.losses || 0, totalMatches: w?.matches || 0,
     };
     return {
@@ -178,15 +194,15 @@ export default function PlayerCardTab({ playerLog, members, defenseStats, winSta
 
   const getRelativePosition = (name) => {
     const s = playerSummary[name];
-    if (!s || s.games === 0) return null;
+    if (!s || s.rounds === 0) return null;
     const qualified = players
       .map(n => playerSummary[n])
-      .filter(ps => ps.games > 0);
-    const goalsPerGame = qualified.map(ps => ps.goals / ps.games);
-    const assistsPerGame = qualified.map(ps => ps.assists / ps.games);
+      .filter(ps => ps.rounds > 0);
+    const goalsPerRound = qualified.map(ps => ps.goals / ps.rounds);
+    const assistsPerRound = qualified.map(ps => ps.assists / ps.rounds);
     return {
-      goals: calcRelativePosition(s.goals / s.games, goalsPerGame),
-      assists: calcRelativePosition(s.assists / s.games, assistsPerGame),
+      goals: calcRelativePosition(s.goals / s.rounds, goalsPerRound),
+      assists: calcRelativePosition(s.assists / s.rounds, assistsPerRound),
     };
   };
 
@@ -195,11 +211,11 @@ export default function PlayerCardTab({ playerLog, members, defenseStats, winSta
   const getGkFieldSplit = (name) => {
     const s = playerSummary[name];
     if (!s) return null;
-    const keeperGames = s.keeperGames || 0;
-    const fieldGames = Math.max(0, s.games - keeperGames);
+    const keeperRounds = s.keeperRounds || 0;
+    const fieldRounds = Math.max(0, s.rounds - keeperRounds);
     return {
-      keeper: { games: keeperGames, conceded: s.conceded || 0 },
-      field: { games: fieldGames, goals: s.goals || 0, assists: s.assists || 0 },
+      keeper: { rounds: keeperRounds, conceded: s.conceded || 0 },
+      field: { rounds: fieldRounds, goals: s.goals || 0, assists: s.assists || 0 },
     };
   };
 
@@ -225,7 +241,7 @@ export default function PlayerCardTab({ playerLog, members, defenseStats, winSta
       <div style={{ marginBottom: 14 }}>
         <select value={selected || ""} onChange={e => setSelectedPlayer(e.target.value)}
           style={{ width: "100%", padding: "10px 14px", borderRadius: 50, fontSize: 14, fontWeight: 480, letterSpacing: "-0.14px", background: "transparent", color: C.white, border: `1.2px dashed ${C.grayDark}`, fontFamily: "inherit", appearance: "none", cursor: "pointer" }}>
-          {players.map(p => <option key={p} value={p}>{p} ({playerSummary[p].games}경기)</option>)}
+          {players.map(p => <option key={p} value={p}>{p} ({playerSummary[p].games}게임 / {playerSummary[p].rounds}경기)</option>)}
         </select>
       </div>
       {selected && (
@@ -245,11 +261,11 @@ export default function PlayerCardTab({ playerLog, members, defenseStats, winSta
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
                 <tbody>
                   {[
-                    { label: "득점력", score: values[0], desc: `${pd.detail.goals}골 / ${pd.detail.games}경기 = 경기당 ${pd.raw.scoring?.toFixed(2)}골` },
-                    { label: "창의력", score: values[1], desc: `${pd.detail.assists}어시 / ${pd.detail.games}경기 = 경기당 ${pd.raw.creativity?.toFixed(2)}어시` },
-                    { label: "수비력", score: values[2], desc: `필드 ${pd.detail.fieldMatches}경기, 팀실점 ${pd.detail.fieldConceded} = 경기당 ${pd.raw.defense === 999 ? "-" : pd.raw.defense?.toFixed(2)}실점` },
-                    { label: "키퍼", score: values[3], desc: pd.detail.keeperGames > 0 ? `${pd.detail.keeperGames}경기, ${pd.detail.conceded}실점 = 경기당 ${pd.raw.keeping?.toFixed(2)}실점` : "키퍼 경기 없음" },
-                    { label: "참석률", score: values[4], desc: `${pd.detail.games} / ${maxGames}경기 = ${Math.round(pd.raw.attendance * 100)}%` },
+                    { label: "득점력", score: values[0], desc: `${pd.detail.goals}골 / ${pd.detail.rounds}경기 = 경기당 ${pd.raw.scoring?.toFixed(2)}골` },
+                    { label: "창의력", score: values[1], desc: `${pd.detail.assists}어시 / ${pd.detail.rounds}경기 = 경기당 ${pd.raw.creativity?.toFixed(2)}어시` },
+                    { label: "수비력", score: values[2], desc: `필드 ${pd.detail.fieldRounds}경기, 팀실점 ${pd.detail.fieldConceded} = 경기당 ${pd.raw.defense === 999 ? "-" : pd.raw.defense?.toFixed(2)}실점` },
+                    { label: "키퍼", score: values[3], desc: pd.detail.keeperRounds > 0 ? `${pd.detail.keeperRounds}경기, ${pd.detail.conceded}실점 = 경기당 ${pd.raw.keeping?.toFixed(2)}실점` : "키퍼 경기 없음" },
+                    { label: "참석률", score: values[4], desc: `${pd.detail.rounds} / ${maxRounds}경기 = ${Math.round(pd.raw.attendance * 100)}%` },
                     { label: "승리기여", score: values[5], desc: `${pd.detail.totalMatches}경기 ${pd.detail.wins}승 ${pd.detail.draws}무 ${pd.detail.losses}패 = 승률 ${Math.round(pd.raw.winRate * 100)}%` },
                   ].map(row => (
                     <tr key={row.label} style={{ borderBottom: `1px dashed ${C.grayDarker}` }}>
@@ -267,7 +283,7 @@ export default function PlayerCardTab({ playerLog, members, defenseStats, winSta
             const relPos = getRelativePosition(selected);
             const att = getAttendance(selected);
             const split = getGkFieldSplit(selected);
-            const hasAnything = trends.goals || trends.assists || relPos || att.total > 0 || (split && split.keeper.games > 0 && split.field.games > 0);
+            const hasAnything = trends.goals || trends.assists || relPos || att.total > 0 || (split && split.keeper.rounds > 0 && split.field.rounds > 0);
             if (!hasAnything) return null;
             return (
               <div style={{ marginTop: 12, padding: "10px 12px", borderRadius: 8, background: C.cardLight, fontSize: 11, lineHeight: 1.9, textAlign: "left" }}>
@@ -298,14 +314,14 @@ export default function PlayerCardTab({ playerLog, members, defenseStats, winSta
                 {att.total > 0 && (
                   <div>
                     <span style={{ color: C.gray }}>출석: </span>
-                    <span style={{ color: C.white, fontWeight: 700 }}>{att.attended}/{att.total}세션 ({att.rate}%)</span>
+                    <span style={{ color: C.white, fontWeight: 700 }}>{att.attended}/{att.total}게임 ({att.rate}%)</span>
                   </div>
                 )}
-                {split && split.keeper.games > 0 && split.field.games > 0 && (
+                {split && split.keeper.rounds > 0 && split.field.rounds > 0 && (
                   <div>
                     <span style={{ color: C.gray }}>GK/필드: </span>
                     <span style={{ color: C.white }}>
-                      GK {split.keeper.games}경기 {split.keeper.conceded}실 · 필드 {split.field.games}경기 {split.field.goals}골 {split.field.assists}어시
+                      GK {split.keeper.rounds}경기 {split.keeper.conceded}실 · 필드 {split.field.rounds}경기 {split.field.goals}골 {split.field.assists}어시
                     </span>
                   </div>
                 )}
@@ -319,7 +335,7 @@ export default function PlayerCardTab({ playerLog, members, defenseStats, winSta
                 <div>
                   <span style={{ color: C.gray }}>득점 연속: </span>
                   <span style={{ color: C.white, fontWeight: 700 }}>
-                    현재 {streakData.scoringStreak.current} / 역대 {streakData.scoringStreak.best}세션
+                    현재 {streakData.scoringStreak.current} / 역대 {streakData.scoringStreak.best}게임
                   </span>
                 </div>
               )}
@@ -327,7 +343,7 @@ export default function PlayerCardTab({ playerLog, members, defenseStats, winSta
                 <div>
                   <span style={{ color: C.gray }}>GK 무실점 연속: </span>
                   <span style={{ color: C.white, fontWeight: 700 }}>
-                    현재 {streakData.cleanSheetStreak.current} / 역대 {streakData.cleanSheetStreak.best}세션
+                    현재 {streakData.cleanSheetStreak.current} / 역대 {streakData.cleanSheetStreak.best}게임
                   </span>
                 </div>
               )}
@@ -336,7 +352,7 @@ export default function PlayerCardTab({ playerLog, members, defenseStats, winSta
           {trendData && trendData.points.length >= 3 && (
             <div style={{ marginTop: 12, padding: "10px 12px", borderRadius: 8, background: C.cardLight }}>
               <div style={{ fontSize: 11, fontWeight: 700, color: C.white, marginBottom: 8, textAlign: "left" }}>
-                최근 {trendData.points.length}세션 추세
+                최근 {trendData.points.length}게임 추세
               </div>
               <TrendLineChart smoothed={trendData.smoothed} C={C} />
             </div>

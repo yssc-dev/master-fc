@@ -1,47 +1,34 @@
-import { useMemo, useState } from 'react';
-import { calcCrovaGogumaFreq } from '../../../utils/playerAnalyticsUtils';
+import { useMemo } from 'react';
 
-export default function CrovaGogumaRankTab({ gameRecords, C }) {
-  const [scope, setScope] = useState('all');
-
-  const filtered = useMemo(() => {
-    if (!gameRecords) return [];
-    if (scope === 'all') return gameRecords;
-    const now = new Date();
-    const cutoff = new Date(now.getFullYear(), now.getMonth() - 2, 1);
-    const cutoffStr = cutoff.toISOString().substring(0, 10);
-    return gameRecords.filter(gr => gr.gameDate && gr.gameDate >= cutoffStr);
-  }, [gameRecords, scope]);
-
-  const freq = useMemo(() => calcCrovaGogumaFreq(filtered), [filtered]);
-
-  const crovaTop = useMemo(() =>
-    Object.entries(freq.crova)
-      .map(([name, count]) => ({ name, count }))
-      .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, 'ko'))
-      .slice(0, 5)
-  , [freq]);
-
-  const gogumaTop = useMemo(() =>
-    Object.entries(freq.goguma)
-      .map(([name, count]) => ({ name, count }))
-      .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, 'ko'))
-      .slice(0, 5)
-  , [freq]);
-
-  const toggleBtn = (val) => ({
-    padding: "6px 14px", borderRadius: 50, fontSize: 11, fontWeight: 600,
-    background: scope === val ? C.accent : "transparent",
-    color: scope === val ? C.black : C.gray,
-    border: `1px solid ${scope === val ? C.accent : C.grayDarker}`,
-    cursor: "pointer",
-  });
+export default function CrovaGogumaRankTab({ members, C }) {
+  const { crovaTop, gogumaTop } = useMemo(() => {
+    const crovaMap = {}, gogumaMap = {};
+    for (const p of members || []) {
+      const name = p.name;
+      if (!name) continue;
+      const c = Number(p.crova) || 0;
+      const g = Math.abs(Number(p.goguma) || 0); // 시트엔 음수로 저장 → 절대값
+      if (c > 0) crovaMap[name] = c;
+      if (g > 0) gogumaMap[name] = g;
+    }
+    const buildTop = (map) => {
+      const arr = Object.entries(map)
+        .map(([name, score]) => ({ name, score }))
+        .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name, 'ko'));
+      let rank = 0, prevScore = null;
+      const ranked = arr.map((row, i) => {
+        if (row.score !== prevScore) { rank = i + 1; prevScore = row.score; }
+        return { ...row, rank };
+      });
+      return ranked.filter(r => r.rank <= 5);
+    };
+    return { crovaTop: buildTop(crovaMap), gogumaTop: buildTop(gogumaMap) };
+  }, [members]);
 
   return (
     <div>
-      <div style={{ display: "flex", gap: 6, marginBottom: 14, justifyContent: "center" }}>
-        <button onClick={() => setScope('all')} style={toggleBtn('all')}>전체 누적</button>
-        <button onClick={() => setScope('recent3')} style={toggleBtn('recent3')}>최근 3개월</button>
+      <div style={{ fontSize: 11, color: C.gray, marginBottom: 12, textAlign: "center" }}>
+        대시보드 시트의 크로바/고구마 점수 누적 순위
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
         <RankCard title="🍀 크로바" rows={crovaTop} color="#22c55e" C={C} />
@@ -57,10 +44,10 @@ function RankCard({ title, rows, color, C }) {
       <div style={{ fontSize: 13, fontWeight: 700, color, marginBottom: 8 }}>{title}</div>
       {rows.length === 0 ? (
         <div style={{ fontSize: 11, color: C.gray }}>-</div>
-      ) : rows.map((r, i) => (
+      ) : rows.map((r) => (
         <div key={r.name} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", fontSize: 12 }}>
-          <span style={{ color: C.white }}>{i + 1}. {r.name}</span>
-          <span style={{ color: C.white, fontWeight: 700 }}>{r.count}회</span>
+          <span style={{ color: C.white }}>{r.rank}. {r.name}</span>
+          <span style={{ color: C.white, fontWeight: 700 }}>{r.score}점</span>
         </div>
       ))}
     </div>
