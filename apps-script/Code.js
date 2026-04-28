@@ -2,6 +2,7 @@
 // 풋살 웹앱 Apps Script v2.0
 //
 // CHANGELOG
+// 2026-04-28: _readSoccerPointSchema 통합 스키마 변환 + event_type owngoal 정규화 + concede_gk 필드 추가
 // 2026-04-28: 로그_이벤트 스키마 변경 — concede_gk 컬럼 추가, goal/owngoal 행에 실점 GK 통합 기록
 // 2026-04-28: deleteRawEventsByDate 액션 추가 (로그_이벤트 날짜별 삭제)
 // 2026-04-08: 응답 표준화, 입력 검증, 팀 접근 제어, LockService 동시성 제어 (v2)
@@ -1494,28 +1495,28 @@ function _readSoccerPointSchema(sheetName, team) {
         team: common.team, sport: common.sport, mode: common.mode, tournament_id: common.tournament_id,
         date: common.date, match_id: common.match_id, our_team: common.our_team, opponent: common.opponent,
         position: common.position, input_time: common.input_time,
-        event_type: "ownGoal", player: ownGoal, related_player: ""
+        event_type: "owngoal", player: ownGoal, related_player: "", concede_gk: ""
       });
     } else if (goalVal) {
       rows.push({
         team: common.team, sport: common.sport, mode: common.mode, tournament_id: common.tournament_id,
         date: common.date, match_id: common.match_id, our_team: common.our_team, opponent: common.opponent,
         position: common.position, input_time: common.input_time,
-        event_type: "goal", player: goalVal, related_player: assist
+        event_type: "goal", player: goalVal, related_player: assist, concede_gk: ""
       });
     } else if (ownGoal) {
       rows.push({
         team: common.team, sport: common.sport, mode: common.mode, tournament_id: common.tournament_id,
         date: common.date, match_id: common.match_id, our_team: common.our_team, opponent: common.opponent,
         position: common.position, input_time: common.input_time,
-        event_type: "ownGoal", player: ownGoal, related_player: ""
+        event_type: "owngoal", player: ownGoal, related_player: "", concede_gk: ""
       });
     } else if (concede) {
       rows.push({
         team: common.team, sport: common.sport, mode: common.mode, tournament_id: common.tournament_id,
         date: common.date, match_id: common.match_id, our_team: common.our_team, opponent: common.opponent,
         position: common.position, input_time: common.input_time,
-        event_type: "concede", player: concede, related_player: ""
+        event_type: "concede", player: concede, related_player: "", concede_gk: concede
       });
     }
   }
