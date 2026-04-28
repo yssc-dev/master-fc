@@ -2,6 +2,7 @@
 // 풋살 웹앱 Apps Script v2.0
 //
 // CHANGELOG
+// 2026-04-28: _importTournamentEventLogs — owngoal 정규화 + concede_gk 필드 추가 (누락 수정)
 // 2026-04-28: _readSoccerPointSchema 통합 스키마 변환 + event_type owngoal 정규화 + concede_gk 필드 추가
 // 2026-04-28: 로그_이벤트 스키마 변경 — concede_gk 컬럼 추가, goal/owngoal 행에 실점 GK 통합 기록
 // 2026-04-28: deleteRawEventsByDate 액션 추가 (로그_이벤트 날짜별 삭제)
@@ -1575,7 +1576,7 @@ function _importTournamentEventLogs() {
     if (lastRow < 2) continue;
     // 컬럼: [경기번호, 상대팀, 이벤트, 선수, 관련선수, 포지션, 입력시간]
     var data = sheet.getRange(2, 1, lastRow - 1, 7).getValues();
-    var typeMap = { "출전": "lineup", "골": "goal", "자책골": "ownGoal", "실점": "concede", "교체": "sub" };
+    var typeMap = { "출전": "lineup", "골": "goal", "자책골": "owngoal", "실점": "concede", "교체": "sub" };
     for (var i = 0; i < data.length; i++) {
       var r = data[i];
       var eventType = typeMap[String(r[2] || "")];
@@ -1585,12 +1586,15 @@ function _importTournamentEventLogs() {
       var date = "";
       var dm = inputTime.match(/^(\d{4}-\d{2}-\d{2})/);
       if (dm) date = dm[1];
+      var playerVal = String(r[3] || "");
+      // concede 이벤트: player(r[3])가 GK → _readSoccerPointSchema와 동일하게 concede_gk에 기록
+      var concedeGk = (eventType === "concede") ? playerVal : "";
       rows.push({
         team: "", sport: "축구", mode: "대회", tournament_id: tid,
         date: date, match_id: String(r[0] || ""),
         our_team: "", opponent: String(r[1] || ""),
-        event_type: eventType, player: String(r[3] || ""), related_player: String(r[4] || ""),
-        position: String(r[5] || ""), input_time: inputTime,
+        event_type: eventType, player: playerVal, related_player: String(r[4] || ""),
+        concede_gk: concedeGk, position: String(r[5] || ""), input_time: inputTime,
       });
     }
   }
