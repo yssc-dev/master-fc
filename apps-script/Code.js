@@ -2,6 +2,10 @@
 // 풋살 웹앱 Apps Script v2.0
 //
 // CHANGELOG
+// 2026-04-28: reimportPointLog 액션 추가 (HTTP 노출, 풋살/축구 디스패치)
+// 2026-04-28: _importTournamentEventLogs — owngoal 정규화 + concede_gk 필드 추가 (누락 수정)
+// 2026-04-28: _readSoccerPointSchema 통합 스키마 변환 + event_type owngoal 정규화 + concede_gk 필드 추가
+// 2026-04-28: 로그_이벤트 스키마 변경 — concede_gk 컬럼 추가, goal/owngoal 행에 실점 GK 통합 기록
 // 2026-04-28: deleteRawEventsByDate 액션 추가 (로그_이벤트 날짜별 삭제)
 // 2026-04-08: 응답 표준화, 입력 검증, 팀 접근 제어, LockService 동시성 제어 (v2)
 //
@@ -20,7 +24,7 @@ var RAW_MATCHES_SHEET = "로그_매치";
 var RAW_EVENTS_HEADERS = [
   "team","sport","mode","tournament_id",
   "date","match_id","our_team","opponent",
-  "event_type","player","related_player","position",
+  "event_type","player","related_player","concede_gk","position",
   "input_time","game_id"
 ];
 
@@ -79,6 +83,9 @@ function _ensureEventLogHasGameId() {
   var lastCol = sheet.getLastColumn();
   var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
   if (headers.indexOf("game_id") >= 0) {
+    if (sheet.getLastColumn() < RAW_EVENTS_HEADERS.length) {
+      sheet.getRange(1, 1, 1, RAW_EVENTS_HEADERS.length).setValues([RAW_EVENTS_HEADERS]);
+    }
     return { success: true, added: false };
   }
   var newCol = lastCol + 1;
@@ -271,6 +278,8 @@ function doPost(e) {
       return _jsonResponse(_writeSoccerPlayerLog(body.data, body.playerLogSheet || ""));
     } else if (action === "writeRawEvents") {
       return _jsonResponse(_writeRawEvents(body.data));
+    } else if (action === "reimportPointLog") {
+      return _jsonResponse(_reimportPointLog(body.team, body.sport, body.pointSheet));
     } else if (action === "writeRawPlayerGames") {
       return _jsonResponse(_writeRawPlayerGames(body.data));
     } else if (action === "deleteRawPlayerGamesByDate") {
@@ -931,13 +940,13 @@ function _writeRawEvents(data) {
 
 function _rawEventKey(r) {
   return [r.team||"", r.sport||"", r.mode||"", r.tournament_id||"", r.date||"", r.match_id||"",
-    r.event_type||"", r.player||"", r.related_player||"", r.input_time||"", r.game_id||""].join("|");
+    r.event_type||"", r.player||"", r.related_player||"", r.concede_gk||"", r.input_time||"", r.game_id||""].join("|");
 }
 
 function _rawEventToArray(r) {
   return [r.team||"", r.sport||"", r.mode||"", r.tournament_id||"",
     r.date||"", r.match_id||"", r.our_team||"", r.opponent||"",
-    r.event_type||"", r.player||"", r.related_player||"", r.position||"",
+    r.event_type||"", r.player||"", r.related_player||"", r.concede_gk||"", r.position||"",
     r.input_time||"", r.game_id||""];
 }
 
@@ -952,7 +961,7 @@ function _loadRawEventKeys(sheet) {
   for (var i = 0; i < data.length; i++) {
     var r = data[i];
     var gid = gidCol >= 0 ? String(r[gidCol] || "") : "";
-    var key = [r[0], r[1], r[2], r[3], _toDateStr(r[4]), r[5], r[8], r[9], r[10], String(r[12]), gid].join("|");
+    var key = [r[0], r[1], r[2], r[3], _toDateStr(r[4]), r[5], r[8], r[9], r[10], String(r[11]||""), String(r[13]), gid].join("|");
     keys[key] = true;
   }
   return keys;
@@ -1383,35 +1392,28 @@ function _readFutsalPointSchema(sheetName, team) {
       date: gameDate, match_id: matchId, our_team: myTeam, opponent: opponent,
       position: "", input_time: inputTime
     };
-    // 한 행에 (scorer, ownGoal, concedingGk)가 동시에 있을 수 있음 (정상골+실점키퍼, 자책골+실점키퍼).
-    // 각 컬럼은 독립 이벤트이므로 else-if 가 아니라 모두 발행해야 원본과 1:1 일치.
+    // 한 포인트로그 행 → 한 로그_이벤트 행 (concede_gk 컬럼에 실점 키퍼 통합)
     if (scorer) {
       rows.push({
         team: common.team, sport: common.sport, mode: common.mode, tournament_id: common.tournament_id,
         date: common.date, match_id: common.match_id, our_team: common.our_team, opponent: common.opponent,
         position: common.position, input_time: common.input_time,
-        event_type: "goal", player: scorer, related_player: assist
+        event_type: "goal", player: scorer, related_player: assist, concede_gk: concedingGk
       });
-    }
-    if (ownGoal) {
+    } else if (ownGoal) {
       rows.push({
         team: common.team, sport: common.sport, mode: common.mode, tournament_id: common.tournament_id,
         date: common.date, match_id: common.match_id, our_team: common.our_team, opponent: common.opponent,
         position: common.position, input_time: common.input_time,
-        event_type: "owngoal", player: ownGoal, related_player: ""
+        event_type: "owngoal", player: ownGoal, related_player: "", concede_gk: concedingGk
       });
-    }
-    if (concedingGk) {
-      // 같은 행의 scorer가 있으면 그 골은 our_team(=myTeam)이 넣은 것 → concedingGk는 상대팀 GK.
-      // ownGoal만 있으면 자책골 → conceding 측이 myTeam, GK도 myTeam.
-      // 단독 concedingGk 는 모호 — 내팀 유지 (실제 데이터엔 거의 없음).
-      var cOurTeam = common.our_team, cOpponent = common.opponent;
-      if (scorer) { cOurTeam = common.opponent; cOpponent = common.our_team; }
+    } else if (concedingGk) {
+      // 단독 실점 (득점자 미상) — 드물지만 보존
       rows.push({
         team: common.team, sport: common.sport, mode: common.mode, tournament_id: common.tournament_id,
-        date: common.date, match_id: common.match_id, our_team: cOurTeam, opponent: cOpponent,
+        date: common.date, match_id: common.match_id, our_team: common.our_team, opponent: common.opponent,
         position: common.position, input_time: common.input_time,
-        event_type: "concede", player: concedingGk, related_player: ""
+        event_type: "concede", player: concedingGk, related_player: "", concede_gk: concedingGk
       });
     }
   }
@@ -1497,28 +1499,28 @@ function _readSoccerPointSchema(sheetName, team) {
         team: common.team, sport: common.sport, mode: common.mode, tournament_id: common.tournament_id,
         date: common.date, match_id: common.match_id, our_team: common.our_team, opponent: common.opponent,
         position: common.position, input_time: common.input_time,
-        event_type: "ownGoal", player: ownGoal, related_player: ""
+        event_type: "owngoal", player: ownGoal, related_player: "", concede_gk: ""
       });
     } else if (goalVal) {
       rows.push({
         team: common.team, sport: common.sport, mode: common.mode, tournament_id: common.tournament_id,
         date: common.date, match_id: common.match_id, our_team: common.our_team, opponent: common.opponent,
         position: common.position, input_time: common.input_time,
-        event_type: "goal", player: goalVal, related_player: assist
+        event_type: "goal", player: goalVal, related_player: assist, concede_gk: ""
       });
     } else if (ownGoal) {
       rows.push({
         team: common.team, sport: common.sport, mode: common.mode, tournament_id: common.tournament_id,
         date: common.date, match_id: common.match_id, our_team: common.our_team, opponent: common.opponent,
         position: common.position, input_time: common.input_time,
-        event_type: "ownGoal", player: ownGoal, related_player: ""
+        event_type: "owngoal", player: ownGoal, related_player: "", concede_gk: ""
       });
     } else if (concede) {
       rows.push({
         team: common.team, sport: common.sport, mode: common.mode, tournament_id: common.tournament_id,
         date: common.date, match_id: common.match_id, our_team: common.our_team, opponent: common.opponent,
         position: common.position, input_time: common.input_time,
-        event_type: "concede", player: concede, related_player: ""
+        event_type: "concede", player: concede, related_player: "", concede_gk: concede
       });
     }
   }
@@ -1577,7 +1579,7 @@ function _importTournamentEventLogs() {
     if (lastRow < 2) continue;
     // 컬럼: [경기번호, 상대팀, 이벤트, 선수, 관련선수, 포지션, 입력시간]
     var data = sheet.getRange(2, 1, lastRow - 1, 7).getValues();
-    var typeMap = { "출전": "lineup", "골": "goal", "자책골": "ownGoal", "실점": "concede", "교체": "sub" };
+    var typeMap = { "출전": "lineup", "골": "goal", "자책골": "owngoal", "실점": "concede", "교체": "sub" };
     for (var i = 0; i < data.length; i++) {
       var r = data[i];
       var eventType = typeMap[String(r[2] || "")];
@@ -1587,12 +1589,15 @@ function _importTournamentEventLogs() {
       var date = "";
       var dm = inputTime.match(/^(\d{4}-\d{2}-\d{2})/);
       if (dm) date = dm[1];
+      var playerVal = String(r[3] || "");
+      // concede 이벤트: player(r[3])가 GK → _readSoccerPointSchema와 동일하게 concede_gk에 기록
+      var concedeGk = (eventType === "concede") ? playerVal : "";
       rows.push({
         team: "", sport: "축구", mode: "대회", tournament_id: tid,
         date: date, match_id: String(r[0] || ""),
         our_team: "", opponent: String(r[1] || ""),
-        event_type: eventType, player: String(r[3] || ""), related_player: String(r[4] || ""),
-        position: String(r[5] || ""), input_time: inputTime,
+        event_type: eventType, player: playerVal, related_player: String(r[4] || ""),
+        concede_gk: concedeGk, position: String(r[5] || ""), input_time: inputTime,
       });
     }
   }
@@ -1765,6 +1770,61 @@ function _runImport() {
       }
     ]
   });
+}
+
+function _reimportPointLog(team, sport, pointSheet) {
+  if (!team || !sport || !pointSheet) return { success: false, error: "team/sport/pointSheet 필요" };
+  if (sport === "풋살") return _reimportFutsalPointForTeam(team, pointSheet);
+  if (sport === "축구") return _reimportSoccerPointForTeam(team, pointSheet);
+  return { success: false, error: "지원하지 않는 sport: " + sport };
+}
+
+function _reimportSoccerPointForTeam(team, pointSheet) {
+  // _reimportFutsalPointForTeam 과 동일 패턴, 단 _readSoccerPointSchema 호출
+  _ensureRawSheets();
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(RAW_EVENTS_SHEET);
+  if (!sheet) return { success: false, error: "로그_이벤트 시트 없음" };
+
+  var lock = LockService.getScriptLock();
+  if (!lock.tryLock(15000)) return { success: false, error: "잠금 획득 실패" };
+  try {
+    var lastRow = sheet.getLastRow();
+    var deleted = 0;
+    if (lastRow >= 2) {
+      var lastCol = sheet.getLastColumn();
+      var headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
+      var teamCol = headers.indexOf("team");
+      var sportCol = headers.indexOf("sport");
+      if (teamCol < 0 || sportCol < 0) return { success: false, error: "team/sport 컬럼 없음" };
+      var data = sheet.getRange(2, 1, lastRow - 1, lastCol).getValues();
+      var keep = [];
+      for (var i = 0; i < data.length; i++) {
+        var rowTeam = String(data[i][teamCol] || "").trim();
+        var rowSport = String(data[i][sportCol] || "").trim();
+        if (rowTeam === team && rowSport === "축구") { deleted++; continue; }
+        keep.push(data[i]);
+      }
+      sheet.deleteRows(2, lastRow - 1);
+      if (keep.length > 0) {
+        sheet.getRange(2, 1, keep.length, lastCol).setValues(keep);
+      }
+    }
+
+    var pointData = _readSoccerPointSchema(pointSheet, team);
+    var rows = pointData.rows || [];
+    if (pointData.error) return { success: false, deleted: deleted, error: pointData.error };
+
+    var inserted = 0;
+    if (rows.length > 0) {
+      var write = _writeRawEvents({ rows: rows, skipDedupe: true });
+      inserted = write.count || 0;
+    }
+    Logger.log(JSON.stringify({ team: team, sport: "축구", deleted: deleted, inserted: inserted }));
+    return { success: true, deleted: deleted, inserted: inserted };
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 /**

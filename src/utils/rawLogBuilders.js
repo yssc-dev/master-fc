@@ -6,7 +6,7 @@ import { normalizeMatchId } from './matchIdNormalizer';
 export const RAW_EVENT_COLUMNS = [
   "team", "sport", "mode", "tournament_id",
   "date", "match_id", "our_team", "opponent",
-  "event_type", "player", "related_player", "position",
+  "event_type", "player", "related_player", "concede_gk", "position",
   "input_time", "game_id",
 ];
 
@@ -35,11 +35,11 @@ export function buildRawEventsFromFutsal({ team, gameId = '', events }) {
       game_id: gameId,
     };
     if (e.scorer) {
-      out.push({ ...common, event_type: 'goal', player: e.scorer, related_player: e.assist || '' });
+      out.push({ ...common, event_type: 'goal', player: e.scorer, related_player: e.assist || '', concede_gk: e.concedingGk || '' });
     } else if (e.ownGoalPlayer) {
-      out.push({ ...common, event_type: 'owngoal', player: e.ownGoalPlayer, related_player: '' });
+      out.push({ ...common, event_type: 'owngoal', player: e.ownGoalPlayer, related_player: '', concede_gk: e.concedingGk || '' });
     } else if (e.concedingGk) {
-      out.push({ ...common, event_type: 'concede', player: e.concedingGk, related_player: '' });
+      out.push({ ...common, event_type: 'concede', player: e.concedingGk, related_player: '', concede_gk: e.concedingGk });
     }
   });
   return out;
@@ -87,6 +87,7 @@ export function buildRawEventsFromSoccer({ team, mode = '기본', tournamentId =
       our_team: team, opponent: e.opponent || '',
       event_type: type,
       player: e.player || '', related_player: e.relatedPlayer || '',
+      concede_gk: type === 'concede' ? (e.player || '') : '',
       position: e.position || '', input_time: e.inputTime || '',
       game_id: gameId,
     });
