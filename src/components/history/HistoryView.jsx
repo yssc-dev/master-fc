@@ -273,6 +273,7 @@ export default function HistoryView({ teamContext, onBack }) {
                 if (!confirm("이 경기 기록을 Archive에서 영구 삭제하시겠습니까?\n되돌릴 수 없습니다.")) return;
                 try {
                   await FirebaseSync.deleteFinalized(team, selectedGame.gameId);
+                  await FirebaseSync.clearState(team, selectedGame.gameId);
                   alert("삭제 완료");
                   setSelectedGame(null);
                   setHistory(prev => prev.filter(h => h.gameId !== selectedGame.gameId));

@@ -7,6 +7,7 @@ import { getSettings, getEffectiveSettings } from '../../config/settings';
 import { buildGameRecordsFromLogs } from '../../utils/gameRecordBuilder';
 import { calcDefenseStats, calcWinContribution, calcWinStatsFromPointLog } from '../../utils/gameStateAnalyzer';
 import { buildRoundRowsFromFutsal, buildRoundRowsFromSoccer } from '../../utils/matchRowBuilder';
+import { recoverFinalizedStateFromSheets } from '../../utils/recoverFinalizedFromSheets';
 
 import PlayerCardTab from './analytics/PlayerCardTab';
 import HallOfFameTab from './analytics/HallOfFameTab';
@@ -28,6 +29,8 @@ export default function PlayerAnalytics({ teamName, teamMode, initialTab, isAdmi
   const [tab, setTab] = useState(initialTab || "playercard");
   const [fbMigrating, setFbMigrating] = useState(false);
   const [fbMigrateResult, setFbMigrateResult] = useState(null);
+  const [recovering, setRecovering] = useState(false);
+  const [recoverResult, setRecoverResult] = useState(null);
 
   async function runFirebasePhaseMigration() {
     if (!teamName) return;
@@ -64,6 +67,42 @@ export default function PlayerAnalytics({ teamName, teamMode, initialTab, isAdmi
       setFbMigrateResult({ ok: false, error: String(err?.message || err) });
     } finally {
       setFbMigrating(false);
+    }
+  }
+
+  async function runRecoverFinalized() {
+    if (!teamName) return;
+    const date = window.prompt('복구할 경기 날짜 (YYYY-MM-DD)\n로그_매치/로그_이벤트/로그_선수경기 시트 데이터로 finalized state를 재구성합니다.');
+    if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      if (date) alert('YYYY-MM-DD 형식으로 입력하세요');
+      return;
+    }
+    setRecovering(true);
+    setRecoverResult(null);
+    try {
+      const settings = getEffectiveSettings(teamName, isSoccer ? '축구' : '풋살');
+      const { gameId, state, summary } = await recoverFinalizedStateFromSheets({
+        team: teamName,
+        date,
+        settingsSnapshot: settings,
+      });
+      const ok = window.confirm(
+        `${date} 복구 미리보기\n\n` +
+        `gameId: ${gameId}\n` +
+        `매치: ${summary.matches}경기\n` +
+        `이벤트: ${summary.events}건\n` +
+        `선수경기 row: ${summary.players}명\n` +
+        `참석자: ${summary.attendeesCount}명\n` +
+        `팀: ${summary.teamNames.join(', ')}\n\n` +
+        `Firebase finalized 에 저장하시겠습니까?\n(이미 동일 gameId가 있으면 덮어씀)`
+      );
+      if (!ok) { setRecoverResult({ ok: false, error: '취소됨' }); return; }
+      await FirebaseSync.saveFinalized(teamName, gameId, state);
+      setRecoverResult({ ok: true, gameId, ...summary });
+    } catch (err) {
+      setRecoverResult({ ok: false, error: String(err?.message || err) });
+    } finally {
+      setRecovering(false);
     }
   }
 
@@ -129,6 +168,20 @@ export default function PlayerAnalytics({ teamName, teamMode, initialTab, isAdmi
                 {fbMigrateResult.ok
                   ? `✓ ${fbMigrateResult.dates}개 날짜, ${fbMigrateResult.rows} rows 덮어쓰기 완료`
                   : `✗ 실패: ${fbMigrateResult.error}`}
+              </div>
+            )}
+            <button
+              onClick={runRecoverFinalized}
+              disabled={recovering}
+              style={{ padding: '6px 10px', fontSize: 11, fontWeight: 600, borderRadius: 6, border: 'none', cursor: recovering ? 'not-allowed' : 'pointer', background: C.orange, color: C.bg, opacity: recovering ? 0.6 : 1 }}
+            >
+              {recovering ? '복구 중...' : '시트 → Firebase finalized 복구 (날짜 입력)'}
+            </button>
+            {recoverResult && (
+              <div style={{ fontSize: 10, color: recoverResult.ok ? '#22c55e' : '#ef4444' }}>
+                {recoverResult.ok
+                  ? `✓ ${recoverResult.gameId} 복구 완료 (매치 ${recoverResult.matches} · 이벤트 ${recoverResult.events} · 선수 ${recoverResult.players})`
+                  : `✗ 실패: ${recoverResult.error}`}
               </div>
             )}
           </div>

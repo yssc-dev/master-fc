@@ -1320,6 +1320,11 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
               disabled={!gameFinalized}
               onClick={async () => {
                 if (!confirm("경기를 아카이브하면 더 이상 수정할 수 없습니다.\n수정이 필요하면 'Archive'에서 복구할 수 있습니다.\n\n아카이브하시겠습니까?")) return;
+                try {
+                  await FirebaseSync.saveFinalized(teamContext?.team, gameId, gameState);
+                } catch (e) {
+                  if (!confirm(`Archive 실패: finalized 저장 실패\n(${e.message})\n\n그대로 진행하면 경기가 사라질 수 있습니다. 그래도 active를 지울까요?`)) return;
+                }
                 await FirebaseSync.clearState(teamContext?.team, gameId);
                 onBackToMenu();
               }}
