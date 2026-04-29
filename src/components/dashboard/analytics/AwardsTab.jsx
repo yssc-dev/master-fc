@@ -6,7 +6,7 @@ import { calcSoloGoalRatio } from '../../../utils/analyticsV2/calcSoloGoalRatio'
 import { calcMonthlyRanking } from '../../../utils/analyticsV2/calcMonthlyRanking';
 
 export default function AwardsTab({ playerGameLogs, matchLogs, eventLogs, C }) {
-  const awards = useMemo(() => calcAwards({ playerLogs: playerGameLogs || [] }), [playerGameLogs]);
+  const awards = useMemo(() => calcAwards({ playerLogs: playerGameLogs || [], eventLogs: eventLogs || [] }), [playerGameLogs, eventLogs]);
   const slope = useMemo(() => calcRoundSlope({ eventLogs: eventLogs || [], threshold: 10 }), [eventLogs]);
   const solo = useMemo(() => calcSoloGoalRatio({ eventLogs: eventLogs || [], threshold: 10 }), [eventLogs]);
 
