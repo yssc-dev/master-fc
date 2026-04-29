@@ -42,8 +42,15 @@ export async function recoverFinalizedStateFromSheets({ team, date, settingsSnap
 
   if (matches.length === 0) throw new Error(`로그_매치에 ${team} ${date} 데이터 없음`);
 
-  const gameIds = [...new Set(matches.map(m => m.game_id).filter(Boolean))];
-  const gameId = gameIds[0] || `g_recover_${Date.now()}`;
+  // gameId 는 firebaseSync._kstDateFromGameId 가 파싱 가능한 `g_<epoch_ms>` 형식이어야
+  // HistoryView 가 정확한 날짜로 표시한다. legacy_ 같은 형식이면 입력 date 기반으로 재생성.
+  const VALID_GAME_ID = /^g_\d+$/;
+  const sheetGameIds = [...new Set(matches.map(m => m.game_id).filter(Boolean))];
+  let gameId = sheetGameIds.find(id => VALID_GAME_ID.test(id));
+  if (!gameId) {
+    const midnightKst = new Date(`${date}T00:00:00+09:00`).getTime();
+    gameId = `g_${midnightKst}`;
+  }
 
   // teamNames: 등장 순서 유지
   const teamNames = [];
