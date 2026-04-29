@@ -26,7 +26,6 @@ function linearSlope(points) {
 export function calcRoundSlope({ eventLogs, threshold = 10 }) {
   // (player, date, round_idx) → ga (goal=1 점수자, assist=1 어시제공자, owngoal 무시)
   const tally = {};   // tally[player][`${date}|${round_idx}`] = ga
-  const dateOf = {};  // dateOf[player][`${date}|${round_idx}`] = date
 
   for (const e of eventLogs || []) {
     if (e.event_type !== 'goal') continue;          // owngoal은 제외
@@ -37,23 +36,21 @@ export function calcRoundSlope({ eventLogs, threshold = 10 }) {
 
     const scorer = e.player;
     if (scorer) {
-      if (!tally[scorer]) { tally[scorer] = {}; dateOf[scorer] = {}; }
+      if (!tally[scorer]) tally[scorer] = {};
       tally[scorer][key] = (tally[scorer][key] || 0) + 1;
-      dateOf[scorer][key] = date;
     }
     const assist = e.related_player;
     if (assist) {
-      if (!tally[assist]) { tally[assist] = {}; dateOf[assist] = {}; }
+      if (!tally[assist]) tally[assist] = {};
       tally[assist][key] = (tally[assist][key] || 0) + 1;
-      dateOf[assist][key] = date;
     }
   }
 
   const perPlayer = {};
   for (const player of Object.keys(tally)) {
     const points = Object.entries(tally[player]).map(([key, ga]) => {
-      const round_idx = Number(key.split('|')[1]);
-      return { date: dateOf[player][key], round_idx, ga };
+      const [date, roundStr] = key.split('|');
+      return { date, round_idx: Number(roundStr), ga };
     });
     points.sort((a, b) => (a.date.localeCompare(b.date)) || (a.round_idx - b.round_idx));
 
@@ -63,7 +60,7 @@ export function calcRoundSlope({ eventLogs, threshold = 10 }) {
       cntByRound[p.round_idx] = (cntByRound[p.round_idx] || 0) + 1;
     }
     const meanByRound = {};
-    for (const r of Object.keys(sumByRound)) meanByRound[r] = sumByRound[r] / cntByRound[r];
+    for (const r of Object.keys(sumByRound)) meanByRound[Number(r)] = sumByRound[r] / cntByRound[r];
 
     perPlayer[player] = {
       points,
