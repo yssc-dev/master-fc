@@ -6,8 +6,11 @@ import {
   saveSettings, getSourceOf, loadSettingsFromFirebase,
 } from '../../config/settings';
 import AppSync from '../../services/appSync';
+import FirebaseSync from '../../services/firebaseSync';
+import { buildRoundRowsFromFutsal, buildRoundRowsFromSoccer } from '../../utils/matchRowBuilder';
+import { recoverFinalizedStateFromSheets } from '../../utils/recoverFinalizedFromSheets';
 
-export default function SettingsScreen({ teamName, teamMode, teamEntries, onBack }) {
+export default function SettingsScreen({ teamName, teamMode, teamEntries, isAdmin, onBack }) {
   const isSoccer = teamMode === "축구";
   const { C } = useTheme();
   const sport = teamMode;
@@ -18,6 +21,10 @@ export default function SettingsScreen({ teamName, teamMode, teamEntries, onBack
   const [loadingSheets, setLoadingSheets] = useState(false);
   const [newOpponent, setNewOpponent] = useState("");
   const [presetChangeDialog, setPresetChangeDialog] = useState(null);
+  const [fbMigrating, setFbMigrating] = useState(false);
+  const [fbMigrateResult, setFbMigrateResult] = useState(null);
+  const [recovering, setRecovering] = useState(false);
+  const [recoverResult, setRecoverResult] = useState(null);
   // null | { newPreset, diffs: [{key, from, to}], overrides: {k:v} }
 
   useEffect(() => {
@@ -96,6 +103,79 @@ export default function SettingsScreen({ teamName, teamMode, teamEntries, onBack
 
     setPresetChangeDialog({ newPreset, diffs, overrides });
   };
+
+  async function runFirebasePhaseMigration() {
+    if (!teamName) return;
+    const ok = window.confirm(
+      `[관리자] Firebase stateJSON → 로그_매치 정확 덮어쓰기\n\nteam=${teamName} sport=${sport}\n\n최근 확정 세션들의 날짜에 해당하는 로그_매치 rows를 삭제한 뒤 정확한 rows로 재기록합니다. 계속하시겠습니까?`
+    );
+    if (!ok) return;
+    setFbMigrating(true);
+    setFbMigrateResult(null);
+    try {
+      const history = await FirebaseSync.loadFinalizedAll(teamName);
+      const buildFn = sport === '축구' ? buildRoundRowsFromSoccer : buildRoundRowsFromFutsal;
+      const datesTouched = new Set();
+      const allRows = [];
+      for (const h of history) {
+        if (!h.stateJson) continue;
+        let gs;
+        try { gs = JSON.parse(h.stateJson); } catch { continue; }
+        const rows = buildFn({ team: teamName, mode: '기본', tournamentId: '', date: h.gameDate, stateJSON: gs, inputTime: h.savedAt || '' });
+        if (rows.length > 0) { datesTouched.add(h.gameDate); allRows.push(...rows); }
+      }
+      for (const date of datesTouched) {
+        await AppSync.deleteMatchLogByDate({ sport, date });
+      }
+      const BATCH = 200;
+      let total = 0;
+      for (let i = 0; i < allRows.length; i += BATCH) {
+        const res = await AppSync.writeMatchLog(allRows.slice(i, i + BATCH));
+        total += (res && res.count) || 0;
+      }
+      setFbMigrateResult({ ok: true, dates: datesTouched.size, rows: total });
+    } catch (err) {
+      setFbMigrateResult({ ok: false, error: String(err?.message || err) });
+    } finally {
+      setFbMigrating(false);
+    }
+  }
+
+  async function runRecoverFinalized() {
+    if (!teamName) return;
+    const date = window.prompt('복구할 경기 날짜 (YYYY-MM-DD)\n로그_매치/로그_이벤트/로그_선수경기 시트 데이터로 finalized state를 재구성합니다.');
+    if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      if (date) alert('YYYY-MM-DD 형식으로 입력하세요');
+      return;
+    }
+    setRecovering(true);
+    setRecoverResult(null);
+    try {
+      const snap = getEffectiveSettings(teamName, sport);
+      const { gameId, state, summary } = await recoverFinalizedStateFromSheets({
+        team: teamName,
+        date,
+        settingsSnapshot: snap,
+      });
+      const ok = window.confirm(
+        `${date} 복구 미리보기\n\n` +
+        `gameId: ${gameId}\n` +
+        `매치: ${summary.matches}경기\n` +
+        `이벤트: ${summary.events}건\n` +
+        `선수경기 row: ${summary.players}명\n` +
+        `참석자: ${summary.attendeesCount}명\n` +
+        `팀: ${summary.teamNames.join(', ')}\n\n` +
+        `Firebase finalized 에 저장하시겠습니까?\n(이미 동일 gameId가 있으면 덮어씀)`
+      );
+      if (!ok) { setRecoverResult({ ok: false, error: '취소됨' }); return; }
+      await FirebaseSync.saveFinalized(teamName, gameId, state);
+      setRecoverResult({ ok: true, gameId, ...summary });
+    } catch (err) {
+      setRecoverResult({ ok: false, error: String(err?.message || err) });
+    } finally {
+      setRecovering(false);
+    }
+  }
 
   const applyPresetChange = (keepOverrides) => {
     if (!presetChangeDialog) return;
@@ -367,6 +447,44 @@ export default function SettingsScreen({ teamName, teamMode, teamEntries, onBack
           </div>
         </div>
       </div>
+
+      {isAdmin && (
+        <div style={ss.section}>
+          <div className="app-section-label">관리자 툴</div>
+          <div className="app-grouped">
+            <div className="app-row" style={{ flexDirection: "column", alignItems: "stretch", gap: 8, padding: "12px 16px" }}>
+              <button
+                onClick={runFirebasePhaseMigration}
+                disabled={fbMigrating}
+                style={{ padding: "10px 12px", fontSize: 13, fontWeight: 600, borderRadius: 10, border: "none", cursor: fbMigrating ? "not-allowed" : "pointer", background: "var(--app-blue)", color: "#fff", opacity: fbMigrating ? 0.6 : 1 }}
+              >
+                {fbMigrating ? "실행 중..." : "Firebase → 로그_매치 정확 덮어쓰기"}
+              </button>
+              {fbMigrateResult && (
+                <div style={{ fontSize: 12, color: fbMigrateResult.ok ? "var(--app-green)" : "var(--app-red)" }}>
+                  {fbMigrateResult.ok
+                    ? `✓ ${fbMigrateResult.dates}개 날짜, ${fbMigrateResult.rows} rows 덮어쓰기 완료`
+                    : `✗ 실패: ${fbMigrateResult.error}`}
+                </div>
+              )}
+              <button
+                onClick={runRecoverFinalized}
+                disabled={recovering}
+                style={{ padding: "10px 12px", fontSize: 13, fontWeight: 600, borderRadius: 10, border: "none", cursor: recovering ? "not-allowed" : "pointer", background: "var(--app-orange)", color: "#fff", opacity: recovering ? 0.6 : 1 }}
+              >
+                {recovering ? "복구 중..." : "시트 → Firebase finalized 복구 (날짜 입력)"}
+              </button>
+              {recoverResult && (
+                <div style={{ fontSize: 12, color: recoverResult.ok ? "var(--app-green)" : "var(--app-red)" }}>
+                  {recoverResult.ok
+                    ? `✓ ${recoverResult.gameId} 복구 완료 (매치 ${recoverResult.matches} · 이벤트 ${recoverResult.events} · 선수 ${recoverResult.players})`
+                    : `✗ 실패: ${recoverResult.error}`}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       <div style={{ padding: "0 16px 24px", display: "flex", flexDirection: "column", gap: 8 }}>
         <button onClick={handleSave} style={ss.btn(saved ? "var(--app-green)" : "var(--app-blue)", "#fff")}>

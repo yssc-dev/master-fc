@@ -37,7 +37,7 @@ function RadarChart({ values, size = 200, C }) {
         const p = getPoint(i, 1);
         return <line key={i} x1={cx} y1={cy} x2={p.x} y2={p.y} stroke={C.grayDarker} strokeWidth={0.5} />;
       })}
-      <polygon points={dataPoints.map(p => `${p.x},${p.y}`).join(" ")} fill={C.accent + "33"} stroke={C.accent} strokeWidth={2} />
+      <polygon points={dataPoints.map(p => `${p.x},${p.y}`).join(" ")} fill={C.accent} fillOpacity={0.2} stroke={C.accent} strokeWidth={2} />
       {dataPoints.map((p, i) => <circle key={i} cx={p.x} cy={p.y} r={3} fill={C.accent} />)}
       {AXES.map((axis, i) => {
         const p = getPoint(i, 1.22);

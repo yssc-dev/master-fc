@@ -37,7 +37,7 @@ function RadarChart({ values, size = 200, C }) {
         const p = getPoint(i, 1);
         return <line key={i} x1={cx} y1={cy} x2={p.x} y2={p.y} stroke={C.grayDarker} strokeWidth={0.5} />;
       })}
-      <polygon points={dataPoints.map(p => `${p.x},${p.y}`).join(" ")} fill={C.accent + "33"} stroke={C.accent} strokeWidth={2} />
+      <polygon points={dataPoints.map(p => `${p.x},${p.y}`).join(" ")} fill={C.accent} fillOpacity={0.2} stroke={C.accent} strokeWidth={2} />
       {dataPoints.map((p, i) => <circle key={i} cx={p.x} cy={p.y} r={3} fill={C.accent} />)}
       {AXES.map((axis, i) => {
         const p = getPoint(i, 1.22);
@@ -61,9 +61,9 @@ function TrendLineChart({ smoothed, C }) {
       <path d={path(s => yAtGA(s.gpg))} stroke="#ef4444" strokeWidth={2} fill="none" />
       <path d={path(s => yAtGA(s.apg))} stroke="#3b82f6" strokeWidth={2} fill="none" />
       <path d={path(s => yAtW(s.winRate))} stroke="#22c55e" strokeWidth={2} strokeDasharray="3,3" fill="none" />
-      <text x={4} y={14} fontSize={9} fill="#ef4444">G/경기</text>
-      <text x={60} y={14} fontSize={9} fill="#3b82f6">A/경기</text>
-      <text x={120} y={14} fontSize={9} fill="#22c55e">승률</text>
+      <text x={4} y={14} fontSize={9} fill="#ef4444">득점/경기</text>
+      <text x={68} y={14} fontSize={9} fill="#3b82f6">도움/경기</text>
+      <text x={136} y={14} fontSize={9} fill="#22c55e">팀 승률</text>
     </svg>
   );
 }
@@ -83,7 +83,7 @@ function getChaosBadge(chaosRate) {
   return null;
 }
 
-export default function PlayerCardTab({ playerLog, members, defenseStats, winStats, gameRecords, playerGameLogs, matchLogs, C }) {
+export default function PlayerCardTab({ playerLog, members, defenseStats, winStats, gameRecords, playerGameLogs, matchLogs, C, authUserName }) {
   const [selectedPlayer, setSelectedPlayer] = useState(null);
 
   // 용어: 게임 = 하루 모임(날짜), 경기 = 한 라운드(5:5)
@@ -127,7 +127,17 @@ export default function PlayerCardTab({ playerLog, members, defenseStats, winSta
     return map;
   }, [playerGameLogs, matchLogs]);
 
-  const players = useMemo(() => Object.keys(playerSummary).filter(n => playerSummary[n].rounds >= 3).sort((a, b) => a.localeCompare(b, "ko")), [playerSummary]);
+  const players = useMemo(() => {
+    const list = Object.keys(playerSummary).filter(n => playerSummary[n].rounds >= 3);
+    list.sort((a, b) => {
+      if (authUserName) {
+        if (a === authUserName) return -1;
+        if (b === authUserName) return 1;
+      }
+      return a.localeCompare(b, "ko");
+    });
+    return list;
+  }, [playerSummary, authUserName]);
   const maxRounds = useMemo(() => Math.max(...Object.values(playerSummary).map(s => s.rounds), 1), [playerSummary]);
 
   const allRawValues = useMemo(() => {
@@ -355,6 +365,12 @@ export default function PlayerCardTab({ playerLog, members, defenseStats, winSta
                 최근 {trendData.points.length}게임 추세
               </div>
               <TrendLineChart smoothed={trendData.smoothed} C={C} />
+              <div style={{ fontSize: 10, color: C.gray, marginTop: 6, textAlign: "left", lineHeight: 1.55 }}>
+                <div><span style={{ color: "#ef4444", fontWeight: 700 }}>득점/경기</span> · 한 경기당 평균 골 수</div>
+                <div><span style={{ color: "#3b82f6", fontWeight: 700 }}>도움/경기</span> · 한 경기당 평균 어시스트 수</div>
+                <div><span style={{ color: "#22c55e", fontWeight: 700 }}>팀 승률</span> · 그날 본인이 뛴 경기에서 우리팀 승리 비율</div>
+                <div style={{ marginTop: 4 }}>※ 최근 3게임 평균으로 부드럽게 그립니다 (한 경기 = 한 라운드)</div>
+              </div>
             </div>
           )}
           {(!defenseStats || Object.keys(defenseStats).length === 0 || !winStats || Object.keys(winStats).length === 0) && (

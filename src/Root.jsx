@@ -166,7 +166,7 @@ export default function Root() {
   }
 
   if (screen === "settings") {
-    return <SettingsScreen teamName={selectedTeamName} teamMode={teamContext?.mode} teamEntries={selectedTeamEntries} onBack={() => setScreen("dashboard")} />;
+    return <SettingsScreen teamName={selectedTeamName} teamMode={teamContext?.mode} teamEntries={selectedTeamEntries} isAdmin={teamContext?.role === "관리자"} onBack={() => setScreen("dashboard")} />;
   }
 
   const GameApp = teamContext?.mode === "축구" ? SoccerApp : App;
