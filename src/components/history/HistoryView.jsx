@@ -75,22 +75,32 @@ export default function HistoryView({ teamContext, onBack }) {
   const { C } = useTheme();
   const [loading, setLoading] = useState(true);
   const [history, setHistory] = useState([]);
+  const [trash, setTrash] = useState([]);
+  const [view, setView] = useState("active"); // "active" | "trash"
   const [selectedGame, setSelectedGame] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
 
   const team = teamContext?.team;
 
-  useEffect(() => {
+  const sortByDateDesc = (data) => [...data].sort((a, b) => {
+    const da = new Date(a.gameDate), db = new Date(b.gameDate);
+    if (!isNaN(da) && !isNaN(db)) return db - da;
+    return String(b.gameDate || "").localeCompare(String(a.gameDate || ""));
+  });
+
+  const reload = () => {
     if (!team) { setLoading(false); return; }
-    FirebaseSync.loadFinalizedList(team).then(data => {
-      const sorted = [...data].sort((a, b) => {
-        const da = new Date(a.gameDate), db = new Date(b.gameDate);
-        if (!isNaN(da) && !isNaN(db)) return db - da;
-        return String(b.gameDate || "").localeCompare(String(a.gameDate || ""));
-      });
-      setHistory(sorted);
+    setLoading(true);
+    Promise.all([
+      FirebaseSync.loadFinalizedList(team),
+      FirebaseSync.loadTrashedFinalized(team),
+    ]).then(([active, trashed]) => {
+      setHistory(sortByDateDesc(active));
+      setTrash(sortByDateDesc(trashed));
     }).finally(() => setLoading(false));
-  }, [team]);
+  };
+
+  useEffect(() => { reload(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [team]);
 
   const handleSelect = async (h) => {
     setDetailLoading(true);
@@ -268,15 +278,14 @@ export default function HistoryView({ teamContext, onBack }) {
           )}
 
           <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-            {teamContext?.role === "관리자" && (
+            {teamContext?.role === "관리자" && view === "active" && (
               <button onClick={async () => {
-                if (!confirm("이 경기 기록을 Archive에서 영구 삭제하시겠습니까?\n되돌릴 수 없습니다.")) return;
+                if (!confirm("이 경기 기록을 휴지통으로 이동하시겠습니까?\n휴지통에서 복구 또는 영구 삭제 가능합니다.")) return;
                 try {
                   await FirebaseSync.deleteFinalized(team, selectedGame.gameId);
-                  await FirebaseSync.clearState(team, selectedGame.gameId);
-                  alert("삭제 완료");
+                  alert("휴지통으로 이동 완료");
                   setSelectedGame(null);
-                  setHistory(prev => prev.filter(h => h.gameId !== selectedGame.gameId));
+                  reload();
                 } catch (e) {
                   alert("삭제 실패: " + e.message);
                 }
@@ -284,13 +293,45 @@ export default function HistoryView({ teamContext, onBack }) {
                 삭제
               </button>
             )}
-            {teamContext?.role === "관리자" && (
+            {teamContext?.role === "관리자" && view === "trash" && (
+              <>
+                <button onClick={async () => {
+                  if (!confirm("이 경기를 휴지통에서 복구하시겠습니까?")) return;
+                  try {
+                    await FirebaseSync.restoreFinalized(team, selectedGame.gameId);
+                    alert("복구 완료");
+                    setSelectedGame(null);
+                    reload();
+                  } catch (e) {
+                    alert("복구 실패: " + e.message);
+                  }
+                }} style={{ background: "rgba(34,197,94,0.18)", color: "var(--app-green)", border: "none", borderRadius: 8, padding: "10px 14px", fontSize: 14, fontWeight: 600, cursor: "pointer" }}>
+                  복구
+                </button>
+                <button onClick={async () => {
+                  if (!confirm("⚠️ 이 경기를 영구 삭제하시겠습니까?\n되돌릴 수 없습니다.")) return;
+                  if (!confirm("정말 영구 삭제하시겠습니까? 마지막 확인입니다.")) return;
+                  try {
+                    await FirebaseSync.purgeFinalized(team, selectedGame.gameId);
+                    await FirebaseSync.clearState(team, selectedGame.gameId);
+                    alert("영구 삭제 완료");
+                    setSelectedGame(null);
+                    reload();
+                  } catch (e) {
+                    alert("영구 삭제 실패: " + e.message);
+                  }
+                }} style={{ background: "rgba(255,59,48,0.18)", color: "var(--app-red)", border: "none", borderRadius: 8, padding: "10px 14px", fontSize: 14, fontWeight: 600, cursor: "pointer" }}>
+                  영구삭제
+                </button>
+              </>
+            )}
+            {teamContext?.role === "관리자" && view === "active" && (
               <button onClick={async () => {
                 if (!confirm("이 경기를 수정 가능한 상태로 복구하시겠습니까?\n경기관리 목록에 다시 표시됩니다.")) return;
                 try {
                   const stateObj = JSON.parse(selectedGame.stateJson);
                   await FirebaseSync.saveState(team, selectedGame.gameId, { ...stateObj, gameFinalized: true });
-                  await FirebaseSync.deleteFinalized(team, selectedGame.gameId);
+                  await FirebaseSync.purgeFinalized(team, selectedGame.gameId);
                   alert("복구 완료!\n경기관리 탭에서 \"전송완료\" 상태로 확인할 수 있습니다.");
                   setSelectedGame(null);
                   setHistory(prev => prev.filter(h => h.gameId !== selectedGame.gameId));
@@ -311,17 +352,34 @@ export default function HistoryView({ teamContext, onBack }) {
     );
   }
 
+  const items = view === "trash" ? trash : history;
+  const emptyMsg = view === "trash" ? "휴지통이 비어있습니다" : "확정된 경기 기록이 없습니다";
+
   return (
     <div style={hs.container}>
       <div style={hs.header}>
-        <div style={{ fontSize: 18, fontWeight: 800, color: "#fff" }}>Archive</div>
+        <div style={{ fontSize: 18, fontWeight: 800, color: "#fff" }}>{view === "trash" ? "Archive · 휴지통" : "Archive"}</div>
         <div style={{ fontSize: 12, color: C.headerTextDim, marginTop: 2 }}>{teamContext.team}</div>
       </div>
       <div style={{ padding: 16 }}>
-        {history.length === 0 ? (
-          <div style={{ textAlign: "center", color: C.gray, padding: 40 }}>확정된 경기 기록이 없습니다</div>
+        {teamContext?.role === "관리자" && (
+          <div style={{ display: "flex", gap: 6, marginBottom: 10 }}>
+            <button onClick={() => { setSelectedGame(null); setView("active"); }}
+              style={{ flex: 1, padding: "8px 10px", borderRadius: 6, border: "none", fontSize: 12, fontWeight: 600, cursor: "pointer",
+                background: view === "active" ? C.accent : C.grayDarker, color: view === "active" ? C.bg : C.gray }}>
+              정상 ({history.length})
+            </button>
+            <button onClick={() => { setSelectedGame(null); setView("trash"); }}
+              style={{ flex: 1, padding: "8px 10px", borderRadius: 6, border: "none", fontSize: 12, fontWeight: 600, cursor: "pointer",
+                background: view === "trash" ? C.accent : C.grayDarker, color: view === "trash" ? C.bg : C.gray }}>
+              휴지통 ({trash.length})
+            </button>
+          </div>
+        )}
+        {items.length === 0 ? (
+          <div style={{ textAlign: "center", color: C.gray, padding: 40 }}>{emptyMsg}</div>
         ) : (
-          history.map((h, i) => {
+          items.map((h, i) => {
             const parts = (h.summary || "").split("|").map(s => s.trim());
             const creator = parts[1] || "";
             const evtInfo = parts[3] || "";
@@ -331,7 +389,7 @@ export default function HistoryView({ teamContext, onBack }) {
                 style={{ ...hs.card, cursor: detailLoading ? "wait" : "pointer", border: `1px solid ${C.grayDark}`, opacity: detailLoading ? 0.6 : 1 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <div>
-                    <div style={{ fontSize: 15, fontWeight: 700, color: C.white }}>{formatDate(h.gameDate)} 경기</div>
+                    <div style={{ fontSize: 15, fontWeight: 700, color: C.white }}>{formatDate(h.gameDate)} 경기{view === "trash" ? " (휴지통)" : ""}</div>
                     <div style={{ fontSize: 12, color: C.gray, marginTop: 2 }}>
                       {creator && `작성자: ${creator}`}{evtInfo && ` | ${evtInfo}`}{matchInfo && ` | ${matchInfo}`}
                     </div>

@@ -119,7 +119,7 @@ const FirebaseSync = {
     }
   },
 
-  // 히스토리 목록 (메타만, 가볍게)
+  // 히스토리 목록 (메타만, 가볍게). _deletedAt 있으면 휴지통 취급하여 제외.
   async loadFinalizedList(team) {
     try {
       const snap = await get(this._finalizedMetaAllRef(team));
@@ -127,6 +127,7 @@ const FirebaseSync = {
       const out = [];
       snap.forEach(child => {
         const v = child.val();
+        if (v && v._deletedAt) return;
         out.push({
           gameId: child.key,
           gameDate: v.gameDate || '',
@@ -136,6 +137,27 @@ const FirebaseSync = {
       });
       return out;
     } catch (e) { console.warn("확정 목록 로드 실패:", e.message); return []; }
+  },
+
+  // 휴지통 (소프트 삭제된 항목만)
+  async loadTrashedFinalized(team) {
+    try {
+      const snap = await get(this._finalizedMetaAllRef(team));
+      if (!snap.exists()) return [];
+      const out = [];
+      snap.forEach(child => {
+        const v = child.val();
+        if (!v || !v._deletedAt) return;
+        out.push({
+          gameId: child.key,
+          gameDate: v.gameDate || '',
+          summary: v.summary || '',
+          savedAt: v.updatedAt || null,
+          deletedAt: v._deletedAt || null,
+        });
+      });
+      return out;
+    } catch (e) { console.warn("휴지통 로드 실패:", e.message); return []; }
   },
 
   // 상세 1건 (목록에서 클릭 시)
@@ -171,13 +193,34 @@ const FirebaseSync = {
     } catch (e) { console.warn("확정 전체 로드 실패:", e.message); return []; }
   },
 
+  // 소프트 삭제: _meta._deletedAt 타임스탬프만 표시. _states 와 active 는 보존하여 복구 가능.
   async deleteFinalized(team, gameId) {
+    try {
+      await update(
+        ref(firebaseDb, "games/" + this._safeTeam(team) + "/finalized/_meta/" + gameId),
+        { _deletedAt: serverTimestamp() }
+      );
+    } catch (e) { console.warn("확정 소프트 삭제 실패:", e.message); throw e; }
+  },
+
+  // 복구: _deletedAt 제거 → 목록에 다시 노출.
+  async restoreFinalized(team, gameId) {
+    try {
+      await update(
+        ref(firebaseDb, "games/" + this._safeTeam(team) + "/finalized/_meta/" + gameId),
+        { _deletedAt: null }
+      );
+    } catch (e) { console.warn("복구 실패:", e.message); throw e; }
+  },
+
+  // 영구 삭제: finalized 의 _meta + _states 만 제거. active 정리는 호출자가 필요 시 clearState 호출.
+  async purgeFinalized(team, gameId) {
     try {
       await Promise.all([
         remove(ref(firebaseDb, "games/" + this._safeTeam(team) + "/finalized/_meta/" + gameId)),
         remove(ref(firebaseDb, "games/" + this._safeTeam(team) + "/finalized/_states/" + gameId)),
       ]);
-    } catch (e) { console.warn("확정 삭제 실패:", e.message); }
+    } catch (e) { console.warn("영구 삭제 실패:", e.message); throw e; }
   },
 
   async clearState(team, gameId) {
