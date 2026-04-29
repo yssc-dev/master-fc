@@ -1,12 +1,28 @@
 // P3: 선수별 라운드 G+A 회귀선 기울기.
 // 활동(ga≥1) 라운드만 표본으로 사용. 활동하지 않은 라운드는 표본 제외(풋살 출전 미확정 보정).
+//
+// round_idx 출처:
+// 1순위) matchLogs(로그_매치)에 (date, match_id) 조인해서 round_idx 컬럼 직접 사용 (정규화된 진실 소스)
+// 2순위) match_id 문자열에서 `R{n}_C{n}` 패턴 fallback (legacy 데이터 + matchLogs 미제공 호환)
 
 const ROUND_RX = /^R(\d+)_/;
 
-function parseRoundIdx(matchId) {
+function parseRoundIdxFromString(matchId) {
   if (typeof matchId !== 'string') return null;
   const m = matchId.match(ROUND_RX);
   return m ? Number(m[1]) : null;
+}
+
+function buildRoundIdxLookup(matchLogs) {
+  const lookup = new Map();
+  for (const m of matchLogs || []) {
+    const date = m.date || '';
+    const mid = m.match_id || '';
+    const ridx = Number(m.round_idx);
+    if (!Number.isFinite(ridx)) continue;
+    lookup.set(`${date}|${mid}`, ridx);
+  }
+  return lookup;
 }
 
 function linearSlope(points) {
@@ -23,15 +39,17 @@ function linearSlope(points) {
   return den === 0 ? null : num / den;
 }
 
-export function calcRoundSlope({ eventLogs, threshold = 10 }) {
+export function calcRoundSlope({ eventLogs, matchLogs, threshold = 10 }) {
+  const lookup = buildRoundIdxLookup(matchLogs);
   // (player, date, round_idx) → ga (goal=1 점수자, assist=1 어시제공자, owngoal 무시)
   const tally = {};   // tally[player][`${date}|${round_idx}`] = ga
 
   for (const e of eventLogs || []) {
     if (e.event_type !== 'goal') continue;          // owngoal은 제외
-    const ridx = parseRoundIdx(e.match_id);
-    if (ridx == null) continue;
     const date = e.date || '';
+    const mid = e.match_id || '';
+    const ridx = lookup.get(`${date}|${mid}`) ?? parseRoundIdxFromString(mid);
+    if (ridx == null) continue;
     const key = `${date}|${ridx}`;
 
     const scorer = e.player;

@@ -261,7 +261,7 @@ export default function PersonalAnalysisTab({
   }, [selected, playerGameLogs]);
 
   // ── P3/P4/C5 calculations ─────────────────────────────────────────────────
-  const roundSlope = useMemo(() => calcRoundSlope({ eventLogs: eventLogs || [], threshold: 10 }), [eventLogs]);
+  const roundSlope = useMemo(() => calcRoundSlope({ eventLogs: eventLogs || [], matchLogs: matchLogs || [], threshold: 10 }), [eventLogs, matchLogs]);
   const soloRatio = useMemo(() => calcSoloGoalRatio({ eventLogs: eventLogs || [], threshold: 10 }), [eventLogs]);
   const synergyMatrix = useMemo(() => calcSynergyMatrix({ matchLogs: matchLogs || [], minRounds: 5 }), [matchLogs]);
   const myPair = useMemo(

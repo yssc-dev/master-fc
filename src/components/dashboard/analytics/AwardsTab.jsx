@@ -7,7 +7,7 @@ import { calcMonthlyRanking } from '../../../utils/analyticsV2/calcMonthlyRankin
 
 export default function AwardsTab({ playerGameLogs, matchLogs, eventLogs, C }) {
   const awards = useMemo(() => calcAwards({ playerLogs: playerGameLogs || [], eventLogs: eventLogs || [] }), [playerGameLogs, eventLogs]);
-  const slope = useMemo(() => calcRoundSlope({ eventLogs: eventLogs || [], threshold: 10 }), [eventLogs]);
+  const slope = useMemo(() => calcRoundSlope({ eventLogs: eventLogs || [], matchLogs: matchLogs || [], threshold: 10 }), [eventLogs, matchLogs]);
   const solo = useMemo(() => calcSoloGoalRatio({ eventLogs: eventLogs || [], threshold: 10 }), [eventLogs]);
 
   const months = useMemo(() => {

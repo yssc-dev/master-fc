@@ -79,6 +79,33 @@ describe('calcRoundSlope', () => {
     expect(r.perPlayer).toEqual({});
   });
 
+  it('reads round_idx from matchLogs when match_id format is non-standard', () => {
+    const eventLogs = [
+      { date: '2026-04-01', match_id: '1라운드 A구장', event_type: 'goal', player: 'A', related_player: '' },
+      { date: '2026-04-01', match_id: '2경기',         event_type: 'goal', player: 'A', related_player: '' },
+    ];
+    const matchLogs = [
+      { date: '2026-04-01', match_id: '1라운드 A구장', round_idx: 1 },
+      { date: '2026-04-01', match_id: '2경기',         round_idx: 2 },
+    ];
+    const r = calcRoundSlope({ eventLogs, matchLogs, threshold: 1 });
+    expect(r.perPlayer.A.points).toEqual([
+      { date: '2026-04-01', round_idx: 1, ga: 1 },
+      { date: '2026-04-01', round_idx: 2, ga: 1 },
+    ]);
+  });
+
+  it('matchLogs join takes precedence over match_id regex', () => {
+    const eventLogs = [
+      { date: '2026-04-01', match_id: 'R5_C0', event_type: 'goal', player: 'A', related_player: '' },
+    ];
+    const matchLogs = [
+      { date: '2026-04-01', match_id: 'R5_C0', round_idx: 99 },  // 시트 컬럼이 진실 소스
+    ];
+    const r = calcRoundSlope({ eventLogs, matchLogs, threshold: 1 });
+    expect(r.perPlayer.A.points[0].round_idx).toBe(99);
+  });
+
   it('meanByRound averages across sessions for same round_idx', () => {
     const eventLogs = [
       { date: '2026-04-01', match_id: 'R1_C0', event_type: 'goal', player: 'A', related_player: '' },
