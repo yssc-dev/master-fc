@@ -39,13 +39,13 @@ export default function SynergyMatrixTab({ matchLogs, C }) {
   }
 
   const colorFor = (cell, isDiag, isSelected) => {
-    if (isSelected) return "rgba(255,255,255,0.25)";
-    if (isDiag) return "#1a1a1a";
-    if (!cell || cell.games < data.minRounds) return "#2a2a2a";
+    if (isSelected) return C.accent;
+    if (isDiag) return C.borderColor;
+    if (!cell || cell.games < data.minRounds) return C.cardLight;
     const wr = cell.winRate;
     if (wr >= 0.6) return `rgba(34,197,94,${0.4 + Math.min(0.5, wr - 0.6)})`;
     if (wr <= 0.4) return `rgba(239,68,68,${0.4 + Math.min(0.5, 0.4 - wr)})`;
-    return "#4a4a4a";
+    return C.card;
   };
 
   const cellSize = 24;
@@ -65,7 +65,7 @@ export default function SynergyMatrixTab({ matchLogs, C }) {
           <button key={k} onClick={() => setSortMode(k)} style={{
             padding: '3px 10px', borderRadius: 50, fontSize: 10, fontWeight: 600,
             background: sortMode === k ? C.accent : 'transparent',
-            color: sortMode === k ? C.black : C.gray,
+            color: sortMode === k ? '#fff' : C.gray,
             border: `1px solid ${sortMode === k ? C.accent : C.grayDarker}`,
             cursor: 'pointer',
           }}>{l}</button>
@@ -107,7 +107,7 @@ export default function SynergyMatrixTab({ matchLogs, C }) {
                       style={{
                         width: cellSize, height: cellSize,
                         background: colorFor(cell, isDiag, sel),
-                        border: sel ? `1px solid ${C.white}` : `1px solid ${C.grayDarker}`,
+                        border: sel ? `1px solid ${C.accent}` : `1px solid ${C.grayDarker}`,
                         cursor: !isDiag && tappable ? "pointer" : "default",
                       }} />
                   );
@@ -120,10 +120,11 @@ export default function SynergyMatrixTab({ matchLogs, C }) {
       <div style={{
         position: "sticky", bottom: 0, zIndex: 10,
         marginTop: 12, padding: "10px 12px",
-        background: C.cardLight, borderRadius: 8,
+        background: C.card, borderRadius: 8,
+        border: `1px solid ${C.borderColor}`,
         fontSize: 12, color: active ? C.white : C.gray, minHeight: 36, boxSizing: "border-box",
         display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8,
-        boxShadow: "0 -2px 8px rgba(0,0,0,0.4)",
+        boxShadow: "0 -2px 8px rgba(0,0,0,0.15)",
       }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           {active ? (

@@ -4,7 +4,6 @@ import { calcTrend, calcRelativePosition, calcAttendance } from '../../../utils/
 import { calcTrends } from '../../../utils/analyticsV2/calcTrends';
 import { calcStreaks } from '../../../utils/analyticsV2/calcStreaks';
 import { calcPersonalRecords } from '../../../utils/analyticsV2/calcPersonalRecords';
-import { calcMonthlyRanking } from '../../../utils/analyticsV2/calcMonthlyRanking';
 import { calcRoundSlope } from '../../../utils/analyticsV2/calcRoundSlope';
 import { calcSoloGoalRatio } from '../../../utils/analyticsV2/calcSoloGoalRatio';
 import { calcPersonalSynergy } from '../../../utils/analyticsV2/calcPersonalSynergy';
@@ -96,24 +95,6 @@ function getChaosBadge(chaosRate) {
   if (chaosRate >= 0.3) return { emoji: "💣", label: "돌발왕", color: "#ef4444" };
   if (chaosRate >= 0.1) return { emoji: "⚡", label: "돌발주의", color: "#f97316" };
   return null;
-}
-
-// ─── HallOfFame RankingCard (local) ─────────────────────────────────────────
-
-function RankingCard({ title, rows, suffix, C }) {
-  return (
-    <div style={{ background: C.cardLight, borderRadius: 8, padding: "8px 10px" }}>
-      <div style={{ fontSize: 10, color: C.gray, marginBottom: 6 }}>{title}</div>
-      {rows.length === 0 ? (
-        <div style={{ fontSize: 10, color: C.gray }}>-</div>
-      ) : rows.map((r, i) => (
-        <div key={r.player} style={{ display: "flex", justifyContent: "space-between", fontSize: 11, marginBottom: 2 }}>
-          <span style={{ color: C.white }}>{i + 1}. {r.player}</span>
-          <span style={{ color: C.white, fontWeight: 700 }}>{r.value}{suffix}</span>
-        </div>
-      ))}
-    </div>
-  );
 }
 
 // ─── Main Component ──────────────────────────────────────────────────────────
@@ -297,34 +278,10 @@ export default function PersonalAnalysisTab({
     [synergyMatrix, selected]
   );
 
-  // ── HallOfFame state ──────────────────────────────────────────────────────
-  const hofPlayers = useMemo(() => {
-    const set = new Set();
-    (playerGameLogs || []).forEach(p => set.add(p.player));
-    return [...set].sort((a, b) => a.localeCompare(b, 'ko'));
-  }, [playerGameLogs]);
-
-  const months = useMemo(() => {
-    const set = new Set();
-    (playerGameLogs || []).forEach(p => {
-      if (p.date && p.date.length >= 7) set.add(p.date.substring(0, 7));
-    });
-    return [...set].sort().reverse();
-  }, [playerGameLogs]);
-
-  const [hofSelectedPlayer, setHofSelectedPlayer] = useState('');
-  const [selectedMonth, setSelectedMonth] = useState('');
-
-  const effectiveHofPlayer = hofSelectedPlayer || hofPlayers[0] || '';
-  const effectiveMonth = selectedMonth || months[0] || '';
-
+  // ── Personal Records (PR) for selected player ────────────────────────────
   const pr = useMemo(() =>
-    effectiveHofPlayer ? calcPersonalRecords({ playerName: effectiveHofPlayer, playerLogs: playerGameLogs || [] }) : null
-  , [effectiveHofPlayer, playerGameLogs]);
-
-  const ranking = useMemo(() =>
-    effectiveMonth ? calcMonthlyRanking({ yearMonth: effectiveMonth, playerLogs: playerGameLogs || [], matchLogs: matchLogs || [] }) : null
-  , [effectiveMonth, playerGameLogs, matchLogs]);
+    selected ? calcPersonalRecords({ playerName: selected, playerLogs: playerGameLogs || [] }) : null
+  , [selected, playerGameLogs]);
 
   // ── Derived display values ────────────────────────────────────────────────
   const pd = selected ? getPlayerData(selected) : { values: [50, 50, 50, 50, 50, 50], raw: {}, detail: {} };
@@ -332,10 +289,10 @@ export default function PersonalAnalysisTab({
   const type = getPlayerType(values);
   const chaos = getChaosBadge(pd.raw?.chaosRate || 0);
 
-  // ── Style helpers (from HallOfFameTab) ───────────────────────────────────
-  const selectStyle = { width: "100%", padding: "10px 14px", borderRadius: 50, fontSize: 14, fontWeight: 480, background: "transparent", color: C.white, border: `1.2px dashed ${C.grayDark}`, fontFamily: "inherit", appearance: "none", cursor: "pointer" };
-  const sectionLabel = { fontSize: 13, fontWeight: 700, color: C.white, margin: "18px 0 8px" };
-  const rowStyle = { display: "flex", justifyContent: "space-between", padding: "6px 10px", borderBottom: `1px dashed ${C.grayDarker}`, fontSize: 12 };
+  // ── Style helpers ─────────────────────────────────────────────────────────
+  const cardStyle = { marginTop: 24, padding: 14, background: C.cardLight, borderRadius: 12 };
+  const cardTitle = { fontSize: 12, fontWeight: 700, color: C.gray, marginBottom: 8 };
+  const prRow = { display: "flex", justifyContent: "space-between", padding: "6px 0", fontSize: 12 };
 
   return (
     <div>
@@ -474,60 +431,48 @@ export default function PersonalAnalysisTab({
       )}
 
       {/* ── P3: Round Distribution ── */}
-      <div style={{ marginTop: 24, padding: 14, background: C.cardLight, borderRadius: 12 }}>
+      <div style={cardStyle}>
         <RoundDistribution data={roundSlope.perPlayer[selected]} player={selected} ranking={roundSlope.ranking} C={C} />
       </div>
 
       {/* ── P4: Solo Goal Donut ── */}
-      <div style={{ marginTop: 24, padding: 14, background: C.cardLight, borderRadius: 12 }}>
+      <div style={cardStyle}>
         <SoloGoalDonut data={soloRatio.perPlayer[selected]} player={selected} ranking={soloRatio.ranking} C={C} />
       </div>
 
       {/* ── C5: Personal Synergy Card ── */}
-      <div style={{ marginTop: 24, padding: 14, background: C.cardLight, borderRadius: 12 }}>
+      <div style={cardStyle}>
         <PersonalSynergyCard data={myPair} C={C} />
       </div>
 
-      {/* ── HallOfFame: PR section ── */}
-      <div style={sectionLabel}>개인 기록 (PR)</div>
-      <select value={effectiveHofPlayer} onChange={e => setHofSelectedPlayer(e.target.value)} style={selectStyle}>
-        {hofPlayers.map(p => <option key={p} value={p}>{p}</option>)}
-      </select>
-      {pr && (
-        <div style={{ marginTop: 10, background: C.cardLight, borderRadius: 8, padding: "10px 12px" }}>
-          {pr.mostGoals ? (
-            <div style={rowStyle}>
+      {/* ── PR: Personal Records (selected player와 연동) ── */}
+      <div style={cardStyle}>
+        <div style={cardTitle}>🏆 개인 기록 (PR)</div>
+        {pr ? (
+          <>
+            <div style={prRow}>
               <span style={{ color: C.gray }}>⚽ 최다골</span>
-              <span style={{ color: C.white, fontWeight: 700 }}>{pr.mostGoals.value}골 <span style={{ color: C.gray, fontWeight: 400 }}>({pr.mostGoals.date})</span></span>
+              {pr.mostGoals ? (
+                <span style={{ color: C.white, fontWeight: 700 }}>{pr.mostGoals.value}골 <span style={{ color: C.gray, fontWeight: 400 }}>({pr.mostGoals.date})</span></span>
+              ) : <span style={{ color: C.gray }}>-</span>}
             </div>
-          ) : <div style={rowStyle}><span style={{ color: C.gray }}>⚽ 최다골</span><span style={{ color: C.gray }}>-</span></div>}
-          {pr.mostAssists ? (
-            <div style={rowStyle}>
+            <div style={{ ...prRow, borderTop: `1px dashed ${C.grayDarker}` }}>
               <span style={{ color: C.gray }}>🅰 최다어시</span>
-              <span style={{ color: C.white, fontWeight: 700 }}>{pr.mostAssists.value}어시 <span style={{ color: C.gray, fontWeight: 400 }}>({pr.mostAssists.date})</span></span>
+              {pr.mostAssists ? (
+                <span style={{ color: C.white, fontWeight: 700 }}>{pr.mostAssists.value}어시 <span style={{ color: C.gray, fontWeight: 400 }}>({pr.mostAssists.date})</span></span>
+              ) : <span style={{ color: C.gray }}>-</span>}
             </div>
-          ) : <div style={rowStyle}><span style={{ color: C.gray }}>🅰 최다어시</span><span style={{ color: C.gray }}>-</span></div>}
-          {pr.longestCleanSheet ? (
-            <div style={rowStyle}>
+            <div style={{ ...prRow, borderTop: `1px dashed ${C.grayDarker}` }}>
               <span style={{ color: C.gray }} title="GK로 출전한 경기일을 시간순으로 봤을 때 무실점이 연속된 최대 길이">🧤 GK 최장 무실점</span>
-              <span style={{ color: C.white, fontWeight: 700 }}>{pr.longestCleanSheet.value}회 <span style={{ color: C.gray, fontWeight: 400 }}>({pr.longestCleanSheet.startDate}~{pr.longestCleanSheet.endDate})</span></span>
+              {pr.longestCleanSheet ? (
+                <span style={{ color: C.white, fontWeight: 700 }}>{pr.longestCleanSheet.value}회 <span style={{ color: C.gray, fontWeight: 400 }}>({pr.longestCleanSheet.startDate}~{pr.longestCleanSheet.endDate})</span></span>
+              ) : <span style={{ color: C.gray }}>-</span>}
             </div>
-          ) : <div style={rowStyle}><span style={{ color: C.gray }}>🧤 GK 최장 무실점</span><span style={{ color: C.gray }}>-</span></div>}
-        </div>
-      )}
-
-      {/* ── HallOfFame: 월별 TOP5 section ── */}
-      <div style={sectionLabel}>월별 랭킹</div>
-      <select value={effectiveMonth} onChange={e => setSelectedMonth(e.target.value)} style={selectStyle}>
-        {months.map(m => <option key={m} value={m}>{m}</option>)}
-      </select>
-      {ranking && (
-        <div style={{ marginTop: 10, display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
-          <RankingCard title="⚽ 득점" rows={ranking.goals} suffix="골" C={C} />
-          <RankingCard title="🅰 어시" rows={ranking.assists} suffix="어시" C={C} />
-          <RankingCard title="🏁 승률" rows={ranking.winRate.map(x => ({ player: x.player, value: `${Math.round(x.value * 100)}%` }))} suffix="" C={C} />
-        </div>
-      )}
+          </>
+        ) : (
+          <div style={{ fontSize: 11, color: C.gray }}>표본 부족</div>
+        )}
+      </div>
     </div>
   );
 }
