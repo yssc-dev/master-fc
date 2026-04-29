@@ -6,12 +6,17 @@ import { getSettings, getEffectiveSettings } from '../../config/settings';
 import { buildGameRecordsFromLogs } from '../../utils/gameRecordBuilder';
 import { calcDefenseStats, calcWinContribution, calcWinStatsFromPointLog } from '../../utils/gameStateAnalyzer';
 
-import PlayerCardTab from './analytics/PlayerCardTab';
-import HallOfFameTab from './analytics/HallOfFameTab';
+import PersonalAnalysisTab from './analytics/PersonalAnalysisTab';
 import SynergyMatrixTab from './analytics/SynergyMatrixTab';
-import GoldenTrioTab from './analytics/GoldenTrioTab';
+import ChemistryTab from './analytics/ChemistryTab';
 import AwardsTab from './analytics/AwardsTab';
 import CrovaGogumaRankTab from './analytics/CrovaGogumaRankTab';
+
+const LEGACY_TAB_MAP = {
+  playercard: 'personal',
+  halloffame: 'personal',
+  trio: 'chem',
+};
 
 export default function PlayerAnalytics({ teamName, teamMode, initialTab, isAdmin, authUserName }) {
   const isSoccer = teamMode === "축구";
@@ -22,8 +27,11 @@ export default function PlayerAnalytics({ teamName, teamMode, initialTab, isAdmi
   const [playerLog, setPlayerLog] = useState(null);
   const [playerGameLogs, setPlayerGameLogs] = useState([]);
   const [matchLogs, setMatchLogs] = useState([]);
+  const [eventLogs, setEventLogs] = useState([]);
   const [gameRecords, setGameRecords] = useState([]);
-  const [tab, setTab] = useState(initialTab || "playercard");
+
+  const initial = initialTab && LEGACY_TAB_MAP[initialTab] ? LEGACY_TAB_MAP[initialTab] : (initialTab || 'personal');
+  const [tab, setTab] = useState(initial);
 
   useEffect(() => {
     const s = getSettings(teamName);
@@ -43,6 +51,7 @@ export default function PlayerAnalytics({ teamName, teamMode, initialTab, isAdmi
       const mRows = matchRes?.rows || [];
       const eRows = eventRes?.rows || [];
       setMatchLogs(mRows);
+      setEventLogs(eRows);
       setPlayerGameLogs(pgRes?.rows || []);
       setGameRecords(buildGameRecordsFromLogs(mRows, eRows));
     }).finally(() => setLoading(false));
@@ -59,10 +68,9 @@ export default function PlayerAnalytics({ teamName, teamMode, initialTab, isAdmi
   }, [gameRecords, isSoccer, events]);
 
   const tabs = [
-    { key: "playercard", label: "선수카드" },
-    { key: "halloffame", label: "명예의전당" },
+    { key: "personal", label: "개인분석" },
     { key: "synergy", label: "시너지매트릭스" },
-    { key: "trio", label: "케미" },
+    { key: "chem", label: "케미" },
     { key: "awards", label: "어워드" },
     showCrovaGoguma && { key: "crovaguma", label: "🍀/🍠" },
   ].filter(Boolean);
@@ -84,20 +92,17 @@ export default function PlayerAnalytics({ teamName, teamMode, initialTab, isAdmi
         ))}
       </div>
 
-      {tab === "playercard" && (
-        <PlayerCardTab
+      {tab === "personal" && (
+        <PersonalAnalysisTab
           playerLog={playerLog || []} members={members}
           defenseStats={defenseStats} winStats={winStats} gameRecords={gameRecords}
-          playerGameLogs={playerGameLogs} matchLogs={matchLogs} C={C}
-          authUserName={authUserName}
+          playerGameLogs={playerGameLogs} matchLogs={matchLogs} eventLogs={eventLogs}
+          C={C} authUserName={authUserName}
         />
       )}
-      {tab === "halloffame" && (
-        <HallOfFameTab playerGameLogs={playerGameLogs} matchLogs={matchLogs} C={C} />
-      )}
       {tab === "synergy" && <SynergyMatrixTab matchLogs={matchLogs} C={C} />}
-      {tab === "trio" && <GoldenTrioTab matchLogs={matchLogs} C={C} />}
-      {tab === "awards" && <AwardsTab playerGameLogs={playerGameLogs} C={C} />}
+      {tab === "chem" && <ChemistryTab matchLogs={matchLogs} eventLogs={eventLogs} C={C} />}
+      {tab === "awards" && <AwardsTab playerGameLogs={playerGameLogs} eventLogs={eventLogs} C={C} />}
       {tab === "crovaguma" && showCrovaGoguma && (
         <CrovaGogumaRankTab members={members || []} C={C} />
       )}
