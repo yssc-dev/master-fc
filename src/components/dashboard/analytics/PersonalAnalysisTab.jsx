@@ -100,12 +100,7 @@ function getChaosBadge(chaosRate) {
 // ─── Main Component ──────────────────────────────────────────────────────────
 
 export default function PersonalAnalysisTab({
-  // PlayerCardTab props
-  playerLog, members, defenseStats, winStats, gameRecords, playerGameLogs, matchLogs,
-  // HallOfFameTab adds nothing new beyond playerGameLogs + matchLogs
-  // new V3 prop
-  eventLogs,
-  // shared
+  defenseStats, winStats, gameRecords, playerGameLogs, matchLogs, eventLogs,
   C, authUserName,
 }) {
   // ── Player list (from playerSummary, same logic as PlayerCardTab) ──────────
@@ -219,15 +214,11 @@ export default function PersonalAnalysisTab({
     };
   };
 
-  const getTrends = (name) => {
-    const sessions = (playerLog || [])
-      .filter(p => p.name === name)
-      .sort((a, b) => a.date.localeCompare(b.date));
-    const goalsSeries = sessions.map(p => p.goals || 0);
-    const assistsSeries = sessions.map(p => p.assists || 0);
+  const getTrends = () => {
+    const points = trendData?.points || [];
     return {
-      goals: calcTrend(goalsSeries),
-      assists: calcTrend(assistsSeries),
+      goals: calcTrend(points.map(p => p.gpg)),
+      assists: calcTrend(points.map(p => p.apg)),
     };
   };
 
@@ -338,7 +329,7 @@ export default function PersonalAnalysisTab({
             </div>
           )}
           {selected && (() => {
-            const trends = getTrends(selected);
+            const trends = getTrends();
             const relPos = getRelativePosition(selected);
             const att = getAttendance(selected);
             const split = getGkFieldSplit(selected);

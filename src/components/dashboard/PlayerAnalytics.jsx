@@ -24,7 +24,6 @@ export default function PlayerAnalytics({ teamName, teamMode, initialTab, isAdmi
   const [loading, setLoading] = useState(true);
   const [members, setMembers] = useState(null);
   const [events, setEvents] = useState(null);
-  const [playerLog, setPlayerLog] = useState(null);
   const [playerGameLogs, setPlayerGameLogs] = useState([]);
   const [matchLogs, setMatchLogs] = useState([]);
   const [eventLogs, setEventLogs] = useState([]);
@@ -39,14 +38,12 @@ export default function PlayerAnalytics({ teamName, teamMode, initialTab, isAdmi
     setLoading(true);
     Promise.all([
       AppSync.getPointLog(s.pointLogSheet).catch(() => []),
-      AppSync.getPlayerLog(s.playerLogSheet).catch(() => []),
       fetchSheetData().catch(() => null),
       AppSync.getMatchLog({ sport }).catch(() => ({ rows: [] })),
       AppSync.getEventLog({ sport }).catch(() => ({ rows: [] })),
       AppSync.getPlayerGameLog({ sport }).catch(() => ({ rows: [] })),
-    ]).then(([evts, plog, sheetData, matchRes, eventRes, pgRes]) => {
+    ]).then(([evts, sheetData, matchRes, eventRes, pgRes]) => {
       setEvents(evts || []);
-      setPlayerLog(plog || []);
       if (sheetData) setMembers(sheetData.players);
       const mRows = matchRes?.rows || [];
       const eRows = eventRes?.rows || [];
@@ -94,7 +91,6 @@ export default function PlayerAnalytics({ teamName, teamMode, initialTab, isAdmi
 
       {tab === "personal" && (
         <PersonalAnalysisTab
-          playerLog={playerLog || []} members={members}
           defenseStats={defenseStats} winStats={winStats} gameRecords={gameRecords}
           playerGameLogs={playerGameLogs} matchLogs={matchLogs} eventLogs={eventLogs}
           C={C} authUserName={authUserName}
