@@ -12,9 +12,9 @@ describe('calcSynergyMatrix', () => {
 
   it('counts wins/draws/losses per pair', () => {
     const matchLogs = [
-      { our_members_json: '["A","B"]', our_score: 2, opponent_score: 1 },
-      { our_members_json: '["A","B"]', our_score: 1, opponent_score: 1 },
-      { our_members_json: '["A","B"]', our_score: 0, opponent_score: 1 },
+      { match_id: 'R1_C1', our_members_json: '["A","B"]', our_score: 2, opponent_score: 1 },
+      { match_id: 'R2_C1', our_members_json: '["A","B"]', our_score: 1, opponent_score: 1 },
+      { match_id: 'R3_C1', our_members_json: '["A","B"]', our_score: 0, opponent_score: 1 },
     ];
     const r = calcSynergyMatrix({ matchLogs, minRounds: 1 });
     expect(r.cells['A|B']).toEqual({ games: 3, wins: 1, draws: 1, losses: 1, winRate: (1 + 0.5) / 3 });
@@ -22,8 +22,8 @@ describe('calcSynergyMatrix', () => {
 
   it('diagonal = individual overall winRate', () => {
     const matchLogs = [
-      { our_members_json: '["A","B"]', our_score: 2, opponent_score: 1 },
-      { our_members_json: '["A","C"]', our_score: 0, opponent_score: 1 },
+      { match_id: 'R1_C1', our_members_json: '["A","B"]', our_score: 2, opponent_score: 1 },
+      { match_id: 'R2_C1', our_members_json: '["A","C"]', our_score: 0, opponent_score: 1 },
     ];
     const r = calcSynergyMatrix({ matchLogs, minRounds: 1 });
     expect(r.cells['A|A']).toEqual({ games: 2, wins: 1, draws: 0, losses: 1, winRate: 0.5 });
