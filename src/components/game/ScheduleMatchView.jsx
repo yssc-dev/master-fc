@@ -3,7 +3,7 @@ import { TEAM_COLORS } from '../../config/constants';
 import { BackIcon } from '../common/icons';
 import CourtRecorder from './CourtRecorder';
 
-export default function ScheduleMatchView({ schedule, currentRoundIdx, viewingRoundIdx, setViewingRoundIdx, confirmedRounds, onConfirmRound, teams, teamNames, teamColorIndices, gks, gksHistory, courtCount, allEvents, onRecordEvent, onUndoEvent, onDeleteEvent, onEditEvent, completedMatches, attendees, onGkChange, splitPhase, styles: s }) {
+export default function ScheduleMatchView({ schedule, currentRoundIdx, viewingRoundIdx, setViewingRoundIdx, confirmedRounds, onConfirmRound, teams, teamNames, teamColorIndices, gks, gksHistory, courtCount, allEvents, onRecordEvent, onUndoEvent, onDeleteEvent, onEditEvent, completedMatches, attendees, onGkChange, liveMercs, onAddLiveMerc, onRemoveLiveMerc, splitPhase, styles: s }) {
   const [compose, setCompose] = useState(null);
   const round = schedule[viewingRoundIdx];
   const matches = round?.matches || [];
@@ -12,18 +12,29 @@ export default function ScheduleMatchView({ schedule, currentRoundIdx, viewingRo
   // 확정된 라운드면 gksHistory에서, 현재 라운드면 gks에서 GK 참조
   const roundGks = isConfirmed ? (gksHistory?.[viewingRoundIdx] || {}) : gks;
 
+  // 확정된 라운드의 매치 명단 스냅샷을 matchId 기준으로 lookup
+  const completedByMatchId = useMemo(() => {
+    const m = {};
+    (completedMatches || []).forEach(c => { if (c?.matchId) m[c.matchId] = c; });
+    return m;
+  }, [completedMatches]);
+
   const matchInfos = useMemo(() => {
-    return matches.map((pair, i) => ({
-      homeIdx: pair[0], awayIdx: pair[1],
-      matchId: `R${viewingRoundIdx + 1}_C${i}`,
-      homeTeam: teamNames[pair[0]], awayTeam: teamNames[pair[1]],
-      homeGk: roundGks[pair[0]] || null, awayGk: roundGks[pair[1]] || null,
-      homeColor: TEAM_COLORS[teamColorIndices[pair[0]]],
-      awayColor: TEAM_COLORS[teamColorIndices[pair[1]]],
-      homePlayers: teams[pair[0]],
-      awayPlayers: teams[pair[1]],
-    }));
-  }, [viewingRoundIdx, matches, teamNames, roundGks, teamColorIndices, teams]);
+    return matches.map((pair, i) => {
+      const matchId = `R${viewingRoundIdx + 1}_C${i}`;
+      const past = isConfirmed ? completedByMatchId[matchId] : null;
+      return {
+        homeIdx: pair[0], awayIdx: pair[1],
+        matchId,
+        homeTeam: teamNames[pair[0]], awayTeam: teamNames[pair[1]],
+        homeGk: roundGks[pair[0]] || null, awayGk: roundGks[pair[1]] || null,
+        homeColor: TEAM_COLORS[teamColorIndices[pair[0]]],
+        awayColor: TEAM_COLORS[teamColorIndices[pair[1]]],
+        homePlayers: past?.homePlayers || teams[pair[0]],
+        awayPlayers: past?.awayPlayers || teams[pair[1]],
+      };
+    });
+  }, [viewingRoundIdx, matches, teamNames, roundGks, teamColorIndices, teams, isConfirmed, completedByMatchId]);
 
   const roundNavBtn = (disabled) => ({
     width: 36, height: 36, borderRadius: 999,
@@ -119,6 +130,12 @@ export default function ScheduleMatchView({ schedule, currentRoundIdx, viewingRo
             readOnly={isConfirmed}
             compose={compose}
             setCompose={setCompose}
+            mercs={(isConfirmed ? [] : (liveMercs?.[mi.matchId] || [])).map(m => ({
+              player: m.player,
+              side: m.teamIdx === mi.homeIdx ? "home" : (m.teamIdx === mi.awayIdx ? "away" : null),
+            })).filter(m => m.side)}
+            onAddMerc={(player, side) => onAddLiveMerc?.(mi.matchId, side === "home" ? mi.homeIdx : mi.awayIdx, player)}
+            onRemoveMerc={(player) => onRemoveLiveMerc?.(mi.matchId, player)}
           />
         </div>
         );

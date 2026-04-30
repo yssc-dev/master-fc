@@ -90,6 +90,30 @@ describe('buildRoundRowsFromFutsal', () => {
     expect(rows).toEqual([]);
   });
 
+  it('매치에 homePlayers/awayPlayers 스냅샷이 있으면 우선 사용 (용병 포함)', () => {
+    const state = {
+      ...baseState,
+      completedMatches: [{
+        ...baseState.completedMatches[0],
+        // 용병 정동근이 Team A에 합류한 라운드
+        homePlayers: ['김성태', '이준호', '박민', '최영', '홍길동', '정동근'],
+        awayPlayers: ['강백호', '서태웅', '정대만', '송태섭', '채치수'],
+        mercenaries: [{ player: '정동근', teamIdx: 0 }],
+      }],
+    };
+    const rows = buildRoundRowsFromFutsal({ team: 't', mode: '기본', date: '2026-04-10', stateJSON: state, inputTime: '' });
+    expect(JSON.parse(rows[0].our_members_json)).toContain('정동근');
+    expect(JSON.parse(rows[0].our_members_json)).toHaveLength(6);
+  });
+
+  it('스냅샷이 없는 구버전 매치는 현재 teams로 폴백', () => {
+    const rows = buildRoundRowsFromFutsal({
+      team: 'masterfc', mode: '기본', date: '2026-04-10',
+      stateJSON: baseState, inputTime: '',
+    });
+    expect(JSON.parse(rows[0].our_members_json)).toEqual(['김성태', '이준호', '박민', '최영', '홍길동']);
+  });
+
   it('match_idx는 배열 순서대로 1부터', () => {
     const state = {
       ...baseState,

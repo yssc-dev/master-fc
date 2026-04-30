@@ -23,6 +23,8 @@ const initialState = {
   teamColorIndices: [],
   gks: {},
   gksHistory: {},  // { roundIdx: { teamIdx: playerName } } — 확정된 라운드별 GK 기록
+  // 라이브 매치별 용병 — { matchId: [{ player, teamIdx }] }. 라운드 확정 시 해당 entry는 클리어되고 명단 스냅샷이 completedMatches[i].homePlayers/awayPlayers/mercenaries로 저장됨.
+  liveMercs: {},
   editingTeamName: null,
   moveSource: null,
   schedule: [],
@@ -52,6 +54,25 @@ const initialState = {
   settingsSnapshot: null,
 };
 
+// 라이브 매치 결과에 명단 스냅샷을 합쳐 저장 가능한 형태로 변환.
+// teams[homeIdx]/teams[awayIdx]에 해당 매치 용병을 합치고, mercenaries 배열도 함께 보존.
+function snapshotMatchResult(result, teams, liveMercs) {
+  const mercList = (liveMercs && result?.matchId) ? (liveMercs[result.matchId] || []) : [];
+  const homeBase = teams?.[result.homeIdx] || [];
+  const awayBase = teams?.[result.awayIdx] || [];
+  const homeMercs = mercList.filter(m => m.teamIdx === result.homeIdx).map(m => m.player);
+  const awayMercs = mercList.filter(m => m.teamIdx === result.awayIdx).map(m => m.player);
+  // 중복 방지 (이미 baseline 명단에 있으면 추가 안 함)
+  const homePlayers = [...homeBase, ...homeMercs.filter(p => !homeBase.includes(p))];
+  const awayPlayers = [...awayBase, ...awayMercs.filter(p => !awayBase.includes(p))];
+  return {
+    ...result,
+    homePlayers,
+    awayPlayers,
+    mercenaries: mercList.map(m => ({ player: m.player, teamIdx: m.teamIdx })),
+  };
+}
+
 function gameReducer(state, action) {
   switch (action.type) {
     case 'SET_FIELD':
@@ -74,6 +95,7 @@ function gameReducer(state, action) {
       if (s.teamColorIndices != null) updates.teamColorIndices = s.teamColorIndices;
       if (s.gks != null) updates.gks = s.gks;
       if (s.gksHistory != null) updates.gksHistory = s.gksHistory;
+      if (s.liveMercs != null) updates.liveMercs = s.liveMercs;
       if (s.schedule != null) updates.schedule = s.schedule;
       if (s.currentRoundIdx != null) {
         // ★ 범위 보정: schedule 길이를 초과하면 마지막 라운드로 고정
@@ -143,42 +165,82 @@ function gameReducer(state, action) {
           i === action.index ? { ...action.event, courtId: e.courtId, timestamp: e.timestamp } : e
         ),
       };
-    case 'FINISH_MATCH':
-      return { ...state, completedMatches: [...state.completedMatches, action.match] };
-    case 'CONFIRM_PUSH_ROUND': {
-      const { matchResult, newPushState } = action;
+    case 'ADD_LIVE_MERC': {
+      const { matchId, player, teamIdx } = action;
+      const list = state.liveMercs[matchId] || [];
+      // 같은 player가 이미 있으면 무시 (중복 추가 방지)
+      if (list.some(m => m.player === player)) return state;
+      return { ...state, liveMercs: { ...state.liveMercs, [matchId]: [...list, { player, teamIdx }] } };
+    }
+    case 'REMOVE_LIVE_MERC': {
+      const { matchId, player } = action;
+      const list = state.liveMercs[matchId] || [];
+      const next = list.filter(m => m.player !== player);
+      const nextLiveMercs = { ...state.liveMercs };
+      if (next.length === 0) delete nextLiveMercs[matchId]; else nextLiveMercs[matchId] = next;
+      return { ...state, liveMercs: nextLiveMercs };
+    }
+    case 'FINISH_MATCH': {
+      const snapped = snapshotMatchResult(action.match, state.teams, state.liveMercs);
+      const nextLiveMercs = { ...state.liveMercs };
+      if (snapped.matchId) delete nextLiveMercs[snapped.matchId];
       return {
         ...state,
-        completedMatches: [...state.completedMatches, matchResult],
+        completedMatches: [...state.completedMatches, snapped],
+        liveMercs: nextLiveMercs,
+      };
+    }
+    case 'CONFIRM_PUSH_ROUND': {
+      const { matchResult, newPushState } = action;
+      const snapped = snapshotMatchResult(matchResult, state.teams, state.liveMercs);
+      const nextLiveMercs = { ...state.liveMercs };
+      if (snapped.matchId) delete nextLiveMercs[snapped.matchId];
+      return {
+        ...state,
+        completedMatches: [...state.completedMatches, snapped],
         gksHistory: { ...state.gksHistory, [state.completedMatches.length]: { ...state.gks } },
         gks: {},
+        liveMercs: nextLiveMercs,
         pushState: newPushState,
       };
     }
     case 'UNCONFIRM_PUSH_ROUND': {
       const { prevPushState } = action;
-      const newCompleted = state.completedMatches.slice(0, -1);
       const lastIdx = state.completedMatches.length - 1;
+      const lastMatch = state.completedMatches[lastIdx];
+      const newCompleted = state.completedMatches.slice(0, -1);
       const restoredGks = state.gksHistory[lastIdx] || {};
       const newGksHistory = { ...state.gksHistory };
       delete newGksHistory[lastIdx];
+      // 확정취소 시 그 매치의 용병을 다시 라이브 상태로 복원
+      const nextLiveMercs = { ...state.liveMercs };
+      if (lastMatch?.matchId && Array.isArray(lastMatch.mercenaries) && lastMatch.mercenaries.length > 0) {
+        nextLiveMercs[lastMatch.matchId] = lastMatch.mercenaries.map(m => ({ player: m.player, teamIdx: m.teamIdx }));
+      }
       return {
         ...state,
         completedMatches: newCompleted,
         gks: restoredGks,
         gksHistory: newGksHistory,
+        liveMercs: nextLiveMercs,
         pushState: prevPushState,
       };
     }
     case 'CONFIRM_ROUND': {
       const { roundIdx, matchResults, nextRoundIdx, newSchedule, newSplitPhase } = action;
-      const newCompleted = [...state.completedMatches, ...matchResults.map(r => ({ ...r, isExtra: state.isExtraRound }))];
+      const snappedResults = matchResults.map(r =>
+        snapshotMatchResult({ ...r, isExtra: state.isExtraRound }, state.teams, state.liveMercs)
+      );
+      const newCompleted = [...state.completedMatches, ...snappedResults];
+      const nextLiveMercs = { ...state.liveMercs };
+      snappedResults.forEach(r => { if (r.matchId) delete nextLiveMercs[r.matchId]; });
       // 현재 GK를 라운드별 히스토리에 저장 후 초기화
       const updates = {
         completedMatches: newCompleted,
         confirmedRounds: { ...state.confirmedRounds, [roundIdx]: true },
         gksHistory: { ...state.gksHistory, [roundIdx]: { ...state.gks } },
         gks: {},
+        liveMercs: nextLiveMercs,
       };
       if (newSchedule) updates.schedule = newSchedule;
       if (newSplitPhase) updates.splitPhase = newSplitPhase;
@@ -196,14 +258,25 @@ function gameReducer(state, action) {
       const restoredGks = state.gksHistory[roundIdx] || {};
       const newGksHistory = { ...state.gksHistory };
       delete newGksHistory[roundIdx];
+      const removedMatches = state.completedMatches.filter(
+        m => m.matchId.startsWith(prefix) && !m.isExtra
+      );
       const newCompleted = state.completedMatches.filter(
         m => !m.matchId.startsWith(prefix) || m.isExtra
       );
+      // 확정취소 시 그 라운드 매치들의 용병을 다시 라이브로 복원
+      const nextLiveMercs = { ...state.liveMercs };
+      removedMatches.forEach(m => {
+        if (m.matchId && Array.isArray(m.mercenaries) && m.mercenaries.length > 0) {
+          nextLiveMercs[m.matchId] = m.mercenaries.map(x => ({ player: x.player, teamIdx: x.teamIdx }));
+        }
+      });
       const updates = {
         confirmedRounds: newConfirmed,
         gks: restoredGks,
         gksHistory: newGksHistory,
         completedMatches: newCompleted,
+        liveMercs: nextLiveMercs,
         currentRoundIdx: roundIdx,
         viewingRoundIdx: roundIdx,
         earlyFinish: false,
@@ -317,6 +390,7 @@ function gameReducer(state, action) {
         phase: "match",
         gameFinalized: false,
         pushState: initPushState || null,
+        liveMercs: {},
         soccerMatches: [],
         currentMatchIdx: -1,
       };

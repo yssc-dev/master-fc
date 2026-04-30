@@ -85,11 +85,13 @@ const popoverBtn = ({ primary = false, active = false, disabled = false, subtle 
   };
 };
 
-export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers, awayPlayers: initAwayPlayers, allEvents, onRecordEvent, onUndoEvent, onDeleteEvent, onEditEvent, onFinish, onMatchInfoUpdate, onGkChange, styles: s, courtLabel, attendees, readOnly, compose, setCompose }) {
+export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers, awayPlayers: initAwayPlayers, allEvents, onRecordEvent, onUndoEvent, onDeleteEvent, onEditEvent, onFinish, onMatchInfoUpdate, onGkChange, styles: s, courtLabel, attendees, readOnly, compose, setCompose, mercs: mercsProp, onAddMerc, onRemoveMerc }) {
   const { C } = useTheme();
   const [homeGk, setHomeGk] = useState(matchInfo.homeGk || null);
   const [awayGk, setAwayGk] = useState(matchInfo.awayGk || null);
-  const [mercs, setMercs] = useState([]);
+  // controlled (props 제공) / uncontrolled (fallback) 양쪽 지원 — 기존 호출부 호환
+  const [localMercs, setLocalMercs] = useState([]);
+  const mercs = mercsProp !== undefined ? mercsProp : localMercs;
   const [showMercPicker, setShowMercPicker] = useState(null);
   const [openPopover, setOpenPopover] = useState(null); // { player, isHome }
   // 부모(ScheduleMatchView)가 compose 상태를 hoist하지 않은 경우(PushMatchView/FreeMatchView) 내부 state로 fallback
@@ -210,8 +212,15 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
 
   const cancelCompose = () => setComposeState(null);
 
-  const addMerc = (player, side) => { setMercs(prev => [...prev, { player, side }]); setShowMercPicker(null); };
-  const removeMerc = (player) => { setMercs(prev => prev.filter(m => m.player !== player)); };
+  const addMerc = (player, side) => {
+    if (onAddMerc) onAddMerc(player, side);
+    else setLocalMercs(prev => [...prev, { player, side }]);
+    setShowMercPicker(null);
+  };
+  const removeMerc = (player) => {
+    if (onRemoveMerc) onRemoveMerc(player);
+    else setLocalMercs(prev => prev.filter(m => m.player !== player));
+  };
 
   const renderPlayerCard = (player, isHome, placeBelow) => {
     const mercsArr = isHome ? homeMercs : awayMercs;

@@ -9,6 +9,7 @@ export default function PushMatchView({
   teams, teamNames, teamColorIndices, gks, gksHistory, allEvents,
   onRecordEvent, onUndoEvent, onDeleteEvent, onEditEvent,
   onConfirmPushRound, onUnconfirmLastRound, completedMatches, attendees, onGkChange,
+  liveMercs, onAddLiveMerc, onRemoveLiveMerc,
   pushState, styles: s,
 }) {
   const { C } = useTheme();
@@ -44,15 +45,35 @@ export default function PushMatchView({
   // 과거 경기면 gksHistory에서, 라이브면 gks에서
   const viewGks = isLive ? gks : (gksHistory?.[viewingIdx] || {});
 
+  // 라이브: 현재 teams 사용. 과거: 매치에 저장된 명단 스냅샷 우선, 없으면 폴백.
+  const viewHomePlayers = isLive
+    ? teams[homeIdx]
+    : (viewingPast?.homePlayers || teams[homeIdx]);
+  const viewAwayPlayers = isLive
+    ? teams[awayIdx]
+    : (viewingPast?.awayPlayers || teams[awayIdx]);
+
   const matchInfo = {
     homeIdx, awayIdx, matchId: currentMatchId,
     homeTeam: teamNames[homeIdx], awayTeam: teamNames[awayIdx],
     homeGk: viewGks[homeIdx] || null, awayGk: viewGks[awayIdx] || null,
     homeColor: TEAM_COLORS[teamColorIndices[homeIdx]],
     awayColor: TEAM_COLORS[teamColorIndices[awayIdx]],
-    homePlayers: teams[homeIdx],
-    awayPlayers: teams[awayIdx],
+    homePlayers: viewHomePlayers,
+    awayPlayers: viewAwayPlayers,
   };
+
+  // CourtRecorder에 넘길 mercs (side 형식). 라이브만 의미 있음 — 과거는 readOnly이므로 빈 배열.
+  const liveMercList = isLive ? (liveMercs?.[liveMatchId] || []) : [];
+  const courtMercs = liveMercList.map(m => ({
+    player: m.player,
+    side: m.teamIdx === homeIdx ? "home" : (m.teamIdx === awayIdx ? "away" : null),
+  })).filter(m => m.side);
+  const handleAddMerc = (player, side) => {
+    const teamIdx = side === "home" ? homeIdx : awayIdx;
+    onAddLiveMerc?.(liveMatchId, teamIdx, player);
+  };
+  const handleRemoveMerc = (player) => onRemoveLiveMerc?.(liveMatchId, player);
 
   const handleConfirmRound = () => {
     const evts = allEvents.filter(e => e.matchId === liveMatchId);
@@ -289,6 +310,9 @@ export default function PushMatchView({
         courtLabel=""
         attendees={attendees}
         readOnly={!isLive}
+        mercs={courtMercs}
+        onAddMerc={handleAddMerc}
+        onRemoveMerc={handleRemoveMerc}
       />
 
       {/* 하단 버튼 */}

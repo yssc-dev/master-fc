@@ -4,7 +4,7 @@ import { useTheme } from '../../hooks/useTheme';
 import { calcMatchScore } from '../../utils/scoring';
 import CourtRecorder from './CourtRecorder';
 
-export default function FreeMatchView({ teams, teamNames, teamColorIndices, gks, courtCount, allEvents, onRecordEvent, onUndoEvent, onDeleteEvent, onEditEvent, onFinishMatch, completedMatches, attendees, onGkChange, styles: s, isExtraRound }) {
+export default function FreeMatchView({ teams, teamNames, teamColorIndices, gks, courtCount, allEvents, onRecordEvent, onUndoEvent, onDeleteEvent, onEditEvent, onFinishMatch, completedMatches, attendees, onGkChange, liveMercs, onAddLiveMerc, onRemoveLiveMerc, styles: s, isExtraRound }) {
   const { C } = useTheme();
   const [courtMatches, setCourtMatches] = useState({});
   const [activeCourtTab, setActiveCourtTab] = useState(0);
@@ -131,6 +131,12 @@ export default function FreeMatchView({ teams, teamNames, teamColorIndices, gks,
             onFinish={() => { }} onGkChange={onGkChange} styles={s}
             courtLabel={courtCount2 ? (activeCourtTab === 0 ? "A구장" : "B구장") : ""}
             attendees={attendees}
+            mercs={(liveMercs?.[activeMatchInfo.matchId] || []).map(m => ({
+              player: m.player,
+              side: m.teamIdx === activeMatchInfo.homeIdx ? "home" : (m.teamIdx === activeMatchInfo.awayIdx ? "away" : null),
+            })).filter(m => m.side)}
+            onAddMerc={(player, side) => onAddLiveMerc?.(activeMatchInfo.matchId, side === "home" ? activeMatchInfo.homeIdx : activeMatchInfo.awayIdx, player)}
+            onRemoveMerc={(player) => onRemoveLiveMerc?.(activeMatchInfo.matchId, player)}
           />
         </div>
       )}

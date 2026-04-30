@@ -29,8 +29,11 @@ export function buildRoundRowsFromFutsal({ team, mode = '기본', tournamentId =
   const gameId = stateJSON.gameId || '';
   return stateJSON.completedMatches.map((m, idx) => {
     const { round_idx, court_id } = parseMatchIdFutsal(m.matchId);
-    const home = teams[m.homeIdx] || [];
-    const away = teams[m.awayIdx] || [];
+    // 라운드별 명단 스냅샷이 저장돼 있으면 그걸 사용 (용병 포함). 구버전 데이터는 현재 teams로 폴백.
+    const home = (Array.isArray(m.homePlayers) && m.homePlayers.length > 0)
+      ? m.homePlayers : (teams[m.homeIdx] || []);
+    const away = (Array.isArray(m.awayPlayers) && m.awayPlayers.length > 0)
+      ? m.awayPlayers : (teams[m.awayIdx] || []);
     return {
       team, sport: '풋살', mode, tournament_id: tournamentId,
       date: date || '',

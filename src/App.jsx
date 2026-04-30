@@ -32,7 +32,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
     phase, dataLoading, dataSource, seasonPlayers, seasonCrova, seasonGoguma,
     syncStatus, attendanceLoading, attendees, newPlayer, teamCount, courtCount,
     matchMode, rotations, draftMode, freeSelectTeam, teams, teamNames,
-    teamColorIndices, gks, gksHistory, editingTeamName, moveSource, schedule, currentRoundIdx,
+    teamColorIndices, gks, gksHistory, liveMercs, editingTeamName, moveSource, schedule, currentRoundIdx,
     viewingRoundIdx, confirmedRounds, completedMatches, allEvents, isExtraRound,
     splitPhase, earlyFinish, gameFinalized, matchModal, matchModal_sortKey, playerSortMode, pushState, teamEditMode,
     settingsSnapshot,
@@ -222,13 +222,13 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
   const gameState = useMemo(() => ({
     gameId: gameId || "legacy",
     gameCreator: state.gameCreator || authUser?.name || "알 수 없음",
-    phase, teams, teamNames, teamColorIndices, gks, gksHistory, allEvents,
+    phase, teams, teamNames, teamColorIndices, gks, gksHistory, liveMercs, allEvents,
     completedMatches, schedule, currentRoundIdx, confirmedRounds, attendees,
     teamCount, courtCount, matchMode, isExtraRound, splitPhase, rotations, earlyFinish, gameFinalized, pushState,
     settingsSnapshot,
     lastEditor: authUser?.name || "알 수 없음",
     lastEditTime: Date.now(),
-  }), [phase, teams, teamNames, teamColorIndices, gks, gksHistory, allEvents, completedMatches, schedule, currentRoundIdx, confirmedRounds, attendees, teamCount, courtCount, matchMode, isExtraRound, splitPhase, rotations, earlyFinish, gameFinalized, pushState, settingsSnapshot, authUser, gameId]);
+  }), [phase, teams, teamNames, teamColorIndices, gks, gksHistory, liveMercs, allEvents, completedMatches, schedule, currentRoundIdx, confirmedRounds, attendees, teamCount, courtCount, matchMode, isExtraRound, splitPhase, rotations, earlyFinish, gameFinalized, pushState, settingsSnapshot, authUser, gameId]);
 
   const autoSave = useCallback(() => {
     if (isSyncingRef.current) return;
@@ -359,6 +359,14 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
   const handleGkChange = useCallback((teamIdx, player) => {
     set('gks', { ...gks, [teamIdx]: player });
   }, [gks]);
+
+  // 라이브 매치별 용병 추가/제거 — 라운드 확정 시 reducer가 명단 스냅샷에 합쳐 저장.
+  const handleAddLiveMerc = useCallback((matchId, teamIdx, player) => {
+    dispatch({ type: 'ADD_LIVE_MERC', matchId, teamIdx, player });
+  }, []);
+  const handleRemoveLiveMerc = useCallback((matchId, player) => {
+    dispatch({ type: 'REMOVE_LIVE_MERC', matchId, player });
+  }, []);
 
   const recordMatchEvent = (courtId, event) => dispatch({ type: 'ADD_EVENT', event: { ...event, id: generateEventId(), courtId, timestamp: Date.now() } });
   const undoMatchEvent = (courtId, matchId) => dispatch({ type: 'UNDO_EVENT', courtId, matchId });
@@ -1248,7 +1256,9 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
               allEvents={allEvents} onRecordEvent={recordMatchEvent}
               onUndoEvent={undoMatchEvent} onDeleteEvent={deleteEvent} onEditEvent={editEvent}
               onConfirmPushRound={confirmPushRound} onUnconfirmLastRound={unconfirmLastPushRound} completedMatches={completedMatches}
-              attendees={attendees} onGkChange={handleGkChange} pushState={pushState} styles={s} />
+              attendees={attendees} onGkChange={handleGkChange} pushState={pushState}
+              liveMercs={liveMercs || {}} onAddLiveMerc={handleAddLiveMerc} onRemoveLiveMerc={handleRemoveLiveMerc}
+              styles={s} />
           ) : matchMode === "schedule" && schedule.length > 0 && !isExtraRound ? (
             <ScheduleMatchView schedule={schedule} currentRoundIdx={currentRoundIdx}
               viewingRoundIdx={viewingRoundIdx} setViewingRoundIdx={(v) => set('viewingRoundIdx', v)}
@@ -1256,13 +1266,17 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
               teams={teams} teamNames={teamNames} teamColorIndices={teamColorIndices} gks={gks} gksHistory={gksHistory || {}}
               courtCount={courtCount} allEvents={allEvents} onRecordEvent={recordMatchEvent}
               onUndoEvent={undoMatchEvent} onDeleteEvent={deleteEvent} onEditEvent={editEvent}
-              completedMatches={completedMatches} attendees={attendees} onGkChange={handleGkChange} splitPhase={splitPhase} styles={s} />
+              completedMatches={completedMatches} attendees={attendees} onGkChange={handleGkChange}
+              liveMercs={liveMercs || {}} onAddLiveMerc={handleAddLiveMerc} onRemoveLiveMerc={handleRemoveLiveMerc}
+              splitPhase={splitPhase} styles={s} />
           ) : (
             <FreeMatchView teams={teams} teamNames={teamNames} teamColorIndices={teamColorIndices} gks={gks}
               courtCount={courtCount} allEvents={allEvents} onRecordEvent={recordMatchEvent}
               onUndoEvent={undoMatchEvent} onDeleteEvent={deleteEvent} onEditEvent={editEvent}
               onFinishMatch={finishMatch} completedMatches={completedMatches}
-              attendees={attendees} onGkChange={handleGkChange} styles={s} isExtraRound={isExtraRound} />
+              attendees={attendees} onGkChange={handleGkChange}
+              liveMercs={liveMercs || {}} onAddLiveMerc={handleAddLiveMerc} onRemoveLiveMerc={handleRemoveLiveMerc}
+              styles={s} isExtraRound={isExtraRound} />
           )}
         </div>
 
