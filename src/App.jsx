@@ -388,11 +388,50 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
     return `팀${firstName}`;
   };
 
+  const sheetDraft = () => {
+    if (attendanceLoading) return;
+    set('attendanceLoading', true);
+    fetchAttendanceData()
+      .then(data => {
+        const prebuilt = data?.prebuiltTeams || [];
+        if (prebuilt.length === 0 || !prebuilt.some(t => t.length > 0)) {
+          alert("시트에 팀 편성 데이터가 없습니다.");
+          return;
+        }
+        const sheetTeamCount = prebuilt.length;
+        const allPlayers = [...new Set([...(data.attendees || []), ...prebuilt.flat()])];
+        const tNames = (data.prebuiltTeamNames && data.prebuiltTeamNames.length === sheetTeamCount)
+          ? data.prebuiltTeamNames
+          : prebuilt.map(t => makeTeamName(t));
+        const tColors = Array.from({ length: sheetTeamCount }, (_, i) => i % TEAM_COLORS.length);
+        dispatch({
+          type: 'SET_FIELDS',
+          fields: {
+            draftMode: 'sheet',
+            attendees: allPlayers,
+            teamCount: sheetTeamCount,
+            teams: prebuilt,
+            teamNames: tNames,
+            teamColorIndices: tColors,
+            gks: {},
+          },
+        });
+      })
+      .catch(err => alert("시트 연동 실패: " + err.message))
+      .finally(() => set('attendanceLoading', false));
+  };
+
   const goToTeamBuild = () => {
     if (draftMode === "snake") {
       if (attendees.length < teamCount * 2) { alert(`최소 ${teamCount * 2}명 선택`); return; }
       const drafted = snakeDraft(attendees, teamCount, seasonPlayers);
       dispatch({ type: 'SET_FIELDS', fields: { teams: drafted, teamNames: drafted.map(t => makeTeamName(t)), teamColorIndices: Array.from({ length: teamCount }, (_, i) => i % TEAM_COLORS.length), gks: {}, phase: "teamBuild" } });
+    } else if (draftMode === "sheet") {
+      if (!teams.length || !teams.some(t => t.length > 0)) {
+        alert("먼저 시트 연동 버튼을 눌러주세요.");
+        return;
+      }
+      set('phase', 'teamBuild');
     } else {
       if (attendees.length === 0) {
         dispatch({ type: 'SET_FIELDS', fields: { attendees: sortedPlayers.map(p => p.name) } });
@@ -737,6 +776,9 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
               <div style={segBar}>
                 <button onClick={() => set('draftMode', 'snake')} style={segBtn(draftMode === "snake")}>스네이크</button>
                 <button onClick={() => set('draftMode', 'free')} style={segBtn(draftMode === "free")}>자유편성</button>
+                <button onClick={sheetDraft} disabled={attendanceLoading} style={segBtn(draftMode === "sheet")}>
+                  {attendanceLoading ? "로딩..." : "시트 연동"}
+                </button>
               </div>
             </div>
             {courtCount === 1 && matchMode === "schedule" && (
@@ -834,15 +876,27 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
           borderTop: "0.5px solid var(--app-divider)",
           maxWidth: 500, margin: "0 auto",
         }}>
-          <button onClick={goToTeamBuild} disabled={draftMode === "snake" && attendees.length < teamCount * 2} style={{
-            width: "100%", padding: "14px 16px", borderRadius: 12,
-            background: "var(--app-blue)", color: "#fff",
-            border: "none", fontSize: 16, fontWeight: 600, cursor: "pointer",
-            fontFamily: "inherit", letterSpacing: "-0.01em",
-            opacity: draftMode === "snake" && attendees.length < teamCount * 2 ? 0.5 : 1,
-          }}>
-            {draftMode === "free" ? `자유 편성 (${teamCount}팀)` : `팀 편성 (${attendees.length}명 → ${teamCount}팀)`}
-          </button>
+          {(() => {
+            const sheetReady = draftMode === "sheet" && teams.length > 0 && teams.some(t => t.length > 0);
+            const ctaDisabled =
+              (draftMode === "snake" && attendees.length < teamCount * 2) ||
+              (draftMode === "sheet" && !sheetReady);
+            const ctaLabel =
+              draftMode === "free" ? `자유 편성 (${teamCount}팀)` :
+              draftMode === "sheet" ? (sheetReady ? `시트 편성 (${teamCount}팀)` : "시트 연동을 먼저 눌러주세요") :
+              `팀 편성 (${attendees.length}명 → ${teamCount}팀)`;
+            return (
+              <button onClick={goToTeamBuild} disabled={ctaDisabled} style={{
+                width: "100%", padding: "14px 16px", borderRadius: 12,
+                background: "var(--app-blue)", color: "#fff",
+                border: "none", fontSize: 16, fontWeight: 600, cursor: "pointer",
+                fontFamily: "inherit", letterSpacing: "-0.01em",
+                opacity: ctaDisabled ? 0.5 : 1,
+              }}>
+                {ctaLabel}
+              </button>
+            );
+          })()}
         </div>
         {onLogout && (
           <div style={{ textAlign: "center", padding: "8px 16px" }}>
@@ -864,7 +918,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
       <div style={s.app}>
         <div style={s.header}>
           <div style={s.title}>⚽ {teamEditMode ? "팀 명단 수정" : "팀 편성"}</div>
-          <div style={s.subtitle}>{teamEditMode ? "경기 진행 중 · 편집 모드" : `${draftMode === "snake" ? "스네이크 드래프트" : "자유 편성"} · ${teamCount}팀 · ${attendees.length}명`}</div>
+          <div style={s.subtitle}>{teamEditMode ? "경기 진행 중 · 편집 모드" : `${draftMode === "snake" ? "스네이크 드래프트" : draftMode === "sheet" ? "시트 편성" : "자유 편성"} · ${teamCount}팀 · ${attendees.length}명`}</div>
         </div>
         {!teamEditMode && <PhaseIndicator activeIndex={1} />}
         <div style={s.section}>
@@ -966,7 +1020,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
                             style={{ ...s.btnSm(moveSource?.player === player ? C.orange : C.grayDarker, C.gray), padding: "2px 6px", fontSize: 10, marginLeft: 4 }}>
                             {moveSource?.player === player ? "취소" : "↔"}
                           </button>
-                        ) : (
+                        ) : draftMode === "sheet" && !teamEditMode ? null : (
                           <button onClick={e => { e.stopPropagation(); freeRemovePlayer(player, tIdx); }}
                             style={{ ...s.btnSm(C.redDim, C.white), padding: "2px 6px", fontSize: 10, marginLeft: 4 }}>
                             ✕

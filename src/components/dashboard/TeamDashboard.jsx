@@ -774,8 +774,8 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
                 }}>
                   <ListIcon color="#fff" width={22} />
                   <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 16, fontWeight: 600 }}>구글시트 연동</div>
-                    <div style={{ fontSize: 13, color: "rgba(255,255,255,0.85)", marginTop: 2 }}>시트에서 참석자/팀수를 읽어 자동 편성</div>
+                    <div style={{ fontSize: 16, fontWeight: 600 }}>자동설정 경기</div>
+                    <div style={{ fontSize: 13, color: "rgba(255,255,255,0.85)", marginTop: 2 }}>시트 명단 · 2구장 · 대진표 자동</div>
                   </div>
                   <ChevronRight color="rgba(255,255,255,0.9)" width={16} />
                 </button>
