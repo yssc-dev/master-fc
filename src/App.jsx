@@ -39,6 +39,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
   } = state;
 
   const set = (field, value) => dispatch({ type: 'SET_FIELD', field, value });
+  const [selectedPoolPlayer, setSelectedPoolPlayer] = useState(null);
 
   // eslint-disable-next-line react-hooks/exhaustive-deps -- 마운트 시 1회: gameId/isNewGame는 props로 변경되지 않음
   useEffect(() => {
@@ -445,12 +446,25 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
     dispatch({ type: 'SET_FIELDS', fields: { teams: d, teamNames: d.map(t => makeTeamName(t)), gks: {} } });
   };
 
-  const freeAddPlayer = (player) => {
+  const freeAddPlayer = (player, targetIdx = freeSelectTeam) => {
     const newTeams = teams.map(t => [...t]);
-    newTeams[freeSelectTeam].push(player);
+    newTeams[targetIdx].push(player);
     const newNames = [...teamNames];
-    newNames[freeSelectTeam] = makeTeamName(newTeams[freeSelectTeam]);
+    newNames[targetIdx] = makeTeamName(newTeams[targetIdx]);
     dispatch({ type: 'SET_FIELDS', fields: { teams: newTeams, teamNames: newNames } });
+  };
+
+  const togglePoolSelect = (player) => {
+    setSelectedPoolPlayer(prev => prev === player ? null : player);
+  };
+
+  const addSelectedToTeam = (targetIdx) => {
+    if (!selectedPoolPlayer) return;
+    if (!attendees.includes(selectedPoolPlayer)) {
+      dispatch({ type: 'SET_FIELDS', fields: { attendees: [...attendees, selectedPoolPlayer] } });
+    }
+    freeAddPlayer(selectedPoolPlayer, targetIdx);
+    setSelectedPoolPlayer(null);
   };
 
   const freeRemovePlayer = (player, teamIdx) => {
@@ -467,7 +481,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
     const name = newPlayer.trim();
     if (!name || attendees.includes(name) || teams.flat().includes(name)) { set('newPlayer', ""); return; }
     dispatch({ type: 'SET_FIELDS', fields: { attendees: [...attendees, name], newPlayer: "" } });
-    freeAddPlayer(name);
+    setSelectedPoolPlayer(name);
   };
 
   const unassignedPlayers = useMemo(() => {
@@ -930,12 +944,15 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
 
           {draftMode === "free" && (unassignedPlayers.length > 0 || teamEditMode) && (
             <div style={{ ...s.card, border: `2px solid ${C.accent}44`, marginBottom: 14 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: C.accent, marginBottom: 8 }}>미배정 선수 ({unassignedPlayers.length}명) → 아래 팀을 선택 후 클릭</div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: C.accent, marginBottom: 8 }}>
+                미배정 선수 ({unassignedPlayers.length}명) {selectedPoolPlayer ? `· ${selectedPoolPlayer} 선택됨 → 아래 팀의 + 버튼 탭` : "· 선수를 탭하여 선택 후 아래 팀의 + 버튼 탭"}
+              </div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
                 {[...unassignedPlayers].sort((a, b) => getPlayerPoint(b, seasonPlayers) - getPlayerPoint(a, seasonPlayers)).map(p => {
                   const pd = getPlayerData(p, seasonPlayers);
+                  const isSel = selectedPoolPlayer === p;
                   return (
-                    <div key={p} onClick={() => freeAddPlayer(p)} style={{ ...s.chip(false), cursor: "pointer", padding: "6px 10px", fontSize: 12 }}>
+                    <div key={p} onClick={() => togglePoolSelect(p)} style={{ ...s.chip(isSel), cursor: "pointer", padding: "6px 10px", fontSize: 12 }}>
                       <span>{p}</span><span style={{ fontSize: 10, opacity: 0.6 }}>{pd.point}p</span>
                     </div>
                   );
@@ -947,9 +964,10 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
                     {[...absentSeasonPool].sort((a, b) => getPlayerPoint(b, seasonPlayers) - getPlayerPoint(a, seasonPlayers)).map(p => {
                       const pd = getPlayerData(p, seasonPlayers);
+                      const isSel = selectedPoolPlayer === p;
                       return (
-                        <div key={p} onClick={() => { dispatch({ type: 'SET_FIELDS', fields: { attendees: [...attendees, p] } }); freeAddPlayer(p); }}
-                          style={{ ...s.chip(false), cursor: "pointer", padding: "6px 10px", fontSize: 12, opacity: 0.85 }}>
+                        <div key={p} onClick={() => togglePoolSelect(p)}
+                          style={{ ...s.chip(isSel), cursor: "pointer", padding: "6px 10px", fontSize: 12, opacity: isSel ? 1 : 0.85 }}>
                           <span>{p}</span><span style={{ fontSize: 10, opacity: 0.6 }}>{pd.point}p</span>
                         </div>
                       );
@@ -968,24 +986,12 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
             </div>
           )}
 
-          {draftMode === "free" && (
-            <div style={{ display: "flex", gap: 0, marginBottom: 12 }}>
-              {teams.map((_, tIdx) => (
-                <button key={tIdx} onClick={() => set('freeSelectTeam', tIdx)}
-                  style={{ flex: 1, padding: "8px 4px", textAlign: "center", background: freeSelectTeam === tIdx ? TEAM_COLORS[teamColorIndices[tIdx]]?.bg || C.accent : C.card, color: freeSelectTeam === tIdx ? TEAM_COLORS[teamColorIndices[tIdx]]?.text || C.bg : C.gray, fontWeight: 700, fontSize: 12, border: "none", cursor: "pointer", borderRadius: 0, borderBottom: freeSelectTeam === tIdx ? `3px solid ${C.white}` : "3px solid transparent" }}>
-                  {teamNames[tIdx]} ({teams[tIdx].length})
-                </button>
-              ))}
-            </div>
-          )}
-
           {teams.map((team, tIdx) => {
             const color = TEAM_COLORS[teamColorIndices[tIdx]];
             const sorted = sortedTeam(team);
-            const isSelectedFreeTeam = draftMode === "free" && freeSelectTeam === tIdx;
+            const canAddHere = draftMode === "free" && !!selectedPoolPlayer;
             return (
-              <div key={tIdx} style={{ ...s.teamCard(teamColorIndices[tIdx]), border: isSelectedFreeTeam ? `2px solid ${color?.bg || C.accent}` : "none" }}
-                onClick={() => { if (draftMode === "free") set('freeSelectTeam', tIdx); }}>
+              <div key={tIdx} style={{ ...s.teamCard(teamColorIndices[tIdx]), border: canAddHere ? `2px dashed ${color?.bg || C.accent}` : "none" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     {!teamEditMode && editingTeamName === tIdx ? (
@@ -998,14 +1004,23 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
                     )}
                     <span style={{ fontSize: 11, color: C.gray }}>전력 {teamPower(team, seasonPlayers)}</span>
                   </div>
-                  {!teamEditMode && (
-                    <div style={{ display: "flex", gap: 3 }}>
-                      {TEAM_COLORS.map((tc, ci) => (
-                        <div key={ci} onClick={(e) => { e.stopPropagation(); const c = [...teamColorIndices]; c[tIdx] = ci; set('teamColorIndices', c); }}
-                          style={{ width: 16, height: 16, borderRadius: "50%", background: tc.bg, border: teamColorIndices[tIdx] === ci ? `2px solid ${C.white}` : `1px solid ${C.grayDark}`, cursor: "pointer" }} />
-                      ))}
-                    </div>
-                  )}
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    {!teamEditMode && (
+                      <div style={{ display: "flex", gap: 3 }}>
+                        {TEAM_COLORS.map((tc, ci) => (
+                          <div key={ci} onClick={(e) => { e.stopPropagation(); const c = [...teamColorIndices]; c[tIdx] = ci; set('teamColorIndices', c); }}
+                            style={{ width: 16, height: 16, borderRadius: "50%", background: tc.bg, border: teamColorIndices[tIdx] === ci ? `2px solid ${C.white}` : `1px solid ${C.grayDark}`, cursor: "pointer" }} />
+                        ))}
+                      </div>
+                    )}
+                    {draftMode === "free" && (
+                      <button onClick={(e) => { e.stopPropagation(); addSelectedToTeam(tIdx); }}
+                        disabled={!selectedPoolPlayer}
+                        style={{ ...s.btnSm(selectedPoolPlayer ? C.green : C.grayDarker, selectedPoolPlayer ? C.bg : C.gray), padding: "4px 12px", fontSize: 13, fontWeight: 700, opacity: selectedPoolPlayer ? 1 : 0.5, cursor: selectedPoolPlayer ? "pointer" : "not-allowed" }}>
+                        + 추가
+                      </button>
+                    )}
+                  </div>
                 </div>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
                   {sorted.map((player, pIdx) => {
@@ -1036,7 +1051,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
                     </div>
                   )}
                   {draftMode === "free" && team.length === 0 && (
-                    <div style={{ color: C.grayDark, fontSize: 12, padding: 8 }}>위에서 선수를 클릭하세요</div>
+                    <div style={{ color: C.grayDark, fontSize: 12, padding: 8 }}>선수 선택 후 + 추가</div>
                   )}
                 </div>
               </div>
