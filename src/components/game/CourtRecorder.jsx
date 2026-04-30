@@ -92,6 +92,10 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
   const [mercs, setMercs] = useState([]);
   const [showMercPicker, setShowMercPicker] = useState(null);
   const [openPopover, setOpenPopover] = useState(null); // { player, isHome }
+  // 부모(ScheduleMatchView)가 compose 상태를 hoist하지 않은 경우(PushMatchView/FreeMatchView) 내부 state로 fallback
+  const [localCompose, setLocalCompose] = useState(null);
+  const composeState = setCompose ? compose : localCompose;
+  const setComposeState = setCompose || setLocalCompose;
 
   const { homeIdx, awayIdx, matchId, homeTeam, awayTeam, homeColor, awayColor } = matchInfo;
 
@@ -108,7 +112,7 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
   const homeScore = calcMatchScore(allEvents, matchId, homeTeam);
   const awayScore = calcMatchScore(allEvents, matchId, awayTeam);
 
-  const myCompose = compose && compose.pitchId === matchId ? compose : null;
+  const myCompose = composeState && composeState.pitchId === matchId ? composeState : null;
 
   const playerStats = useMemo(() => {
     const stats = {};
@@ -176,8 +180,8 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
   // ── 역할 조작 ──
   const applyGoalRole = (player, isHome) => {
     if (readOnly) { readOnlyAlert(); return; }
-    if (myCompose?.scorer === player) { setCompose(null); return; }
-    setCompose({ pitchId: matchId, scorer: player, scorerIsHome: isHome, assist: null });
+    if (myCompose?.scorer === player) { setComposeState(null); return; }
+    setComposeState({ pitchId: matchId, scorer: player, scorerIsHome: isHome, assist: null });
   };
 
   const applyAssistRole = (player, isHome) => {
@@ -187,7 +191,7 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
     if (myCompose.scorer === player) return;
     if (!checkGk()) return;
     recordGoalEvent(myCompose.scorer, player);
-    setCompose(null);
+    setComposeState(null);
   };
 
   const applyOwnGoalRole = (player) => {
@@ -200,10 +204,10 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
     if (!myCompose || !myCompose.scorer) return;
     if (!checkGk()) return;
     recordGoalEvent(myCompose.scorer, null);
-    setCompose(null);
+    setComposeState(null);
   };
 
-  const cancelCompose = () => setCompose(null);
+  const cancelCompose = () => setComposeState(null);
 
   const addMerc = (player, side) => { setMercs(prev => [...prev, { player, side }]); setShowMercPicker(null); };
   const removeMerc = (player) => { setMercs(prev => prev.filter(m => m.player !== player)); };
@@ -250,7 +254,7 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
             if (isAssistCandidate) {
               if (!checkGk()) return;
               recordGoalEvent(myCompose.scorer, player);
-              setCompose(null);
+              setComposeState(null);
               return;
             }
             setOpenPopover(isPopoverOpen ? null : { player, isHome });
