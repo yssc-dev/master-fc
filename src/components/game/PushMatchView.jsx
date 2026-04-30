@@ -16,7 +16,10 @@ export default function PushMatchView({
     pushState?.suggestedMatch || { home: 0, away: 1 }
   );
   const [editingMatch, setEditingMatch] = useState(false);
-  const [editSelection, setEditSelection] = useState({ home: null, away: null });
+  // 대진변경 편집 상태: 연승팀(streak) + 도전팀(challenger)
+  const [editStreak, setEditStreak] = useState(null);
+  const [editChallenger, setEditChallenger] = useState(null);
+  const [streakPickerOpen, setStreakPickerOpen] = useState(false);
   // viewingIdx: completedMatches.length = 현재(라이브), 0~length-1 = 과거 경기
   const [viewingIdx, setViewingIdx] = useState(completedMatches.length);
 
@@ -75,50 +78,86 @@ export default function PushMatchView({
     onConfirmPushRound(result, newPushState);
   };
 
+  const streakInfo = pushState?.winStreak;
+  const streakTeamIdx = streakInfo?.teamIdx ?? null;
+
   const handleStartEdit = () => {
-    setEditSelection({ home: currentMatch.home, away: currentMatch.away });
+    // 연승팀이 있으면 그 팀을 streak로, 없으면 currentMatch.home을 기본
+    const initialStreak = streakTeamIdx ?? currentMatch.home;
+    const initialChallenger = currentMatch.home === initialStreak ? currentMatch.away : currentMatch.home;
+    setEditStreak(initialStreak);
+    setEditChallenger(initialChallenger);
+    setStreakPickerOpen(false);
     setEditingMatch(true);
   };
 
   const handleConfirmEdit = () => {
-    if (editSelection.home === null || editSelection.away === null || editSelection.home === editSelection.away) return;
-    setCurrentMatch({ home: editSelection.home, away: editSelection.away });
+    if (editStreak === null || editChallenger === null || editStreak === editChallenger) return;
+    setCurrentMatch({ home: editStreak, away: editChallenger });
     setEditingMatch(false);
   };
 
-  const streakInfo = pushState?.winStreak;
-
   if (editingMatch) {
+    const streakColor = TEAM_COLORS[teamColorIndices[editStreak]];
     return (
       <div>
         <div style={{ fontSize: 13, color: C.gray, marginBottom: 8 }}>대진 변경</div>
         <div style={s.card}>
-          <div style={{ display: "flex", gap: 12 }}>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 12, color: C.gray, marginBottom: 6, textAlign: "center" }}>홈팀</div>
-              {teamNames.map((name, idx) => (
-                <button key={idx} onClick={() => setEditSelection(prev => ({ ...prev, home: idx }))}
-                  style={{ ...s.matchBtn(editSelection.home === idx ? TEAM_COLORS[teamColorIndices[idx]] : null), width: "100%", marginBottom: 4, opacity: editSelection.away === idx ? 0.3 : 1 }}>
-                  {name}
-                </button>
-              ))}
-            </div>
-            <div style={{ display: "flex", alignItems: "center", color: C.gray, fontSize: 18, fontWeight: 900 }}>VS</div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 12, color: C.gray, marginBottom: 6, textAlign: "center" }}>원정팀</div>
-              {teamNames.map((name, idx) => (
-                <button key={idx} onClick={() => setEditSelection(prev => ({ ...prev, away: idx }))}
-                  style={{ ...s.matchBtn(editSelection.away === idx ? TEAM_COLORS[teamColorIndices[idx]] : null), width: "100%", marginBottom: 4, opacity: editSelection.home === idx ? 0.3 : 1 }}>
-                  {name}
-                </button>
-              ))}
-            </div>
+          {/* 연승팀 카드 (탭하면 변경 가능) */}
+          <div style={{ fontSize: 11, color: C.gray, marginBottom: 6, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span>🔥 연승팀 <span style={{ color: C.gray, opacity: 0.7 }}>(계속 출전 의무 · 탭하여 변경)</span></span>
           </div>
-          <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+          <button onClick={() => setStreakPickerOpen(o => !o)}
+            style={{
+              width: "100%", padding: "12px 14px", marginBottom: streakPickerOpen ? 6 : 12,
+              borderRadius: 12, border: `1.5px solid ${streakColor?.bg || C.accent}`,
+              background: `${streakColor?.bg || C.accent}22`, color: C.white,
+              fontWeight: 700, fontSize: 14, cursor: "pointer", fontFamily: "inherit",
+              display: "flex", justifyContent: "space-between", alignItems: "center",
+            }}>
+            <span>{teamNames[editStreak]}{streakInfo && editStreak === streakTeamIdx ? ` · ${streakInfo.count}연승` : ""}</span>
+            <span style={{ fontSize: 11, color: C.gray }}>{streakPickerOpen ? "▲ 닫기" : "▼ 변경"}</span>
+          </button>
+          {streakPickerOpen && (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 12 }}>
+              {teamNames.map((name, idx) => idx !== editChallenger && (
+                <button key={idx} onClick={() => { setEditStreak(idx); setStreakPickerOpen(false); }}
+                  style={{
+                    flex: "1 1 30%", padding: "8px 10px", borderRadius: 8,
+                    border: `1px solid ${idx === editStreak ? (TEAM_COLORS[teamColorIndices[idx]]?.bg || C.accent) : C.grayDarker}`,
+                    background: idx === editStreak ? `${TEAM_COLORS[teamColorIndices[idx]]?.bg || C.accent}33` : "transparent",
+                    color: C.white, fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit",
+                  }}>
+                  {name}{streakInfo?.teamIdx === idx ? ` 🔥${streakInfo.count}` : ""}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* VS */}
+          <div style={{ textAlign: "center", color: C.gray, fontSize: 14, fontWeight: 800, margin: "4px 0 10px 0" }}>VS</div>
+
+          {/* 도전팀 그리드 */}
+          <div style={{ fontSize: 11, color: C.gray, marginBottom: 6 }}>⚔️ 도전팀 선택</div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 4 }}>
+            {teamNames.map((name, idx) => idx !== editStreak && (
+              <button key={idx} onClick={() => setEditChallenger(idx)}
+                style={{
+                  flex: "1 1 30%", padding: "10px 10px", borderRadius: 10,
+                  border: `1.5px solid ${idx === editChallenger ? (TEAM_COLORS[teamColorIndices[idx]]?.bg || C.accent) : C.grayDarker}`,
+                  background: idx === editChallenger ? `${TEAM_COLORS[teamColorIndices[idx]]?.bg || C.accent}33` : "transparent",
+                  color: C.white, fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
+                }}>
+                {name}
+              </button>
+            ))}
+          </div>
+
+          <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
             <button onClick={() => setEditingMatch(false)} style={s.btn(C.grayDark)}>취소</button>
             <button onClick={handleConfirmEdit}
-              disabled={editSelection.home === null || editSelection.away === null || editSelection.home === editSelection.away}
-              style={{ ...s.btnFull(C.green), flex: 1, opacity: (editSelection.home !== null && editSelection.away !== null && editSelection.home !== editSelection.away) ? 1 : 0.4 }}>
+              disabled={editStreak === null || editChallenger === null || editStreak === editChallenger}
+              style={{ ...s.btnFull(C.green), flex: 1, opacity: (editStreak !== null && editChallenger !== null && editStreak !== editChallenger) ? 1 : 0.4 }}>
               확인
             </button>
           </div>
