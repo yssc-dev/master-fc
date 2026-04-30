@@ -149,61 +149,72 @@ export async function fetchAttendanceData() {
   const lines = text.split('\n');
 
   // CSV 구조 (참석명단 시트):
-  // 1행: 팀명 헤더 — G~K열에 "팀승훈", "팀재상" 등 (col 6~11)
-  // F열(col 5): 시드 라벨 — "1번 시드", "2번 시드"...
-  // 2행~: 선수 — G~K열에 1번시드~8번시드 순서
+  // 시드 라벨 칼럼(시드 라벨 "1번 시드"~"8번 시드")이 어디 있는지 동적으로 탐지
+  //  - 과거: F열(col 5)
+  //  - 현재: G열(col 6) — 시트 한 칸 시프트되어 H~M열(col 7~12)이 팀 칼럼
+  // 팀 칼럼은 시드 라벨 칼럼 + 1 부터 최대 6칼럼.
   const prebuiltTeams = [];
   const prebuiltTeamNames = [];
   const allAttendees = [];
 
-  // Step 1: 팀명 헤더 행 찾기 — G~L열(col 6~11)에서 "팀"으로 시작하는 셀이 있는 행
-  let headerRow = -1;
-  for (let row = 0; row < Math.min(lines.length, 5); row++) {
-    const f = parseCSVLine(lines[row]);
-    for (let col = 6; col <= 11; col++) {
-      const cell = (f[col] || '').trim();
-      if (cell && cell.startsWith('팀')) { headerRow = row; break; }
-    }
-    if (headerRow >= 0) break;
-  }
-
-  // Step 2: "1번 시드" 라벨 행 찾기 (F열 = col 5)
+  // Step 1: "1번 시드" 라벨 행 + 칼럼 동시에 탐지 (col 4~7 = E~H 범위)
   let seedStartRow = -1;
+  let seedLabelCol = -1;
   for (let row = 0; row < Math.min(lines.length, 10); row++) {
     const f = parseCSVLine(lines[row]);
-    const label = (f[5] || '').trim().replace(/\s/g, '');
-    if (label.includes('1번') && label.includes('시드')) {
-      seedStartRow = row;
-      break;
+    for (let col = 4; col <= 7; col++) {
+      const label = (f[col] || '').trim().replace(/\s/g, '');
+      if (label.includes('1번') && label.includes('시드')) {
+        seedStartRow = row;
+        seedLabelCol = col;
+        break;
+      }
+    }
+    if (seedStartRow >= 0) break;
+  }
+
+  // 시드 라벨 못 찾으면 → 팀명 헤더 행 + col 6 가정 (legacy fallback)
+  let headerRow = -1;
+  if (seedStartRow < 0) {
+    for (let row = 0; row < Math.min(lines.length, 5); row++) {
+      const f = parseCSVLine(lines[row]);
+      for (let col = 6; col <= 12; col++) {
+        const cell = (f[col] || '').trim();
+        if (cell && cell.startsWith('팀')) { headerRow = row; break; }
+      }
+      if (headerRow >= 0) break;
+    }
+    if (headerRow >= 0) {
+      seedStartRow = headerRow + 1;
+      seedLabelCol = 5; // legacy 가정
     }
   }
 
-  // "1번 시드" 못 찾으면 → 팀명 헤더 바로 다음 행
-  if (seedStartRow < 0 && headerRow >= 0) {
-    seedStartRow = headerRow + 1;
-  }
-
-  // 둘 다 못 찾으면 → fallback: G~K열에 한글 이름 3개 이상 있는 첫 행
+  // 둘 다 못 찾으면 → fallback: 팀 칼럼 추정 영역에 한글 이름 3개 이상 있는 첫 행
   if (seedStartRow < 0) {
     for (let row = 0; row < Math.min(lines.length, 5); row++) {
       const f = parseCSVLine(lines[row]);
       let nameCount = 0;
-      for (let col = 6; col <= 11; col++) {
+      for (let col = 6; col <= 12; col++) {
         const cell = (f[col] || '').trim();
         if (cell && /^[가-힣]{2,4}$/.test(cell)) nameCount++;
       }
-      if (nameCount >= 3) { seedStartRow = row; break; }
+      if (nameCount >= 3) { seedStartRow = row; seedLabelCol = 5; break; }
     }
   }
 
   if (seedStartRow < 0) return { attendees: [], teamCount: 0, prebuiltTeams: [], prebuiltTeamNames: [] };
+
+  // Step 2: 팀 칼럼 범위 = 시드 라벨 칼럼 + 1 부터 최대 6칼럼
+  const teamColStart = seedLabelCol + 1;
+  const teamColEnd = teamColStart + 5;
 
   // Step 3: 팀 컬럼 + 팀명 파싱
   // ★ gviz CSV 특성: 시트 1행(팀명)과 2행(1번시드)이 "팀승훈 조승훈" 형태로 합쳐질 수 있음
   const teamCols = [];
   const firstDataFields = parseCSVLine(lines[seedStartRow]);
 
-  for (let col = 6; col <= 11; col++) {
+  for (let col = teamColStart; col <= teamColEnd; col++) {
     const raw = (firstDataFields[col] || '').trim();
     if (!raw || raw.length < 2) continue;
 

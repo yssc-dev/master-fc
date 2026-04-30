@@ -2,6 +2,7 @@
 // 풋살 웹앱 Apps Script v2.0
 //
 // CHANGELOG
+// 2026-04-30: _writeRawEvents/_writeRawMatches 서버측 match_id 정규화 (클라이언트 우회 경로 방어)
 // 2026-04-28: reimportPointLog 액션 추가 (HTTP 노출, 풋살/축구 디스패치)
 // 2026-04-28: _importTournamentEventLogs — owngoal 정규화 + concede_gk 필드 추가 (누락 수정)
 // 2026-04-28: _readSoccerPointSchema 통합 스키마 변환 + event_type owngoal 정규화 + concede_gk 필드 추가
@@ -917,6 +918,8 @@ function _writeRawEvents(data) {
     var skipped = 0;
     for (var i = 0; i < rows.length; i++) {
       var r = rows[i];
+      // 서버측 match_id 정규화 (클라이언트 우회 경로 방어)
+      r.match_id = _normalizeMatchIdAS(r.match_id || "", r.sport || "");
       if (!skipDedupe) {
         var key = _rawEventKey(r);
         if (existingKeys[key]) { skipped++; continue; }
@@ -984,6 +987,8 @@ function _writeRawMatches(data) {
     var skipped = 0;
     for (var i = 0; i < rows.length; i++) {
       var r = rows[i];
+      // 서버측 match_id 정규화 (클라이언트 우회 경로 방어)
+      r.match_id = _normalizeMatchIdAS(r.match_id || "", r.sport || "");
       var key = (r.game_id || "") + "|" + (r.match_id || "");
       if (existingKeys[key]) { skipped++; continue; }
       existingKeys[key] = true;
