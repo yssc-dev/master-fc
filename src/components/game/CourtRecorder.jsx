@@ -181,6 +181,7 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
   const applyGoalRole = (player, isHome) => {
     if (readOnly) { readOnlyAlert(); return; }
     if (myCompose?.scorer === player) { setComposeState(null); return; }
+    if (!checkGk()) return;
     setComposeState({ pitchId: matchId, scorer: player, scorerIsHome: isHome, assist: null });
   };
 
