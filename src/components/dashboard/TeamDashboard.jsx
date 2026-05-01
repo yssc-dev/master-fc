@@ -7,6 +7,7 @@ import Modal from '../common/Modal';
 import { SunIcon, MoonIcon, SettingsIcon, BackIcon, HomeIcon, TrophyIcon, ChevronRight, SoccerBallIcon, ListIcon } from '../common/icons';
 import RankingCandlestickChart from './RankingCandlestickChart';
 import PlayerAnalytics from './PlayerAnalytics';
+import DualTeamTab from './analytics/DualTeamTab';
 import TournamentListTab from '../tournament/TournamentListTab';
 
 export default function TeamDashboard({ authUser, teamName, teamEntries, onStartGame, onContinueGame, onViewHistory, onSettings, onSwitchTeam, onLogout, pendingGames = [], checkingPending }) {
@@ -933,7 +934,7 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
 
       {showDualTeam && (
         <Modal onClose={() => setShowDualTeam(false)} title="팀전 랭킹">
-          <PlayerAnalytics teamName={teamName} teamMode={activeSport} initialTab="dualteam" isAdmin={activeEntry?.role === "관리자"} authUserName={authUser?.name} />
+          <DualTeamTab teamName={teamName} isAdmin={activeEntry?.role === "관리자"} />
         </Modal>
       )}
 
