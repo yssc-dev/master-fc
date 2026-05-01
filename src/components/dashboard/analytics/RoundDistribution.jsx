@@ -23,7 +23,7 @@ export default function RoundDistribution({ data, player, ranking, C }) {
   if (!stats) {
     return (
       <div style={{ padding: 16, textAlign: 'center', color: C.gray, fontSize: 12 }}>
-        라운드 분포 데이터 없음 (출전 라운드 표본 부족)
+        라운드 분포 데이터 없음 (골/어시 이벤트 없음)
       </div>
     );
   }
@@ -35,16 +35,14 @@ export default function RoundDistribution({ data, player, ranking, C }) {
   const yOf = (v) => padT + innerH - (v / maxV) * innerH;
   const barW = Math.max(8, innerW / Math.max(rounds.length * 1.5, 1));
 
-  let regLine = null;
-  if (data.slope != null && rounds.length >= 2) {
-    const n = data.points.length;
-    const meanX = data.points.reduce((s, p) => s + p.round_idx, 0) / n;
-    const meanY = data.points.reduce((s, p) => s + p.ga, 0) / n;
-    const intercept = meanY - data.slope * meanX;
-    const x1 = minR, y1 = data.slope * x1 + intercept;
-    const x2 = maxR, y2 = data.slope * x2 + intercept;
-    regLine = { x1: xOf(x1), y1: yOf(Math.max(0, Math.min(maxV, y1))), x2: xOf(x2), y2: yOf(Math.max(0, Math.min(maxV, y2))) };
-  }
+  // tendency 표시: 0~1 percentile → 차트 가로축에 마커 위치
+  const tendencyX = data.tendency != null ? padL + data.tendency * innerW : null;
+  const tendencyPct = data.tendency != null ? Math.round(data.tendency * 100) : null;
+  const tendencyLabel = data.tendency == null
+    ? '—'
+    : data.tendency > 0.5 ? `후반 ${tendencyPct}%`
+    : data.tendency < 0.5 ? `초반 ${100 - tendencyPct}%`
+    : '중립';
 
   return (
     <div>
@@ -62,12 +60,15 @@ export default function RoundDistribution({ data, player, ranking, C }) {
             </g>
           );
         })}
-        {regLine && (
-          <line x1={regLine.x1} y1={regLine.y1} x2={regLine.x2} y2={regLine.y2} stroke={C.orange} strokeWidth={1.5} strokeDasharray="3 2" />
+        {tendencyX != null && (
+          <g>
+            <line x1={tendencyX} y1={padT} x2={tendencyX} y2={padT + innerH} stroke={C.orange} strokeWidth={1.5} strokeDasharray="3 2" />
+            <text x={tendencyX} y={padT - 1} textAnchor="middle" fill={C.orange} fontSize={9} fontWeight={700}>▼</text>
+          </g>
         )}
       </svg>
       <div style={{ fontSize: 10, color: C.gray, marginTop: 4 }}>
-        출전 라운드 {data.sampleCount}회 · 활동(G+A) {data.activeCount ?? 0}회 · 기울기 {data.slope == null ? '—' : data.slope.toFixed(2)}
+        골/어시 {data.eventCount ?? data.sampleCount}회 · 활동 라운드 {data.activeRoundCount ?? rounds.length}개 · 성향 {tendencyLabel}
       </div>
       {caption && (
         <div style={{ fontSize: 11, color: C.accent, marginTop: 4, fontWeight: 600 }}>{caption}</div>
