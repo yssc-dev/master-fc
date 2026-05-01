@@ -4,12 +4,25 @@ import { useTheme } from '../../hooks/useTheme';
 import { calcMatchScore } from '../../utils/scoring';
 import CourtRecorder from './CourtRecorder';
 
-export default function FreeMatchView({ teams, teamNames, teamColorIndices, gks, courtCount, allEvents, onRecordEvent, onUndoEvent, onDeleteEvent, onEditEvent, onFinishMatch, completedMatches, attendees, onGkChange, liveMercs, onAddLiveMerc, onRemoveLiveMerc, styles: s, isExtraRound }) {
+export default function FreeMatchView({ teams, teamNames, teamColorIndices, gks, gksHistory, courtCount, allEvents, onRecordEvent, onUndoEvent, onDeleteEvent, onEditEvent, onFinishMatch, completedMatches, attendees, onGkChange, liveMercs, onAddLiveMerc, onRemoveLiveMerc, onEditPastGk, onEditPastMercAdd, onEditPastMercRemove, styles: s, isExtraRound }) {
   const { C } = useTheme();
   const [courtMatches, setCourtMatches] = useState({});
   const [activeCourtTab, setActiveCourtTab] = useState(0);
   const [settingCourt, setSettingCourt] = useState(null);
   const [selection, setSelection] = useState({ home: null, away: null });
+  // 과거 매치 네비게이션. completedMatches.length = 라이브, 0~length-1 = 과거 매치 단건 보기
+  const [viewingIdx, setViewingIdx] = useState(completedMatches.length);
+  const [editingPast, setEditingPast] = useState(false);
+
+  const [lastMatchCount, setLastMatchCount] = useState(completedMatches.length);
+  if (completedMatches.length !== lastMatchCount) {
+    setLastMatchCount(completedMatches.length);
+    setViewingIdx(completedMatches.length);
+    setEditingPast(false);
+  }
+
+  const isLive = viewingIdx >= completedMatches.length;
+  const viewingPast = !isLive ? completedMatches[viewingIdx] : null;
 
   const courtCount2 = courtCount === 2;
   const courts = courtCount2 ? [0, 1] : [0];
@@ -57,6 +70,76 @@ export default function FreeMatchView({ teams, teamNames, teamColorIndices, gks,
     setCourtMatches({});
   };
 
+  // 과거 매치 단건 보기 / 부분 수정
+  if (!isLive && viewingPast) {
+    const pm = viewingPast;
+    const matchInfo = {
+      homeIdx: pm.homeIdx, awayIdx: pm.awayIdx, matchId: pm.matchId,
+      homeTeam: pm.homeTeam, awayTeam: pm.awayTeam,
+      homeGk: pm.homeGk || null, awayGk: pm.awayGk || null,
+      homeColor: TEAM_COLORS[teamColorIndices[pm.homeIdx]],
+      awayColor: TEAM_COLORS[teamColorIndices[pm.awayIdx]],
+      homePlayers: pm.homePlayers || teams[pm.homeIdx] || [],
+      awayPlayers: pm.awayPlayers || teams[pm.awayIdx] || [],
+    };
+    const pastMercs = (pm.mercenaries || []).map(m => ({
+      player: m.player,
+      side: m.teamIdx === pm.homeIdx ? "home" : (m.teamIdx === pm.awayIdx ? "away" : null),
+    })).filter(m => m.side);
+    return (
+      <div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 6 }}>
+          <button onClick={() => setViewingIdx(Math.max(0, viewingIdx - 1))} disabled={viewingIdx === 0}
+            style={{ ...s.btnSm(C.grayDark), opacity: viewingIdx === 0 ? 0.3 : 1 }}>◀</button>
+          <span style={{ fontSize: 15, fontWeight: 800, color: C.white }}>
+            {viewingIdx + 1}경기
+            <span style={{ fontSize: 11, marginLeft: 6, color: C.green, fontWeight: 600 }}>종료됨</span>
+          </span>
+          <button onClick={() => setViewingIdx(Math.min(completedMatches.length, viewingIdx + 1))}
+            style={{ ...s.btnSm(C.grayDark) }}>▶</button>
+          <button onClick={() => setEditingPast(v => !v)}
+            style={{ ...s.btnSm(editingPast ? C.orange : C.grayDark, editingPast ? C.bg : C.white), fontSize: 10 }}>
+            {editingPast ? "수정 완료" : "수정"}
+          </button>
+        </div>
+        {editingPast && (
+          <div style={{
+            fontSize: 11, color: C.orange, textAlign: "center", marginBottom: 6,
+            padding: "4px 8px", background: `${C.orange}15`, borderRadius: 6,
+          }}>
+            수정 모드: 점수/GK/용병 편집 가능 · 매치업은 변경되지 않습니다
+          </div>
+        )}
+        <CourtRecorder
+          key={`free_past_${viewingIdx}`}
+          matchInfo={matchInfo}
+          homePlayers={matchInfo.homePlayers}
+          awayPlayers={matchInfo.awayPlayers}
+          allEvents={allEvents}
+          onRecordEvent={onRecordEvent}
+          onUndoEvent={onUndoEvent}
+          onDeleteEvent={onDeleteEvent}
+          onEditEvent={onEditEvent}
+          onFinish={() => {}}
+          onGkChange={(teamIdx, player) => {
+            const side = teamIdx === pm.homeIdx ? 'home' : (teamIdx === pm.awayIdx ? 'away' : null);
+            if (side) onEditPastGk?.(pm.matchId, side, player);
+          }}
+          styles={s}
+          courtLabel={pm.court || ""}
+          attendees={attendees}
+          readOnly={!editingPast}
+          mercs={pastMercs}
+          onAddMerc={(player, side) => {
+            const teamIdx = side === "home" ? pm.homeIdx : pm.awayIdx;
+            onEditPastMercAdd?.(pm.matchId, teamIdx, player);
+          }}
+          onRemoveMerc={(player) => onEditPastMercRemove?.(pm.matchId, player)}
+        />
+      </div>
+    );
+  }
+
   if (settingCourt !== null) {
     return (
       <div>
@@ -98,6 +181,13 @@ export default function FreeMatchView({ teams, teamNames, teamColorIndices, gks,
 
   return (
     <div>
+      {completedMatches.length > 0 && (
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 8 }}>
+          <button onClick={() => setViewingIdx(completedMatches.length - 1)}
+            style={{ ...s.btnSm(C.grayDark), fontSize: 11 }}>◀ 과거 매치</button>
+          <span style={{ fontSize: 12, color: C.orange, fontWeight: 600 }}>진행중 ({completedMatches.length}경기 종료)</span>
+        </div>
+      )}
       {courtCount2 && (
         <div style={s.tabRow}>
           {courts.map(ci => {

@@ -3,11 +3,14 @@ import { TEAM_COLORS } from '../../config/constants';
 import { BackIcon } from '../common/icons';
 import CourtRecorder from './CourtRecorder';
 
-export default function ScheduleMatchView({ schedule, currentRoundIdx, viewingRoundIdx, setViewingRoundIdx, confirmedRounds, onConfirmRound, teams, teamNames, teamColorIndices, gks, gksHistory, courtCount, allEvents, onRecordEvent, onUndoEvent, onDeleteEvent, onEditEvent, completedMatches, attendees, onGkChange, liveMercs, onAddLiveMerc, onRemoveLiveMerc, splitPhase, styles: s }) {
+export default function ScheduleMatchView({ schedule, currentRoundIdx, viewingRoundIdx, setViewingRoundIdx, confirmedRounds, onConfirmRound, teams, teamNames, teamColorIndices, gks, gksHistory, courtCount, allEvents, onRecordEvent, onUndoEvent, onDeleteEvent, onEditEvent, completedMatches, attendees, onGkChange, liveMercs, onAddLiveMerc, onRemoveLiveMerc, onEditPastGk, onEditPastMercAdd, onEditPastMercRemove, splitPhase, styles: s }) {
   const [compose, setCompose] = useState(null);
+  // 라운드별 과거 수정 모드 토글 ({ [roundIdx]: true })
+  const [editingPastRound, setEditingPastRound] = useState({});
   const round = schedule[viewingRoundIdx];
   const matches = round?.matches || [];
   const isConfirmed = confirmedRounds[viewingRoundIdx] || false;
+  const editingThisRound = !!editingPastRound[viewingRoundIdx];
 
   // 확정된 라운드면 gksHistory에서, 현재 라운드면 gks에서 GK 참조
   const roundGks = isConfirmed ? (gksHistory?.[viewingRoundIdx] || {}) : gks;
@@ -76,6 +79,32 @@ export default function ScheduleMatchView({ schedule, currentRoundIdx, viewingRo
         </button>
       </div>
 
+      {/* 확정된 라운드 부분 수정 토글 */}
+      {isConfirmed && (
+        <div style={{
+          display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+          marginBottom: 12,
+        }}>
+          <button onClick={() => setEditingPastRound(prev => ({ ...prev, [viewingRoundIdx]: !prev[viewingRoundIdx] }))}
+            style={{
+              padding: "6px 14px", borderRadius: 999, border: "none",
+              background: editingThisRound ? "var(--app-orange)" : "var(--app-bg-row)",
+              color: editingThisRound ? "var(--app-bg)" : "var(--app-text-primary)",
+              fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit",
+            }}>
+            {editingThisRound ? "수정 완료" : "이 라운드 수정"}
+          </button>
+        </div>
+      )}
+      {isConfirmed && editingThisRound && (
+        <div style={{
+          fontSize: 11, color: "var(--app-orange)", textAlign: "center", marginBottom: 12,
+          padding: "6px 10px", background: "rgba(255,149,0,0.1)", borderRadius: 6,
+        }}>
+          수정 모드: 점수/GK/용병 편집 가능 · 이미 진행된 매치업은 변경되지 않습니다
+        </div>
+      )}
+
       {/* 그룹 스플릿 배너: 7라운드 시작 시 표시 */}
       {splitPhase === "second" && viewingRoundIdx === 6 && (
         <div style={{
@@ -123,19 +152,36 @@ export default function ScheduleMatchView({ schedule, currentRoundIdx, viewingRo
             onDeleteEvent={onDeleteEvent}
             onEditEvent={onEditEvent}
             onFinish={() => { }}
-            onGkChange={onGkChange}
+            onGkChange={(teamIdx, player) => {
+              if (isConfirmed && editingThisRound) {
+                const side = teamIdx === mi.homeIdx ? 'home' : (teamIdx === mi.awayIdx ? 'away' : null);
+                if (side) onEditPastGk?.(mi.matchId, side, player);
+              } else {
+                onGkChange?.(teamIdx, player);
+              }
+            }}
             styles={s}
             courtLabel={courtLabel}
             attendees={attendees}
-            readOnly={isConfirmed}
+            readOnly={isConfirmed && !editingThisRound}
             compose={compose}
             setCompose={setCompose}
-            mercs={(isConfirmed ? [] : (liveMercs?.[mi.matchId] || [])).map(m => ({
+            mercs={(isConfirmed
+              ? (completedByMatchId[mi.matchId]?.mercenaries || [])
+              : (liveMercs?.[mi.matchId] || [])
+            ).map(m => ({
               player: m.player,
               side: m.teamIdx === mi.homeIdx ? "home" : (m.teamIdx === mi.awayIdx ? "away" : null),
             })).filter(m => m.side)}
-            onAddMerc={(player, side) => onAddLiveMerc?.(mi.matchId, side === "home" ? mi.homeIdx : mi.awayIdx, player)}
-            onRemoveMerc={(player) => onRemoveLiveMerc?.(mi.matchId, player)}
+            onAddMerc={(player, side) => {
+              const teamIdx = side === "home" ? mi.homeIdx : mi.awayIdx;
+              if (isConfirmed && editingThisRound) onEditPastMercAdd?.(mi.matchId, teamIdx, player);
+              else onAddLiveMerc?.(mi.matchId, teamIdx, player);
+            }}
+            onRemoveMerc={(player) => {
+              if (isConfirmed && editingThisRound) onEditPastMercRemove?.(mi.matchId, player);
+              else onRemoveLiveMerc?.(mi.matchId, player);
+            }}
           />
         </div>
         );

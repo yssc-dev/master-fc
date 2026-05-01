@@ -10,6 +10,7 @@ export default function PushMatchView({
   onRecordEvent, onUndoEvent, onDeleteEvent, onEditEvent,
   onConfirmPushRound, onUnconfirmLastRound, completedMatches, attendees, onGkChange,
   liveMercs, onAddLiveMerc, onRemoveLiveMerc,
+  onEditPastGk, onEditPastMercAdd, onEditPastMercRemove,
   pushState, styles: s,
 }) {
   const { C } = useTheme();
@@ -23,11 +24,14 @@ export default function PushMatchView({
   const [streakPickerOpen, setStreakPickerOpen] = useState(false);
   // viewingIdx: completedMatches.length = 현재(라이브), 0~length-1 = 과거 경기
   const [viewingIdx, setViewingIdx] = useState(completedMatches.length);
+  // 과거 매치 부분 수정 모드 (이벤트/GK/용병 편집 가능. 매치업은 절대 변경되지 않음)
+  const [editingPast, setEditingPast] = useState(false);
 
   const [lastMatchCount, setLastMatchCount] = useState(completedMatches.length);
   if (completedMatches.length !== lastMatchCount) {
     setLastMatchCount(completedMatches.length);
     setViewingIdx(completedMatches.length); // 새 경기 확정 시 라이브로 이동
+    setEditingPast(false);
     if (pushState?.suggestedMatch) {
       setCurrentMatch(pushState.suggestedMatch);
     }
@@ -63,17 +67,33 @@ export default function PushMatchView({
     awayPlayers: viewAwayPlayers,
   };
 
-  // CourtRecorder에 넘길 mercs (side 형식). 라이브만 의미 있음 — 과거는 readOnly이므로 빈 배열.
-  const liveMercList = isLive ? (liveMercs?.[liveMatchId] || []) : [];
-  const courtMercs = liveMercList.map(m => ({
+  // CourtRecorder에 넘길 mercs (side 형식). 과거 수정 모드에선 저장된 mercenaries에서 가져옴.
+  const sourceMercList = isLive
+    ? (liveMercs?.[liveMatchId] || [])
+    : (viewingPast?.mercenaries || []);
+  const courtMercs = sourceMercList.map(m => ({
     player: m.player,
     side: m.teamIdx === homeIdx ? "home" : (m.teamIdx === awayIdx ? "away" : null),
   })).filter(m => m.side);
   const handleAddMerc = (player, side) => {
     const teamIdx = side === "home" ? homeIdx : awayIdx;
-    onAddLiveMerc?.(liveMatchId, teamIdx, player);
+    if (isLive) onAddLiveMerc?.(liveMatchId, teamIdx, player);
+    else onEditPastMercAdd?.(currentMatchId, teamIdx, player);
   };
-  const handleRemoveMerc = (player) => onRemoveLiveMerc?.(liveMatchId, player);
+  const handleRemoveMerc = (player) => {
+    if (isLive) onRemoveLiveMerc?.(liveMatchId, player);
+    else onEditPastMercRemove?.(currentMatchId, player);
+  };
+  // 과거 수정 모드용 GK 변경: completedMatches[i] + gksHistory를 동시에 갱신.
+  const handleGkChangeRouted = (teamIdx, player) => {
+    if (isLive) {
+      onGkChange?.(teamIdx, player);
+      return;
+    }
+    const side = teamIdx === viewingPast?.homeIdx ? 'home' : (teamIdx === viewingPast?.awayIdx ? 'away' : null);
+    if (!side) return;
+    onEditPastGk?.(currentMatchId, side, player);
+  };
 
   const handleConfirmRound = () => {
     const evts = allEvents.filter(e => e.matchId === liveMatchId);
@@ -291,7 +311,21 @@ export default function PushMatchView({
             대진변경
           </button>
         )}
+        {!isLive && (
+          <button onClick={() => setEditingPast(v => !v)}
+            style={{ ...s.btnSm(editingPast ? C.orange : C.grayDark, editingPast ? C.bg : C.white), fontSize: 10 }}>
+            {editingPast ? "수정 완료" : "수정"}
+          </button>
+        )}
       </div>
+      {!isLive && editingPast && (
+        <div style={{
+          fontSize: 11, color: C.orange, textAlign: "center", marginBottom: 6,
+          padding: "4px 8px", background: `${C.orange}15`, borderRadius: 6,
+        }}>
+          수정 모드: 점수/GK/용병 편집 가능 · 매치업(팀 대진)은 변경되지 않습니다
+        </div>
+      )}
 
       {/* 경기 기록 */}
       <CourtRecorder
@@ -305,11 +339,11 @@ export default function PushMatchView({
         onDeleteEvent={onDeleteEvent}
         onEditEvent={onEditEvent}
         onFinish={() => {}}
-        onGkChange={onGkChange}
+        onGkChange={handleGkChangeRouted}
         styles={s}
         courtLabel=""
         attendees={attendees}
-        readOnly={!isLive}
+        readOnly={!isLive && !editingPast}
         mercs={courtMercs}
         onAddMerc={handleAddMerc}
         onRemoveMerc={handleRemoveMerc}

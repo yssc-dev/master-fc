@@ -368,6 +368,17 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
     dispatch({ type: 'REMOVE_LIVE_MERC', matchId, player });
   }, []);
 
+  // 확정된 과거 매치의 부분 수정. 매치업(homeIdx/awayIdx)과 이후 매치들은 영향 없음.
+  const handleEditPastGk = useCallback((matchId, side, player) => {
+    dispatch({ type: 'EDIT_PAST_GK', matchId, side, player });
+  }, []);
+  const handleEditPastMercAdd = useCallback((matchId, teamIdx, player) => {
+    dispatch({ type: 'EDIT_PAST_MERC_ADD', matchId, teamIdx, player });
+  }, []);
+  const handleEditPastMercRemove = useCallback((matchId, player) => {
+    dispatch({ type: 'EDIT_PAST_MERC_REMOVE', matchId, player });
+  }, []);
+
   const recordMatchEvent = (courtId, event) => dispatch({ type: 'ADD_EVENT', event: { ...event, id: generateEventId(), courtId, timestamp: Date.now() } });
   const undoMatchEvent = (courtId, matchId) => dispatch({ type: 'UNDO_EVENT', courtId, matchId });
   const deleteEvent = (globalIdx) => dispatch({ type: 'DELETE_EVENT', index: globalIdx });
@@ -1258,6 +1269,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
               onConfirmPushRound={confirmPushRound} onUnconfirmLastRound={unconfirmLastPushRound} completedMatches={completedMatches}
               attendees={attendees} onGkChange={handleGkChange} pushState={pushState}
               liveMercs={liveMercs || {}} onAddLiveMerc={handleAddLiveMerc} onRemoveLiveMerc={handleRemoveLiveMerc}
+              onEditPastGk={handleEditPastGk} onEditPastMercAdd={handleEditPastMercAdd} onEditPastMercRemove={handleEditPastMercRemove}
               styles={s} />
           ) : matchMode === "schedule" && schedule.length > 0 && !isExtraRound ? (
             <ScheduleMatchView schedule={schedule} currentRoundIdx={currentRoundIdx}
@@ -1268,6 +1280,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
               onUndoEvent={undoMatchEvent} onDeleteEvent={deleteEvent} onEditEvent={editEvent}
               completedMatches={completedMatches} attendees={attendees} onGkChange={handleGkChange}
               liveMercs={liveMercs || {}} onAddLiveMerc={handleAddLiveMerc} onRemoveLiveMerc={handleRemoveLiveMerc}
+              onEditPastGk={handleEditPastGk} onEditPastMercAdd={handleEditPastMercAdd} onEditPastMercRemove={handleEditPastMercRemove}
               splitPhase={splitPhase} styles={s} />
           ) : (
             <FreeMatchView teams={teams} teamNames={teamNames} teamColorIndices={teamColorIndices} gks={gks}
@@ -1276,6 +1289,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
               onFinishMatch={finishMatch} completedMatches={completedMatches}
               attendees={attendees} onGkChange={handleGkChange}
               liveMercs={liveMercs || {}} onAddLiveMerc={handleAddLiveMerc} onRemoveLiveMerc={handleRemoveLiveMerc}
+              onEditPastGk={handleEditPastGk} onEditPastMercAdd={handleEditPastMercAdd} onEditPastMercRemove={handleEditPastMercRemove}
               styles={s} isExtraRound={isExtraRound} />
           )}
         </div>

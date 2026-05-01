@@ -1,5 +1,7 @@
 import { useReducer } from 'react';
 import { FALLBACK_DATA } from '../config/fallbackData';
+import { calcMatchScore } from '../utils/scoring';
+import { createInitialPushState, calcNextPushMatch } from '../utils/pushMatch';
 
 const initialState = {
   phase: "setup",
@@ -71,6 +73,58 @@ function snapshotMatchResult(result, teams, liveMercs) {
     awayPlayers,
     mercenaries: mercList.map(m => ({ player: m.player, teamIdx: m.teamIdx })),
   };
+}
+
+// 이벤트 변경 시 confirmed 매치들의 점수를 allEvents 기반으로 재계산.
+// 매치업(homeIdx/awayIdx) 등 다른 필드는 유지 — 과거 대진은 절대 바뀌지 않음.
+function recomputeCompletedScores(completedMatches, allEvents) {
+  let changed = false;
+  const next = completedMatches.map(m => {
+    if (!m.matchId) return m;
+    const evts = allEvents.filter(e => e.matchId === m.matchId);
+    const homeScore = calcMatchScore(evts, m.matchId, m.homeTeam);
+    const awayScore = calcMatchScore(evts, m.matchId, m.awayTeam);
+    if (homeScore === m.homeScore && awayScore === m.awayScore) return m;
+    changed = true;
+    return { ...m, homeScore, awayScore };
+  });
+  return changed ? next : completedMatches;
+}
+
+// 밀어내기 모드: completedMatches 순회로 pushState 재계산.
+// 과거 매치업은 그대로 유지하고, 새 점수 기준으로 다음 라이브 매치 추천만 갱신됨.
+function recomputePushStateFromCompleted(completedMatches, teamCount, teamNames) {
+  let ps = createInitialPushState(teamCount);
+  for (const m of completedMatches) {
+    ps = calcNextPushMatch(ps, {
+      homeIdx: m.homeIdx, awayIdx: m.awayIdx,
+      homeScore: m.homeScore, awayScore: m.awayScore,
+    }, teamCount, teamNames);
+  }
+  return ps;
+}
+
+// 이벤트 변경에 따라 completedMatches/pushState를 일괄 갱신해 반환.
+function applyEventChange(state, allEvents) {
+  const completedMatches = recomputeCompletedScores(state.completedMatches, allEvents);
+  const updates = { allEvents };
+  if (completedMatches !== state.completedMatches) {
+    updates.completedMatches = completedMatches;
+    if (state.matchMode === 'push' && state.pushState) {
+      updates.pushState = recomputePushStateFromCompleted(completedMatches, state.teamCount, state.teamNames);
+    }
+  }
+  return updates;
+}
+
+// matchId → gksHistory key + (해당 매치의) teamIdx 변환.
+// 풋살 schedule: R{n}_C{i} → gksHistory[n-1] (roundIdx 기반)
+// 풋살 push: P{n}_C0 → gksHistory[completedMatches index]
+function resolveGksHistoryKey(matchId, completedIdx) {
+  const sm = String(matchId || '').match(/^R(\d+)_C(\d+)$/);
+  if (sm) return parseInt(sm[1], 10) - 1;
+  if (/^P\d+_C0$/.test(matchId)) return completedIdx;
+  return null;
 }
 
 function gameReducer(state, action) {
@@ -147,24 +201,86 @@ function gameReducer(state, action) {
     }
     case 'SET_ATTENDEES':
       return { ...state, attendees: action.attendees };
-    case 'ADD_EVENT':
-      return { ...state, allEvents: [...state.allEvents, action.event] };
+    case 'ADD_EVENT': {
+      const allEvents = [...state.allEvents, action.event];
+      return { ...state, ...applyEventChange(state, allEvents) };
+    }
     case 'UNDO_EVENT': {
       const { courtId, matchId } = action;
       const idx = [];
       state.allEvents.forEach((e, i) => { if (e.matchId === matchId && e.courtId === courtId) idx.push(i); });
       if (idx.length === 0) return state;
-      return { ...state, allEvents: state.allEvents.filter((_, i) => i !== idx[idx.length - 1]) };
+      const allEvents = state.allEvents.filter((_, i) => i !== idx[idx.length - 1]);
+      return { ...state, ...applyEventChange(state, allEvents) };
     }
-    case 'DELETE_EVENT':
-      return { ...state, allEvents: state.allEvents.filter((_, i) => i !== action.index) };
-    case 'EDIT_EVENT':
+    case 'DELETE_EVENT': {
+      const allEvents = state.allEvents.filter((_, i) => i !== action.index);
+      return { ...state, ...applyEventChange(state, allEvents) };
+    }
+    case 'EDIT_EVENT': {
+      const allEvents = state.allEvents.map((e, i) =>
+        i === action.index ? { ...action.event, courtId: e.courtId, timestamp: e.timestamp } : e
+      );
+      return { ...state, ...applyEventChange(state, allEvents) };
+    }
+    case 'EDIT_PAST_GK': {
+      const { matchId, side, player } = action;
+      const idx = state.completedMatches.findIndex(m => m.matchId === matchId);
+      if (idx === -1) return state;
+      const m = state.completedMatches[idx];
+      const next = side === 'home' ? { ...m, homeGk: player } : { ...m, awayGk: player };
+      const completedMatches = state.completedMatches.map((x, i) => i === idx ? next : x);
+      const histKey = resolveGksHistoryKey(matchId, idx);
+      const teamIdx = side === 'home' ? m.homeIdx : m.awayIdx;
+      let gksHistory = state.gksHistory;
+      if (histKey != null && teamIdx != null) {
+        gksHistory = {
+          ...gksHistory,
+          [histKey]: { ...(gksHistory[histKey] || {}), [teamIdx]: player },
+        };
+      }
+      return { ...state, completedMatches, gksHistory };
+    }
+    case 'EDIT_PAST_MERC_ADD': {
+      const { matchId, player, teamIdx } = action;
+      const idx = state.completedMatches.findIndex(m => m.matchId === matchId);
+      if (idx === -1) return state;
+      const m = state.completedMatches[idx];
+      const mercenaries = [...(m.mercenaries || [])];
+      if (mercenaries.some(x => x.player === player)) return state;
+      mercenaries.push({ player, teamIdx });
+      const isHome = teamIdx === m.homeIdx;
+      const isAway = teamIdx === m.awayIdx;
+      if (!isHome && !isAway) return state;
+      const homeBase = m.homePlayers || (state.teams?.[m.homeIdx] || []);
+      const awayBase = m.awayPlayers || (state.teams?.[m.awayIdx] || []);
+      const next = isHome
+        ? { ...m, mercenaries, homePlayers: homeBase.includes(player) ? homeBase : [...homeBase, player] }
+        : { ...m, mercenaries, awayPlayers: awayBase.includes(player) ? awayBase : [...awayBase, player] };
       return {
         ...state,
-        allEvents: state.allEvents.map((e, i) =>
-          i === action.index ? { ...action.event, courtId: e.courtId, timestamp: e.timestamp } : e
-        ),
+        completedMatches: state.completedMatches.map((x, i) => i === idx ? next : x),
       };
+    }
+    case 'EDIT_PAST_MERC_REMOVE': {
+      const { matchId, player } = action;
+      const idx = state.completedMatches.findIndex(m => m.matchId === matchId);
+      if (idx === -1) return state;
+      const m = state.completedMatches[idx];
+      const merc = (m.mercenaries || []).find(x => x.player === player);
+      if (!merc) return state;
+      const mercenaries = m.mercenaries.filter(x => x.player !== player);
+      const isHome = merc.teamIdx === m.homeIdx;
+      const homeBase = m.homePlayers || (state.teams?.[m.homeIdx] || []);
+      const awayBase = m.awayPlayers || (state.teams?.[m.awayIdx] || []);
+      const next = isHome
+        ? { ...m, mercenaries, homePlayers: homeBase.filter(p => p !== player) }
+        : { ...m, mercenaries, awayPlayers: awayBase.filter(p => p !== player) };
+      return {
+        ...state,
+        completedMatches: state.completedMatches.map((x, i) => i === idx ? next : x),
+      };
+    }
     case 'ADD_LIVE_MERC': {
       const { matchId, player, teamIdx } = action;
       const list = state.liveMercs[matchId] || [];
@@ -465,4 +581,4 @@ export function useGameReducer() {
   return useReducer(gameReducer, initialState);
 }
 
-export { initialState };
+export { initialState, gameReducer };
