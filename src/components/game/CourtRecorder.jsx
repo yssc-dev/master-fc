@@ -103,8 +103,9 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
 
   const homeMercs = mercs.filter(m => m.side === "home").map(m => m.player);
   const awayMercs = mercs.filter(m => m.side === "away").map(m => m.player);
-  const homePlayers = [...initHomePlayers.filter(p => !awayMercs.includes(p)), ...homeMercs].sort((a, b) => a.localeCompare(b, 'ko'));
-  const awayPlayers = [...initAwayPlayers.filter(p => !homeMercs.includes(p)), ...awayMercs].sort((a, b) => a.localeCompare(b, 'ko'));
+  // initHomePlayers가 이미 mercs를 포함할 수 있어(confirmed 스냅샷) 중복 방지를 위해 mercs는 한 번만 append
+  const homePlayers = [...initHomePlayers.filter(p => !awayMercs.includes(p) && !homeMercs.includes(p)), ...homeMercs].sort((a, b) => a.localeCompare(b, 'ko'));
+  const awayPlayers = [...initAwayPlayers.filter(p => !homeMercs.includes(p) && !awayMercs.includes(p)), ...awayMercs].sort((a, b) => a.localeCompare(b, 'ko'));
   const getMercCandidates = (side) => {
     const myPlayers = side === "home" ? homePlayers : awayPlayers;
     return (attendees || []).filter(p => !myPlayers.includes(p));
