@@ -23,7 +23,7 @@ export default function RoundDistribution({ data, player, ranking, C }) {
   if (!stats) {
     return (
       <div style={{ padding: 16, textAlign: 'center', color: C.gray, fontSize: 12 }}>
-        라운드 분포 데이터 없음 (활동 라운드 표본 부족)
+        라운드 분포 데이터 없음 (출전 라운드 표본 부족)
       </div>
     );
   }
@@ -67,7 +67,7 @@ export default function RoundDistribution({ data, player, ranking, C }) {
         )}
       </svg>
       <div style={{ fontSize: 10, color: C.gray, marginTop: 4 }}>
-        활동 라운드 {data.sampleCount}회 · 기울기 {data.slope == null ? '—' : data.slope.toFixed(2)}
+        출전 라운드 {data.sampleCount}회 · 활동(G+A) {data.activeCount ?? 0}회 · 기울기 {data.slope == null ? '—' : data.slope.toFixed(2)}
       </div>
       {caption && (
         <div style={{ fontSize: 11, color: C.accent, marginTop: 4, fontWeight: 600 }}>{caption}</div>
