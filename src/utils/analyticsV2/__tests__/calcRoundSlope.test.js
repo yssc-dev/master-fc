@@ -122,23 +122,25 @@ describe('calcRoundSlope', () => {
     expect(r.perPlayer.A.points.map(p => p.round_idx).sort()).toEqual([1, 2, 3]);
   });
 
-  it('legacy "N경기" 포맷 round_idx 추출 (N=라운드)', () => {
+  it('legacy 비표준 match_id는 matchLogs lookup으로만 잡힘 (regex 미지원)', () => {
+    // 2026-05-01 마이그레이션으로 모든 legacy match_id가 표준화됨. 혹시 남은 비표준은
+    // matchLogs.round_idx로만 보강 가능 — match_id 자체에서는 추출 안 함.
     const eventLogs = [
-      { date: '2026-01-15', match_id: '3경기',  event_type: 'goal', player: 'A', related_player: '' },
-      { date: '2026-01-15', match_id: '10경기', event_type: 'goal', player: 'A', related_player: '' },
+      { date: '2026-01-15', match_id: '3경기', event_type: 'goal', player: 'A', related_player: '' },
     ];
-    const r = calcRoundSlope({ eventLogs, threshold: 1 });
-    expect(r.perPlayer.A.points.map(p => p.round_idx).sort((a,b)=>a-b)).toEqual([3, 10]);
+    const matchLogs = [
+      { date: '2026-01-15', match_id: '3경기', round_idx: 3 },
+    ];
+    const r = calcRoundSlope({ eventLogs, matchLogs, threshold: 1 });
+    expect(r.perPlayer.A.points[0].round_idx).toBe(3);
   });
 
-  it('legacy "N라운드 ..." 포맷 round_idx 추출', () => {
+  it('matchLogs도 round_idx도 없는 비표준 match_id는 DROP', () => {
     const eventLogs = [
-      { date: '2026-04-16', match_id: '2라운드 매치1',  event_type: 'goal', player: 'A', related_player: '' },
-      { date: '2026-04-16', match_id: '7라운드 매치1',  event_type: 'goal', player: 'A', related_player: '' },
-      { date: '2026-04-23', match_id: '10라운드 B구장', event_type: 'goal', player: 'A', related_player: '' },
+      { date: '2026-01-15', match_id: '3경기', event_type: 'goal', player: 'A', related_player: '' },
     ];
     const r = calcRoundSlope({ eventLogs, threshold: 1 });
-    expect(r.perPlayer.A.points.map(p => p.round_idx).sort((a,b)=>a-b)).toEqual([2, 7, 10]);
+    expect(r.perPlayer).toEqual({});
   });
 
   it('owngoal does not count toward player', () => {

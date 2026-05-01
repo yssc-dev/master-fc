@@ -2,6 +2,7 @@
 // 풋살 웹앱 Apps Script v2.0
 //
 // CHANGELOG
+// 2026-05-01: _isStandardMatchId 풋살 P/F prefix 인정 (P{n}_C{m}, F{n}_C{m})
 // 2026-04-30: _writeRawEvents/_writeRawMatches 서버측 match_id 정규화 (클라이언트 우회 경로 방어)
 // 2026-04-28: reimportPointLog 액션 추가 (HTTP 노출, 풋살/축구 디스패치)
 // 2026-04-28: _importTournamentEventLogs — owngoal 정규화 + concede_gk 필드 추가 (누락 수정)
@@ -1216,7 +1217,7 @@ function _normalizeMatchIdAS(raw, sport) {
 }
 
 function _isStandardMatchId(s, sport) {
-  if (sport === "풋살") return /^R\d+_C\d+$/.test(s);
+  if (sport === "풋살") return /^[RPF]\d+_C\d+$/.test(s);
   return /^\d+$/.test(s);
 }
 
