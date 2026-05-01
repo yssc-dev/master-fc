@@ -311,12 +311,6 @@ export default function PushMatchView({
             대진변경
           </button>
         )}
-        {!isLive && (
-          <button onClick={() => setEditingPast(v => !v)}
-            style={{ ...s.btnSm(editingPast ? C.orange : C.grayDark, editingPast ? C.bg : C.white), fontSize: 10 }}>
-            {editingPast ? "수정 완료" : "수정"}
-          </button>
-        )}
       </div>
       {!isLive && editingPast && (
         <div style={{
@@ -350,16 +344,25 @@ export default function PushMatchView({
       />
 
       {/* 하단 버튼 */}
-      <div style={{ marginTop: 12 }}>
+      <div style={{ marginTop: 12, display: "flex", gap: 8 }}>
         {isLive ? (
           <button onClick={handleConfirmRound} style={{ ...s.btnFull(C.accent, C.bg) }}>
             경기 확정
           </button>
-        ) : viewingIdx === completedMatches.length - 1 ? (
-          <button onClick={onUnconfirmLastRound} style={{ ...s.btnFull(C.orange, C.bg) }}>
-            {viewingIdx + 1}경기 확정취소
-          </button>
-        ) : null}
+        ) : (
+          <>
+            <button onClick={() => setEditingPast(v => !v)}
+              style={{ ...s.btnFull(editingPast ? C.orange : C.grayDark, editingPast ? C.bg : C.white), flex: 1 }}>
+              {editingPast ? "수정 완료" : "수정"}
+            </button>
+            {viewingIdx === completedMatches.length - 1 && (
+              <button onClick={onUnconfirmLastRound}
+                style={{ ...s.btnFull(C.orange, C.bg), flex: 1 }}>
+                {viewingIdx + 1}경기 확정취소
+              </button>
+            )}
+          </>
+        )}
       </div>
     </div>
   );
