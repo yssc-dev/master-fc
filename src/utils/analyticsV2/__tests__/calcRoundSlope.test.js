@@ -71,6 +71,20 @@ describe('calcRoundSlope', () => {
     expect(r.perPlayer.A.points).toHaveLength(1);
   });
 
+  it('빈 round_idx 셀("")은 lookup에서 제외 — fallback regex가 동작', () => {
+    const eventLogs = [
+      { date: '2026-04-01', match_id: 'P1_C0', event_type: 'goal', player: 'A', related_player: '' },
+      { date: '2026-04-01', match_id: 'P3_C0', event_type: 'goal', player: 'A', related_player: '' },
+    ];
+    // 시트에서 빈 셀이 ""로 들어온 경우 (Number('')=0이므로 잘못된 lookup 등록 방지 검증)
+    const matchLogs = [
+      { date: '2026-04-01', match_id: 'P1_C0', round_idx: '' },
+      { date: '2026-04-01', match_id: 'P3_C0', round_idx: '' },
+    ];
+    const r = calcRoundSlope({ eventLogs, matchLogs, threshold: 1 });
+    expect(r.perPlayer.A.points.map(p => p.round_idx).sort()).toEqual([1, 3]);
+  });
+
   it('parses round_idx from push (P{n}_C0) and free (F{n}_C{m}) match_ids', () => {
     const eventLogs = [
       { date: '2026-04-01', match_id: 'P1_C0', event_type: 'goal', player: 'A', related_player: '' },

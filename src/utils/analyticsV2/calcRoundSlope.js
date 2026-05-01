@@ -22,7 +22,11 @@ function buildRoundIdxLookup(matchLogs) {
   for (const m of matchLogs || []) {
     const date = m.date || '';
     const mid = m.match_id || '';
-    const ridx = Number(m.round_idx);
+    // 시트 빈 셀은 ""로 들어와 Number("")=0이 되어버려 round_idx=0으로 잘못 등록되던 버그 방어.
+    // null/undefined/"" 명시적으로 스킵해 match_id regex fallback이 동작하도록.
+    const raw = m.round_idx;
+    if (raw === null || raw === undefined || raw === '') continue;
+    const ridx = Number(raw);
     if (!Number.isFinite(ridx)) continue;
     lookup.set(`${date}|${mid}`, ridx);
   }
