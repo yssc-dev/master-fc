@@ -14,15 +14,25 @@
 //
 // round_idx 출처:
 //   1순위) matchLogs(date, match_id) join → round_idx 컬럼
-//   2순위) match_id 정규식 폴백 ([RPF]{n}_C{m}) — schedule/push/free 모두 지원
+//   2순위) match_id 정규식 폴백:
+//          - [RPF]{n}_C{m}      (schedule/push/free 표준)
+//          - "{n}라운드 ..."     (legacy: "2라운드 매치1", "8라운드 B구장")
+//          - "{n}경기"           (legacy: 옛 import 데이터, n=라운드)
 // sessionMaxRound: matchLogs + eventLogs에서 그 date의 최대 round_idx.
 
-const ROUND_RX = /^[RPF](\d+)_/;
+const ROUND_PATTERNS = [
+  /^[RPF](\d+)_/,
+  /^(\d+)라운드/,
+  /^(\d+)경기$/,
+];
 
 function parseRoundIdxFromString(matchId) {
   if (typeof matchId !== 'string') return null;
-  const m = matchId.match(ROUND_RX);
-  return m ? Number(m[1]) : null;
+  for (const rx of ROUND_PATTERNS) {
+    const m = matchId.match(rx);
+    if (m) return Number(m[1]);
+  }
+  return null;
 }
 
 function buildRoundIdxLookup(matchLogs) {

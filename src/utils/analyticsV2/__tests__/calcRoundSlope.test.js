@@ -122,6 +122,25 @@ describe('calcRoundSlope', () => {
     expect(r.perPlayer.A.points.map(p => p.round_idx).sort()).toEqual([1, 2, 3]);
   });
 
+  it('legacy "N경기" 포맷 round_idx 추출 (N=라운드)', () => {
+    const eventLogs = [
+      { date: '2026-01-15', match_id: '3경기',  event_type: 'goal', player: 'A', related_player: '' },
+      { date: '2026-01-15', match_id: '10경기', event_type: 'goal', player: 'A', related_player: '' },
+    ];
+    const r = calcRoundSlope({ eventLogs, threshold: 1 });
+    expect(r.perPlayer.A.points.map(p => p.round_idx).sort((a,b)=>a-b)).toEqual([3, 10]);
+  });
+
+  it('legacy "N라운드 ..." 포맷 round_idx 추출', () => {
+    const eventLogs = [
+      { date: '2026-04-16', match_id: '2라운드 매치1',  event_type: 'goal', player: 'A', related_player: '' },
+      { date: '2026-04-16', match_id: '7라운드 매치1',  event_type: 'goal', player: 'A', related_player: '' },
+      { date: '2026-04-23', match_id: '10라운드 B구장', event_type: 'goal', player: 'A', related_player: '' },
+    ];
+    const r = calcRoundSlope({ eventLogs, threshold: 1 });
+    expect(r.perPlayer.A.points.map(p => p.round_idx).sort((a,b)=>a-b)).toEqual([2, 7, 10]);
+  });
+
   it('owngoal does not count toward player', () => {
     const eventLogs = [
       { date: '2026-04-01', match_id: 'R1_C0', event_type: 'owngoal', player: 'A', related_player: '' },
