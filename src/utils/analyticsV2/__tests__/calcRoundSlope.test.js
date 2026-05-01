@@ -71,6 +71,17 @@ describe('calcRoundSlope', () => {
     expect(r.perPlayer.A.points).toHaveLength(1);
   });
 
+  it('parses round_idx from push (P{n}_C0) and free (F{n}_C{m}) match_ids', () => {
+    const eventLogs = [
+      { date: '2026-04-01', match_id: 'P1_C0', event_type: 'goal', player: 'A', related_player: '' },
+      { date: '2026-04-01', match_id: 'P2_C0', event_type: 'goal', player: 'A', related_player: '' },
+      { date: '2026-04-01', match_id: 'F3_C1', event_type: 'goal', player: 'A', related_player: '' },
+    ];
+    const r = calcRoundSlope({ eventLogs, threshold: 1 });
+    expect(r.perPlayer.A.points).toHaveLength(3);
+    expect(r.perPlayer.A.points.map(p => p.round_idx).sort()).toEqual([1, 2, 3]);
+  });
+
   it('owngoal does not count toward player ga', () => {
     const eventLogs = [
       { date: '2026-04-01', match_id: 'R1_C0', event_type: 'owngoal', player: 'A', related_player: '' },

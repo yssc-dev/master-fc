@@ -14,7 +14,8 @@ export const RAW_MATCH_COLUMNS = [
 ];
 
 function parseMatchIdFutsal(matchId) {
-  const m = String(matchId || '').match(/^R(\d+)_C(\d+)$/);
+  // R{n}_C{m} (schedule) / P{n}_C0 (push) / F{n}_C{m} (free) 모두 지원
+  const m = String(matchId || '').match(/^[RPF](\d+)_C(\d+)$/);
   if (!m) return { round_idx: null, court_id: null };
   return { round_idx: parseInt(m[1], 10), court_id: parseInt(m[2], 10) };
 }

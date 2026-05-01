@@ -5,7 +5,11 @@
 // 1순위) matchLogs(로그_매치)에 (date, match_id) 조인해서 round_idx 컬럼 직접 사용 (정규화된 진실 소스)
 // 2순위) match_id 문자열에서 `R{n}_C{n}` 패턴 fallback (legacy 데이터 + matchLogs 미제공 호환)
 
-const ROUND_RX = /^R(\d+)_/;
+// 풋살 모드별 매치ID 형식
+//   schedule: R{n}_C{i}  (n=1-indexed 라운드)
+//   push:     P{n}_C0    (n=1-indexed 매치 순번 — 1코트라 라운드와 동일 의미)
+//   free:     F{n}_C{i}  (n=1-indexed 배치 순번)
+const ROUND_RX = /^[RPF](\d+)_/;
 
 function parseRoundIdxFromString(matchId) {
   if (typeof matchId !== 'string') return null;
