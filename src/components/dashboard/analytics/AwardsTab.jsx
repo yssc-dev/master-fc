@@ -43,6 +43,81 @@ export default function AwardsTab({ playerGameLogs, matchLogs, eventLogs, C }) {
     </div>
   );
 
+  const SlopeRow = ({ item, maxAbs, isLate }) => {
+    const ratio = Math.min(1, Math.abs(item.slope) / maxAbs);
+    const barColor = isLate ? '#4ade80' : '#ff8a4c';
+    const valueText = `${isLate ? '+' : ''}${item.slope.toFixed(2)}`;
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', height: 22, marginBottom: 6, fontSize: 11 }}>
+        <div style={{ flex: 1, position: 'relative', height: '100%' }}>
+          {!isLate && (
+            <>
+              <div style={{
+                position: 'absolute', right: 0, top: 4, height: 14,
+                width: `${ratio * 100}%`, background: barColor,
+                borderRadius: '7px 0 0 7px',
+              }} />
+              <div style={{
+                position: 'absolute', right: `calc(${ratio * 100}% + 6px)`, top: 2,
+                color: C.white, fontWeight: 600, whiteSpace: 'nowrap',
+              }}>
+                {item.player} <span style={{ color: C.gray, fontSize: 10 }}>{valueText}</span>
+              </div>
+            </>
+          )}
+        </div>
+        <div style={{ width: 1, height: 18, background: C.grayDark, flexShrink: 0 }} />
+        <div style={{ flex: 1, position: 'relative', height: '100%' }}>
+          {isLate && (
+            <>
+              <div style={{
+                position: 'absolute', left: 0, top: 4, height: 14,
+                width: `${ratio * 100}%`, background: barColor,
+                borderRadius: '0 7px 7px 0',
+              }} />
+              <div style={{
+                position: 'absolute', left: `calc(${ratio * 100}% + 6px)`, top: 2,
+                color: C.white, fontWeight: 600, whiteSpace: 'nowrap',
+              }}>
+                <span style={{ color: C.gray, fontSize: 10 }}>{valueText}</span> {item.player}
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const SoloDonut = ({ player, ratio, rank }) => {
+    const size = 80, stroke = 8;
+    const r = (size - stroke) / 2;
+    const circ = 2 * Math.PI * r;
+    const offset = circ * (1 - Math.min(1, ratio));
+    return (
+      <div style={{ textAlign: 'center', flex: 1 }}>
+        <div style={{ position: 'relative', width: size, height: size, margin: '0 auto' }}>
+          <svg width={size} height={size}>
+            <circle cx={size/2} cy={size/2} r={r}
+              fill="none" stroke={C.grayDarker} strokeWidth={stroke} />
+            <circle cx={size/2} cy={size/2} r={r}
+              fill="none" stroke="#4ade80" strokeWidth={stroke}
+              strokeDasharray={circ} strokeDashoffset={offset}
+              strokeLinecap="round"
+              transform={`rotate(-90 ${size/2} ${size/2})`} />
+          </svg>
+          <div style={{
+            position: 'absolute', inset: 0,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 15, fontWeight: 700, color: C.white,
+          }}>{Math.round(ratio * 100)}%</div>
+        </div>
+        <div style={{ fontSize: 11, color: C.white, marginTop: 6 }}>
+          #{rank} {player}
+        </div>
+      </div>
+    );
+  };
+
   const RankingCol = ({ title, rows, suffix }) => (
     <div>
       <div style={{ fontSize: 10, color: C.gray, marginBottom: 6 }}>{title}</div>
@@ -62,15 +137,50 @@ export default function AwardsTab({ playerGameLogs, matchLogs, eventLogs, C }) {
       <Card title="🔥 불꽃 (해트트릭+ 횟수)" items={awards.fireStarter} valueKey="count" valueFmt={v => `${v}회`} />
       <Card title="🛡 수호신 (세션 무실점 GK 횟수)" items={awards.guardian} valueKey="count" valueFmt={v => `${v}회`} />
       <Card title="🤦 자책 누적" items={awards.owngoalKings} valueKey="total" valueFmt={v => `${v}회`} />
-      <Card title="🏃 후반 폭격기 (라운드 ↑ → G+A ↑)"
-        items={slope.ranking.lateBloomers.slice(0, 3)} valueKey="slope"
-        valueFmt={v => `+${v.toFixed(2)}/라운드`} />
-      <Card title="🎯 초반 강자 (라운드 ↑ → G+A ↓)"
-        items={slope.ranking.earlyBirds.slice(0, 3)} valueKey="slope"
-        valueFmt={v => `${v.toFixed(2)}/라운드`} />
-      <Card title="🎯 혼자 박는 자 (단독골 비율)"
-        items={solo.ranking.soloHeroes.slice(0, 3)} valueKey="soloRatio"
-        valueFmt={v => `${Math.round(v * 100)}%`} />
+      {/* 라운드 흐름: 초반강자(-) ← → 후반폭격기(+) */}
+      {(() => {
+        const late = slope.ranking.lateBloomers.slice(0, 3);
+        const early = slope.ranking.earlyBirds.slice(0, 3);
+        const maxAbs = Math.max(0.01,
+          ...late.map(x => Math.abs(x.slope)),
+          ...early.map(x => Math.abs(x.slope)),
+        );
+        return (
+          <div style={{ padding: 14, background: C.cardLight, borderRadius: 12, marginBottom: 12 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: C.gray, marginBottom: 6 }}>
+              🏁 라운드 흐름 (G+A/라운드 변화)
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: C.gray, marginBottom: 10 }}>
+              <span>← 초반 강자</span>
+              <span>후반 폭격기 →</span>
+            </div>
+            {late.length === 0 && early.length === 0 ? (
+              <div style={{ fontSize: 11, color: C.gray }}>표본 부족</div>
+            ) : (
+              <>
+                {late.map((it, i) => <SlopeRow key={`L${i}`} item={it} maxAbs={maxAbs} isLate={true} />)}
+                {early.map((it, i) => <SlopeRow key={`E${i}`} item={it} maxAbs={maxAbs} isLate={false} />)}
+              </>
+            )}
+          </div>
+        );
+      })()}
+
+      {/* 단독골 도넛 */}
+      <div style={{ padding: 14, background: C.cardLight, borderRadius: 12, marginBottom: 12 }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: C.gray, marginBottom: 12 }}>
+          🎯 혼자 박는 자 (단독골 비율)
+        </div>
+        {solo.ranking.soloHeroes.length === 0 ? (
+          <div style={{ fontSize: 11, color: C.gray }}>표본 부족</div>
+        ) : (
+          <div style={{ display: 'flex', gap: 8 }}>
+            {solo.ranking.soloHeroes.slice(0, 3).map((it, i) => (
+              <SoloDonut key={it.player} player={it.player} ratio={it.soloRatio} rank={i + 1} />
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* ── 월별 랭킹 ── */}
       <div style={{ padding: 14, background: C.cardLight, borderRadius: 12, marginBottom: 12 }}>
