@@ -2,6 +2,7 @@
 // 풋살 웹앱 Apps Script v2.0
 //
 // CHANGELOG
+// 2026-05-02: _writeRawMatches — 풋살 our_gk/opponent_gk 누락 시 경고 로그 (미래 회귀 감지용)
 // 2026-05-01: _isStandardMatchId 풋살 P/F prefix 인정 (P{n}_C{m}, F{n}_C{m})
 // 2026-04-30: _writeRawEvents/_writeRawMatches 서버측 match_id 정규화 (클라이언트 우회 경로 방어)
 // 2026-04-28: reimportPointLog 액션 추가 (HTTP 노출, 풋살/축구 디스패치)
@@ -986,14 +987,25 @@ function _writeRawMatches(data) {
 
     var toInsert = [];
     var skipped = 0;
+    var gkMissing = 0;
     for (var i = 0; i < rows.length; i++) {
       var r = rows[i];
       // 서버측 match_id 정규화 (클라이언트 우회 경로 방어)
       r.match_id = _normalizeMatchIdAS(r.match_id || "", r.sport || "");
+      // 풋살 our_gk/opponent_gk 누락 가드: PG 시트와 keeper 카운트가 어긋나는 데이터 회귀를 조기 감지.
+      // 멤버가 있는데 GK 표기가 비면 일단 기록은 하되 카운트해서 마지막에 경고 로그.
+      if (r.sport === "풋살" && !r.is_extra) {
+        var hasOurMembers = (r.our_members_json && r.our_members_json !== "[]");
+        var hasOppMembers = (r.opponent_members_json && r.opponent_members_json !== "[]");
+        if ((hasOurMembers && !r.our_gk) || (hasOppMembers && !r.opponent_gk)) gkMissing++;
+      }
       var key = (r.game_id || "") + "|" + (r.match_id || "");
       if (existingKeys[key]) { skipped++; continue; }
       existingKeys[key] = true;
       toInsert.push(_rawMatchToArray(r));
+    }
+    if (gkMissing > 0) {
+      Logger.log("[_writeRawMatches] 풋살 GK 누락 행 " + gkMissing + "건 — PG/matchLogs keeper 불일치 위험");
     }
     if (toInsert.length > 0) {
       var lastRow = sheet.getLastRow();

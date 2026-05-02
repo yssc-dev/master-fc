@@ -8,6 +8,7 @@ import { calcRoundSlope } from '../../../utils/analyticsV2/calcRoundSlope';
 import { calcSoloGoalRatio } from '../../../utils/analyticsV2/calcSoloGoalRatio';
 import { calcPersonalSynergy } from '../../../utils/analyticsV2/calcPersonalSynergy';
 import { calcSynergyMatrix } from '../../../utils/analyticsV2/calcSynergyMatrix';
+import { calcPlayerSummary } from '../../../utils/analyticsV2/calcPlayerSummary';
 import RoundDistribution from './RoundDistribution';
 import SoloGoalDonut from './SoloGoalDonut';
 import PersonalSynergyCard from './PersonalSynergyCard';
@@ -100,49 +101,20 @@ function getChaosBadge(chaosRate) {
 // ─── Main Component ──────────────────────────────────────────────────────────
 
 export default function PersonalAnalysisTab({
-  defenseStats, winStats, gameRecords, playerGameLogs, matchLogs, eventLogs,
+  gameRecords, playerGameLogs, matchLogs, eventLogs,
   C, authUserName,
 }) {
-  // ── Player list (from playerSummary, same logic as PlayerCardTab) ──────────
-  const playerSummary = useMemo(() => {
-    const map = {};
-    const ensure = (name) => {
-      if (!map[name]) map[name] = { games: 0, rounds: 0, goals: 0, assists: 0, keeperRounds: 0, conceded: 0, ownGoals: 0 };
-      return map[name];
-    };
-    (playerGameLogs || []).forEach(p => {
-      const name = p.player;
-      if (!name) return;
-      const s = ensure(name);
-      s.goals += Number(p.goals) || 0;
-      s.assists += Number(p.assists) || 0;
-      s.keeperRounds += Number(p.keeper_games || p.keeperGames) || 0;
-      s.conceded += Number(p.conceded) || 0;
-      s.ownGoals += Number(p.own_goals || p.ownGoals) || 0;
-    });
-    const seenRound = new Set();
-    const seenGame = new Set();
-    (matchLogs || []).forEach(m => {
-      const key = `${m.date}|${m.match_id}`;
-      let home = [], away = [];
-      try { home = JSON.parse(m.our_members_json || '[]'); } catch {}
-      try { away = JSON.parse(m.opponent_members_json || '[]'); } catch {}
-      [...home, ...away].forEach(name => {
-        if (!name) return;
-        const roundDedup = `${key}|${name}`;
-        if (!seenRound.has(roundDedup)) {
-          seenRound.add(roundDedup);
-          ensure(name).rounds++;
-        }
-        const gameDedup = `${m.date}|${name}`;
-        if (!seenGame.has(gameDedup)) {
-          seenGame.add(gameDedup);
-          ensure(name).games++;
-        }
-      });
-    });
-    return map;
-  }, [playerGameLogs, matchLogs]);
+  // 6개 카드 숫자는 모두 matchLogs+eventLogs 단일 소스에서 계산.
+  // (이전: playerGameLogs/defenseStats/winStats 혼용 → 같은 "경기수"가 4종 5종으로 갈렸음)
+  const summaryV2 = useMemo(
+    () => calcPlayerSummary({
+      matchLogs: matchLogs || [],
+      eventLogs: eventLogs || [],
+      playerGameLogs: playerGameLogs || [],
+    }),
+    [matchLogs, eventLogs, playerGameLogs]
+  );
+  const playerSummary = summaryV2.perPlayer;
 
   const players = useMemo(() => {
     const list = Object.keys(playerSummary).filter(n => playerSummary[n].rounds >= 3);
@@ -156,7 +128,7 @@ export default function PersonalAnalysisTab({
     return list;
   }, [playerSummary, authUserName]);
 
-  const maxRounds = useMemo(() => Math.max(...Object.values(playerSummary).map(s => s.rounds), 1), [playerSummary]);
+  const maxRounds = Math.max(summaryV2.maxRounds, 1);
 
   // ── Selected player state (default to authUserName if present) ────────────
   const [selected, setSelected] = useState(() =>
@@ -168,38 +140,34 @@ export default function PersonalAnalysisTab({
     const scoring = [], creativity = [], defense = [], keeping = [], attendance = [], winRate = [];
     players.forEach(name => {
       const s = playerSummary[name];
-      const d = defenseStats[name];
-      const w = winStats[name];
       scoring.push(s.rounds > 0 ? s.goals / s.rounds : 0);
       creativity.push(s.rounds > 0 ? s.assists / s.rounds : 0);
-      defense.push(d ? d.avgConceded : 999);
+      defense.push(s.fieldRounds > 0 ? s.avgConceded : 999);
       keeping.push(s.keeperRounds > 0 ? s.conceded / s.keeperRounds : 999);
       attendance.push(s.rounds / maxRounds);
-      winRate.push(w ? w.winRate : 0);
+      winRate.push(s.winRate);
     });
     return { scoring, creativity, defense, keeping, attendance, winRate };
-  }, [players, playerSummary, defenseStats, winStats, maxRounds]);
+  }, [players, playerSummary, maxRounds]);
 
   const getPlayerData = (name) => {
     const s = playerSummary[name];
-    const d = defenseStats[name];
-    const w = winStats[name];
     if (!s) return { values: [50, 50, 50, 50, 50, 50], raw: {} };
     const chaosRate = s.rounds > 0 ? Math.abs(s.ownGoals || 0) / s.rounds : 0;
     const raw = {
       scoring: s.rounds > 0 ? s.goals / s.rounds : 0,
       creativity: s.rounds > 0 ? s.assists / s.rounds : 0,
-      defense: d ? d.avgConceded : 999,
+      defense: s.fieldRounds > 0 ? s.avgConceded : 999,
       keeping: s.keeperRounds > 0 ? s.conceded / s.keeperRounds : 999,
       attendance: s.rounds / maxRounds,
-      winRate: w ? w.winRate : 0,
+      winRate: s.winRate,
       chaosRate,
     };
     const detail = {
-      goals: s.goals, assists: s.assists, games: s.games, rounds: s.rounds, ownGoals: Math.abs(s.ownGoals || 0),
+      goals: s.goals, assists: s.assists, rounds: s.rounds, ownGoals: Math.abs(s.ownGoals || 0),
       keeperRounds: s.keeperRounds, conceded: s.conceded,
-      fieldRounds: d?.fieldMatches || 0, fieldConceded: d?.totalConceded || 0,
-      wins: w?.wins || 0, draws: w?.draws || 0, losses: w?.losses || 0, totalMatches: w?.matches || 0,
+      fieldRounds: s.fieldRounds, fieldConceded: s.fieldConceded,
+      wins: s.wins, draws: s.draws, losses: s.losses, totalMatches: s.matches,
     };
     return {
       values: [
@@ -241,11 +209,9 @@ export default function PersonalAnalysisTab({
   const getGkFieldSplit = (name) => {
     const s = playerSummary[name];
     if (!s) return null;
-    const keeperRounds = s.keeperRounds || 0;
-    const fieldRounds = Math.max(0, s.rounds - keeperRounds);
     return {
-      keeper: { rounds: keeperRounds, conceded: s.conceded || 0 },
-      field: { rounds: fieldRounds, goals: s.goals || 0, assists: s.assists || 0 },
+      keeper: { rounds: s.keeperRounds, conceded: s.conceded },
+      field: { rounds: s.fieldRounds, goals: s.goals, assists: s.assists },
     };
   };
 
@@ -291,7 +257,7 @@ export default function PersonalAnalysisTab({
       <div style={{ marginBottom: 14 }}>
         <select value={selected || ""} onChange={e => setSelected(e.target.value)}
           style={{ width: "100%", padding: "10px 14px", borderRadius: 50, fontSize: 14, fontWeight: 480, letterSpacing: "-0.14px", background: "transparent", color: C.white, border: `1.2px dashed ${C.grayDark}`, fontFamily: "inherit", appearance: "none", cursor: "pointer" }}>
-          {players.map(p => <option key={p} value={p}>{p} ({playerSummary[p].games}게임 / {playerSummary[p].rounds}경기)</option>)}
+          {players.map(p => <option key={p} value={p}>{p} ({playerSummary[p].rounds}경기)</option>)}
         </select>
       </div>
       {selected && (

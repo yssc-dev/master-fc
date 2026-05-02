@@ -91,7 +91,7 @@ export default function PlayerAnalytics({ teamName, teamMode, initialTab, isAdmi
 
       {tab === "personal" && (
         <PersonalAnalysisTab
-          defenseStats={defenseStats} winStats={winStats} gameRecords={gameRecords}
+          gameRecords={gameRecords}
           playerGameLogs={playerGameLogs} matchLogs={matchLogs} eventLogs={eventLogs}
           C={C} authUserName={authUserName}
         />
