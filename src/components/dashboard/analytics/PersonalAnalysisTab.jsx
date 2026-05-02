@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { percentile } from '../../../utils/gameStateAnalyzer';
-import { calcTrend, calcRelativePosition, calcAttendance } from '../../../utils/playerAnalyticsUtils';
+import { calcTrend, calcRelativePosition } from '../../../utils/playerAnalyticsUtils';
 import { calcTrends } from '../../../utils/analyticsV2/calcTrends';
 import { calcStreaks } from '../../../utils/analyticsV2/calcStreaks';
 import { calcPersonalRecords } from '../../../utils/analyticsV2/calcPersonalRecords';
@@ -101,7 +101,7 @@ function getChaosBadge(chaosRate) {
 // ─── Main Component ──────────────────────────────────────────────────────────
 
 export default function PersonalAnalysisTab({
-  gameRecords, playerGameLogs, matchLogs, eventLogs,
+  playerGameLogs, matchLogs, eventLogs,
   C, authUserName,
 }) {
   // 6개 카드 숫자는 모두 matchLogs+eventLogs 단일 소스에서 계산.
@@ -128,7 +128,7 @@ export default function PersonalAnalysisTab({
     return list;
   }, [playerSummary, authUserName]);
 
-  const maxRounds = Math.max(summaryV2.maxRounds, 1);
+  const totalSessions = Math.max(summaryV2.totalSessions, 1);
 
   // ── Selected player state (default to authUserName if present) ────────────
   const [selected, setSelected] = useState(() =>
@@ -144,11 +144,11 @@ export default function PersonalAnalysisTab({
       creativity.push(s.rounds > 0 ? s.assists / s.rounds : 0);
       defense.push(s.fieldRounds > 0 ? s.avgConceded : 999);
       keeping.push(s.keeperRounds > 0 ? s.conceded / s.keeperRounds : 999);
-      attendance.push(s.rounds / maxRounds);
+      attendance.push(s.games / totalSessions);
       winRate.push(s.winRate);
     });
     return { scoring, creativity, defense, keeping, attendance, winRate };
-  }, [players, playerSummary, maxRounds]);
+  }, [players, playerSummary, totalSessions]);
 
   const getPlayerData = (name) => {
     const s = playerSummary[name];
@@ -159,12 +159,12 @@ export default function PersonalAnalysisTab({
       creativity: s.rounds > 0 ? s.assists / s.rounds : 0,
       defense: s.fieldRounds > 0 ? s.avgConceded : 999,
       keeping: s.keeperRounds > 0 ? s.conceded / s.keeperRounds : 999,
-      attendance: s.rounds / maxRounds,
+      attendance: s.games / totalSessions,
       winRate: s.winRate,
       chaosRate,
     };
     const detail = {
-      goals: s.goals, assists: s.assists, rounds: s.rounds, ownGoals: Math.abs(s.ownGoals || 0),
+      goals: s.goals, assists: s.assists, rounds: s.rounds, games: s.games, ownGoals: Math.abs(s.ownGoals || 0),
       keeperRounds: s.keeperRounds, conceded: s.conceded,
       fieldRounds: s.fieldRounds, fieldConceded: s.fieldConceded,
       wins: s.wins, draws: s.draws, losses: s.losses, totalMatches: s.matches,
@@ -203,8 +203,6 @@ export default function PersonalAnalysisTab({
       assists: calcRelativePosition(s.assists / s.rounds, assistsPerRound),
     };
   };
-
-  const getAttendance = (name) => calcAttendance(gameRecords || [], name);
 
   const getGkFieldSplit = (name) => {
     const s = playerSummary[name];
@@ -281,7 +279,7 @@ export default function PersonalAnalysisTab({
                     { label: "창의력", score: values[1], desc: `${pd.detail.assists}어시 / ${pd.detail.rounds}경기 = 경기당 ${pd.raw.creativity?.toFixed(2)}어시` },
                     { label: "수비력", score: values[2], desc: `필드 ${pd.detail.fieldRounds}경기, 팀실점 ${pd.detail.fieldConceded} = 경기당 ${pd.raw.defense === 999 ? "-" : pd.raw.defense?.toFixed(2)}실점` },
                     { label: "키퍼", score: values[3], desc: pd.detail.keeperRounds > 0 ? `${pd.detail.keeperRounds}경기, ${pd.detail.conceded}실점 = 경기당 ${pd.raw.keeping?.toFixed(2)}실점` : "키퍼 경기 없음" },
-                    { label: "참석률", score: values[4], desc: `${pd.detail.rounds} / ${maxRounds}경기 = ${Math.round(pd.raw.attendance * 100)}%` },
+                    { label: "참석률", score: values[4], desc: `${pd.detail.games} / ${totalSessions}게임 = ${Math.round(pd.raw.attendance * 100)}%` },
                     { label: "승리기여", score: values[5], desc: `${pd.detail.totalMatches}경기 ${pd.detail.wins}승 ${pd.detail.draws}무 ${pd.detail.losses}패 = 승률 ${Math.round(pd.raw.winRate * 100)}%` },
                   ].map(row => (
                     <tr key={row.label} style={{ borderBottom: `1px dashed ${C.grayDarker}` }}>
@@ -297,9 +295,8 @@ export default function PersonalAnalysisTab({
           {selected && (() => {
             const trends = getTrends();
             const relPos = getRelativePosition(selected);
-            const att = getAttendance(selected);
             const split = getGkFieldSplit(selected);
-            const hasAnything = trends.goals || trends.assists || relPos || att.total > 0 || (split && split.keeper.rounds > 0 && split.field.rounds > 0);
+            const hasAnything = trends.goals || trends.assists || relPos || (split && split.keeper.rounds > 0 && split.field.rounds > 0);
             if (!hasAnything) return null;
             return (
               <div style={{ marginTop: 12, padding: "10px 12px", borderRadius: 8, background: C.cardLight, fontSize: 11, lineHeight: 1.9, textAlign: "left" }}>
@@ -325,12 +322,6 @@ export default function PersonalAnalysisTab({
                     <span style={{ color: relPos.assists >= 0 ? C.accent : "#ef4444", fontWeight: 700 }}>
                       도움 {relPos.assists >= 0 ? "+" : ""}{relPos.assists}%
                     </span>
-                  </div>
-                )}
-                {att.total > 0 && (
-                  <div>
-                    <span style={{ color: C.gray }}>출석: </span>
-                    <span style={{ color: C.white, fontWeight: 700 }}>{att.attended}/{att.total}게임 ({att.rate}%)</span>
                   </div>
                 )}
                 {split && split.keeper.rounds > 0 && split.field.rounds > 0 && (

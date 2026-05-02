@@ -19,10 +19,12 @@ function safeParseArray(s) {
 export function calcPlayerSummary({ matchLogs = [], eventLogs = [], playerGameLogs = [] } = {}) {
   // 1) matchLogs 패스: rounds/wins/teamConceded/날짜별 출전 카운트
   const perPlayer = {};
+  const sessionDates = new Set();
   const ensure = (name) => {
     if (!perPlayer[name]) {
       perPlayer[name] = {
         rounds: 0, keeperRounds: 0, fieldRounds: 0,
+        games: 0,
         goals: 0, assists: 0, ownGoals: 0,
         conceded: 0, fieldConceded: 0, avgConceded: 0,
         matches: 0, wins: 0, draws: 0, losses: 0, winRate: 0,
@@ -38,6 +40,7 @@ export function calcPlayerSummary({ matchLogs = [], eventLogs = [], playerGameLo
 
   for (const m of matchLogs) {
     if (m.is_extra) continue;
+    sessionDates.add(m.date || '');
     const home = safeParseArray(m.our_members_json);
     const away = safeParseArray(m.opponent_members_json);
     const ourScore = Number(m.our_score) || 0;
@@ -113,6 +116,7 @@ export function calcPlayerSummary({ matchLogs = [], eventLogs = [], playerGameLo
     s.fieldConceded = Math.max(0, s._teamConceded - conceded);
     s.avgConceded = s.fieldRounds > 0 ? s.fieldConceded / s.fieldRounds : 0;
     s.winRate = s.matches > 0 ? (s.wins + s.draws * 0.5) / s.matches : 0;
+    s.games = s._attendedDates.size;
     // 내부 필드 정리
     delete s._teamConceded; delete s._mtKeeperRounds; delete s._mtConceded;
     delete s._attendedDates; delete s._roundsByDate;
@@ -124,5 +128,5 @@ export function calcPlayerSummary({ matchLogs = [], eventLogs = [], playerGameLo
     if (perPlayer[name].rounds > maxRounds) maxRounds = perPlayer[name].rounds;
   }
 
-  return { perPlayer, maxRounds };
+  return { perPlayer, maxRounds, totalSessions: sessionDates.size };
 }

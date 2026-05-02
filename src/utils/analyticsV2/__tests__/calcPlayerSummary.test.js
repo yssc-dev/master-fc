@@ -97,6 +97,29 @@ describe('calcPlayerSummary', () => {
     expect(r.perPlayer.A).toMatchObject({ rounds: 1, keeperRounds: 1, conceded: 2, matches: 1, losses: 1 });
   });
 
+  it('games = 본인 출전 unique date 수, totalSessions = 전체 unique date 수 (참석률 분자/분모)', () => {
+    const matchLogs = [
+      { date: '2026-01-01', match_id: 'R1_C0', our_members_json: '["A","B"]', opponent_members_json: '[]', our_score: 0, opponent_score: 0 },
+      { date: '2026-01-01', match_id: 'R2_C0', our_members_json: '["A"]',     opponent_members_json: '[]', our_score: 0, opponent_score: 0 },
+      { date: '2026-01-08', match_id: 'R1_C0', our_members_json: '["A"]',     opponent_members_json: '[]', our_score: 0, opponent_score: 0 },
+      { date: '2026-01-15', match_id: 'R1_C0', our_members_json: '["B"]',     opponent_members_json: '[]', our_score: 0, opponent_score: 0 },
+    ];
+    const r = calcPlayerSummary({ matchLogs, eventLogs: [] });
+    expect(r.totalSessions).toBe(3);     // 1/01, 1/08, 1/15
+    expect(r.perPlayer.A.games).toBe(2); // 1/01, 1/08
+    expect(r.perPlayer.B.games).toBe(2); // 1/01, 1/15
+  });
+
+  it('isExtra-only 날짜는 totalSessions에서 제외', () => {
+    const matchLogs = [
+      { date: '2026-01-01', match_id: 'R1_C0', our_members_json: '["A"]', opponent_members_json: '[]', our_score: 0, opponent_score: 0, is_extra: true },
+      { date: '2026-01-08', match_id: 'R1_C0', our_members_json: '["A"]', opponent_members_json: '[]', our_score: 0, opponent_score: 0 },
+    ];
+    const r = calcPlayerSummary({ matchLogs, eventLogs: [] });
+    expect(r.totalSessions).toBe(1);
+    expect(r.perPlayer.A.games).toBe(1);
+  });
+
   it('maxRounds = 모든 선수의 rounds 최댓값 (참석률 분모)', () => {
     const matchLogs = [
       { match_id: 'R1_C0', our_members_json: '["A","B"]', opponent_members_json: '["C"]', our_score: 0, opponent_score: 0 },
