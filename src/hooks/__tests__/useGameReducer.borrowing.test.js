@@ -106,6 +106,50 @@ describe('gameReducer — 용병 차출 모델', () => {
       expect(next.completedMatches[0].homePlayers).toEqual(baseTeams[0]);
       expect(next.completedMatches[1].awayPlayers).toEqual(baseTeams[3]);
     });
+
+    it('viewingRoundIdx === roundIdx (확정 중인 라운드)면 자동으로 nextRoundIdx로 이동', () => {
+      const state = withState({
+        teams: baseTeams, teamNames: baseTeamNames,
+        viewingRoundIdx: 0, currentRoundIdx: 0,
+      });
+      const matchResults = [
+        { matchId: 'R1_C0', homeIdx: 0, awayIdx: 1, homeTeam: '팀1', awayTeam: '팀2', homeScore: 0, awayScore: 0 },
+      ];
+      const next = gameReducer(state, {
+        type: 'CONFIRM_ROUND', roundIdx: 0, matchResults, nextRoundIdx: 1,
+      });
+      expect(next.currentRoundIdx).toBe(1);
+      expect(next.viewingRoundIdx).toBe(1);
+    });
+
+    it('viewingRoundIdx !== roundIdx (다른 라운드 보다가 확정)면 viewingRoundIdx 유지', () => {
+      const state = withState({
+        teams: baseTeams, teamNames: baseTeamNames,
+        viewingRoundIdx: 3, currentRoundIdx: 0,
+      });
+      const matchResults = [
+        { matchId: 'R1_C0', homeIdx: 0, awayIdx: 1, homeTeam: '팀1', awayTeam: '팀2', homeScore: 0, awayScore: 0 },
+      ];
+      const next = gameReducer(state, {
+        type: 'CONFIRM_ROUND', roundIdx: 0, matchResults, nextRoundIdx: 1,
+      });
+      expect(next.currentRoundIdx).toBe(1);
+      expect(next.viewingRoundIdx).toBe(3);
+    });
+
+    it('nextRoundIdx === null (마지막 라운드 확정)이면 viewingRoundIdx 유지', () => {
+      const state = withState({
+        teams: baseTeams, teamNames: baseTeamNames,
+        viewingRoundIdx: 5, currentRoundIdx: 5,
+      });
+      const matchResults = [
+        { matchId: 'R6_C0', homeIdx: 0, awayIdx: 1, homeTeam: '팀1', awayTeam: '팀2', homeScore: 0, awayScore: 0 },
+      ];
+      const next = gameReducer(state, {
+        type: 'CONFIRM_ROUND', roundIdx: 5, matchResults, nextRoundIdx: null,
+      });
+      expect(next.viewingRoundIdx).toBe(5);
+    });
   });
 
   describe('UNCONFIRM_ROUND — 차출 라이브 복원', () => {

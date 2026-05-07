@@ -517,7 +517,11 @@ function gameReducer(state, action) {
       if (newSplitPhase) updates.splitPhase = newSplitPhase;
       if (nextRoundIdx != null) {
         updates.currentRoundIdx = nextRoundIdx;
-        // viewingRoundIdx는 건드리지 않음 — 유저가 보던 라운드 유지
+        // 확정한 라운드(roundIdx)를 보던 경우에만 다음 라운드로 자동 이동.
+        // 사용자가 다른 과거 라운드를 보다가 확정한 경우엔 그 위치 유지.
+        if (state.viewingRoundIdx === roundIdx) {
+          updates.viewingRoundIdx = nextRoundIdx;
+        }
       }
       return { ...state, ...updates };
     }
