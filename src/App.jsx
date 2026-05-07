@@ -595,6 +595,8 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
     const msg = results.map(r => `${r.court ? r.court + ": " : ""}${r.homeTeam} ${r.homeScore}:${r.awayScore} ${r.awayTeam}`).join("\n");
     if (!confirm(msg + "\n\n라운드 " + (viewingRoundIdx + 1) + " 결과를 확정하시겠습니까?")) return;
     confirmRound(viewingRoundIdx, results);
+    // 다음 라운드로 자동 이동 후 화면 상단으로 스크롤
+    requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: "smooth" }));
   };
 
   const handleUnconfirmRound = (roundIdx) => {
