@@ -404,12 +404,23 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
               fontSize: 12, fontWeight: 600,
               display: "inline-flex", alignItems: "center", gap: 4,
             }}>⚽ {myCompose.scorer}</span>
+            {/* 어시 선택 또는 단독 저장 — 결정 흐름을 한 곳에 묶음 */}
             <span style={{
               padding: "4px 8px", borderRadius: 6,
               background: "transparent", color: "var(--app-text-tertiary)",
               fontSize: 11, fontWeight: 500,
               border: "0.5px dashed var(--app-divider)",
             }}>어시: 선수 탭</span>
+            <span style={{ fontSize: 11, color: "var(--app-text-tertiary)", fontWeight: 500 }}>또는</span>
+            <button onClick={saveSolo} disabled={!myCompose.scorer}
+              style={{
+                padding: "5px 12px", borderRadius: 6,
+                background: "var(--app-blue)", color: "#fff",
+                border: "none", fontSize: 12, fontWeight: 600, cursor: "pointer",
+                fontFamily: "inherit", opacity: myCompose.scorer ? 1 : 0.4,
+                letterSpacing: "-0.01em",
+                display: "inline-flex", alignItems: "center", gap: 4,
+              }}>⚡ 단독</button>
             {(() => {
               const concGk = myCompose.scorerIsHome ? awayGk : homeGk;
               return concGk ? (
@@ -418,25 +429,20 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
                   background: "var(--app-bg-row)", color: "var(--app-text-secondary)",
                   fontSize: 12, fontWeight: 500,
                   display: "inline-flex", alignItems: "center", gap: 4,
+                  marginLeft: "auto",
                 }}>🧤 {concGk}</span>
               ) : null;
             })()}
           </div>
-          <button onClick={saveSolo} disabled={!myCompose.scorer}
+          <button onClick={cancelCompose} aria-label="취소"
             style={{
-              padding: "8px 14px", borderRadius: 8,
-              background: "var(--app-blue)", color: "#fff",
-              border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer",
-              fontFamily: "inherit", opacity: myCompose.scorer ? 1 : 0.4,
-              letterSpacing: "-0.01em",
-            }}>단독</button>
-          <button onClick={cancelCompose}
-            style={{
-              padding: "8px 10px", borderRadius: 8,
+              width: 32, height: 32, borderRadius: 999,
               background: "var(--app-bg-row)", color: "var(--app-text-secondary)",
-              border: "0.5px solid var(--app-divider)", fontSize: 13, fontWeight: 500,
+              border: "0.5px solid var(--app-divider)", fontSize: 14, fontWeight: 500,
               cursor: "pointer", fontFamily: "inherit",
-            }}>취소</button>
+              display: "inline-flex", alignItems: "center", justifyContent: "center",
+              padding: 0, flexShrink: 0,
+            }}>✕</button>
         </div>
       )}
 
