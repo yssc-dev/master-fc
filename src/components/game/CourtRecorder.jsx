@@ -510,12 +510,28 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
             display: "flex", flexDirection: "column",
           }}>
             <div style={{
-              fontSize: 12, fontWeight: 500, color: "var(--app-text-secondary)",
-              marginLeft: 2, marginBottom: 8,
-              display: "inline-flex", alignItems: "center", gap: 6,
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              marginLeft: 2, marginBottom: 8, gap: 6,
             }}>
-              <span style={{ width: 8, height: 8, borderRadius: 2, background: t.color?.bg }} />
-              {t.teamName}
+              <div style={{
+                fontSize: 12, fontWeight: 500, color: "var(--app-text-secondary)",
+                display: "inline-flex", alignItems: "center", gap: 6,
+              }}>
+                <span style={{ width: 8, height: 8, borderRadius: 2, background: t.color?.bg }} />
+                {t.teamName}
+              </div>
+              {/* 득점자 팀에만 단독 저장 버튼 노출 — 어시 후보 카드 바로 옆에서 즉시 탭 가능 */}
+              {!readOnly && myCompose?.scorer && t.isHome === myCompose.scorerIsHome && (
+                <button onClick={(e) => { e.stopPropagation(); saveSolo(); }}
+                  style={{
+                    padding: "5px 10px", borderRadius: 999,
+                    background: "var(--app-blue)", color: "#fff",
+                    border: "none", fontSize: 11, fontWeight: 600,
+                    cursor: "pointer", fontFamily: "inherit",
+                    display: "inline-flex", alignItems: "center", gap: 3,
+                    letterSpacing: "-0.01em",
+                  }}>⚡ 단독</button>
+              )}
             </div>
             <div style={{
               display: "grid",
