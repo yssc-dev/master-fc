@@ -3,14 +3,15 @@ import { TEAM_COLORS } from '../../config/constants';
 import { BackIcon } from '../common/icons';
 import CourtRecorder from './CourtRecorder';
 
-export default function ScheduleMatchView({ schedule, currentRoundIdx, viewingRoundIdx, setViewingRoundIdx, confirmedRounds, onConfirmRound, teams, teamNames, teamColorIndices, gks, gksHistory, courtCount, allEvents, onRecordEvent, onUndoEvent, onDeleteEvent, onEditEvent, completedMatches, attendees, onGkChange, liveMercs, onAddLiveMerc, onRemoveLiveMerc, onEditPastGk, onEditPastMercAdd, onEditPastMercRemove, splitPhase, styles: s }) {
+export default function ScheduleMatchView({ schedule, currentRoundIdx, viewingRoundIdx, setViewingRoundIdx, confirmedRounds, onConfirmRound, teams, teamNames, teamColorIndices, gks, gksHistory, courtCount, allEvents, onRecordEvent, onUndoEvent, onDeleteEvent, onEditEvent, completedMatches, attendees, onGkChange, liveMercs, onAddLiveMerc, onRemoveLiveMerc, onEditPastGk, onEditPastMercAdd, onEditPastMercRemove, editingPastRound, splitPhase, styles: s }) {
   const [compose, setCompose] = useState(null);
-  // 라운드별 과거 수정 모드 토글 ({ [roundIdx]: true })
-  const [editingPastRound, setEditingPastRound] = useState({});
   const round = schedule[viewingRoundIdx];
   const matches = round?.matches || [];
   const isConfirmed = confirmedRounds[viewingRoundIdx] || false;
-  const editingThisRound = !!editingPastRound[viewingRoundIdx];
+  // splitPhase가 설정된 경우(=6팀 split)만 후속 매치업에 영향이 있어 토글로 보호.
+  // 일반 4/5팀 schedule은 후속 영향이 없어 항상 즉시 편집 가능.
+  const isSplitMode = !!splitPhase;
+  const editingThisRound = isSplitMode ? !!(editingPastRound?.[viewingRoundIdx]) : true;
 
   // 확정된 라운드면 gksHistory에서, 현재 라운드면 gks에서 GK 참조
   const roundGks = isConfirmed ? (gksHistory?.[viewingRoundIdx] || {}) : gks;
@@ -23,9 +24,31 @@ export default function ScheduleMatchView({ schedule, currentRoundIdx, viewingRo
   }, [completedMatches]);
 
   const matchInfos = useMemo(() => {
+    // 라이브 라운드: 같은 라운드 내 다른 매치로 차출된 player set 계산 (base에서 제외)
+    const matchIds = matches.map((_, i) => `R${viewingRoundIdx + 1}_C${i}`);
+    const liveBorrowedByMatch = {};
+    matchIds.forEach(mid => {
+      const list = liveMercs?.[mid] || [];
+      liveBorrowedByMatch[mid] = new Set(list.map(m => m.player));
+    });
     return matches.map((pair, i) => {
-      const matchId = `R${viewingRoundIdx + 1}_C${i}`;
+      const matchId = matchIds[i];
       const past = isConfirmed ? completedByMatchId[matchId] : null;
+      let homePlayers, awayPlayers;
+      if (past) {
+        // 과거 라운드: 저장된 스냅샷 사용 (이미 차출자 제외 반영됨)
+        homePlayers = past.homePlayers || teams[pair[0]] || [];
+        awayPlayers = past.awayPlayers || teams[pair[1]] || [];
+      } else {
+        // 라이브: 다른 매치로 차출된 player를 base에서 제외
+        const borrowedOut = new Set();
+        matchIds.forEach(otherMid => {
+          if (otherMid === matchId) return;
+          (liveBorrowedByMatch[otherMid] || []).forEach(p => borrowedOut.add(p));
+        });
+        homePlayers = (teams[pair[0]] || []).filter(p => !borrowedOut.has(p));
+        awayPlayers = (teams[pair[1]] || []).filter(p => !borrowedOut.has(p));
+      }
       return {
         homeIdx: pair[0], awayIdx: pair[1],
         matchId,
@@ -33,11 +56,11 @@ export default function ScheduleMatchView({ schedule, currentRoundIdx, viewingRo
         homeGk: roundGks[pair[0]] || null, awayGk: roundGks[pair[1]] || null,
         homeColor: TEAM_COLORS[teamColorIndices[pair[0]]],
         awayColor: TEAM_COLORS[teamColorIndices[pair[1]]],
-        homePlayers: past?.homePlayers || teams[pair[0]],
-        awayPlayers: past?.awayPlayers || teams[pair[1]],
+        homePlayers,
+        awayPlayers,
       };
     });
-  }, [viewingRoundIdx, matches, teamNames, roundGks, teamColorIndices, teams, isConfirmed, completedByMatchId]);
+  }, [viewingRoundIdx, matches, teamNames, roundGks, teamColorIndices, teams, isConfirmed, completedByMatchId, liveMercs]);
 
   const roundNavBtn = (disabled) => ({
     width: 36, height: 36, borderRadius: 999,
@@ -79,29 +102,15 @@ export default function ScheduleMatchView({ schedule, currentRoundIdx, viewingRo
         </button>
       </div>
 
-      {/* 확정된 라운드 부분 수정 토글 */}
-      {isConfirmed && (
-        <div style={{
-          display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-          marginBottom: 12,
-        }}>
-          <button onClick={() => setEditingPastRound(prev => ({ ...prev, [viewingRoundIdx]: !prev[viewingRoundIdx] }))}
-            style={{
-              padding: "6px 14px", borderRadius: 999, border: "none",
-              background: editingThisRound ? "var(--app-orange)" : "var(--app-bg-row)",
-              color: editingThisRound ? "var(--app-bg)" : "var(--app-text-primary)",
-              fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit",
-            }}>
-            {editingThisRound ? "수정 완료" : "이 라운드 수정"}
-          </button>
-        </div>
-      )}
-      {isConfirmed && editingThisRound && (
+      {/* split 모드 전용: 정정 모드 활성 시 안내 (토글 버튼은 하단 라운드 제어 영역에 위치) */}
+      {isConfirmed && isSplitMode && editingThisRound && (
         <div style={{
           fontSize: 11, color: "var(--app-orange)", textAlign: "center", marginBottom: 12,
           padding: "6px 10px", background: "rgba(255,149,0,0.1)", borderRadius: 6,
         }}>
-          수정 모드: 점수/GK/용병 편집 가능 · 이미 진행된 매치업은 변경되지 않습니다
+          {splitPhase === "second" && viewingRoundIdx < 6
+            ? "정정 가능: 점수·GK·용병 / 후반 일정은 이미 전반 순위로 생성됨 · 점수 변경 시 후반을 재생성하려면 7라운드부터 확정취소하세요"
+            : "정정 가능: 점수·GK·용병 / 매치업 자체는 변경 불가"}
         </div>
       )}
 

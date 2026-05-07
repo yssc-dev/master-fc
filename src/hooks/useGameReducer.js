@@ -56,17 +56,77 @@ const initialState = {
   settingsSnapshot: null,
 };
 
+// 같은 배치(라운드 또는 동시 라이브 매치) 내 다른 매치들의 mercs player Set 반환.
+// scopeMatchIds가 비어있거나 result.matchId만 있으면 빈 Set.
+function collectBorrowedOut(liveMercs, currentMatchId, scopeMatchIds) {
+  const out = new Set();
+  if (!liveMercs) return out;
+  for (const mid of scopeMatchIds || []) {
+    if (mid === currentMatchId) continue;
+    const list = liveMercs[mid] || [];
+    for (const m of list) out.add(m.player);
+  }
+  return out;
+}
+
+// matchId의 배치 키 — 같은 라운드/동시 라이브였던 매치들을 묶음.
+// schedule: R{n}_, free: F{n}_, push: 단일 매치(null 반환).
+function getMatchBatchKey(matchId) {
+  const m = String(matchId || '').match(/^([RF]\d+_)/);
+  return m ? m[1] : null;
+}
+
+// 같은 배치 내 다른 confirmed 매치의 mercenaries를 종합해
+// 해당 매치의 base에서 차출자를 제외한 homePlayers/awayPlayers를 재계산.
+// completedMatches 배열을 받아 갱신된 배열 반환.
+function rebuildBatchSnapshots(completedMatches, batchKey, teams) {
+  if (!batchKey) return completedMatches;
+  const inBatch = completedMatches.filter(m => getMatchBatchKey(m.matchId) === batchKey);
+  if (inBatch.length === 0) return completedMatches;
+  // 배치 내 모든 mercs player set
+  const mercByMatch = {};
+  inBatch.forEach(m => {
+    mercByMatch[m.matchId] = (m.mercenaries || []).map(x => x.player);
+  });
+  return completedMatches.map(m => {
+    if (getMatchBatchKey(m.matchId) !== batchKey) return m;
+    const ownMercs = m.mercenaries || [];
+    const ownHomeMercs = ownMercs.filter(x => x.teamIdx === m.homeIdx).map(x => x.player);
+    const ownAwayMercs = ownMercs.filter(x => x.teamIdx === m.awayIdx).map(x => x.player);
+    const ownMercPlayers = new Set(ownMercs.map(x => x.player));
+    const homeBase = teams?.[m.homeIdx] || [];
+    const awayBase = teams?.[m.awayIdx] || [];
+    // 다른 매치들의 mercs(차출자) 모음
+    const borrowedOut = new Set();
+    Object.entries(mercByMatch).forEach(([mid, players]) => {
+      if (mid === m.matchId) return;
+      players.forEach(p => borrowedOut.add(p));
+    });
+    // 본 매치의 자기 측·반대 측 mercs도 base에서 제외 (self-borrow 처리)
+    const homeBaseEff = homeBase.filter(p => !borrowedOut.has(p) && !ownMercPlayers.has(p));
+    const awayBaseEff = awayBase.filter(p => !borrowedOut.has(p) && !ownMercPlayers.has(p));
+    const homePlayers = [...homeBaseEff, ...ownHomeMercs];
+    const awayPlayers = [...awayBaseEff, ...ownAwayMercs];
+    return { ...m, homePlayers, awayPlayers };
+  });
+}
+
 // 라이브 매치 결과에 명단 스냅샷을 합쳐 저장 가능한 형태로 변환.
-// teams[homeIdx]/teams[awayIdx]에 해당 매치 용병을 합치고, mercenaries 배열도 함께 보존.
-function snapshotMatchResult(result, teams, liveMercs) {
+// scopeMatchIds: 같은 배치 내 모든 matchId. 다른 매치로 차출된 player는 base에서 제외.
+function snapshotMatchResult(result, teams, liveMercs, scopeMatchIds) {
   const mercList = (liveMercs && result?.matchId) ? (liveMercs[result.matchId] || []) : [];
   const homeBase = teams?.[result.homeIdx] || [];
   const awayBase = teams?.[result.awayIdx] || [];
   const homeMercs = mercList.filter(m => m.teamIdx === result.homeIdx).map(m => m.player);
   const awayMercs = mercList.filter(m => m.teamIdx === result.awayIdx).map(m => m.player);
-  // 중복 방지 (이미 baseline 명단에 있으면 추가 안 함)
-  const homePlayers = [...homeBase, ...homeMercs.filter(p => !homeBase.includes(p))];
-  const awayPlayers = [...awayBase, ...awayMercs.filter(p => !awayBase.includes(p))];
+  // 같은 배치 내 다른 매치로 차출된 player는 본 매치 base에서 제외 (중복 카운트 방지)
+  const borrowedOut = collectBorrowedOut(liveMercs, result.matchId, scopeMatchIds);
+  // 같은 매치 내 self-borrow도 base에서 제외 (예: 팀4 선수가 같은 매치의 팀3 측 mercs로 등록)
+  const ownMercPlayers = new Set(mercList.map(m => m.player));
+  const homeBaseEff = homeBase.filter(p => !borrowedOut.has(p) && !ownMercPlayers.has(p));
+  const awayBaseEff = awayBase.filter(p => !borrowedOut.has(p) && !ownMercPlayers.has(p));
+  const homePlayers = [...homeBaseEff, ...homeMercs];
+  const awayPlayers = [...awayBaseEff, ...awayMercs];
   return {
     ...result,
     homePlayers,
@@ -245,48 +305,99 @@ function gameReducer(state, action) {
       const { matchId, player, teamIdx } = action;
       const idx = state.completedMatches.findIndex(m => m.matchId === matchId);
       if (idx === -1) return state;
-      const m = state.completedMatches[idx];
-      const mercenaries = [...(m.mercenaries || [])];
-      if (mercenaries.some(x => x.player === player)) return state;
-      mercenaries.push({ player, teamIdx });
-      const isHome = teamIdx === m.homeIdx;
-      const isAway = teamIdx === m.awayIdx;
+      const target = state.completedMatches[idx];
+      if ((target.mercenaries || []).some(x => x.player === player)) return state;
+      const isHome = teamIdx === target.homeIdx;
+      const isAway = teamIdx === target.awayIdx;
       if (!isHome && !isAway) return state;
-      const homeBase = m.homePlayers || (state.teams?.[m.homeIdx] || []);
-      const awayBase = m.awayPlayers || (state.teams?.[m.awayIdx] || []);
-      const next = isHome
-        ? { ...m, mercenaries, homePlayers: homeBase.includes(player) ? homeBase : [...homeBase, player] }
-        : { ...m, mercenaries, awayPlayers: awayBase.includes(player) ? awayBase : [...awayBase, player] };
-      return {
-        ...state,
-        completedMatches: state.completedMatches.map((x, i) => i === idx ? next : x),
-      };
+      // 같은 배치의 다른 confirmed 매치에서 같은 player가 mercs로 등록돼 있으면 거기서 제거 (자동 이동)
+      const batchKey = getMatchBatchKey(matchId);
+      let nextCompleted = state.completedMatches.map((m, i) => {
+        if (i === idx) {
+          return { ...m, mercenaries: [...(m.mercenaries || []), { player, teamIdx }] };
+        }
+        if (batchKey && getMatchBatchKey(m.matchId) === batchKey) {
+          const mercs = m.mercenaries || [];
+          if (mercs.some(x => x.player === player)) {
+            return { ...m, mercenaries: mercs.filter(x => x.player !== player) };
+          }
+        }
+        return m;
+      });
+      // 배치 단위로 homePlayers/awayPlayers 재계산. push처럼 batchKey 없으면 단건만 갱신.
+      if (batchKey) {
+        nextCompleted = rebuildBatchSnapshots(nextCompleted, batchKey, state.teams);
+      } else {
+        // 단건: 본 매치만 갱신
+        nextCompleted = nextCompleted.map((m, i) => {
+          if (i !== idx) return m;
+          const homeBase = state.teams?.[m.homeIdx] || [];
+          const awayBase = state.teams?.[m.awayIdx] || [];
+          const ownMercs = m.mercenaries || [];
+          const ownMercPlayers = new Set(ownMercs.map(x => x.player));
+          const ownHomeMercs = ownMercs.filter(x => x.teamIdx === m.homeIdx).map(x => x.player);
+          const ownAwayMercs = ownMercs.filter(x => x.teamIdx === m.awayIdx).map(x => x.player);
+          const homeBaseEff = homeBase.filter(p => !ownMercPlayers.has(p));
+          const awayBaseEff = awayBase.filter(p => !ownMercPlayers.has(p));
+          return {
+            ...m,
+            homePlayers: [...homeBaseEff, ...ownHomeMercs],
+            awayPlayers: [...awayBaseEff, ...ownAwayMercs],
+          };
+        });
+      }
+      return { ...state, completedMatches: nextCompleted };
     }
     case 'EDIT_PAST_MERC_REMOVE': {
       const { matchId, player } = action;
       const idx = state.completedMatches.findIndex(m => m.matchId === matchId);
       if (idx === -1) return state;
-      const m = state.completedMatches[idx];
-      const merc = (m.mercenaries || []).find(x => x.player === player);
-      if (!merc) return state;
-      const mercenaries = m.mercenaries.filter(x => x.player !== player);
-      const isHome = merc.teamIdx === m.homeIdx;
-      const homeBase = m.homePlayers || (state.teams?.[m.homeIdx] || []);
-      const awayBase = m.awayPlayers || (state.teams?.[m.awayIdx] || []);
-      const next = isHome
-        ? { ...m, mercenaries, homePlayers: homeBase.filter(p => p !== player) }
-        : { ...m, mercenaries, awayPlayers: awayBase.filter(p => p !== player) };
-      return {
-        ...state,
-        completedMatches: state.completedMatches.map((x, i) => i === idx ? next : x),
-      };
+      const target = state.completedMatches[idx];
+      if (!(target.mercenaries || []).some(x => x.player === player)) return state;
+      const batchKey = getMatchBatchKey(matchId);
+      let nextCompleted = state.completedMatches.map((m, i) => {
+        if (i !== idx) return m;
+        return { ...m, mercenaries: (m.mercenaries || []).filter(x => x.player !== player) };
+      });
+      if (batchKey) {
+        nextCompleted = rebuildBatchSnapshots(nextCompleted, batchKey, state.teams);
+      } else {
+        nextCompleted = nextCompleted.map((m, i) => {
+          if (i !== idx) return m;
+          const homeBase = state.teams?.[m.homeIdx] || [];
+          const awayBase = state.teams?.[m.awayIdx] || [];
+          const ownMercs = m.mercenaries || [];
+          const ownMercPlayers = new Set(ownMercs.map(x => x.player));
+          const ownHomeMercs = ownMercs.filter(x => x.teamIdx === m.homeIdx).map(x => x.player);
+          const ownAwayMercs = ownMercs.filter(x => x.teamIdx === m.awayIdx).map(x => x.player);
+          const homeBaseEff = homeBase.filter(p => !ownMercPlayers.has(p));
+          const awayBaseEff = awayBase.filter(p => !ownMercPlayers.has(p));
+          return {
+            ...m,
+            homePlayers: [...homeBaseEff, ...ownHomeMercs],
+            awayPlayers: [...awayBaseEff, ...ownAwayMercs],
+          };
+        });
+      }
+      return { ...state, completedMatches: nextCompleted };
     }
     case 'ADD_LIVE_MERC': {
       const { matchId, player, teamIdx } = action;
       const list = state.liveMercs[matchId] || [];
-      // 같은 player가 이미 있으면 무시 (중복 추가 방지)
+      // 같은 player가 본 매치에 이미 있으면 무시 (중복 추가 방지)
       if (list.some(m => m.player === player)) return state;
-      return { ...state, liveMercs: { ...state.liveMercs, [matchId]: [...list, { player, teamIdx }] } };
+      // 다른 라이브 매치에 차출돼 있으면 그쪽에서 제거하고 본 매치로 이동 (한 player는 한 매치에만)
+      const nextLiveMercs = { ...state.liveMercs };
+      for (const otherId of Object.keys(nextLiveMercs)) {
+        if (otherId === matchId) continue;
+        const otherList = nextLiveMercs[otherId] || [];
+        if (!otherList.some(m => m.player === player)) continue;
+        const filtered = otherList.filter(m => m.player !== player);
+        if (filtered.length === 0) delete nextLiveMercs[otherId];
+        else nextLiveMercs[otherId] = filtered;
+      }
+      nextLiveMercs[matchId] = [...list, { player, teamIdx }];
+      return { ...state, liveMercs: nextLiveMercs };
     }
     case 'REMOVE_LIVE_MERC': {
       const { matchId, player } = action;
@@ -297,7 +408,8 @@ function gameReducer(state, action) {
       return { ...state, liveMercs: nextLiveMercs };
     }
     case 'FINISH_MATCH': {
-      const snapped = snapshotMatchResult(action.match, state.teams, state.liveMercs);
+      // 단건 finalize (free 모드 단일 코트 등). 다른 라이브 매치는 scope 외.
+      const snapped = snapshotMatchResult(action.match, state.teams, state.liveMercs, [action.match?.matchId]);
       const nextLiveMercs = { ...state.liveMercs };
       if (snapped.matchId) delete nextLiveMercs[snapped.matchId];
       return {
@@ -306,9 +418,25 @@ function gameReducer(state, action) {
         liveMercs: nextLiveMercs,
       };
     }
+    case 'CONFIRM_FREE_ROUND': {
+      // free 2코트 atomic finalize. 라운드 내 다른 매치 mercs를 base에서 제외해 저장.
+      const { results } = action;
+      const scope = results.map(r => r.matchId).filter(Boolean);
+      const snappedResults = results.map(r =>
+        snapshotMatchResult({ ...r, isExtra: state.isExtraRound }, state.teams, state.liveMercs, scope)
+      );
+      const nextLiveMercs = { ...state.liveMercs };
+      snappedResults.forEach(r => { if (r.matchId) delete nextLiveMercs[r.matchId]; });
+      return {
+        ...state,
+        completedMatches: [...state.completedMatches, ...snappedResults],
+        liveMercs: nextLiveMercs,
+      };
+    }
     case 'CONFIRM_PUSH_ROUND': {
       const { matchResult, newPushState } = action;
-      const snapped = snapshotMatchResult(matchResult, state.teams, state.liveMercs);
+      // push는 1코트라 scope에 자기 자신만
+      const snapped = snapshotMatchResult(matchResult, state.teams, state.liveMercs, [matchResult?.matchId]);
       const nextLiveMercs = { ...state.liveMercs };
       if (snapped.matchId) delete nextLiveMercs[snapped.matchId];
       return {
@@ -344,8 +472,10 @@ function gameReducer(state, action) {
     }
     case 'CONFIRM_ROUND': {
       const { roundIdx, matchResults, nextRoundIdx, newSchedule, newSplitPhase } = action;
+      // 라운드 내 모든 매치를 scope로 묶어 차출자 base 제외 처리
+      const roundScope = matchResults.map(r => r.matchId).filter(Boolean);
       const snappedResults = matchResults.map(r =>
-        snapshotMatchResult({ ...r, isExtra: state.isExtraRound }, state.teams, state.liveMercs)
+        snapshotMatchResult({ ...r, isExtra: state.isExtraRound }, state.teams, state.liveMercs, roundScope)
       );
       const newCompleted = [...state.completedMatches, ...snappedResults];
       const nextLiveMercs = { ...state.liveMercs };

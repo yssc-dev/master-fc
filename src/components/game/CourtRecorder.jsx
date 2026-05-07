@@ -359,19 +359,19 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
               <button
                 onClick={(e) => { e.stopPropagation(); applyGoalRole(player, isHome); setOpenPopover(null); }}
                 style={popoverBtn({ primary: !isScorer, active: isScorer })}
-              >{isScorer ? "✓ 골" : "골"}</button>
+              >{isScorer ? "✓ ⚽ 골" : "⚽ 골"}</button>
               <button
                 onClick={(e) => { e.stopPropagation(); toggleGk(player, isHome); setOpenPopover(null); }}
                 style={popoverBtn({ active: isGk })}
-              >{isGk ? "✓ GK" : "GK"}</button>
+              >{isGk ? "✓ 🧤 GK" : "🧤 GK"}</button>
               <button
                 onClick={(e) => { e.stopPropagation(); applyOwnGoalRole(player); setOpenPopover(null); }}
                 style={popoverBtn()}
-              >자책</button>
+              >🔴 자책</button>
               <button
                 onClick={(e) => { e.stopPropagation(); setOpenPopover(null); }}
                 style={popoverBtn({ subtle: true, isLast: true })}
-              >취소</button>
+              >✕ 취소</button>
             </div>
           );
         })()}

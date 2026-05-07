@@ -317,7 +317,7 @@ export default function PushMatchView({
           fontSize: 11, color: C.orange, textAlign: "center", marginBottom: 6,
           padding: "4px 8px", background: `${C.orange}15`, borderRadius: 6,
         }}>
-          수정 모드: 점수/GK/용병 편집 가능 · 매치업(팀 대진)은 변경되지 않습니다
+          수정 가능: 점수·GK·용병 / 두 팀 자체는 변경 불가 · 점수 변경 시 이후 매치 추천이 달라질 수 있습니다
         </div>
       )}
 
@@ -353,7 +353,7 @@ export default function PushMatchView({
           <>
             <button onClick={() => setEditingPast(v => !v)}
               style={{ ...s.btnFull(editingPast ? C.orange : C.grayDark, editingPast ? C.bg : C.white), flex: 1 }}>
-              {editingPast ? "수정 완료" : "수정"}
+              {editingPast ? "수정 완료" : "기록 정정"}
             </button>
             {viewingIdx === completedMatches.length - 1 && (
               <button onClick={onUnconfirmLastRound}

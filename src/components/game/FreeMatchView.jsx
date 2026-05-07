@@ -4,21 +4,20 @@ import { useTheme } from '../../hooks/useTheme';
 import { calcMatchScore } from '../../utils/scoring';
 import CourtRecorder from './CourtRecorder';
 
-export default function FreeMatchView({ teams, teamNames, teamColorIndices, gks, gksHistory, courtCount, allEvents, onRecordEvent, onUndoEvent, onDeleteEvent, onEditEvent, onFinishMatch, completedMatches, attendees, onGkChange, liveMercs, onAddLiveMerc, onRemoveLiveMerc, onEditPastGk, onEditPastMercAdd, onEditPastMercRemove, styles: s, isExtraRound }) {
+export default function FreeMatchView({ teams, teamNames, teamColorIndices, gks, gksHistory, courtCount, allEvents, onRecordEvent, onUndoEvent, onDeleteEvent, onEditEvent, onFinishMatch, onConfirmFreeRound, completedMatches, attendees, onGkChange, liveMercs, onAddLiveMerc, onRemoveLiveMerc, onEditPastGk, onEditPastMercAdd, onEditPastMercRemove, styles: s, isExtraRound }) {
   const { C } = useTheme();
   const [courtMatches, setCourtMatches] = useState({});
   const [activeCourtTab, setActiveCourtTab] = useState(0);
   const [settingCourt, setSettingCourt] = useState(null);
   const [selection, setSelection] = useState({ home: null, away: null });
   // 과거 매치 네비게이션. completedMatches.length = 라이브, 0~length-1 = 과거 매치 단건 보기
+  // free 모드는 후속 매치업에 영향이 없어 과거 매치도 즉시 편집 가능 (토글 없음).
   const [viewingIdx, setViewingIdx] = useState(completedMatches.length);
-  const [editingPast, setEditingPast] = useState(false);
 
   const [lastMatchCount, setLastMatchCount] = useState(completedMatches.length);
   if (completedMatches.length !== lastMatchCount) {
     setLastMatchCount(completedMatches.length);
     setViewingIdx(completedMatches.length);
-    setEditingPast(false);
   }
 
   const isLive = viewingIdx >= completedMatches.length;
@@ -29,18 +28,28 @@ export default function FreeMatchView({ teams, teamNames, teamColorIndices, gks,
 
   const courtHasMatch = (ci) => courtMatches[ci] && courtMatches[ci].home !== null && courtMatches[ci].away !== null;
 
+  // 동시 라이브인 다른 코트의 mercs는 본 코트 base에서 제외 (한 선수가 두 코트 동시 출전 방지)
+  const getLiveMatchId = (ci) => `F${completedMatches.length + ci + 1}_C${ci}`;
+  const liveBatchMatchIds = courts.map(getLiveMatchId);
   const getMatchInfo = (ci) => {
     const cm = courtMatches[ci];
     if (!cm || cm.home === null || cm.away === null) return null;
+    const matchId = getLiveMatchId(ci);
+    const borrowedOut = new Set();
+    liveBatchMatchIds.forEach(otherMid => {
+      if (otherMid === matchId) return;
+      const list = liveMercs?.[otherMid] || [];
+      list.forEach(m => borrowedOut.add(m.player));
+    });
     return {
       homeIdx: cm.home, awayIdx: cm.away,
-      matchId: `F${completedMatches.length + ci + 1}_C${ci}`,
+      matchId,
       homeTeam: teamNames[cm.home], awayTeam: teamNames[cm.away],
       homeGk: gks[cm.home] || null, awayGk: gks[cm.away] || null,
       homeColor: TEAM_COLORS[teamColorIndices[cm.home]],
       awayColor: TEAM_COLORS[teamColorIndices[cm.away]],
-      homePlayers: teams[cm.home],
-      awayPlayers: teams[cm.away],
+      homePlayers: (teams[cm.home] || []).filter(p => !borrowedOut.has(p)),
+      awayPlayers: (teams[cm.away] || []).filter(p => !borrowedOut.has(p)),
     };
   };
 
@@ -66,7 +75,12 @@ export default function FreeMatchView({ teams, teamNames, teamColorIndices, gks,
     if (results.length === 0) { alert("진행 중인 경기가 없습니다"); return; }
     const msg = results.map(r => `${r.court ? r.court + ": " : ""}${r.homeTeam} ${r.homeScore}:${r.awayScore} ${r.awayTeam}`).join("\n");
     if (!confirm(msg + "\n\n경기결과를 확정하시겠습니까?")) return;
-    results.forEach(r => onFinishMatch(r));
+    // 두 코트 atomic finalize — 차출자 base 제외 처리가 한 번에 적용됨.
+    if (results.length > 1 && onConfirmFreeRound) {
+      onConfirmFreeRound(results);
+    } else {
+      results.forEach(r => onFinishMatch(r));
+    }
     setCourtMatches({});
   };
 
@@ -97,19 +111,7 @@ export default function FreeMatchView({ teams, teamNames, teamColorIndices, gks,
           </span>
           <button onClick={() => setViewingIdx(Math.min(completedMatches.length, viewingIdx + 1))}
             style={{ ...s.btnSm(C.grayDark) }}>▶</button>
-          <button onClick={() => setEditingPast(v => !v)}
-            style={{ ...s.btnSm(editingPast ? C.orange : C.grayDark, editingPast ? C.bg : C.white), fontSize: 10 }}>
-            {editingPast ? "수정 완료" : "수정"}
-          </button>
         </div>
-        {editingPast && (
-          <div style={{
-            fontSize: 11, color: C.orange, textAlign: "center", marginBottom: 6,
-            padding: "4px 8px", background: `${C.orange}15`, borderRadius: 6,
-          }}>
-            수정 모드: 점수/GK/용병 편집 가능 · 매치업은 변경되지 않습니다
-          </div>
-        )}
         <CourtRecorder
           key={`free_past_${viewingIdx}`}
           matchInfo={matchInfo}
@@ -128,7 +130,7 @@ export default function FreeMatchView({ teams, teamNames, teamColorIndices, gks,
           styles={s}
           courtLabel={pm.court || ""}
           attendees={attendees}
-          readOnly={!editingPast}
+          readOnly={false}
           mercs={pastMercs}
           onAddMerc={(player, side) => {
             const teamIdx = side === "home" ? pm.homeIdx : pm.awayIdx;
