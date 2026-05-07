@@ -150,6 +150,75 @@ describe('gameReducer — past match edit', () => {
       });
       expect(next).toBe(state);
     });
+
+    it('free 모드: gksHistory 키는 completedMatches 인덱스 (F* matchId)', () => {
+      const state = withState({
+        matchMode: 'free',
+        completedMatches: [
+          { matchId: 'F1_C0', homeIdx: 0, awayIdx: 1, homeTeam: 'A', awayTeam: 'B', homeGk: 'GA', awayGk: 'GB' },
+          { matchId: 'F2_C1', homeIdx: 2, awayIdx: 3, homeTeam: 'C', awayTeam: 'D', homeGk: 'GC', awayGk: 'GD' },
+        ],
+        gksHistory: {
+          0: { 0: 'GA', 1: 'GB' },
+          1: { 2: 'GC', 3: 'GD' },
+        },
+      });
+      const next = gameReducer(state, {
+        type: 'EDIT_PAST_GK', matchId: 'F2_C1', side: 'home', player: '새C',
+      });
+      expect(next.completedMatches[1].homeGk).toBe('새C');
+      expect(next.gksHistory[1][2]).toBe('새C');
+      expect(next.gksHistory[1][3]).toBe('GD');
+      expect(next.gksHistory[0]).toEqual({ 0: 'GA', 1: 'GB' });
+    });
+  });
+
+  describe('FINISH_MATCH / CONFIRM_FREE_ROUND — gksHistory 작성', () => {
+    it('FINISH_MATCH (free 단건): gksHistory[completedIdx] 작성', () => {
+      const state = withState({
+        teams: [['A1'], ['B1']],
+        completedMatches: [],
+      });
+      const match = {
+        matchId: 'F1_C0', homeIdx: 0, awayIdx: 1,
+        homeTeam: 'A', awayTeam: 'B', homeGk: 'GA', awayGk: 'GB',
+        homeScore: 0, awayScore: 0,
+      };
+      const next = gameReducer(state, { type: 'FINISH_MATCH', match });
+      expect(next.completedMatches.length).toBe(1);
+      expect(next.gksHistory[0]).toEqual({ 0: 'GA', 1: 'GB' });
+    });
+
+    it('CONFIRM_FREE_ROUND (free 2코트): 매치별로 gksHistory 인덱스 분리 작성', () => {
+      const state = withState({
+        teams: [['A1'], ['B1'], ['C1'], ['D1']],
+        completedMatches: [],
+      });
+      const results = [
+        { matchId: 'F1_C0', homeIdx: 0, awayIdx: 1, homeTeam: 'A', awayTeam: 'B', homeGk: 'GA', awayGk: 'GB', homeScore: 1, awayScore: 0 },
+        { matchId: 'F2_C1', homeIdx: 2, awayIdx: 3, homeTeam: 'C', awayTeam: 'D', homeGk: 'GC', awayGk: 'GD', homeScore: 0, awayScore: 1 },
+      ];
+      const next = gameReducer(state, { type: 'CONFIRM_FREE_ROUND', results });
+      expect(next.completedMatches.length).toBe(2);
+      expect(next.gksHistory[0]).toEqual({ 0: 'GA', 1: 'GB' });
+      expect(next.gksHistory[1]).toEqual({ 2: 'GC', 3: 'GD' });
+    });
+
+    it('CONFIRM_FREE_ROUND: 기존 completedMatches가 있어도 새 인덱스 baseIdx부터 작성', () => {
+      const state = withState({
+        teams: [['A1'], ['B1'], ['C1'], ['D1']],
+        completedMatches: [
+          { matchId: 'F0_C0', homeIdx: 0, awayIdx: 1, homeTeam: 'A', awayTeam: 'B', homeGk: 'X', awayGk: 'Y', homeScore: 0, awayScore: 0 },
+        ],
+        gksHistory: { 0: { 0: 'X', 1: 'Y' } },
+      });
+      const results = [
+        { matchId: 'F1_C0', homeIdx: 0, awayIdx: 2, homeTeam: 'A', awayTeam: 'C', homeGk: 'GA', awayGk: 'GC', homeScore: 0, awayScore: 0 },
+      ];
+      const next = gameReducer(state, { type: 'CONFIRM_FREE_ROUND', results });
+      expect(next.gksHistory[0]).toEqual({ 0: 'X', 1: 'Y' }); // 보존
+      expect(next.gksHistory[1]).toEqual({ 0: 'GA', 2: 'GC' }); // 신규
+    });
   });
 
   describe('EDIT_PAST_MERC_ADD / REMOVE', () => {

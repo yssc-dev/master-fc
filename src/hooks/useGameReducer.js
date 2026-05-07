@@ -178,12 +178,14 @@ function applyEventChange(state, allEvents) {
 }
 
 // matchId → gksHistory key + (해당 매치의) teamIdx 변환.
-// 풋살 schedule: R{n}_C{i} → gksHistory[n-1] (roundIdx 기반)
+// 풋살 schedule: R{n}_C{i} → gksHistory[n-1] (roundIdx 기반, 같은 라운드 2코트 공유)
 // 풋살 push: P{n}_C0 → gksHistory[completedMatches index]
+// 풋살 free: F{N}_C{ci} → gksHistory[completedMatches index] (매치 단위)
 function resolveGksHistoryKey(matchId, completedIdx) {
   const sm = String(matchId || '').match(/^R(\d+)_C(\d+)$/);
   if (sm) return parseInt(sm[1], 10) - 1;
   if (/^P\d+_C0$/.test(matchId)) return completedIdx;
+  if (/^F\d+_C\d+$/.test(matchId)) return completedIdx;
   return null;
 }
 
@@ -412,9 +414,20 @@ function gameReducer(state, action) {
       const snapped = snapshotMatchResult(action.match, state.teams, state.liveMercs, [action.match?.matchId]);
       const nextLiveMercs = { ...state.liveMercs };
       if (snapped.matchId) delete nextLiveMercs[snapped.matchId];
+      // free F* matchId: gksHistory[completedIdx] = { homeIdx: gk, awayIdx: gk }
+      const newIdx = state.completedMatches.length;
+      const histKey = resolveGksHistoryKey(snapped.matchId, newIdx);
+      let gksHistory = state.gksHistory;
+      if (histKey != null) {
+        const entry = {};
+        if (snapped.homeIdx != null && snapped.homeGk) entry[snapped.homeIdx] = snapped.homeGk;
+        if (snapped.awayIdx != null && snapped.awayGk) entry[snapped.awayIdx] = snapped.awayGk;
+        gksHistory = { ...gksHistory, [histKey]: { ...(gksHistory[histKey] || {}), ...entry } };
+      }
       return {
         ...state,
         completedMatches: [...state.completedMatches, snapped],
+        gksHistory,
         liveMercs: nextLiveMercs,
       };
     }
@@ -427,9 +440,21 @@ function gameReducer(state, action) {
       );
       const nextLiveMercs = { ...state.liveMercs };
       snappedResults.forEach(r => { if (r.matchId) delete nextLiveMercs[r.matchId]; });
+      // 각 free 매치별로 gksHistory[completedIdx] 추가 (매치 단위)
+      let gksHistory = state.gksHistory;
+      let baseIdx = state.completedMatches.length;
+      snappedResults.forEach((r, i) => {
+        const histKey = resolveGksHistoryKey(r.matchId, baseIdx + i);
+        if (histKey == null) return;
+        const entry = {};
+        if (r.homeIdx != null && r.homeGk) entry[r.homeIdx] = r.homeGk;
+        if (r.awayIdx != null && r.awayGk) entry[r.awayIdx] = r.awayGk;
+        gksHistory = { ...gksHistory, [histKey]: { ...(gksHistory[histKey] || {}), ...entry } };
+      });
       return {
         ...state,
         completedMatches: [...state.completedMatches, ...snappedResults],
+        gksHistory,
         liveMercs: nextLiveMercs,
       };
     }
