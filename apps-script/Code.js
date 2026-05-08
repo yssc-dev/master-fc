@@ -2,6 +2,7 @@
 // 풋살 웹앱 Apps Script v2.0
 //
 // CHANGELOG
+// 2026-05-08: _writeRawEvents — goal/owngoal 이벤트는 dedupe 우회 (축구·풋살 공통). 골 이벤트는 같은 (선수,어시,GK) 조합이 정당히 반복 가능
 // 2026-05-02: _writeRawMatches — 풋살 our_gk/opponent_gk 누락 시 경고 로그 (미래 회귀 감지용)
 // 2026-05-01: _isStandardMatchId 풋살 P/F prefix 인정 (P{n}_C{m}, F{n}_C{m})
 // 2026-04-30: _writeRawEvents/_writeRawMatches 서버측 match_id 정규화 (클라이언트 우회 경로 방어)
@@ -922,7 +923,10 @@ function _writeRawEvents(data) {
       var r = rows[i];
       // 서버측 match_id 정규화 (클라이언트 우회 경로 방어)
       r.match_id = _normalizeMatchIdAS(r.match_id || "", r.sport || "");
-      if (!skipDedupe) {
+      // 골/자책골 이벤트는 dedupe 우회: 같은 매치에서 동일 (선수, 어시, 상대 GK) 조합이
+      // 정당하게 반복 가능 (헤딩 2골 등). 축구·풋살 공통 규칙.
+      var isGoalEvent = r.event_type === "goal" || r.event_type === "owngoal";
+      if (!skipDedupe && !isGoalEvent) {
         var key = _rawEventKey(r);
         if (existingKeys[key]) { skipped++; continue; }
         existingKeys[key] = true;
