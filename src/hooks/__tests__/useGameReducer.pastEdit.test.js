@@ -364,4 +364,32 @@ describe('gameReducer — past match edit', () => {
       expect(next.currentRoundIdx).toBe(3);
     });
   });
+
+  describe('RESTORE_STATE — splitPhase 정규화', () => {
+    it('6팀 × 2코트 schedule 이 아닌데 splitPhase="first" 면 null 로 정규화', () => {
+      const next = gameReducer(initialState, {
+        type: 'RESTORE_STATE',
+        state: {
+          teamCount: 5, courtCount: 1, matchMode: 'schedule',
+          splitPhase: 'first',
+        },
+      });
+      expect(next.splitPhase).toBeNull();
+    });
+
+    it('6팀 × 2코트 schedule 이면 splitPhase 보존', () => {
+      const next = gameReducer(initialState, {
+        type: 'RESTORE_STATE',
+        state: {
+          teamCount: 6, courtCount: 2, matchMode: 'schedule',
+          splitPhase: 'second',
+        },
+      });
+      expect(next.splitPhase).toBe('second');
+    });
+
+    it('initialState.splitPhase 기본값은 null', () => {
+      expect(initialState.splitPhase).toBeNull();
+    });
+  });
 });
