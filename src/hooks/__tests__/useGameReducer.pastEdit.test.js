@@ -365,25 +365,27 @@ describe('gameReducer — past match edit', () => {
     });
   });
 
-  describe('RESTORE_STATE — splitPhase 정규화', () => {
-    it('6팀 × 2코트 schedule 이 아닌데 splitPhase="first" 면 null 로 정규화', () => {
+  describe('RESTORE_STATE — splitPhase 정규화 (matchMode 기준)', () => {
+    it('push 모드에서 splitPhase="first" 면 null 로 정규화', () => {
       const next = gameReducer(initialState, {
         type: 'RESTORE_STATE',
-        state: {
-          teamCount: 5, courtCount: 1, matchMode: 'schedule',
-          splitPhase: 'first',
-        },
+        state: { matchMode: 'push', splitPhase: 'first' },
       });
       expect(next.splitPhase).toBeNull();
     });
 
-    it('6팀 × 2코트 schedule 이면 splitPhase 보존', () => {
+    it('free 모드에서 splitPhase="first" 면 null 로 정규화', () => {
       const next = gameReducer(initialState, {
         type: 'RESTORE_STATE',
-        state: {
-          teamCount: 6, courtCount: 2, matchMode: 'schedule',
-          splitPhase: 'second',
-        },
+        state: { matchMode: 'free', splitPhase: 'first' },
+      });
+      expect(next.splitPhase).toBeNull();
+    });
+
+    it('schedule 모드면 splitPhase 보존 (실제 split 여부는 게임 시작 로직이 결정)', () => {
+      const next = gameReducer(initialState, {
+        type: 'RESTORE_STATE',
+        state: { matchMode: 'schedule', splitPhase: 'second' },
       });
       expect(next.splitPhase).toBe('second');
     });

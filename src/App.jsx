@@ -40,8 +40,6 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
 
   const set = (field, value) => dispatch({ type: 'SET_FIELD', field, value });
   const [selectedPoolPlayer, setSelectedPoolPlayer] = useState(null);
-  // split 모드 전용: 라운드별 "기록 정정" 토글 상태 ({ [roundIdx]: true })
-  const [editingPastRound, setEditingPastRound] = useState({});
 
   // eslint-disable-next-line react-hooks/exhaustive-deps -- 마운트 시 1회: gameId/isNewGame는 props로 변경되지 않음
   useEffect(() => {
@@ -1287,7 +1285,6 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
               completedMatches={completedMatches} attendees={attendees} onGkChange={handleGkChange}
               liveMercs={liveMercs || {}} onAddLiveMerc={handleAddLiveMerc} onRemoveLiveMerc={handleRemoveLiveMerc}
               onEditPastGk={handleEditPastGk} onEditPastMercAdd={handleEditPastMercAdd} onEditPastMercRemove={handleEditPastMercRemove}
-              editingPastRound={editingPastRound}
               splitPhase={splitPhase} styles={s} />
           ) : (
             <FreeMatchView teams={teams} teamNames={teamNames} teamColorIndices={teamColorIndices} gks={gks}
@@ -1310,13 +1307,6 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
             ) : viewRoundConfirmed ? (
               <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, flexWrap: "wrap" }}>
                 <span style={{ color: C.green, fontWeight: 700, padding: 10 }}>라운드 {viewingRoundIdx + 1} 종료됨</span>
-                {/* split 모드: 후속 매치업에 영향 가능 → 토글로 보호된 "기록 정정" */}
-                {splitPhase && (
-                  <button onClick={() => setEditingPastRound(prev => ({ ...prev, [viewingRoundIdx]: !prev[viewingRoundIdx] }))}
-                    style={{ ...s.btnSm(editingPastRound[viewingRoundIdx] ? C.orange : C.grayDark, editingPastRound[viewingRoundIdx] ? C.bg : C.white), fontSize: 11 }}>
-                    {editingPastRound[viewingRoundIdx] ? "정정 완료" : "기록 정정"}
-                  </button>
-                )}
                 <button onClick={() => handleUnconfirmRound(viewingRoundIdx)}
                   style={{ ...s.btnSm(C.orange, C.bg), fontSize: 11 }}>확정취소</button>
               </div>

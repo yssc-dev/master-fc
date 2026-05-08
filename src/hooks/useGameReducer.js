@@ -247,13 +247,10 @@ function gameReducer(state, action) {
       }
       if (s.isExtraRound != null) updates.isExtraRound = s.isExtraRound;
       if (s.splitPhase != null) {
-        // splitPhase 는 6팀 × 2코트 schedule 모드에서만 의미 있음.
-        // 그 외 모드에서 saved state 가 "first" 같은 값을 갖고 있으면 null 로 정규화
-        // (구버전에서 initialState 가 "first" 였던 잔재).
-        const tc = updates.teamCount ?? s.teamCount ?? state.teamCount;
-        const cc = updates.courtCount ?? s.courtCount ?? state.courtCount;
+        // splitPhase 는 schedule 모드에서만 의미 있음 (push/free 무관).
+        // 구버전 initialState 가 "first" 였던 잔재 정리.
         const mm = updates.matchMode ?? s.matchMode ?? state.matchMode;
-        updates.splitPhase = (tc === 6 && cc === 2 && mm === 'schedule') ? s.splitPhase : null;
+        updates.splitPhase = (mm === 'schedule') ? s.splitPhase : null;
       }
       // viewingRoundIdx는 로컬 전용 — 원격 저장값 무시, currentRoundIdx 기준으로 설정
       {

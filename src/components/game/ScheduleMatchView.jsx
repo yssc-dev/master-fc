@@ -3,15 +3,13 @@ import { TEAM_COLORS } from '../../config/constants';
 import { BackIcon } from '../common/icons';
 import CourtRecorder from './CourtRecorder';
 
-export default function ScheduleMatchView({ schedule, currentRoundIdx, viewingRoundIdx, setViewingRoundIdx, confirmedRounds, onConfirmRound, teams, teamNames, teamColorIndices, gks, gksHistory, courtCount, allEvents, onRecordEvent, onUndoEvent, onDeleteEvent, onEditEvent, completedMatches, attendees, onGkChange, liveMercs, onAddLiveMerc, onRemoveLiveMerc, onEditPastGk, onEditPastMercAdd, onEditPastMercRemove, editingPastRound, splitPhase, styles: s }) {
+export default function ScheduleMatchView({ schedule, currentRoundIdx, viewingRoundIdx, setViewingRoundIdx, confirmedRounds, onConfirmRound, teams, teamNames, teamColorIndices, gks, gksHistory, courtCount, allEvents, onRecordEvent, onUndoEvent, onDeleteEvent, onEditEvent, completedMatches, attendees, onGkChange, liveMercs, onAddLiveMerc, onRemoveLiveMerc, onEditPastGk, onEditPastMercAdd, onEditPastMercRemove, splitPhase, styles: s }) {
   const [compose, setCompose] = useState(null);
   const round = schedule[viewingRoundIdx];
   const matches = round?.matches || [];
   const isConfirmed = confirmedRounds[viewingRoundIdx] || false;
-  // splitPhase가 설정된 경우(=6팀 split)만 후속 매치업에 영향이 있어 토글로 보호.
-  // 일반 4/5팀 schedule은 후속 영향이 없어 항상 즉시 편집 가능.
-  const isSplitMode = !!splitPhase;
-  const editingThisRound = isSplitMode ? !!(editingPastRound?.[viewingRoundIdx]) : true;
+  // schedule 모드는 항상 즉시 편집 가능 — 정정은 확정취소 후 재기록 흐름으로 일원화.
+  const editingThisRound = true;
 
   // 확정된 라운드면 gksHistory에서, 현재 라운드면 gks에서 GK 참조
   const roundGks = isConfirmed ? (gksHistory?.[viewingRoundIdx] || {}) : gks;
@@ -102,15 +100,13 @@ export default function ScheduleMatchView({ schedule, currentRoundIdx, viewingRo
         </button>
       </div>
 
-      {/* split 모드 전용: 정정 모드 활성 시 안내 (토글 버튼은 하단 라운드 제어 영역에 위치) */}
-      {isConfirmed && isSplitMode && editingThisRound && (
+      {/* split 후반부에서 전반 라운드를 정정할 때 재생성 흐름 안내 */}
+      {isConfirmed && splitPhase === "second" && viewingRoundIdx < 6 && (
         <div style={{
           fontSize: 11, color: "var(--app-orange)", textAlign: "center", marginBottom: 12,
           padding: "6px 10px", background: "rgba(255,149,0,0.1)", borderRadius: 6,
         }}>
-          {splitPhase === "second" && viewingRoundIdx < 6
-            ? "정정 가능: 점수·GK·용병 / 후반 일정은 이미 전반 순위로 생성됨 · 점수 변경 시 후반을 재생성하려면 7라운드부터 확정취소하세요"
-            : "정정 가능: 점수·GK·용병 / 매치업 자체는 변경 불가"}
+          후반 일정은 이미 전반 순위로 생성됨 · 점수 변경 시 후반을 재생성하려면 7라운드부터 확정취소하세요
         </div>
       )}
 
