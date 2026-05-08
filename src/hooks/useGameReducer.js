@@ -217,6 +217,18 @@ function gameReducer(state, action) {
         // ★ 범위 보정: schedule 길이를 초과하면 마지막 라운드로 고정
         const maxIdx = (updates.schedule || s.schedule || state.schedule || []).length - 1;
         updates.currentRoundIdx = maxIdx >= 0 ? Math.min(s.currentRoundIdx, maxIdx) : s.currentRoundIdx;
+        // ★ 자가복구: confirmedRounds 의 최대 인덱스보다 작으면 끌어올림.
+        // 과거 UNCONFIRM_ROUND 가 currentRoundIdx 를 잘못 롤백한 상태가 저장됐을 때 복구.
+        if (s.confirmedRounds && typeof s.confirmedRounds === 'object') {
+          const confirmedKeys = Object.entries(s.confirmedRounds)
+            .filter(([, v]) => v)
+            .map(([k]) => parseInt(k, 10))
+            .filter(n => !isNaN(n));
+          if (confirmedKeys.length > 0) {
+            const maxConfirmed = Math.max(...confirmedKeys);
+            if (updates.currentRoundIdx < maxConfirmed) updates.currentRoundIdx = maxConfirmed;
+          }
+        }
       }
       if (s.completedMatches != null) {
         updates.completedMatches = s.completedMatches.map(m => ({
@@ -546,13 +558,18 @@ function gameReducer(state, action) {
           nextLiveMercs[m.matchId] = m.mercenaries.map(x => ({ player: x.player, teamIdx: x.teamIdx }));
         }
       });
+      // 뒤에 확정된 라운드가 남아있으면 currentRoundIdx 를 보존(진행 위치 유지).
+      // 그렇지 않을 때만 roundIdx 로 롤백(가장 최신 라운드를 취소한 경우).
+      const hasLaterConfirmed = Object.entries(newConfirmed)
+        .some(([k, v]) => v && parseInt(k, 10) > roundIdx);
+      const newCurrentRoundIdx = hasLaterConfirmed ? state.currentRoundIdx : roundIdx;
       const updates = {
         confirmedRounds: newConfirmed,
         gks: restoredGks,
         gksHistory: newGksHistory,
         completedMatches: newCompleted,
         liveMercs: nextLiveMercs,
-        currentRoundIdx: roundIdx,
+        currentRoundIdx: newCurrentRoundIdx,
         viewingRoundIdx: roundIdx,
         earlyFinish: false,
       };

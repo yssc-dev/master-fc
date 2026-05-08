@@ -290,4 +290,78 @@ describe('gameReducer — past match edit', () => {
       expect(next).toBe(state);
     });
   });
+
+  describe('UNCONFIRM_ROUND — currentRoundIdx 보존', () => {
+    it('뒤에 확정된 라운드가 있으면 currentRoundIdx 를 보존(롤백 X)', () => {
+      // 시나리오: 10라운드 모두 확정, currentRoundIdx=9.
+      // 라운드 9(idx 8) 확정취소 시 currentRoundIdx=9 유지(라운드 10 진행 위치).
+      const schedule = Array.from({ length: 10 }, () => ({ matches: [[0, 1]] }));
+      const confirmedRounds = {};
+      for (let i = 0; i < 10; i++) confirmedRounds[i] = true;
+      const completedMatches = [];
+      for (let i = 0; i < 10; i++) {
+        completedMatches.push({
+          matchId: `R${i + 1}_C0`, homeIdx: 0, awayIdx: 1,
+          homeTeam: 'A', awayTeam: 'B', homeScore: 1, awayScore: 0,
+        });
+      }
+      const state = withState({
+        schedule, confirmedRounds, completedMatches,
+        currentRoundIdx: 9, viewingRoundIdx: 8,
+        teamNames: ['A', 'B'], teams: [['p1'], ['p2']],
+      });
+      const next = gameReducer(state, { type: 'UNCONFIRM_ROUND', roundIdx: 8 });
+      expect(next.currentRoundIdx).toBe(9);
+      expect(next.viewingRoundIdx).toBe(8);
+      expect(next.confirmedRounds[8]).toBeUndefined();
+      expect(next.confirmedRounds[9]).toBe(true);
+    });
+
+    it('가장 최신 라운드 확정취소 시에는 roundIdx 로 롤백(기존 동작 유지)', () => {
+      const schedule = Array.from({ length: 10 }, () => ({ matches: [[0, 1]] }));
+      const confirmedRounds = { 0: true, 1: true, 2: true };
+      const completedMatches = [0, 1, 2].map(i => ({
+        matchId: `R${i + 1}_C0`, homeIdx: 0, awayIdx: 1,
+        homeTeam: 'A', awayTeam: 'B', homeScore: 1, awayScore: 0,
+      }));
+      const state = withState({
+        schedule, confirmedRounds, completedMatches,
+        currentRoundIdx: 3, viewingRoundIdx: 2,
+        teamNames: ['A', 'B'], teams: [['p1'], ['p2']],
+      });
+      const next = gameReducer(state, { type: 'UNCONFIRM_ROUND', roundIdx: 2 });
+      // 뒤에 확정 없음 → roundIdx 로 롤백
+      expect(next.currentRoundIdx).toBe(2);
+      expect(next.viewingRoundIdx).toBe(2);
+    });
+  });
+
+  describe('RESTORE_STATE — currentRoundIdx 자가복구', () => {
+    it('confirmedRounds 의 최대 인덱스보다 currentRoundIdx 가 작으면 끌어올림', () => {
+      // 과거 버그로 저장된 상태: 라운드 9·10 확정인데 currentRoundIdx=8
+      const schedule = Array.from({ length: 10 }, () => ({ matches: [[0, 1]] }));
+      const next = gameReducer(initialState, {
+        type: 'RESTORE_STATE',
+        state: {
+          schedule,
+          currentRoundIdx: 8,
+          confirmedRounds: { 0: true, 1: true, 2: true, 3: true, 4: true, 5: true, 6: true, 7: true, 8: true, 9: true },
+        },
+      });
+      expect(next.currentRoundIdx).toBe(9);
+    });
+
+    it('정상 상태(currentRoundIdx >= maxConfirmed)는 그대로 유지', () => {
+      const schedule = Array.from({ length: 5 }, () => ({ matches: [[0, 1]] }));
+      const next = gameReducer(initialState, {
+        type: 'RESTORE_STATE',
+        state: {
+          schedule,
+          currentRoundIdx: 3,
+          confirmedRounds: { 0: true, 1: true, 2: true },
+        },
+      });
+      expect(next.currentRoundIdx).toBe(3);
+    });
+  });
 });
