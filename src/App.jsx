@@ -5,7 +5,7 @@ import { useTheme } from './hooks/useTheme';
 import { getPlayerPoint, getPlayerData, teamPower, calcMatchScore } from './utils/scoring';
 import { snakeDraft } from './utils/draft';
 import { generate4Team2Court, generate5Team2Court, generate6Team2Court, generate6TeamSecondHalf, generate1Court } from './utils/brackets';
-import { generateEventId } from './utils/idGenerator';
+import { generateEventId, formatEventInputTime } from './utils/idGenerator';
 import { buildRawEventsFromFutsal, buildRawPlayerGamesFromFutsal } from './utils/rawLogBuilders';
 import { buildRoundRowsFromFutsal } from './utils/matchRowBuilder';
 import { fetchSheetData, fetchAttendanceData } from './services/sheetService';
@@ -643,7 +643,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
       scorer: e.type === "goal" ? e.player : "", assist: e.assist || "",
       ownGoalPlayer: e.type === "owngoal" ? e.player : "",
       concedingGk: e.concedingGk || "",
-      inputTime,
+      inputTime: formatEventInputTime(e.timestamp, inputTime),
     }));
 
     // 팀순위점수 계산: 1등팀 = teamCount점, 꼴찌팀 = 1점
