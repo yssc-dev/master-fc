@@ -1,5 +1,7 @@
-// C4: GK + 같은 라운드 우리팀 필드 멤버 페어 무실점률.
-// 한계: 라운드별 5인 필드 출전이 없어 "그날 같은 팀 로스터"로 근사.
+// C4: GK + 같은 라운드 같은 팀 필드 멤버 페어 무실점률.
+// 풋살 라운드 로테이션: our/opponent 모두 같은 클럽 선수라 양쪽 다 집계.
+//   - our_gk + our_members_json (실점 = opponent_score == 0)
+//   - opponent_gk + opponent_members_json (실점 = our_score == 0)
 
 function parseMembers(s) {
   try {
@@ -12,13 +14,9 @@ function parseMembers(s) {
 
 export function calcGkChemistry({ matchLogs, threshold = 5 }) {
   const tally = {};
-  for (const m of matchLogs || []) {
-    const gk = m.our_gk;
-    if (!gk) continue;
-    const members = parseMembers(m.our_members_json);
-    if (members.length === 0) continue;
-    const opp = Number(m.opponent_score) || 0;
-    const isClean = opp === 0;
+  function bump(gk, members, isClean) {
+    if (!gk) return;
+    if (!members || members.length === 0) return;
     if (!tally[gk]) tally[gk] = {};
     for (const field of members) {
       if (field === gk) continue;
@@ -26,6 +24,12 @@ export function calcGkChemistry({ matchLogs, threshold = 5 }) {
       tally[gk][field].rounds += 1;
       if (isClean) tally[gk][field].cleanSheets += 1;
     }
+  }
+  for (const m of matchLogs || []) {
+    const our = Number(m.our_score) || 0;
+    const opp = Number(m.opponent_score) || 0;
+    bump(m.our_gk, parseMembers(m.our_members_json), opp === 0);
+    bump(m.opponent_gk, parseMembers(m.opponent_members_json), our === 0);
   }
 
   const byGk = {};
