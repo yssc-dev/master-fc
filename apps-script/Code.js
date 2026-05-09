@@ -1242,9 +1242,13 @@ function backfillFutsalGk(opts) {
   var matchData = matchSheet.getRange(2, 1, matchLastRow - 1, matchSheet.getLastColumn()).getValues();
   var scanned = 0, filledOur = 0, filledOpp = 0, conflicts = 0, cleanSheets = 0;
   var unmatchedScorerRows = 0, ambiguousMembershipRows = 0, eventsButNoUsable = 0;
+  var rowsWithOurCand = 0, rowsWithOppCand = 0;
+  var rowsOurAlreadyFilled = 0, rowsOppAlreadyFilled = 0;
   var conflictRows = [];
   var sampleFilled = [];
   var unmatchedSamples = [];
+  var diagSamples = [];
+  var evIndexSize = Object.keys(evIndex).length;
 
   for (var r = 0; r < matchData.length; r++) {
     var row = matchData[r];
@@ -1290,6 +1294,20 @@ function backfillFutsalGk(opts) {
     }
     if (rowHasUnmatchedScorer) unmatchedScorerRows++;
     if (rowHasAmbiguousScorer) ambiguousMembershipRows++;
+    if (Object.keys(ourGkCand).length > 0) rowsWithOurCand++;
+    if (Object.keys(oppGkCand).length > 0) rowsWithOppCand++;
+    if (hasOur) rowsOurAlreadyFilled++;
+    if (hasOpp) rowsOppAlreadyFilled++;
+    if (diagSamples.length < 5) {
+      diagSamples.push({
+        date: _toDateStr(row[mDate]),
+        match_id: String(row[mMid] || ""),
+        hasOur: hasOur, hasOpp: hasOpp,
+        ourMembersLen: ourMembers.length, oppMembersLen: oppMembers.length,
+        evCount: evs.length, usable: rowUsableEvents,
+        ourGkCand: Object.keys(ourGkCand), oppGkCand: Object.keys(oppGkCand),
+      });
+    }
     if (rowUsableEvents === 0) { eventsButNoUsable++; continue; }
 
     function pickUnique(map) {
@@ -1334,9 +1352,15 @@ function backfillFutsalGk(opts) {
     rowsWithUnmatchedScorer: unmatchedScorerRows,
     rowsWithAmbiguousScorer: ambiguousMembershipRows,
     conflicts: conflicts,
+    evIndexSize: evIndexSize,
+    rowsWithOurCand: rowsWithOurCand,
+    rowsWithOppCand: rowsWithOppCand,
+    rowsOurAlreadyFilled: rowsOurAlreadyFilled,
+    rowsOppAlreadyFilled: rowsOppAlreadyFilled,
     conflictSamples: conflictRows,
     filledSamples: sampleFilled,
     unmatchedScorerSamples: unmatchedSamples,
+    diagSamples: diagSamples,
   };
 }
 
