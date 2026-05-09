@@ -1340,6 +1340,18 @@ function backfillFutsalGk(opts) {
   };
 }
 
+// 편집기에서 직접 실행할 수 있는 래퍼 (Logger.log로 결과 확인)
+function backfillFutsalGk_dryRun() {
+  var r = backfillFutsalGk({ dryRun: true });
+  Logger.log(JSON.stringify(r, null, 2));
+  return r;
+}
+function backfillFutsalGk_apply() {
+  var r = backfillFutsalGk({ dryRun: false });
+  Logger.log(JSON.stringify(r, null, 2));
+  return r;
+}
+
 function migrateEventTypes() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName(RAW_EVENTS_SHEET);
