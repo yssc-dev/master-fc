@@ -169,7 +169,7 @@ export default function AwardsTab({ playerGameLogs, matchLogs, eventLogs, C }) {
       {/* 단독골 도넛 */}
       <div style={{ padding: 14, background: C.cardLight, borderRadius: 12, marginBottom: 12 }}>
         <div style={{ fontSize: 12, fontWeight: 700, color: C.gray, marginBottom: 12 }}>
-          🎯 혼자 박는 자 (단독골 비율)
+          🎯 단독드리블골 (어시 없는 골 비율)
         </div>
         {solo.ranking.soloHeroes.length === 0 ? (
           <div style={{ fontSize: 11, color: C.gray }}>표본 부족</div>

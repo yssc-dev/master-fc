@@ -60,24 +60,62 @@ function RadarChart({ values, size = 200, C }) {
 
 // ─── Trend Line Chart ────────────────────────────────────────────────────────
 
-function TrendLineChart({ smoothed, C }) {
-  const width = 280, height = 140, padX = 24, padY = 18;
+function MiniTrendChart({ points, smoothed, valueKey, color, title, yMax, yFormat, C }) {
+  const width = 280, height = 96, padL = 36, padR = 10, padT = 14, padB = 18;
   const n = smoothed.length;
   if (n === 0) return null;
-  const maxG = Math.max(1, ...smoothed.map(s => s.gpg), ...smoothed.map(s => s.apg));
-  const xAt = (i) => padX + (i * (width - 2 * padX) / Math.max(1, n - 1));
-  const yAtGA = (v) => height - padY - (v / maxG) * (height - 2 * padY);
-  const yAtW = (v) => height - padY - v * (height - 2 * padY);
-  const path = (ys) => smoothed.map((s, i) => `${i === 0 ? 'M' : 'L'}${xAt(i)},${ys(s)}`).join(' ');
+  const innerW = width - padL - padR;
+  const innerH = height - padT - padB;
+  const xAt = (i) => padL + (i * innerW / Math.max(1, n - 1));
+  const yAt = (v) => padT + innerH - (v / yMax) * innerH;
+  const linePath = smoothed.map((s, i) => `${i === 0 ? 'M' : 'L'}${xAt(i)},${yAt(s[valueKey])}`).join(' ');
+  const ticks = [0, yMax / 2, yMax];
+  const fmtDate = (d) => {
+    if (!d) return '';
+    const m = String(d).match(/(\d{1,2})[-/.](\d{1,2})$/);
+    return m ? `${Number(m[1])}/${Number(m[2])}` : String(d).slice(-5);
+  };
+  const xLabelIdx = n === 1 ? [0] : n === 2 ? [0, n - 1] : [0, Math.floor((n - 1) / 2), n - 1];
   return (
-    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
-      <path d={path(s => yAtGA(s.gpg))} stroke="#ef4444" strokeWidth={2} fill="none" />
-      <path d={path(s => yAtGA(s.apg))} stroke="#3b82f6" strokeWidth={2} fill="none" />
-      <path d={path(s => yAtW(s.winRate))} stroke="#22c55e" strokeWidth={2} strokeDasharray="3,3" fill="none" />
-      <text x={4} y={14} fontSize={9} fill="#ef4444">득점/경기</text>
-      <text x={68} y={14} fontSize={9} fill="#3b82f6">도움/경기</text>
-      <text x={136} y={14} fontSize={9} fill="#22c55e">팀 승률</text>
-    </svg>
+    <div style={{ marginBottom: 6 }}>
+      <div style={{ fontSize: 10, fontWeight: 700, color, marginBottom: 2 }}>{title}</div>
+      <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
+        {/* y-axis ticks + grid */}
+        {ticks.map((t, i) => (
+          <g key={i}>
+            <line x1={padL} y1={yAt(t)} x2={width - padR} y2={yAt(t)} stroke={C.grayDarker} strokeWidth={0.5} strokeDasharray={i === 0 ? '0' : '2,2'} />
+            <text x={padL - 4} y={yAt(t) + 3} textAnchor="end" fontSize={9} fill={C.gray}>{yFormat(t)}</text>
+          </g>
+        ))}
+        {/* x-axis labels */}
+        {xLabelIdx.map(i => (
+          <text key={i} x={xAt(i)} y={height - 4} textAnchor="middle" fontSize={9} fill={C.gray}>
+            {fmtDate(points[i]?.date)}
+          </text>
+        ))}
+        {/* smoothed line */}
+        <path d={linePath} stroke={color} strokeWidth={2} fill="none" />
+        {/* raw dots */}
+        {points.map((p, i) => (
+          <circle key={i} cx={xAt(i)} cy={yAt(p[valueKey])} r={2} fill={color} fillOpacity={0.5} />
+        ))}
+      </svg>
+    </div>
+  );
+}
+
+function TrendLineChart({ points, smoothed, C }) {
+  if (!smoothed || smoothed.length === 0) return null;
+  const maxGA = Math.max(1, ...smoothed.map(s => s.gpg), ...smoothed.map(s => s.apg), ...points.map(p => p.gpg), ...points.map(p => p.apg));
+  const niceMax = Math.ceil(maxGA * 10) / 10;
+  const fmtNum = (v) => v.toFixed(1);
+  const fmtPct = (v) => `${Math.round(v * 100)}%`;
+  return (
+    <div>
+      <MiniTrendChart points={points} smoothed={smoothed} valueKey="gpg" color="#ef4444" title="득점/경기" yMax={niceMax} yFormat={fmtNum} C={C} />
+      <MiniTrendChart points={points} smoothed={smoothed} valueKey="apg" color="#3b82f6" title="도움/경기" yMax={niceMax} yFormat={fmtNum} C={C} />
+      <MiniTrendChart points={points} smoothed={smoothed} valueKey="winRate" color="#22c55e" title="팀 승률" yMax={1} yFormat={fmtPct} C={C} />
+    </div>
   );
 }
 
@@ -229,7 +267,7 @@ export default function PersonalAnalysisTab({
   const soloRatio = useMemo(() => calcSoloGoalRatio({ eventLogs: eventLogs || [], threshold: 10 }), [eventLogs]);
   const synergyMatrix = useMemo(() => calcSynergyMatrix({ matchLogs: matchLogs || [], minRounds: 5 }), [matchLogs]);
   const myPair = useMemo(
-    () => selected ? calcPersonalSynergy({ matrix: synergyMatrix, player: selected, topN: 3 }) : { best: [], worst: [] },
+    () => selected ? calcPersonalSynergy({ matrix: synergyMatrix, player: selected }) : { partners: [], best: [], worst: [] },
     [synergyMatrix, selected]
   );
 
@@ -361,12 +399,10 @@ export default function PersonalAnalysisTab({
               <div style={{ fontSize: 11, fontWeight: 700, color: C.white, marginBottom: 8, textAlign: "left" }}>
                 최근 {trendData.points.length}게임 추세
               </div>
-              <TrendLineChart smoothed={trendData.smoothed} C={C} />
+              <TrendLineChart points={trendData.points} smoothed={trendData.smoothed} C={C} />
               <div style={{ fontSize: 10, color: C.gray, marginTop: 6, textAlign: "left", lineHeight: 1.55 }}>
-                <div><span style={{ color: "#ef4444", fontWeight: 700 }}>득점/경기</span> · 한 경기당 평균 골 수</div>
-                <div><span style={{ color: "#3b82f6", fontWeight: 700 }}>도움/경기</span> · 한 경기당 평균 어시스트 수</div>
-                <div><span style={{ color: "#22c55e", fontWeight: 700 }}>팀 승률</span> · 그날 본인이 뛴 경기에서 우리팀 승리 비율</div>
-                <div style={{ marginTop: 4 }}>※ 최근 3게임 평균으로 부드럽게 그립니다 (한 경기 = 한 라운드)</div>
+                <div>실선 = 최근 3게임 이동평균 · 점 = 그날 원시값</div>
+                <div><b>득점/도움</b> 한 경기(라운드)당 평균 · <b>팀 승률</b> 그날 본인 출전 라운드의 우리팀 승률</div>
               </div>
             </div>
           )}
@@ -375,12 +411,12 @@ export default function PersonalAnalysisTab({
 
       {/* ── P3: Round Distribution ── */}
       <div style={cardStyle}>
-        <RoundDistribution data={roundSlope.perPlayer[selected]} player={selected} ranking={roundSlope.ranking} C={C} />
+        <RoundDistribution data={roundSlope.perPlayer[selected]} player={selected} ranking={roundSlope.ranking} threshold={10} C={C} />
       </div>
 
       {/* ── P4: Solo Goal Donut ── */}
       <div style={cardStyle}>
-        <SoloGoalDonut data={soloRatio.perPlayer[selected]} player={selected} ranking={soloRatio.ranking} C={C} />
+        <SoloGoalDonut data={soloRatio.perPlayer[selected]} player={selected} ranking={soloRatio.ranking} threshold={10} C={C} />
       </div>
 
       {/* ── C5: Personal Synergy Card ── */}

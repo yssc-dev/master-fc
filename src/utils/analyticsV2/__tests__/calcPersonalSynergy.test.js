@@ -16,7 +16,30 @@ describe('calcPersonalSynergy', () => {
   it('returns empty for unknown player', () => {
     const matrix = calcSynergyMatrix({ matchLogs: [], minRounds: 1 });
     const r = calcPersonalSynergy({ matrix, player: 'X' });
-    expect(r).toEqual({ best: [], worst: [] });
+    expect(r).toEqual({ partners: [], best: [], worst: [] });
+  });
+
+  it('partners list includes all who played with target (any games >0)', () => {
+    const matchLogs = [
+      mk(['A', 'B'], 1, 0),
+      mk(['A', 'C'], 0, 1),
+    ];
+    const matrix = calcSynergyMatrix({ matchLogs, minRounds: 5 });
+    const r = calcPersonalSynergy({ matrix, player: 'A' });
+    const names = r.partners.map(p => p.partner).sort();
+    expect(names).toEqual(['B', 'C']);
+    // 둘 다 minRounds(5) 미만이라 isLowSample=true
+    expect(r.partners.every(p => p.isLowSample)).toBe(true);
+  });
+
+  it('partners entries include winRate and liftSymmetric', () => {
+    const matchLogs = Array.from({ length: 5 }, () => mk(['A', 'B'], 1, 0));
+    const matrix = calcSynergyMatrix({ matchLogs, minRounds: 1 });
+    const r = calcPersonalSynergy({ matrix, player: 'A' });
+    const b = r.partners.find(p => p.partner === 'B');
+    expect(b.winRate).toBe(1);
+    expect(b.liftSymmetric).toBe(0); // A,B solo도 모두 1.0이므로 lift 0
+    expect(b.isLowSample).toBe(false);
   });
 
   it('extracts row of player, sorted best/worst', () => {

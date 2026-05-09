@@ -35,10 +35,10 @@ export default function SoccerApp({ authUser, teamContext, isNewGame, gameMode, 
     dispatch({ type: 'SET_FIELDS', fields: { matchMode: "soccer", courtCount: 1 } });
 
     if (!isNewGame && gameId) {
-      FirebaseSync.loadState(team, gameId).then(fb => {
-        if (fb && fb.found && fb.state && fb.state.phase !== "setup") {
+      FirebaseSync.loadStateReconstructed(team, gameId).then(state => {
+        if (state && state.phase !== "setup") {
           dispatch({ type: 'SET_FIELDS', fields: { dataLoading: false, dataSource: "restoring" } });
-          dispatch({ type: 'RESTORE_STATE', state: fb.state });
+          dispatch({ type: 'RESTORE_STATE', state });
           _loadBackgroundData(team);
           return;
         }
@@ -108,6 +108,13 @@ export default function SoccerApp({ authUser, teamContext, isNewGame, gameMode, 
   // ── 자동저장 ──
   const saveTimerRef = useRef(null);
   const isSyncingRef = useRef(false);
+  const lastSyncedStateRef = useRef(null);
+  // 탭 단위 고유 ID — 같은 사용자가 멀티탭일 때 echo 판별용 (이름만으론 구분 불가)
+  const tabSessionIdRef = useRef(null);
+  if (tabSessionIdRef.current === null) {
+    tabSessionIdRef.current = Math.random().toString(36).slice(2, 10);
+  }
+  const editorTag = `${authUser?.name || "알 수 없음"}#${tabSessionIdRef.current}`;
   const gameState = useMemo(() => ({
     gameId: gameId || "legacy",
     gameCreator: state.gameCreator || authUser?.name || "알 수 없음",
@@ -115,50 +122,55 @@ export default function SoccerApp({ authUser, teamContext, isNewGame, gameMode, 
     soccerMatches: state.soccerMatches, currentMatchIdx: state.currentMatchIdx,
     opponents: state.opponents, soccerFormation: state.soccerFormation,
     settingsSnapshot,
-    lastEditor: authUser?.name || "알 수 없음",
-    lastEditTime: Date.now(),
-  }), [phase, attendees, state.soccerMatches, state.currentMatchIdx, state.opponents, state.soccerFormation, settingsSnapshot, authUser, gameId]);
+    lastEditor: editorTag,
+  }), [state.gameCreator, phase, attendees, state.soccerMatches, state.currentMatchIdx, state.opponents, state.soccerFormation, settingsSnapshot, authUser, gameId, editorTag]);
 
-  const autoSave = useCallback(() => {
+  const autoSync = useCallback(() => {
     if (isSyncingRef.current) return;
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(async () => {
       set('syncStatus', 'saving');
       const team = teamContext?.team || "";
       try {
-        await FirebaseSync.saveState(team, gameId || "legacy", gameState);
-        set('syncStatus', 'saved');
-        setTimeout(() => set('syncStatus', ''), 2000);
+        const written = await FirebaseSync.syncDiff(team, gameId || "legacy", lastSyncedStateRef.current, gameState);
+        lastSyncedStateRef.current = gameState;
+        if (written > 0) {
+          set('syncStatus', 'saved');
+          setTimeout(() => set('syncStatus', ''), 2000);
+        } else {
+          set('syncStatus', '');
+        }
       } catch (e) {
         console.warn("자동저장 실패:", e.message);
         set('syncStatus', 'error');
       }
-    }, 800);
+    }, 300);
   }, [gameState, teamContext]);
 
   useEffect(() => {
-    if (phase !== "setup" && phase !== "") autoSave();
-  }, [state.soccerMatches, phase]);
+    if (phase !== "setup" && phase !== "") autoSync();
+  }, [state.soccerMatches, phase, state.currentMatchIdx, state.soccerFormation, state.opponents]);
 
-  // ── Firebase 실시간 리스너 ──
+  // ── Firebase 노드별 구독 ──
   const lastRemoteUpdateRef = useRef(0);
   useEffect(() => {
     const team = teamContext?.team;
     if (!team) return;
     const gid = gameId || "legacy";
-    const unsub = FirebaseSync.listen(team, gid, (data) => {
-      if (!data || !data.state) return;
-      if (data.updatedAt && Math.abs(Date.now() - data.updatedAt) < 1500) {
-        if (data.state.lastEditor === authUser?.name) return;
+    const unsub = FirebaseSync.subscribe(team, gid, (remoteState, meta) => {
+      if (!remoteState) return;
+      if (meta?.updatedAt && Math.abs(Date.now() - meta.updatedAt) < 1500) {
+        if (meta.lastEditor === editorTag) return;
       }
-      if (data.updatedAt && data.updatedAt <= lastRemoteUpdateRef.current) return;
-      lastRemoteUpdateRef.current = data.updatedAt || Date.now();
+      if (meta?.updatedAt && meta.updatedAt <= lastRemoteUpdateRef.current) return;
+      lastRemoteUpdateRef.current = meta?.updatedAt || Date.now();
       isSyncingRef.current = true;
-      dispatch({ type: 'RESTORE_STATE', state: data.state });
+      dispatch({ type: 'RESTORE_STATE', state: remoteState });
+      lastSyncedStateRef.current = remoteState;
       setTimeout(() => { isSyncingRef.current = false; }, 500);
     });
     return unsub;
-  }, [teamContext?.team, authUser?.name]);
+  }, [teamContext?.team, editorTag, gameId]);
 
   // ── 정렬된 선수 목록 ──
   const sortedPlayers = useMemo(() => {

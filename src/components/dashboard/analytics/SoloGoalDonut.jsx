@@ -1,13 +1,13 @@
 // src/components/dashboard/analytics/SoloGoalDonut.jsx
 import { useMemo } from 'react';
 
-export default function SoloGoalDonut({ data, player, ranking, C }) {
+export default function SoloGoalDonut({ data, player, ranking, threshold = 10, C }) {
   const caption = useMemo(() => {
     if (!ranking) return null;
     const idx = ranking.soloHeroes.findIndex(x => x.player === player);
-    if (idx >= 0) return `🎯 혼자 박는 자 ${ranking.soloHeroes.length}명 중 ${idx + 1}위`;
+    if (idx >= 0) return `🎯 단독드리블골 ${ranking.soloHeroes.length}명 중 ${idx + 1}위 (골 ${threshold}회 이상)`;
     return null;
-  }, [ranking, player]);
+  }, [ranking, player, threshold]);
 
   if (!data || data.total === 0) {
     return (

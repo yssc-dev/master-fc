@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTheme } from '../../hooks/useTheme';
 import { calcSoccerScore, getCleanSheetPlayers } from '../../utils/soccerScoring';
 import { generateEventId } from '../../utils/idGenerator';
@@ -25,6 +25,15 @@ export default function SoccerMatchView({
   const [viewingMatchIdx, setViewingMatchIdx] = useState(null);
   const [selectedPlayers, setSelectedPlayers] = useState(savedFormation?.selectedPlayers || []);
   const [matchFormation, setMatchFormation] = useState(savedFormation?.matchFormation || null);
+
+  // 멀티탭 동기화: 다른 탭이 savedFormation 을 바꿨을 때 이 탭의 로컬 state 도 따라가야 함.
+  // (CourtRecorder GK 버그와 같은 패턴 — useState 초기값만으론 prop 변경 후 sync 안 됨)
+  useEffect(() => {
+    if (savedFormation?.viewState !== undefined) setViewState(savedFormation.viewState);
+  }, [savedFormation?.viewState]);
+  useEffect(() => { setSelectedOpponent(savedFormation?.selectedOpponent || null); }, [savedFormation?.selectedOpponent]);
+  useEffect(() => { setSelectedPlayers(savedFormation?.selectedPlayers || []); }, [savedFormation?.selectedPlayers]);
+  useEffect(() => { setMatchFormation(savedFormation?.matchFormation || null); }, [savedFormation?.matchFormation]);
 
   // 상태 변경 시 리듀서에 저장 (Firebase 자동 저장됨)
   const saveFormationState = (updates) => {

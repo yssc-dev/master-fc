@@ -19,7 +19,7 @@ export default function SynergyMatrixTab({ matchLogs, C }) {
         const [a, b] = [p, q].sort((x, y) => x.localeCompare(y, 'ko'));
         const cell = data.cells[`${a}|${b}`];
         if (!cell || cell.games < data.minRounds) continue;
-        sum += cell.winRate; cnt += 1;
+        sum += cell.liftSymmetric ?? 0; cnt += 1;
       }
       avg[p] = cnt > 0 ? sum / cnt : null;
     }
@@ -38,13 +38,14 @@ export default function SynergyMatrixTab({ matchLogs, C }) {
     return <div style={{ textAlign: "center", padding: 30, color: C.gray }}>로그_매치 데이터가 없습니다.</div>;
   }
 
+  // 색상 = 케미(liftSymmetric) 기준. 양수=초록, 음수=빨강, 중립=카드색
   const colorFor = (cell, isDiag, isSelected) => {
     if (isSelected) return C.accent;
     if (isDiag) return C.borderColor;
     if (!cell || cell.games < data.minRounds) return C.cardLight;
-    const wr = cell.winRate;
-    if (wr >= 0.6) return `rgba(34,197,94,${0.4 + Math.min(0.5, wr - 0.6)})`;
-    if (wr <= 0.4) return `rgba(239,68,68,${0.4 + Math.min(0.5, 0.4 - wr)})`;
+    const lift = cell.liftSymmetric ?? 0;
+    if (lift >= 0.05) return `rgba(34,197,94,${0.3 + Math.min(0.6, lift * 2)})`;
+    if (lift <= -0.05) return `rgba(239,68,68,${0.3 + Math.min(0.6, -lift * 2)})`;
     return C.card;
   };
 
@@ -72,7 +73,7 @@ export default function SynergyMatrixTab({ matchLogs, C }) {
         ))}
       </div>
       <div style={{ fontSize: 11, color: C.gray, marginBottom: 10, lineHeight: 1.5 }}>
-        같은팀 출전 라운드의 팀승률. 초록=고승률, 빨강=저승률, 회색=표본 부족(&lt; {data.minRounds}경기). 셀을 탭하면 아래 상세가 고정됩니다.
+        색상 = <b>케미</b>(두 사람 평균 능력치 대비 함께 뛸 때 추가 효과). 초록=호흡 좋음, 빨강=호흡 안좋음, 회색=표본 부족(&lt; {data.minRounds}경기). 셀을 탭하면 아래 상세가 고정됩니다.
       </div>
       <div style={{ overflow: "auto" }}>
         <table style={{ borderCollapse: "collapse", fontSize: 9 }}>
@@ -131,7 +132,11 @@ export default function SynergyMatrixTab({ matchLogs, C }) {
             active.a === active.b ? (
               <><b>{active.a}</b> 개인 전체: {active.cell.games}경기 {active.cell.wins}승 {active.cell.draws}무 {active.cell.losses}패 · 승률 {Math.round(active.cell.winRate * 100)}%</>
             ) : (
-              <><b>{active.a} × {active.b}</b>: {active.cell.games}경기 {active.cell.wins}승 {active.cell.draws}무 {active.cell.losses}패 · 승률 {Math.round(active.cell.winRate * 100)}%</>
+              <>
+                <b>{active.a} × {active.b}</b>: {active.cell.games}경기 {active.cell.wins}승 {active.cell.draws}무 {active.cell.losses}패
+                · 승률 {Math.round(active.cell.winRate * 100)}%
+                · 케미 {(active.cell.liftSymmetric ?? 0) >= 0 ? '+' : ''}{((active.cell.liftSymmetric ?? 0) * 100).toFixed(1)}
+              </>
             )
           ) : (
             <span>셀을 탭하거나 호버하면 상세가 표시됩니다.</span>

@@ -89,6 +89,10 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
   const { C } = useTheme();
   const [homeGk, setHomeGk] = useState(matchInfo.homeGk || null);
   const [awayGk, setAwayGk] = useState(matchInfo.awayGk || null);
+  // 부모(=원격 동기화 포함) 가 GK 를 바꾸면 로컬 state 도 따라가야 함.
+  // 멀티탭 동기화에서 다른 탭이 GK 를 바꿨을 때 이 탭에 즉시 반영되게 함.
+  useEffect(() => { setHomeGk(matchInfo.homeGk || null); }, [matchInfo.homeGk]);
+  useEffect(() => { setAwayGk(matchInfo.awayGk || null); }, [matchInfo.awayGk]);
   // controlled (props 제공) / uncontrolled (fallback) 양쪽 지원 — 기존 호출부 호환
   const [localMercs, setLocalMercs] = useState([]);
   const mercs = mercsProp !== undefined ? mercsProp : localMercs;

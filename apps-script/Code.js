@@ -2,6 +2,7 @@
 // 풋살 웹앱 Apps Script v2.0
 //
 // CHANGELOG
+// 2026-05-09: backfillFutsalGk 추가 — 4/23 이전 비어있는 our_gk/opponent_gk를 로그_이벤트.concede_gk로 추론 채움 (dryRun 기본). HTTP action 노출.
 // 2026-05-08: _writeRawEvents — goal/owngoal 이벤트는 dedupe 우회 (축구·풋살 공통). 골 이벤트는 같은 (선수,어시,GK) 조합이 정당히 반복 가능
 // 2026-05-02: _writeRawMatches — 풋살 our_gk/opponent_gk 누락 시 경고 로그 (미래 회귀 감지용)
 // 2026-05-01: _isStandardMatchId 풋살 P/F prefix 인정 (P{n}_C{m}, F{n}_C{m})
@@ -308,6 +309,8 @@ function doPost(e) {
       return _jsonResponse(migrateEventTypes());
     } else if (action === "migrateMatchIds") {
       return _jsonResponse(migrateMatchIds());
+    } else if (action === "backfillFutsalGk") {
+      return _jsonResponse(backfillFutsalGk(body.opts || {}));
     } else if (action === "createTournament") {
       return _jsonResponse(_createTournament(body.data));
     } else if (action === "deleteTournament") {
@@ -1165,6 +1168,176 @@ function _getRawPlayerGames(team, sport) {
     out.push(row);
   }
   return { success: true, rows: out };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// backfillFutsalGk — 풋살 로그_매치의 빈 our_gk/opponent_gk를 로그_이벤트의 concede_gk에서 추론
+// 풋살은 our/opponent 모두 같은 팀의 두 squad라서 player가 어느 멤버 리스트에 속하는지 보고
+// 어느 쪽 GK가 실점한 건지 판별 가능.
+//
+// 추론 규칙:
+//   event_type=goal,    player ∈ our_members      → opp_gk_candidate = concede_gk (상대 골대에 우리가 넣음)
+//   event_type=goal,    player ∈ opponent_members → our_gk_candidate = concede_gk
+//   event_type=owngoal, player ∈ our_members      → our_gk_candidate = concede_gk (우리 자책)
+//   event_type=owngoal, player ∈ opponent_members → opp_gk_candidate = concede_gk
+//
+// 한 매치 내 후보들이 충돌하면 (한 라운드에 GK 교체된 비정상 경우) 로깅하고 skip.
+// 클린시트(이벤트 없음)는 빈 채로 둠.
+//
+// dryRun=true: 통계만 반환, 쓰기 안 함. dryRun=false: 실제 시트 수정.
+// 옵션 onlyEmpty=true(기본): 이미 값 있는 행은 건드리지 않음.
+function backfillFutsalGk(opts) {
+  opts = opts || {};
+  var dryRun = opts.dryRun !== false;
+  var onlyEmpty = opts.onlyEmpty !== false;
+
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var matchSheet = ss.getSheetByName(RAW_MATCHES_SHEET);
+  var evSheet = ss.getSheetByName(RAW_EVENTS_SHEET);
+  if (!matchSheet) return { success: false, error: "로그_매치 시트 없음" };
+  if (!evSheet) return { success: false, error: "로그_이벤트 시트 없음" };
+
+  var matchHeaders = matchSheet.getRange(1, 1, 1, matchSheet.getLastColumn()).getValues()[0];
+  var evHeaders = evSheet.getRange(1, 1, 1, evSheet.getLastColumn()).getValues()[0];
+
+  function colIdx(headers, name) {
+    var i = headers.indexOf(name);
+    if (i < 0) throw new Error("헤더 누락: " + name);
+    return i;
+  }
+
+  var mSport = colIdx(matchHeaders, "sport");
+  var mDate = colIdx(matchHeaders, "date");
+  var mMid = colIdx(matchHeaders, "match_id");
+  var mOurJson = colIdx(matchHeaders, "our_members_json");
+  var mOppJson = colIdx(matchHeaders, "opponent_members_json");
+  var mOurGk = colIdx(matchHeaders, "our_gk");
+  var mOppGk = colIdx(matchHeaders, "opponent_gk");
+
+  var eDate = colIdx(evHeaders, "date");
+  var eMid = colIdx(evHeaders, "match_id");
+  var eType = colIdx(evHeaders, "event_type");
+  var ePlayer = colIdx(evHeaders, "player");
+  var eGk = colIdx(evHeaders, "concede_gk");
+
+  var matchLastRow = matchSheet.getLastRow();
+  var evLastRow = evSheet.getLastRow();
+  if (matchLastRow < 2) return { success: true, scanned: 0, filled: 0, conflicts: 0, cleanSheets: 0 };
+
+  // 이벤트 (date|match_id) → [{type, player, gk}]
+  var evIndex = {};
+  if (evLastRow >= 2) {
+    var evData = evSheet.getRange(2, 1, evLastRow - 1, evSheet.getLastColumn()).getValues();
+    for (var i = 0; i < evData.length; i++) {
+      var t = String(evData[i][eType] || "");
+      if (t !== "goal" && t !== "owngoal") continue;
+      var gk = String(evData[i][eGk] || "").trim();
+      if (!gk) continue;
+      var k = _toDateStr(evData[i][eDate]) + "|" + String(evData[i][eMid] || "");
+      if (!evIndex[k]) evIndex[k] = [];
+      evIndex[k].push({ type: t, player: String(evData[i][ePlayer] || ""), gk: gk });
+    }
+  }
+
+  var matchData = matchSheet.getRange(2, 1, matchLastRow - 1, matchSheet.getLastColumn()).getValues();
+  var scanned = 0, filledOur = 0, filledOpp = 0, conflicts = 0, cleanSheets = 0;
+  var unmatchedScorerRows = 0, ambiguousMembershipRows = 0, eventsButNoUsable = 0;
+  var conflictRows = [];
+  var sampleFilled = [];
+  var unmatchedSamples = [];
+
+  for (var r = 0; r < matchData.length; r++) {
+    var row = matchData[r];
+    if (String(row[mSport] || "") !== "풋살") continue;
+    var hasOur = String(row[mOurGk] || "").trim();
+    var hasOpp = String(row[mOppGk] || "").trim();
+    if (onlyEmpty && hasOur && hasOpp) continue;
+    scanned++;
+
+    var ourMembers = [], oppMembers = [];
+    try { ourMembers = JSON.parse(row[mOurJson] || "[]"); } catch (e) {}
+    try { oppMembers = JSON.parse(row[mOppJson] || "[]"); } catch (e) {}
+    var ourSet = {}; for (var oi = 0; oi < ourMembers.length; oi++) ourSet[ourMembers[oi]] = true;
+    var oppSet = {}; for (var oi2 = 0; oi2 < oppMembers.length; oi2++) oppSet[oppMembers[oi2]] = true;
+
+    var k2 = _toDateStr(row[mDate]) + "|" + String(row[mMid] || "");
+    var evs = evIndex[k2] || [];
+    if (evs.length === 0) { cleanSheets++; continue; }
+
+    var ourGkCand = {}, oppGkCand = {};
+    var rowHasUnmatchedScorer = false;
+    var rowHasAmbiguousScorer = false;
+    var rowUsableEvents = 0;
+    for (var j = 0; j < evs.length; j++) {
+      var ev = evs[j];
+      var inOur = ourSet[ev.player] === true;
+      var inOpp = oppSet[ev.player] === true;
+      if (!inOur && !inOpp) {
+        rowHasUnmatchedScorer = true;
+        if (unmatchedSamples.length < 5) unmatchedSamples.push({ date: _toDateStr(row[mDate]), match_id: String(row[mMid] || ""), player: ev.player });
+        continue;
+      }
+      if (inOur && inOpp) {
+        rowHasAmbiguousScorer = true;
+        continue; // 같은 이름이 양쪽에 있는 비정상 케이스 — 무시
+      }
+      rowUsableEvents++;
+      var assignTo;
+      if (ev.type === "goal") assignTo = inOur ? "opp" : "our";
+      else assignTo = inOur ? "our" : "opp"; // owngoal
+      if (assignTo === "our") ourGkCand[ev.gk] = (ourGkCand[ev.gk] || 0) + 1;
+      else oppGkCand[ev.gk] = (oppGkCand[ev.gk] || 0) + 1;
+    }
+    if (rowHasUnmatchedScorer) unmatchedScorerRows++;
+    if (rowHasAmbiguousScorer) ambiguousMembershipRows++;
+    if (rowUsableEvents === 0) { eventsButNoUsable++; continue; }
+
+    function pickUnique(map) {
+      var keys = Object.keys(map);
+      if (keys.length === 0) return null;
+      if (keys.length === 1) return keys[0];
+      return "__CONFLICT__:" + keys.join(",");
+    }
+
+    var newOur = pickUnique(ourGkCand);
+    var newOpp = pickUnique(oppGkCand);
+    var rowConflict = false;
+
+    if (!hasOur && newOur && newOur.indexOf("__CONFLICT__") === 0) { rowConflict = true; }
+    if (!hasOpp && newOpp && newOpp.indexOf("__CONFLICT__") === 0) { rowConflict = true; }
+    if (rowConflict) {
+      conflicts++;
+      if (conflictRows.length < 10) conflictRows.push({ date: _toDateStr(row[mDate]), match_id: String(row[mMid] || ""), our: newOur, opp: newOpp });
+      continue;
+    }
+
+    var rowSheetIdx = r + 2;
+    if (!hasOur && newOur) {
+      filledOur++;
+      if (sampleFilled.length < 10) sampleFilled.push({ date: _toDateStr(row[mDate]), match_id: String(row[mMid] || ""), our_gk: newOur });
+      if (!dryRun) matchSheet.getRange(rowSheetIdx, mOurGk + 1).setValue(newOur);
+    }
+    if (!hasOpp && newOpp) {
+      filledOpp++;
+      if (!dryRun) matchSheet.getRange(rowSheetIdx, mOppGk + 1).setValue(newOpp);
+    }
+  }
+
+  return {
+    success: true,
+    dryRun: dryRun,
+    scanned: scanned,
+    filledOurGk: filledOur,
+    filledOppGk: filledOpp,
+    cleanSheetsLeft: cleanSheets,
+    eventsButNoUsable: eventsButNoUsable,
+    rowsWithUnmatchedScorer: unmatchedScorerRows,
+    rowsWithAmbiguousScorer: ambiguousMembershipRows,
+    conflicts: conflicts,
+    conflictSamples: conflictRows,
+    filledSamples: sampleFilled,
+    unmatchedScorerSamples: unmatchedSamples,
+  };
 }
 
 function migrateEventTypes() {

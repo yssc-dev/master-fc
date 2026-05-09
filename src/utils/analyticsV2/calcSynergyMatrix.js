@@ -47,9 +47,19 @@ export function calcSynergyMatrix({ matchLogs, minRounds = 5 }) {
     tally(away, awayOutcome);
   }
 
+  // 1차: 각 셀 winRate 계산
   for (const k of Object.keys(cells)) {
     const c = cells[k];
     c.winRate = c.games > 0 ? (c.wins + 0.5 * c.draws) / c.games : 0;
+  }
+  // 2차: 페어 셀에 liftSymmetric 부착 — 두 사람 개인 평균 승률 대비 함께 뛸 때 추가 효과
+  // self 셀(name|name)은 개인 전체 승률이므로 lift 0
+  for (const k of Object.keys(cells)) {
+    const [a, b] = k.split('|');
+    if (a === b) { cells[k].liftSymmetric = 0; continue; }
+    const aRate = cells[`${a}|${a}`]?.winRate ?? 0;
+    const bRate = cells[`${b}|${b}`]?.winRate ?? 0;
+    cells[k].liftSymmetric = cells[k].winRate - (aRate + bRate) / 2;
   }
 
   return {

@@ -1,7 +1,7 @@
 // src/components/dashboard/analytics/RoundDistribution.jsx
 import { useMemo } from 'react';
 
-export default function RoundDistribution({ data, player, ranking, C }) {
+export default function RoundDistribution({ data, player, ranking, threshold = 10, C }) {
   const stats = useMemo(() => {
     if (!data || data.sampleCount === 0) return null;
     const rounds = Object.keys(data.meanByRound).map(Number).sort((a, b) => a - b);
@@ -13,12 +13,13 @@ export default function RoundDistribution({ data, player, ranking, C }) {
 
   const caption = useMemo(() => {
     if (!ranking) return null;
+    const suffix = ` (골+어시 ${threshold}회 이상)`;
     const late = ranking.lateBloomers.findIndex(x => x.player === player);
-    if (late >= 0) return `🏃 후반 폭격기 ${ranking.lateBloomers.length}명 중 ${late + 1}위`;
+    if (late >= 0) return `🏃 후반 폭격기 ${ranking.lateBloomers.length}명 중 ${late + 1}위${suffix}`;
     const early = ranking.earlyBirds.findIndex(x => x.player === player);
-    if (early >= 0) return `🎯 초반 강자 ${ranking.earlyBirds.length}명 중 ${early + 1}위`;
+    if (early >= 0) return `🎯 초반 강자 ${ranking.earlyBirds.length}명 중 ${early + 1}위${suffix}`;
     return null;
-  }, [ranking, player]);
+  }, [ranking, player, threshold]);
 
   if (!stats) {
     return (
@@ -69,6 +70,9 @@ export default function RoundDistribution({ data, player, ranking, C }) {
       </svg>
       <div style={{ fontSize: 10, color: C.gray, marginTop: 4 }}>
         골/어시 {data.eventCount ?? data.sampleCount}회 · 활동 라운드 {data.activeRoundCount ?? rounds.length}개 · 성향 {tendencyLabel}
+      </div>
+      <div style={{ fontSize: 9, color: C.gray, marginTop: 2, lineHeight: 1.5, opacity: 0.7 }}>
+        막대 = 절대 횟수 · 성향 = 세션별 라운드 진행도(0~100%) 평균. 세션마다 총 라운드 수가 달라서 "마지막 R"이 아닌 "끝쯤"인지로 환산.
       </div>
       {caption && (
         <div style={{ fontSize: 11, color: C.accent, marginTop: 4, fontWeight: 600 }}>{caption}</div>

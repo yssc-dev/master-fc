@@ -47,10 +47,10 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
 
     // 이어하기: Firebase에서 복원
     if (!isNewGame && gameId) {
-      FirebaseSync.loadState(team, gameId).then(fb => {
-        if (fb && fb.found && fb.state && fb.state.phase !== "setup") {
+      FirebaseSync.loadStateReconstructed(team, gameId).then(state => {
+        if (state && state.phase !== "setup") {
           dispatch({ type: 'SET_FIELDS', fields: { dataLoading: false, dataSource: "restoring" } });
-          dispatch({ type: 'RESTORE_STATE', state: fb.state });
+          dispatch({ type: 'RESTORE_STATE', state });
           _loadBackgroundData(team);
           return;
         }
@@ -219,6 +219,13 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
   // Auto-save
   const saveTimerRef = useRef(null);
   const isSyncingRef = useRef(false);
+  const lastSyncedStateRef = useRef(null);
+  // 탭 단위 고유 ID — 같은 사용자가 멀티탭일 때 echo 판별용 (이름만으론 구분 불가)
+  const tabSessionIdRef = useRef(null);
+  if (tabSessionIdRef.current === null) {
+    tabSessionIdRef.current = Math.random().toString(36).slice(2, 10);
+  }
+  const editorTag = `${authUser?.name || "알 수 없음"}#${tabSessionIdRef.current}`;
   const gameState = useMemo(() => ({
     gameId: gameId || "legacy",
     gameCreator: state.gameCreator || authUser?.name || "알 수 없음",
@@ -226,52 +233,61 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
     completedMatches, schedule, currentRoundIdx, confirmedRounds, attendees,
     teamCount, courtCount, matchMode, isExtraRound, splitPhase, rotations, earlyFinish, gameFinalized, pushState,
     settingsSnapshot,
-    lastEditor: authUser?.name || "알 수 없음",
-    lastEditTime: Date.now(),
-  }), [phase, teams, teamNames, teamColorIndices, gks, gksHistory, liveMercs, allEvents, completedMatches, schedule, currentRoundIdx, confirmedRounds, attendees, teamCount, courtCount, matchMode, isExtraRound, splitPhase, rotations, earlyFinish, gameFinalized, pushState, settingsSnapshot, authUser, gameId]);
+    lastEditor: editorTag,
+  }), [state.gameCreator, phase, teams, teamNames, teamColorIndices, gks, gksHistory, liveMercs, allEvents, completedMatches, schedule, currentRoundIdx, confirmedRounds, attendees, teamCount, courtCount, matchMode, isExtraRound, splitPhase, rotations, earlyFinish, gameFinalized, pushState, settingsSnapshot, authUser, gameId, editorTag]);
 
-  const autoSave = useCallback(() => {
+  // 변경된 노드만 diff 해서 RTDB update. 동시 편집자끼리 다른 노드를 동시에 써도 안전.
+  const autoSync = useCallback(() => {
     if (isSyncingRef.current) return;
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(async () => {
       set('syncStatus', 'saving');
       const team = teamContext?.team || "";
       try {
-        await FirebaseSync.saveState(team, gameId || "legacy", gameState);
-        set('syncStatus', 'saved');
-        setTimeout(() => set('syncStatus', ''), 2000);
+        const written = await FirebaseSync.syncDiff(team, gameId || "legacy", lastSyncedStateRef.current, gameState);
+        lastSyncedStateRef.current = gameState;
+        if (written > 0) {
+          set('syncStatus', 'saved');
+          setTimeout(() => set('syncStatus', ''), 2000);
+        } else {
+          set('syncStatus', '');
+        }
       } catch (e) {
         console.warn("자동저장 실패:", e.message);
         set('syncStatus', 'error');
       }
-    }, 800);
+    }, 300);
   }, [gameState, teamContext]);
 
   useEffect(() => {
     if (phase !== "setup" && phase !== "") {
-      autoSave();
+      autoSync();
     }
-  }, [allEvents, completedMatches, currentRoundIdx, phase, gks, pushState]);
+  }, [allEvents, completedMatches, currentRoundIdx, phase, gks, gksHistory, liveMercs, confirmedRounds, pushState, teams, teamNames, splitPhase]);
 
-  // Firebase listener
+  // Firebase 노드별 구독 — 어떤 자식이라도 바뀌면 재조립된 state 가 콜백으로 옴.
   const lastRemoteUpdateRef = useRef(0);
   useEffect(() => {
     const team = teamContext?.team;
     if (!team) return;
     const gid = gameId || "legacy";
-    const unsub = FirebaseSync.listen(team, gid, (data) => {
-      if (!data || !data.state) return;
-      if (data.updatedAt && Math.abs(Date.now() - data.updatedAt) < 1500) {
-        if (data.state.lastEditor === authUser?.name) return;
+    const unsub = FirebaseSync.subscribe(team, gid, (remoteState, meta) => {
+      if (!remoteState) return;
+      // 자기 변경 echo 무시 — 탭 단위 ID 비교 (같은 사용자 멀티탭 구분 위해)
+      if (meta?.updatedAt && Math.abs(Date.now() - meta.updatedAt) < 1500) {
+        if (meta.lastEditor === editorTag) return;
       }
-      if (data.updatedAt && data.updatedAt <= lastRemoteUpdateRef.current) return;
-      lastRemoteUpdateRef.current = data.updatedAt || Date.now();
+      // 같은 updatedAt 재방송 무시
+      if (meta?.updatedAt && meta.updatedAt <= lastRemoteUpdateRef.current) return;
+      lastRemoteUpdateRef.current = meta?.updatedAt || Date.now();
       isSyncingRef.current = true;
-      dispatch({ type: 'RESTORE_STATE', state: data.state });
+      dispatch({ type: 'RESTORE_STATE', state: remoteState });
+      // 원격 state 를 베이스라인으로 잡아 다음 diff 의 prev 로 사용 (echo 방지)
+      lastSyncedStateRef.current = remoteState;
       setTimeout(() => { isSyncingRef.current = false; }, 500);
     });
     return unsub;
-  }, [teamContext?.team, authUser?.name]);
+  }, [teamContext?.team, editorTag, gameId]);
 
   // Derived state
   const sortedPlayers = useMemo(() => {
@@ -693,7 +709,9 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
       await FirebaseSync.saveFinalized(teamContext?.team, gameId, gameState);
       // active state에 gameFinalized:true 즉시 저장 (debounce 없이) → 목록에 "전송완료" 뱃지 표시
       const team = teamContext?.team || '';
-      await FirebaseSync.saveState(team, gameId || "legacy", { ...gameState, gameFinalized: true });
+      const finalState = { ...gameState, gameFinalized: true };
+      await FirebaseSync.syncDiff(team, gameId || "legacy", lastSyncedStateRef.current, finalState);
+      lastSyncedStateRef.current = finalState;
       const r1v = r1.value, r2v = r2.value;
       const r3v = r3.status === 'fulfilled' ? r3.value : null;
       const r4v = r4.status === 'fulfilled' ? r4.value : null;

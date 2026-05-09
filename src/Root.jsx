@@ -65,7 +65,7 @@ export default function Root() {
     setCheckingPending(true);
     setPendingGames([]);
 
-    FirebaseSync.loadAllActive(teamName).then(fbGames => {
+    FirebaseSync.loadAllActiveReconstructed(teamName).then(fbGames => {
       const validGames = fbGames.filter(g => g.state && g.state.phase !== "setup");
       setPendingGames(validGames);
     }).catch(() => { }).finally(() => setCheckingPending(false));
