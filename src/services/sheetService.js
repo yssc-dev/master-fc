@@ -50,7 +50,8 @@ function parseCSV(text) {
       concededRate: parseFloat2(f[19]), // T: 실점률
     });
   }
-  return players;
+  const seen = new Set();
+  return players.filter(p => seen.has(p.name) ? false : (seen.add(p.name), true));
 }
 
 // 축구 대시보드 파싱
@@ -87,7 +88,8 @@ function parseSoccerCSV(text) {
       crova: 0, goguma: 0, cleanSheetsDelta: 0, concededDelta: 0,
     });
   }
-  return players;
+  const seen = new Set();
+  return players.filter(p => seen.has(p.name) ? false : (seen.add(p.name), true));
 }
 
 export async function fetchSheetData() {
