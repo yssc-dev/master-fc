@@ -1,11 +1,20 @@
 import { useState } from 'react';
 import { useTheme } from '../../hooks/useTheme';
-import { SunIcon, MoonIcon, CheckIcon, ChevronRight, PlusIcon } from '../common/icons';
+import AuthUtil from '../../services/authUtil';
+import { SunIcon, MoonIcon, CheckIcon, ChevronRight, PlusIcon, StarIcon } from '../common/icons';
 
 export default function HomeScreen({ authUser, teamGroups, selectedTeamName, onSelectTeam, onLogout }) {
   const { mode, toggle } = useTheme();
   const [showAddInfo, setShowAddInfo] = useState(false);
+  const [favoriteTeam, setFavoriteTeam] = useState(() => AuthUtil.getFavoriteTeam(authUser));
   const teamNames = Object.keys(teamGroups);
+
+  const toggleFavorite = (e, teamName) => {
+    e.stopPropagation();
+    const next = favoriteTeam === teamName ? null : teamName;
+    AuthUtil.setFavoriteTeam(authUser, next);
+    setFavoriteTeam(next);
+  };
 
   return (
     <div style={{
@@ -35,11 +44,12 @@ export default function HomeScreen({ authUser, teamGroups, selectedTeamName, onS
       </div>
 
       <div className="app-section-label">팀</div>
-      <div className="app-grouped" style={{ marginBottom: 24 }}>
+      <div className="app-grouped" style={{ marginBottom: 8 }}>
         {teamNames.map(teamName => {
           const entries = teamGroups[teamName];
           const isCurrent = teamName === selectedTeamName;
           const isAdmin = entries.some(e => e.role === "관리자");
+          const isFav = favoriteTeam === teamName;
           return (
             <button key={teamName} className="app-row"
               onClick={() => onSelectTeam(teamName, entries)}
@@ -59,12 +69,32 @@ export default function HomeScreen({ authUser, teamGroups, selectedTeamName, onS
                 </div>
                 <div className="app-row-sub">{entries.map(e => e.mode).join(" · ")}</div>
               </div>
+              <span
+                role="button"
+                aria-label={isFav ? "즐겨찾기 해제" : "즐겨찾기 지정"}
+                onClick={(e) => toggleFavorite(e, teamName)}
+                style={{
+                  display: "inline-flex", alignItems: "center", justifyContent: "center",
+                  width: 32, height: 32, borderRadius: 999, cursor: "pointer",
+                  marginRight: 2,
+                }}>
+                <StarIcon
+                  color={isFav ? "var(--app-orange)" : "var(--app-text-tertiary)"}
+                  fill={isFav ? "var(--app-orange)" : "none"}
+                  width={18}
+                />
+              </span>
               {isCurrent && <CheckIcon color="var(--app-blue)" width={18} />}
               <ChevronRight color="var(--app-text-tertiary)" width={14} />
             </button>
           );
         })}
       </div>
+      {favoriteTeam && (
+        <div style={{ fontSize: 12, color: "var(--app-text-tertiary)", padding: "0 4px 16px" }}>
+          ⭐ 즐겨찾기 팀은 다음 로그인 시 자동으로 열립니다
+        </div>
+      )}
 
       <div className="app-section-label">기타</div>
       <div className="app-grouped" style={{ marginBottom: 24 }}>

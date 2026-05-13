@@ -1,10 +1,11 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { fetchSheetData } from '../../services/sheetService';
 import AppSync from '../../services/appSync';
+import AuthUtil from '../../services/authUtil';
 import { getSettings, getEffectiveSettings } from '../../config/settings';
 import { useTheme } from '../../hooks/useTheme';
 import Modal from '../common/Modal';
-import { SunIcon, MoonIcon, SettingsIcon, BackIcon, HomeIcon, TrophyIcon, ChevronRight, SoccerBallIcon, ListIcon } from '../common/icons';
+import { SunIcon, MoonIcon, SettingsIcon, HomeIcon, TrophyIcon, ChevronRight, SoccerBallIcon, ListIcon, MenuIcon, StarIcon } from '../common/icons';
 import RankingCandlestickChart from './RankingCandlestickChart';
 import PlayerAnalytics from './PlayerAnalytics';
 import DualTeamTab from './analytics/DualTeamTab';
@@ -25,6 +26,24 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
   const [activeTab, setActiveTab] = useState("records");
   const [tournamentActive, setTournamentActive] = useState(false);
   const [tournamentName, setTournamentName] = useState(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [favoriteTeam, setFavoriteTeam] = useState(() => AuthUtil.getFavoriteTeam(authUser));
+  const menuRef = useRef(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handler = (e) => { if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false); };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [menuOpen]);
+
+  const isFavorite = favoriteTeam === teamName;
+  const toggleFavorite = () => {
+    const next = isFavorite ? null : teamName;
+    AuthUtil.setFavoriteTeam(authUser, next);
+    setFavoriteTeam(next);
+    setMenuOpen(false);
+  };
 
   const activeEntry = teamEntries.find(e => e.mode === activeSport) || teamEntries[0];
   const [teamRecord, setTeamRecord] = useState(null);
@@ -837,9 +856,6 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
             <button onClick={onSettings} style={iconBtnStyle} aria-label="설정">
               <SettingsIcon width={16} />
             </button>
-            <button onClick={onSwitchTeam} style={iconBtnStyle} aria-label="팀 전환">
-              <BackIcon width={16} />
-            </button>
             {tournamentActive && (
               <button onClick={() => {
                 if (!confirm("대회 모드에서 홈 화면으로 이동하시겠습니까?")) return;
@@ -849,6 +865,52 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
                 <HomeIcon width={16} />
               </button>
             )}
+            <div ref={menuRef} style={{ position: "relative" }}>
+              <button onClick={() => setMenuOpen(v => !v)} style={iconBtnStyle} aria-label="메뉴" aria-expanded={menuOpen}>
+                <MenuIcon width={16} />
+              </button>
+              {menuOpen && (
+                <div role="menu" style={{
+                  position: "absolute", right: 0, top: 42,
+                  minWidth: 180,
+                  background: "var(--app-bg-row)",
+                  border: "0.5px solid var(--app-divider)",
+                  borderRadius: 12,
+                  boxShadow: "0 8px 24px rgba(0,0,0,0.18)",
+                  overflow: "hidden", zIndex: 200,
+                }}>
+                  <button role="menuitem" onClick={toggleFavorite} style={{
+                    display: "flex", alignItems: "center", gap: 10, width: "100%",
+                    padding: "12px 14px", background: "transparent",
+                    border: 0, fontFamily: "inherit", fontSize: 14, cursor: "pointer",
+                    color: "var(--app-text-primary)", textAlign: "left",
+                  }}>
+                    <StarIcon width={16}
+                      color={isFavorite ? "var(--app-orange)" : "var(--app-text-secondary)"}
+                      fill={isFavorite ? "var(--app-orange)" : "none"} />
+                    {isFavorite ? "즐겨찾기 해제" : "즐겨찾기 지정"}
+                  </button>
+                  <div style={{ height: "0.5px", background: "var(--app-divider)" }} />
+                  <button role="menuitem" onClick={() => { setMenuOpen(false); onSwitchTeam(); }} style={{
+                    display: "flex", alignItems: "center", gap: 10, width: "100%",
+                    padding: "12px 14px", background: "transparent",
+                    border: 0, fontFamily: "inherit", fontSize: 14, cursor: "pointer",
+                    color: "var(--app-text-primary)", textAlign: "left",
+                  }}>
+                    팀 전환
+                  </button>
+                  <div style={{ height: "0.5px", background: "var(--app-divider)" }} />
+                  <button role="menuitem" onClick={() => { setMenuOpen(false); onLogout(); }} style={{
+                    display: "flex", alignItems: "center", gap: 10, width: "100%",
+                    padding: "12px 14px", background: "transparent",
+                    border: 0, fontFamily: "inherit", fontSize: 14, cursor: "pointer",
+                    color: "var(--app-red)", textAlign: "left",
+                  }}>
+                    로그아웃
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
         <div style={{ fontSize: 15, color: "var(--app-text-secondary)", marginBottom: 10 }}>

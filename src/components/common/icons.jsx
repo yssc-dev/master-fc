@@ -38,3 +38,13 @@ export const HomeIcon      = base(<><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2h-4a2 
 export const BackIcon      = base(<path d="M19 12H5M12 19l-7-7 7-7"/>);
 export const FlagIcon      = base(<><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1zM4 22V3"/></>);
 export const GloveIcon     = base(<><path d="M8 21h8a2 2 0 0 0 2-2v-5l2-3V6a2 2 0 0 0-2-2h-2V3a1 1 0 0 0-2 0v4M12 7V4a1 1 0 0 0-2 0v4M10 7V5a1 1 0 0 0-2 0v6M8 11V8a1 1 0 0 0-2 0v5l2 5"/></>);
+export const MenuIcon      = base(<><path d="M3 6h18M3 12h18M3 18h18"/></>);
+
+const StarBase = ({ width = 20, height, color = "currentColor", fill = "none", style, ...rest }) => (
+  <svg width={width} height={height || width} viewBox="0 0 24 24" fill={fill} stroke={color}
+    strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round"
+    style={{ flex: "none", ...style }} {...rest}>
+    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+  </svg>
+);
+export const StarIcon = StarBase;

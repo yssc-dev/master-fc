@@ -82,9 +82,14 @@ export default function Root() {
       const tName = teamNames[0];
       const entries = groups[tName];
       selectTeam(tName, entries, user);
-    } else {
-      setScreen("home");
+      return;
     }
+    const fav = AuthUtil.getFavoriteTeam(user);
+    if (fav && groups[fav]) {
+      selectTeam(fav, groups[fav], user);
+      return;
+    }
+    setScreen("home");
   };
 
   const selectTeam = (teamName, entries, user) => {

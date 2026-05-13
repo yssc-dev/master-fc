@@ -1,5 +1,12 @@
 import { AUTH_STORAGE_KEY, AUTH_EXPIRY_HOURS } from '../config/constants';
 
+const FAV_STORAGE_KEY = "masterfc_fav_team";
+
+function favKey(user) {
+  if (!user || !user.name) return null;
+  return `${user.name}__${user.phone4 || ""}`;
+}
+
 const AuthUtil = {
   getStored() {
     try {
@@ -18,6 +25,28 @@ const AuthUtil = {
   },
   clear() {
     localStorage.removeItem(AUTH_STORAGE_KEY);
+  },
+  getFavoriteTeam(user) {
+    const k = favKey(user);
+    if (!k) return null;
+    try {
+      const raw = localStorage.getItem(FAV_STORAGE_KEY);
+      if (!raw) return null;
+      const map = JSON.parse(raw);
+      return map[k] || null;
+    } catch (e) { return null; }
+  },
+  setFavoriteTeam(user, teamName) {
+    const k = favKey(user);
+    if (!k) return;
+    let map = {};
+    try {
+      const raw = localStorage.getItem(FAV_STORAGE_KEY);
+      if (raw) map = JSON.parse(raw) || {};
+    } catch (e) { map = {}; }
+    if (teamName) map[k] = teamName;
+    else delete map[k];
+    localStorage.setItem(FAV_STORAGE_KEY, JSON.stringify(map));
   },
 };
 
