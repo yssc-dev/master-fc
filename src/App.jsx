@@ -987,11 +987,18 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
 
           {draftMode === "free" && (unassignedPlayers.length > 0 || teamEditMode) && (
             <div style={{ ...s.card, border: `2px solid ${C.accent}44`, marginBottom: 14 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: C.accent, marginBottom: 8 }}>
-                미배정 선수 ({unassignedPlayers.length}명) {selectedPoolPlayer ? `· ${selectedPoolPlayer} 선택됨 → 아래 팀의 + 버튼 탭` : "· 선수를 탭하여 선택 후 아래 팀의 + 버튼 탭"}
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: C.accent, flex: 1 }}>
+                  미배정 선수 ({unassignedPlayers.length}명) {selectedPoolPlayer ? `· ${selectedPoolPlayer} 선택됨 → 아래 팀의 + 버튼 탭` : "· 선수를 탭하여 선택 후 아래 팀의 + 버튼 탭"}
+                </div>
+                <button onClick={() => set('playerSortMode', playerSortMode === "point" ? "name" : "point")} style={{
+                  padding: "3px 10px", borderRadius: 999,
+                  background: "rgba(0,122,255,0.1)", color: "var(--app-blue)",
+                  border: "none", fontSize: 11, fontWeight: 500, cursor: "pointer", fontFamily: "inherit", flexShrink: 0,
+                }}>{playerSortMode === "point" ? "포인트순" : "이름순"}</button>
               </div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-                {[...unassignedPlayers].sort((a, b) => getPlayerPoint(b, seasonPlayers) - getPlayerPoint(a, seasonPlayers)).map(p => {
+                {[...unassignedPlayers].sort((a, b) => playerSortMode === "name" ? a.localeCompare(b, "ko") : getPlayerPoint(b, seasonPlayers) - getPlayerPoint(a, seasonPlayers)).map(p => {
                   const pd = getPlayerData(p, seasonPlayers);
                   const isSel = selectedPoolPlayer === p;
                   return (
@@ -1005,7 +1012,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
                 <>
                   <div style={{ fontSize: 11, fontWeight: 700, color: C.gray, marginTop: 10, marginBottom: 6 }}>불참 시즌 선수 ({absentSeasonPool.length}명)</div>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-                    {[...absentSeasonPool].sort((a, b) => getPlayerPoint(b, seasonPlayers) - getPlayerPoint(a, seasonPlayers)).map(p => {
+                    {[...absentSeasonPool].sort((a, b) => playerSortMode === "name" ? a.localeCompare(b, "ko") : getPlayerPoint(b, seasonPlayers) - getPlayerPoint(a, seasonPlayers)).map(p => {
                       const pd = getPlayerData(p, seasonPlayers);
                       const isSel = selectedPoolPlayer === p;
                       return (
