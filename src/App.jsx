@@ -1073,12 +1073,12 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
                         {pIdx === 0 && team.length > 0 && <span style={{ fontSize: 10, marginRight: 2 }}>👑</span>}
                         <span>{player}</span>
                         <span style={{ fontSize: 10, opacity: 0.6, marginLeft: 4 }}>{pd.point}p</span>
-                        {draftMode === "snake" ? (
+                        {draftMode === "snake" || (draftMode === "sheet" && !teamEditMode) ? (
                           <button onClick={e => { e.stopPropagation(); set('moveSource', moveSource?.player === player ? null : { player, teamIdx: tIdx }); }}
                             style={{ ...s.btnSm(moveSource?.player === player ? C.orange : C.grayDarker, C.gray), padding: "2px 6px", fontSize: 10, marginLeft: 4 }}>
                             {moveSource?.player === player ? "취소" : "↔"}
                           </button>
-                        ) : draftMode === "sheet" && !teamEditMode ? null : (
+                        ) : (
                           <button onClick={e => { e.stopPropagation(); freeRemovePlayer(player, tIdx); }}
                             style={{ ...s.btnSm(C.redDim, C.white), padding: "2px 6px", fontSize: 10, marginLeft: 4 }}>
                             ✕
@@ -1087,7 +1087,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
                       </div>
                     );
                   })}
-                  {draftMode === "snake" && moveSource && moveSource.teamIdx !== tIdx && (
+                  {(draftMode === "snake" || (draftMode === "sheet" && !teamEditMode)) && moveSource && moveSource.teamIdx !== tIdx && (
                     <div onClick={() => { dispatch({ type: 'MOVE_PLAYER', player: moveSource.player, fromIdx: moveSource.teamIdx, toIdx: tIdx }); set('moveSource', null); }}
                       style={{ display: "inline-flex", alignItems: "center", padding: "6px 12px", borderRadius: 8, fontSize: 12, margin: 2, cursor: "pointer", border: `2px dashed ${C.accent}`, color: C.accent }}>
                       + {moveSource.player}
