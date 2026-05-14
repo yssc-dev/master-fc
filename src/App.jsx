@@ -821,7 +821,9 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
             <div className="app-row" style={{ flexDirection: "column", alignItems: "stretch", gap: 8 }}>
               <span className="app-row-title">경기 모드</span>
               <div style={segBar}>
-                <button onClick={() => set('matchMode', 'schedule')} style={segBtn(matchMode === "schedule")}>대진표</button>
+                <button onClick={() => set('matchMode', 'schedule')} style={segBtn(matchMode === "schedule")}>
+                  {teamCount === 6 && courtCount === 2 ? "그룹 스플릿" : "대진표"}
+                </button>
                 <button onClick={() => set('matchMode', 'free')} style={segBtn(matchMode === "free")}>자유대진</button>
                 <button onClick={() => { set('matchMode', 'push'); set('courtCount', 1); }} style={segBtn(matchMode === "push")}>밀어내기</button>
               </div>
