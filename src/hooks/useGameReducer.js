@@ -269,6 +269,21 @@ function gameReducer(state, action) {
       if (s.gameCreator != null) updates.gameCreator = s.gameCreator;
       if (s.phase != null) updates.phase = s.phase;
       if (s.settingsSnapshot != null) updates.settingsSnapshot = s.settingsSnapshot;
+      // ★ 자가복구: ENTER_TEAM_EDIT 도중 종료된 잔재
+      // (phase=teamBuild지만 라운드 진행 흔적이 남아있음 → 'match'로 복구)
+      // teamEditMode/teamEditSnapshot은 로컬 전용이라 sync되지 않아 발생.
+      if (updates.phase === 'teamBuild') {
+        const sched = updates.schedule ?? state.schedule ?? [];
+        const completed = updates.completedMatches ?? state.completedMatches ?? [];
+        const confirmed = updates.confirmedRounds ?? state.confirmedRounds ?? {};
+        const curIdx = updates.currentRoundIdx ?? state.currentRoundIdx ?? 0;
+        const hasProgress = (sched && sched.length > 0) && (
+          completed.length > 0 ||
+          Object.values(confirmed).some(v => !!v) ||
+          curIdx > 0
+        );
+        if (hasProgress) updates.phase = 'match';
+      }
       return { ...state, ...updates };
     }
     case 'TOGGLE_ATTENDEE': {
