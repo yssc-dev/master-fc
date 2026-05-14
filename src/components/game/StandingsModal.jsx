@@ -25,7 +25,7 @@ export default function StandingsModal({ standings, splitPhase, teamCount, onClo
                         fontSize: 9, fontWeight: 700, padding: "1px 5px", borderRadius: 4,
                         background: league === 'upper' ? `${C.green}22` : `${C.orange}22`,
                         color: league === 'upper' ? C.green : C.orange,
-                      }}>{league === 'upper' ? '상' : '하'}</span>
+                      }}>{league === 'upper' ? '상위' : '하위'}</span>
                     )}
                   </span>
                 </td>
