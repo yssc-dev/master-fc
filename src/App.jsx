@@ -1002,8 +1002,23 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
                   const pd = getPlayerData(p, seasonPlayers);
                   const isSel = selectedPoolPlayer === p;
                   return (
-                    <div key={p} onClick={() => togglePoolSelect(p)} style={{ ...s.chip(isSel), cursor: "pointer", padding: "6px 10px", fontSize: 12 }}>
+                    <div key={p} onClick={() => togglePoolSelect(p)} style={{ ...s.chip(isSel), cursor: "pointer", padding: "6px 10px", fontSize: 12, display: "inline-flex", alignItems: "center", gap: 6 }}>
                       <span>{p}</span><span style={{ fontSize: 10, opacity: 0.6 }}>{pd.point}p</span>
+                      <span
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (selectedPoolPlayer === p) setSelectedPoolPlayer(null);
+                          dispatch({ type: 'SET_ATTENDEES', attendees: attendees.filter(a => a !== p) });
+                        }}
+                        title="불참 처리"
+                        style={{
+                          display: "inline-flex", alignItems: "center", justifyContent: "center",
+                          width: 16, height: 16, borderRadius: 999,
+                          background: "rgba(0,0,0,0.08)", color: C.gray,
+                          fontSize: 10, fontWeight: 700, lineHeight: 1, cursor: "pointer",
+                          marginLeft: 2,
+                        }}
+                      >×</span>
                     </div>
                   );
                 })}
