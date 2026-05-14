@@ -308,8 +308,30 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
       else if (m.awayScore > m.homeScore) { stats[m.awayTeam].wins++; stats[m.awayTeam].points += 3; stats[m.homeTeam].losses++; }
       else { stats[m.homeTeam].draws++; stats[m.awayTeam].draws++; stats[m.homeTeam].points++; stats[m.awayTeam].points++; }
     });
-    return Object.entries(stats).map(([name, s]) => ({ name, ...s })).sort((a, b) => (b.points - a.points) || ((b.gf - b.ga) - (a.gf - a.ga)) || (b.gf - a.gf));
-  }, [completedMatches, teamNames]);
+    // 6팀 split second phase: 전반 6라운드 순위로 상/하위 리그 라벨 부여.
+    const leagueByTeam = {};
+    if (teamCount === 6 && splitPhase === 'second') {
+      const fhStats = {};
+      teamNames.forEach((t, i) => { fhStats[t] = { idx: i, gf: 0, ga: 0, points: 0 }; });
+      completedMatches.forEach(m => {
+        if (m.isExtra || !fhStats[m.homeTeam] || !fhStats[m.awayTeam]) return;
+        const rIdx = typeof m.matchId === 'string' ? parseInt(m.matchId.match(/^R(\d+)/)?.[1] ?? -1) - 1 : -1;
+        if (rIdx < 0 || rIdx >= 6) return; // 전반 6라운드만
+        fhStats[m.homeTeam].gf += m.homeScore; fhStats[m.homeTeam].ga += m.awayScore;
+        fhStats[m.awayTeam].gf += m.awayScore; fhStats[m.awayTeam].ga += m.homeScore;
+        if (m.homeScore > m.awayScore) fhStats[m.homeTeam].points += 3;
+        else if (m.awayScore > m.homeScore) fhStats[m.awayTeam].points += 3;
+        else { fhStats[m.homeTeam].points++; fhStats[m.awayTeam].points++; }
+      });
+      const fhRanked = Object.entries(fhStats)
+        .map(([name, s]) => ({ name, ...s }))
+        .sort((a, b) => (b.points - a.points) || ((b.gf - b.ga) - (a.gf - a.ga)) || (b.gf - a.gf));
+      fhRanked.forEach((t, i) => { leagueByTeam[t.name] = i < 3 ? 'upper' : 'lower'; });
+    }
+    return Object.entries(stats)
+      .map(([name, s]) => ({ name, ...s, league: leagueByTeam[name] || null }))
+      .sort((a, b) => (b.points - a.points) || ((b.gf - b.ga) - (a.gf - a.ga)) || (b.gf - a.gf));
+  }, [completedMatches, teamNames, teamCount, splitPhase]);
 
   const finalStandings = useMemo(() => getTeamStandings(), [getTeamStandings]);
 
