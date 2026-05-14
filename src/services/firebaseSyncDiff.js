@@ -5,7 +5,7 @@ export const META_FIELDS = [
   'gameCreator', 'phase', 'currentRoundIdx', 'teamCount', 'courtCount',
   'matchMode', 'isExtraRound', 'splitPhase', 'rotations',
   'earlyFinish', 'gameFinalized', 'lastEditor',
-  'currentMatchIdx',
+  'currentMatchIdx', 'draftMode',
 ];
 
 // 통째로 set 하는 배열/객체 필드 (변경 시 전체 교체)
@@ -152,6 +152,26 @@ export function diffStateToWrites(prev, next) {
   return writes;
 }
 
+// RTDB는 빈 배열을 저장하지 않고, 희소 배열은 객체로 변환됨.
+// 0~teamCount-1 인덱스를 가진 배열로 정규화 + 길이를 teamCount로 패딩.
+function normalizeTeamArray(raw, teamCount, fill) {
+  let arr;
+  if (Array.isArray(raw)) {
+    arr = [...raw];
+  } else if (raw && typeof raw === 'object') {
+    arr = [];
+    for (const k of Object.keys(raw)) {
+      const i = +k;
+      if (Number.isInteger(i) && i >= 0) arr[i] = raw[k];
+    }
+  } else {
+    arr = [];
+  }
+  while (arr.length < teamCount) arr.push(typeof fill === 'function' ? fill(arr.length) : fill);
+  for (let i = 0; i < teamCount; i++) if (arr[i] == null) arr[i] = typeof fill === 'function' ? fill(i) : fill;
+  return arr;
+}
+
 // RTDB 노드 트리 → gameState 객체 재조립.
 export function reconstructState(gameId, raw) {
   if (!raw) return null;
@@ -162,12 +182,13 @@ export function reconstructState(gameId, raw) {
   const soccerMatches = raw.soccerMatches
     ? Object.values(raw.soccerMatches).sort((a, b) => (a?.matchIdx || 0) - (b?.matchIdx || 0))
     : [];
+  const teamCount = meta.teamCount ?? 4;
   return {
     gameId,
     gameCreator: meta.gameCreator || '',
     phase: meta.phase || '',
     currentRoundIdx: meta.currentRoundIdx ?? 0,
-    teamCount: meta.teamCount ?? 4,
+    teamCount,
     courtCount: meta.courtCount ?? 2,
     matchMode: meta.matchMode || 'schedule',
     isExtraRound: meta.isExtraRound ?? false,
@@ -177,9 +198,10 @@ export function reconstructState(gameId, raw) {
     gameFinalized: meta.gameFinalized ?? false,
     lastEditor: meta.lastEditor || '',
     currentMatchIdx: meta.currentMatchIdx ?? -1,
-    teams: raw.teams || [],
-    teamNames: raw.teamNames || [],
-    teamColorIndices: raw.teamColorIndices || [],
+    draftMode: meta.draftMode || 'snake',
+    teams: normalizeTeamArray(raw.teams, teamCount, () => []),
+    teamNames: normalizeTeamArray(raw.teamNames, teamCount, (i) => `팀${i + 1}`),
+    teamColorIndices: normalizeTeamArray(raw.teamColorIndices, teamCount, (i) => i),
     schedule: raw.schedule || [],
     attendees: raw.attendees || [],
     opponents: raw.opponents || [],

@@ -231,6 +231,28 @@ describe('reconstructState', () => {
     expect(s.teamCount).toBe(6);
     expect(s.gameFinalized).toBe(true);
   });
+
+  it('teams 가 RTDB 객체 표기(희소 배열)로 와도 teamCount 길이 배열로 복원', () => {
+    const raw = {
+      meta: { teamCount: 6 },
+      // RTDB 는 빈 배열을 저장 안 하므로 [['김성환'], [], [], [], [], []] → { 0: ['김성환'] } 로 변환됨
+      teams: { 0: ['김성환'] },
+    };
+    const s = reconstructState('g_1', raw);
+    expect(s.teams).toEqual([['김성환'], [], [], [], [], []]);
+    expect(s.teams.length).toBe(6);
+  });
+
+  it('teams 가 아예 없어도 teamCount 길이의 빈 배열로 복원', () => {
+    const s = reconstructState('g_1', { meta: { teamCount: 4 } });
+    expect(s.teams).toEqual([[], [], [], []]);
+  });
+
+  it('draftMode 복원 (없으면 snake)', () => {
+    expect(reconstructState('g_1', { meta: { draftMode: 'free' } }).draftMode).toBe('free');
+    expect(reconstructState('g_1', { meta: { draftMode: 'sheet' } }).draftMode).toBe('sheet');
+    expect(reconstructState('g_1', {}).draftMode).toBe('snake');
+  });
 });
 
 describe('expandStateForRtdb / 라운드트립', () => {
@@ -258,8 +280,9 @@ describe('expandStateForRtdb / 라운드트립', () => {
     expect(restored.currentRoundIdx).toBe(original.currentRoundIdx);
     expect(restored.teamCount).toBe(original.teamCount);
     expect(restored.gameCreator).toBe(original.gameCreator);
-    expect(restored.teams).toEqual(original.teams);
-    expect(restored.teamNames).toEqual(original.teamNames);
+    // teams는 teamCount 길이로 패딩됨
+    expect(restored.teams).toEqual([['김형근'], ['이동규'], [], []]);
+    expect(restored.teamNames).toEqual(['A팀', 'B팀', '팀3', '팀4']);
     expect(restored.gks).toEqual(original.gks);
     expect(restored.gksHistory).toEqual(original.gksHistory);
     expect(restored.allEvents).toEqual(original.allEvents);
