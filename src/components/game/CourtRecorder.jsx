@@ -344,10 +344,13 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
           const popPos = below
             ? { top: "calc(100% + 6px)" }
             : { bottom: "calc(100% + 6px)" };
+          // 홈팀 카드는 좌측 앵커, 어웨이팀 카드는 우측 앵커 → 화면 우측 끝 팝업 잘림 방지
+          const popHoriz = isHome ? { left: 0 } : { right: 0 };
           const isScorer = roleInCompose === 'scorer';
           return (
             <div style={{
-              position: "absolute", left: 0, right: 0,
+              position: "absolute",
+              ...popHoriz,
               ...popPos,
               zIndex: 40,
               background: "var(--app-bg-elevated)",
