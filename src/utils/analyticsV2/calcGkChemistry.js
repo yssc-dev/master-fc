@@ -2,15 +2,11 @@
 // 풋살 라운드 로테이션: our/opponent 모두 같은 클럽 선수라 양쪽 다 집계.
 //   - our_gk + our_members_json (실점 = opponent_score == 0)
 //   - opponent_gk + opponent_members_json (실점 = our_score == 0)
+// ★ 휴식 선수는 멤버 명단에서 제외 (actualPlayers 사용)
 
-function parseMembers(s) {
-  try {
-    const parsed = JSON.parse(s || '[]');
-    return Array.isArray(parsed) ? parsed.filter(x => typeof x === 'string' && x) : [];
-  } catch {
-    return [];
-  }
-}
+import { parseActualPlayers } from './parseMembers';
+
+function parseMembers(s) { return parseActualPlayers(s); }
 
 // includeOpponent: 풋살(매주 팀 로테이션)은 양팀 다 우리 클럽이라 true,
 // 축구는 opponent가 외부팀이라 false (외부 GK 노이즈 방지)

@@ -4,7 +4,7 @@ import { useTheme } from '../../hooks/useTheme';
 import { calcMatchScore } from '../../utils/scoring';
 import CourtRecorder from './CourtRecorder';
 
-export default function FreeMatchView({ teams, teamNames, teamColorIndices, gks, gksHistory, courtCount, allEvents, onRecordEvent, onUndoEvent, onDeleteEvent, onEditEvent, onFinishMatch, onConfirmFreeRound, completedMatches, attendees, onGkChange, liveMercs, onAddLiveMerc, onRemoveLiveMerc, onEditPastGk, onEditPastMercAdd, onEditPastMercRemove, styles: s, isExtraRound }) {
+export default function FreeMatchView({ teams, teamNames, teamColorIndices, gks, gksHistory, courtCount, allEvents, onRecordEvent, onUndoEvent, onDeleteEvent, onEditEvent, onFinishMatch, onConfirmFreeRound, completedMatches, attendees, onGkChange, liveMercs, onAddLiveMerc, onRemoveLiveMerc, onEditPastGk, onEditPastMercAdd, onEditPastMercRemove, absentees, onToggleAbsent, styles: s, isExtraRound }) {
   const { C } = useTheme();
   const [courtMatches, setCourtMatches] = useState({});
   const [activeCourtTab, setActiveCourtTab] = useState(0);
@@ -137,6 +137,7 @@ export default function FreeMatchView({ teams, teamNames, teamColorIndices, gks,
             onEditPastMercAdd?.(pm.matchId, teamIdx, player);
           }}
           onRemoveMerc={(player) => onEditPastMercRemove?.(pm.matchId, player)}
+          absentees={{ [pm.matchId]: { [pm.homeIdx]: pm.homeAbsent || [], [pm.awayIdx]: pm.awayAbsent || [] } }}
         />
       </div>
     );
@@ -229,6 +230,8 @@ export default function FreeMatchView({ teams, teamNames, teamColorIndices, gks,
             })).filter(m => m.side)}
             onAddMerc={(player, side) => onAddLiveMerc?.(activeMatchInfo.matchId, side === "home" ? activeMatchInfo.homeIdx : activeMatchInfo.awayIdx, player)}
             onRemoveMerc={(player) => onRemoveLiveMerc?.(activeMatchInfo.matchId, player)}
+            absentees={absentees}
+            onToggleAbsent={onToggleAbsent}
           />
         </div>
       )}

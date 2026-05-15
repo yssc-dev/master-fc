@@ -1,13 +1,11 @@
 // 시트 rows → GameRecord[] 변환.
 // 출력 스키마는 gameStateAnalyzer.parseGameHistory()와 동일 (calc* 함수 재사용 위함).
 
+import { parseActualPlayers } from './analyticsV2/parseMembers';
+
 function safeParseArray(str) {
-  try {
-    const v = JSON.parse(str);
-    return Array.isArray(v) ? v : [];
-  } catch {
-    return [];
-  }
+  // members json은 배열/객체 둘 다 받음 (휴식 정보 포함 가능). actual 출전만 반환.
+  return parseActualPlayers(str);
 }
 
 function denormalizeEventType(standardType) {

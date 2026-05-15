@@ -114,6 +114,25 @@ describe('buildRoundRowsFromFutsal', () => {
     expect(JSON.parse(rows[0].our_members_json)).toEqual(['김성태', '이준호', '박민', '최영', '홍길동']);
   });
 
+  it('homeAbsent/awayAbsent 있으면 our_members_json이 객체 형식으로 직렬화', () => {
+    const state = {
+      ...baseState,
+      completedMatches: [{
+        ...baseState.completedMatches[0],
+        homePlayers: ['A', 'B', 'C', 'D', 'E', 'F'],
+        homeAbsent: ['F'],
+        awayPlayers: ['X', 'Y', 'Z'],
+        awayAbsent: [],
+      }],
+    };
+    const rows = buildRoundRowsFromFutsal({ team: 't', mode: '기본', date: '2026-04-10', stateJSON: state, inputTime: '' });
+    expect(JSON.parse(rows[0].our_members_json)).toEqual({
+      players: ['A', 'B', 'C', 'D', 'E', 'F'], absent: ['F'],
+    });
+    // 휴식 없으면 배열 형식 유지
+    expect(JSON.parse(rows[0].opponent_members_json)).toEqual(['X', 'Y', 'Z']);
+  });
+
   it('match_idx는 배열 순서대로 1부터', () => {
     const state = {
       ...baseState,

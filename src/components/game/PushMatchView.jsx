@@ -11,6 +11,7 @@ export default function PushMatchView({
   onConfirmPushRound, onUnconfirmLastRound, completedMatches, attendees, onGkChange,
   liveMercs, onAddLiveMerc, onRemoveLiveMerc,
   onEditPastGk, onEditPastMercAdd, onEditPastMercRemove,
+  absentees, onToggleAbsent,
   pushState, styles: s,
 }) {
   const { C } = useTheme();
@@ -341,6 +342,8 @@ export default function PushMatchView({
         mercs={courtMercs}
         onAddMerc={handleAddMerc}
         onRemoveMerc={handleRemoveMerc}
+        absentees={absentees}
+        onToggleAbsent={isLive ? onToggleAbsent : undefined}
       />
 
       {/* 하단 버튼 */}

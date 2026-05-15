@@ -1,5 +1,8 @@
 // N×N 시너지 매트릭스: 같은팀 출전 라운드의 팀승률
 // our_members_json + opponent_members_json 양쪽 모두 처리하고 (date, match_id) 단위로 dedupe
+// ★ 휴식 선수는 멤버 명단에서 제외 (actualPlayers 사용)
+import { parseActualPlayers } from './parseMembers';
+
 export function calcSynergyMatrix({ matchLogs, minRounds = 5 }) {
   const playerSet = new Set();
   const cells = {};
@@ -15,12 +18,7 @@ export function calcSynergyMatrix({ matchLogs, minRounds = 5 }) {
     else cells[key].losses++;
   };
 
-  const parseMembers = (s) => {
-    try {
-      const parsed = JSON.parse(s || '[]');
-      return Array.isArray(parsed) ? parsed.filter(x => typeof x === 'string' && x) : [];
-    } catch { return []; }
-  };
+  const parseMembers = (s) => parseActualPlayers(s);
 
   for (const m of matchLogs || []) {
     const home = parseMembers(m.our_members_json);

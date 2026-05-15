@@ -1,5 +1,8 @@
 // 특정 YYYY-MM 기준 득점/어시/승률 TOP N
 // winRateMinGames: 승률 랭킹에 노출되기 위한 최소 경기 수 (표본 신뢰도)
+// ★ 휴식 선수는 매치 출전에서 제외 (actualPlayers 사용)
+import { parseActualPlayers } from './parseMembers';
+
 export function calcMonthlyRanking({ yearMonth, playerLogs, matchLogs, topN = 5, winRateMinGames = 5 }) {
   if (!yearMonth) return { goals: [], assists: [], winRate: [] };
 
@@ -15,8 +18,7 @@ export function calcMonthlyRanking({ yearMonth, playerLogs, matchLogs, topN = 5,
   const winMap = {};
   for (const m of matchLogs || []) {
     if (!inMonth(m.date)) continue;
-    let members;
-    try { members = JSON.parse(m.our_members_json || '[]'); } catch { continue; }
+    const members = parseActualPlayers(m.our_members_json);
     const our = Number(m.our_score) || 0;
     const opp = Number(m.opponent_score) || 0;
     const outcome = our > opp ? 'W' : (our === opp ? 'D' : 'L');

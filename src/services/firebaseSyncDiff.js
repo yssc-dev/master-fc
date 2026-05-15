@@ -138,6 +138,17 @@ export function diffStateToWrites(prev, next) {
     }
   }
 
+  // absentees — matchId 단위 diff (값 자체는 { teamIdx: [name] } 객체)
+  {
+    const prevObj = prev?.absentees || {};
+    const nextObj = next?.absentees || {};
+    for (const k of new Set([...Object.keys(prevObj), ...Object.keys(nextObj)])) {
+      if (!deepEqual(prevObj[k], nextObj[k])) {
+        writes[`absentees/${k}`] = nextObj[k] === undefined ? null : nextObj[k];
+      }
+    }
+  }
+
   // confirmedRounds
   {
     const prevObj = prev?.confirmedRounds || {};
@@ -211,6 +222,7 @@ export function reconstructState(gameId, raw) {
     gks: raw.gks || {},
     gksHistory: raw.gksHistory || {},
     liveMercs: raw.liveMercs || {},
+    absentees: raw.absentees || {},
     confirmedRounds: raw.confirmedRounds || {},
     allEvents: events,
     completedMatches: matches,
@@ -232,6 +244,7 @@ export function expandStateForRtdb(state) {
   if (state.gks) out.gks = state.gks;
   if (state.gksHistory) out.gksHistory = state.gksHistory;
   if (state.liveMercs) out.liveMercs = state.liveMercs;
+  if (state.absentees) out.absentees = state.absentees;
   if (state.confirmedRounds) out.confirmedRounds = state.confirmedRounds;
   if (state.allEvents) out.events = eventsToObj(state.allEvents);
   if (state.completedMatches) out.matches = matchesToObj(state.completedMatches);

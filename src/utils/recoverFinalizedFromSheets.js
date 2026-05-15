@@ -60,9 +60,19 @@ export async function recoverFinalizedStateFromSheets({ team, date, settingsSnap
   const teamMembers = {};
   teamNames.forEach(t => { teamMembers[t] = new Set(); });
   matches.forEach(m => {
-    let oM = []; let pM = [];
-    try { oM = JSON.parse(m.our_members_json || '[]'); } catch (e) { /* ignore */ }
-    try { pM = JSON.parse(m.opponent_members_json || '[]'); } catch (e) { /* ignore */ }
+    // 휴식 정보 포함 객체 형식도 지원, 팀 로스터는 players(전체) 기준으로 union
+    const parseRoster = (s) => {
+      try {
+        const v = JSON.parse(s || '[]');
+        if (Array.isArray(v)) return v.filter(x => typeof x === 'string' && x);
+        if (v && typeof v === 'object' && Array.isArray(v.players)) {
+          return v.players.filter(x => typeof x === 'string' && x);
+        }
+        return [];
+      } catch { return []; }
+    };
+    const oM = parseRoster(m.our_members_json);
+    const pM = parseRoster(m.opponent_members_json);
     if (m.our_team_name && teamMembers[m.our_team_name]) oM.forEach(p => teamMembers[m.our_team_name].add(p));
     if (m.opponent_team_name && teamMembers[m.opponent_team_name]) pM.forEach(p => teamMembers[m.opponent_team_name].add(p));
   });

@@ -32,7 +32,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
     phase, dataLoading, dataSource, seasonPlayers, seasonCrova, seasonGoguma,
     syncStatus, attendanceLoading, attendees, newPlayer, teamCount, courtCount,
     matchMode, rotations, draftMode, freeSelectTeam, teams, teamNames,
-    teamColorIndices, gks, gksHistory, liveMercs, editingTeamName, moveSource, schedule, currentRoundIdx,
+    teamColorIndices, gks, gksHistory, liveMercs, absentees, editingTeamName, moveSource, schedule, currentRoundIdx,
     viewingRoundIdx, confirmedRounds, completedMatches, allEvents, isExtraRound,
     splitPhase, earlyFinish, gameFinalized, matchModal, matchModal_sortKey, playerSortMode, pushState, teamEditMode,
     settingsSnapshot,
@@ -229,12 +229,12 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
   const gameState = useMemo(() => ({
     gameId: gameId || "legacy",
     gameCreator: state.gameCreator || authUser?.name || "알 수 없음",
-    phase, teams, teamNames, teamColorIndices, gks, gksHistory, liveMercs, allEvents,
+    phase, teams, teamNames, teamColorIndices, gks, gksHistory, liveMercs, absentees, allEvents,
     completedMatches, schedule, currentRoundIdx, confirmedRounds, attendees,
     teamCount, courtCount, matchMode, isExtraRound, splitPhase, rotations, earlyFinish, gameFinalized, pushState,
     settingsSnapshot,
     lastEditor: editorTag,
-  }), [state.gameCreator, phase, teams, teamNames, teamColorIndices, gks, gksHistory, liveMercs, allEvents, completedMatches, schedule, currentRoundIdx, confirmedRounds, attendees, teamCount, courtCount, matchMode, isExtraRound, splitPhase, rotations, earlyFinish, gameFinalized, pushState, settingsSnapshot, authUser, gameId, editorTag]);
+  }), [state.gameCreator, phase, teams, teamNames, teamColorIndices, gks, gksHistory, liveMercs, absentees, allEvents, completedMatches, schedule, currentRoundIdx, confirmedRounds, attendees, teamCount, courtCount, matchMode, isExtraRound, splitPhase, rotations, earlyFinish, gameFinalized, pushState, settingsSnapshot, authUser, gameId, editorTag]);
 
   // 변경된 노드만 diff 해서 RTDB update. 동시 편집자끼리 다른 노드를 동시에 써도 안전.
   const autoSync = useCallback(() => {
@@ -404,6 +404,11 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
   }, []);
   const handleRemoveLiveMerc = useCallback((matchId, player) => {
     dispatch({ type: 'REMOVE_LIVE_MERC', matchId, player });
+  }, []);
+
+  // 매치별 휴식 토글
+  const handleToggleAbsent = useCallback(({ matchId, teamIdx, player }) => {
+    dispatch({ type: 'TOGGLE_ABSENT', matchId, teamIdx, player });
   }, []);
 
   // 확정된 과거 매치의 부분 수정. 매치업(homeIdx/awayIdx)과 이후 매치들은 영향 없음.
@@ -1337,6 +1342,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
               onConfirmPushRound={confirmPushRound} onUnconfirmLastRound={unconfirmLastPushRound} completedMatches={completedMatches}
               attendees={attendees} onGkChange={handleGkChange} pushState={pushState}
               liveMercs={liveMercs || {}} onAddLiveMerc={handleAddLiveMerc} onRemoveLiveMerc={handleRemoveLiveMerc}
+              absentees={absentees || {}} onToggleAbsent={handleToggleAbsent}
               onEditPastGk={handleEditPastGk} onEditPastMercAdd={handleEditPastMercAdd} onEditPastMercRemove={handleEditPastMercRemove}
               styles={s} />
           ) : matchMode === "schedule" && schedule.length > 0 && !isExtraRound ? (
@@ -1348,6 +1354,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
               onUndoEvent={undoMatchEvent} onDeleteEvent={deleteEvent} onEditEvent={editEvent}
               completedMatches={completedMatches} attendees={attendees} onGkChange={handleGkChange}
               liveMercs={liveMercs || {}} onAddLiveMerc={handleAddLiveMerc} onRemoveLiveMerc={handleRemoveLiveMerc}
+              absentees={absentees || {}} onToggleAbsent={handleToggleAbsent}
               onEditPastGk={handleEditPastGk} onEditPastMercAdd={handleEditPastMercAdd} onEditPastMercRemove={handleEditPastMercRemove}
               splitPhase={splitPhase} styles={s} />
           ) : (
@@ -1357,6 +1364,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
               onFinishMatch={finishMatch} onConfirmFreeRound={confirmFreeRound} completedMatches={completedMatches}
               attendees={attendees} onGkChange={handleGkChange}
               liveMercs={liveMercs || {}} onAddLiveMerc={handleAddLiveMerc} onRemoveLiveMerc={handleRemoveLiveMerc}
+              absentees={absentees || {}} onToggleAbsent={handleToggleAbsent}
               onEditPastGk={handleEditPastGk} onEditPastMercAdd={handleEditPastMercAdd} onEditPastMercRemove={handleEditPastMercRemove}
               styles={s} isExtraRound={isExtraRound} />
           )}

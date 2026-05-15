@@ -1,6 +1,16 @@
 // Firebase stateJSON → 로그_매치 rows 빌더.
 // 풋살 / 축구 공통 스키마로 정규화.
 
+// our_members_json 직렬화: 휴식 정보가 있으면 객체 형식, 없으면 기존 배열 형식 (호환 유지).
+//   - 휴식 있음 : { "players": ["A","B","C"], "absent": ["C"] }
+//   - 휴식 없음 : ["A","B","C"]
+export function serializeMembers(players, absent) {
+  if (!Array.isArray(players)) return JSON.stringify([]);
+  const absList = Array.isArray(absent) ? absent.filter(p => players.includes(p)) : [];
+  if (absList.length === 0) return JSON.stringify(players);
+  return JSON.stringify({ players, absent: absList });
+}
+
 export const RAW_MATCH_COLUMNS = [
   'team', 'sport', 'mode', 'tournament_id',
   'date', 'game_id', 'match_idx',
@@ -44,8 +54,8 @@ export function buildRoundRowsFromFutsal({ team, mode = '기본', tournamentId =
       match_id: m.matchId || '',
       our_team_name: m.homeTeam || '',
       opponent_team_name: m.awayTeam || '',
-      our_members_json: JSON.stringify(home),
-      opponent_members_json: JSON.stringify(away),
+      our_members_json: serializeMembers(home, m.homeAbsent || []),
+      opponent_members_json: serializeMembers(away, m.awayAbsent || []),
       our_score: Number(m.homeScore) || 0,
       opponent_score: Number(m.awayScore) || 0,
       our_gk: m.homeGk || '',

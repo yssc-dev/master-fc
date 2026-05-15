@@ -2,17 +2,15 @@
 // 같은 팀으로 뛴 라운드의 듀오 승률에서 "duo 외" 개인 평균 승률을 뺀 값
 // 양수일수록 "둘이 같이 뛰면 평소보다 잘함"
 // our_members_json + opponent_members_json 모두 처리, (date, match_id)로 dedupe
+// ★ 휴식 선수는 멤버 명단에서 제외 (actualPlayers 사용)
 // ★ 개인 baseline은 duo가 *함께 뛰지 않은* 라운드만 사용 (소표본 인플레이션 방지)
+import { parseActualPlayers } from './parseMembers';
+
 export function calcGoldenTrio({ matchLogs, minRounds = 5, topN = 5 }) {
   const pairs = {};
   const players = {};
 
-  const parseMembers = (s) => {
-    try {
-      const parsed = JSON.parse(s || '[]');
-      return Array.isArray(parsed) ? parsed.filter(x => typeof x === 'string' && x) : [];
-    } catch { return []; }
-  };
+  const parseMembers = (s) => parseActualPlayers(s);
 
   const seenIndividual = {}; // playerName -> Set<roundKey>
   const seenPair = {};       // pairKey -> Set<roundKey>

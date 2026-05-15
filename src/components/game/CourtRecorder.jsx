@@ -85,7 +85,7 @@ const popoverBtn = ({ primary = false, active = false, disabled = false, subtle 
   };
 };
 
-export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers, awayPlayers: initAwayPlayers, allEvents, onRecordEvent, onUndoEvent, onDeleteEvent, onEditEvent, onFinish, onMatchInfoUpdate, onGkChange, styles: s, courtLabel, attendees, readOnly, compose, setCompose, mercs: mercsProp, onAddMerc, onRemoveMerc }) {
+export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers, awayPlayers: initAwayPlayers, allEvents, onRecordEvent, onUndoEvent, onDeleteEvent, onEditEvent, onFinish, onMatchInfoUpdate, onGkChange, styles: s, courtLabel, attendees, readOnly, compose, setCompose, mercs: mercsProp, onAddMerc, onRemoveMerc, absentees, onToggleAbsent }) {
   const { C } = useTheme();
   const [homeGk, setHomeGk] = useState(matchInfo.homeGk || null);
   const [awayGk, setAwayGk] = useState(matchInfo.awayGk || null);
@@ -107,6 +107,9 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
 
   const homeMercs = mercs.filter(m => m.side === "home").map(m => m.player);
   const awayMercs = mercs.filter(m => m.side === "away").map(m => m.player);
+  // 매치별 휴식 (teamIdx 기준)
+  const homeAbsent = (absentees && absentees[matchId] && absentees[matchId][homeIdx]) || [];
+  const awayAbsent = (absentees && absentees[matchId] && absentees[matchId][awayIdx]) || [];
   // initHomePlayers가 이미 mercs를 포함할 수 있어(confirmed 스냅샷) 중복 방지를 위해 mercs는 한 번만 append
   const homePlayers = [...initHomePlayers.filter(p => !awayMercs.includes(p) && !homeMercs.includes(p)), ...homeMercs].sort((a, b) => a.localeCompare(b, 'ko'));
   const awayPlayers = [...initAwayPlayers.filter(p => !homeMercs.includes(p) && !awayMercs.includes(p)), ...awayMercs].sort((a, b) => a.localeCompare(b, 'ko'));
@@ -155,9 +158,11 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
   };
 
   const isPlayerHome = (player) => homePlayers.includes(player);
+  const isPlayerAbsent = (player) => homeAbsent.includes(player) || awayAbsent.includes(player);
 
   const toggleGk = (player, isHome) => {
     if (readOnly) { readOnlyAlert(); return; }
+    if (isPlayerAbsent(player)) { alert("휴식 중인 선수입니다. 먼저 휴식을 해제해 주세요."); return; }
     const currentGk = isHome ? homeGk : awayGk;
     const newGk = currentGk === player ? null : player;
     if (isHome) { setHomeGk(newGk); } else { setAwayGk(newGk); }
@@ -187,6 +192,7 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
   // ── 역할 조작 ──
   const applyGoalRole = (player, isHome) => {
     if (readOnly) { readOnlyAlert(); return; }
+    if (isPlayerAbsent(player)) { alert("휴식 중인 선수입니다. 먼저 휴식을 해제해 주세요."); return; }
     if (myCompose?.scorer === player) { setComposeState(null); return; }
     if (!checkGk()) return;
     setComposeState({ pitchId: matchId, scorer: player, scorerIsHome: isHome, assist: null });
@@ -204,6 +210,7 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
 
   const applyOwnGoalRole = (player) => {
     if (readOnly) { readOnlyAlert(); return; }
+    if (isPlayerAbsent(player)) { alert("휴식 중인 선수입니다. 먼저 휴식을 해제해 주세요."); return; }
     if (!checkGk()) return;
     recordOwnGoalEvent(player);
   };
@@ -231,6 +238,9 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
     const mercsArr = isHome ? homeMercs : awayMercs;
     const isMerc = mercsArr.includes(player);
     const isGk = (isHome ? homeGk : awayGk) === player;
+    const absentArr = isHome ? homeAbsent : awayAbsent;
+    const isAbsent = absentArr.includes(player);
+    const sideTeamIdx = isHome ? homeIdx : awayIdx;
     const color = isHome ? homeColor : awayColor;
     const roleInCompose = myCompose?.scorer === player ? 'scorer'
                         : myCompose?.assist === player ? 'assist'
@@ -265,6 +275,8 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
             if (readOnly) { readOnlyAlert(); return; }
             // Block cross-team during compose
             if (isCrossTeamDuringCompose) return;
+            // 휴식 상태에서도 팝오버는 열어야 휴식 해제 가능. compose 흐름만 차단.
+            if (isAbsent && isAssistCandidate) return;
             // Fast-path: compose active + same team + not scorer → instant assist+save
             if (isAssistCandidate) {
               if (!checkGk()) return;
@@ -286,7 +298,7 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
             display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
             gap: 4,
             cursor: isCrossTeamDuringCompose ? "not-allowed" : "pointer",
-            opacity: isCrossTeamDuringCompose ? 0.35 : 1,
+            opacity: isCrossTeamDuringCompose ? 0.35 : (isAbsent ? 0.4 : 1),
             fontFamily: "inherit",
             fontSize: 14, fontWeight: 600, letterSpacing: "-0.01em",
             position: "relative",
@@ -301,6 +313,12 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
               display: "inline-flex", alignItems: "center", justifyContent: "center",
               fontSize: 9, fontWeight: 700, letterSpacing: 0, lineHeight: 1,
             }}>GK</span>
+          )}
+          {isAbsent && (
+            <span style={{
+              position: "absolute", top: 4, right: isGk ? 26 : 6,
+              fontSize: 11, lineHeight: 1,
+            }} aria-label="휴식">🪑</span>
           )}
           {isMerc && (
             <span style={{
@@ -375,6 +393,18 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
                 onClick={(e) => { e.stopPropagation(); applyOwnGoalRole(player); setOpenPopover(null); }}
                 style={popoverBtn()}
               >🔴 자책</button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (onToggleAbsent) onToggleAbsent({ matchId, teamIdx: sideTeamIdx, player });
+                  // 휴식으로 바뀌면 compose 영향 차단: scorer/assist에 잡혀있던 본인은 빠지게
+                  if (!isAbsent && composeState) {
+                    if (composeState.scorer === player) setComposeState(null);
+                  }
+                  setOpenPopover(null);
+                }}
+                style={popoverBtn({ active: isAbsent })}
+              >{isAbsent ? "✓ 🪑 휴식" : "🪑 휴식"}</button>
               <button
                 onClick={(e) => { e.stopPropagation(); setOpenPopover(null); }}
                 style={popoverBtn({ subtle: true, isLast: true })}

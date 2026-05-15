@@ -3,7 +3,7 @@ import { TEAM_COLORS } from '../../config/constants';
 import { BackIcon } from '../common/icons';
 import CourtRecorder from './CourtRecorder';
 
-export default function ScheduleMatchView({ schedule, currentRoundIdx, viewingRoundIdx, setViewingRoundIdx, confirmedRounds, onConfirmRound, teams, teamNames, teamColorIndices, gks, gksHistory, courtCount, allEvents, onRecordEvent, onUndoEvent, onDeleteEvent, onEditEvent, completedMatches, attendees, onGkChange, liveMercs, onAddLiveMerc, onRemoveLiveMerc, onEditPastGk, onEditPastMercAdd, onEditPastMercRemove, splitPhase, styles: s }) {
+export default function ScheduleMatchView({ schedule, currentRoundIdx, viewingRoundIdx, setViewingRoundIdx, confirmedRounds, onConfirmRound, teams, teamNames, teamColorIndices, gks, gksHistory, courtCount, allEvents, onRecordEvent, onUndoEvent, onDeleteEvent, onEditEvent, completedMatches, attendees, onGkChange, liveMercs, onAddLiveMerc, onRemoveLiveMerc, onEditPastGk, onEditPastMercAdd, onEditPastMercRemove, splitPhase, absentees, onToggleAbsent, styles: s }) {
   const [compose, setCompose] = useState(null);
   const round = schedule[viewingRoundIdx];
   const matches = round?.matches || [];
@@ -187,6 +187,13 @@ export default function ScheduleMatchView({ schedule, currentRoundIdx, viewingRo
               if (isConfirmed && editingThisRound) onEditPastMercRemove?.(mi.matchId, player);
               else onRemoveLiveMerc?.(mi.matchId, player);
             }}
+            absentees={isConfirmed
+              ? { [mi.matchId]: {
+                  [mi.homeIdx]: completedByMatchId[mi.matchId]?.homeAbsent || [],
+                  [mi.awayIdx]: completedByMatchId[mi.matchId]?.awayAbsent || [],
+                } }
+              : absentees}
+            onToggleAbsent={!isConfirmed ? onToggleAbsent : undefined}
           />
         </div>
         );
