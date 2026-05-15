@@ -1,8 +1,9 @@
 // 케미 스코어 TOP N
-// 같은 팀으로 뛴 라운드의 듀오 승률에서 둘의 개인 평균 승률을 뺀 값
+// 같은 팀으로 뛴 라운드의 듀오 승률에서 "duo 외" 개인 평균 승률을 뺀 값
 // 양수일수록 "둘이 같이 뛰면 평소보다 잘함"
 // our_members_json + opponent_members_json 모두 처리, (date, match_id)로 dedupe
-export function calcGoldenTrio({ matchLogs, minRounds = 3, topN = 5 }) {
+// ★ 개인 baseline은 duo가 *함께 뛰지 않은* 라운드만 사용 (소표본 인플레이션 방지)
+export function calcGoldenTrio({ matchLogs, minRounds = 5, topN = 5 }) {
   const pairs = {};
   const players = {};
 
@@ -15,6 +16,8 @@ export function calcGoldenTrio({ matchLogs, minRounds = 3, topN = 5 }) {
 
   const seenIndividual = {}; // playerName -> Set<roundKey>
   const seenPair = {};       // pairKey -> Set<roundKey>
+  // playerName -> { roundKey -> outcome } : duo 라운드 제외 baseline 계산용
+  const playerRoundOutcomes = {};
 
   const bumpPlayer = (name, outcome, roundKey) => {
     if (!seenIndividual[name]) seenIndividual[name] = new Set();
@@ -25,6 +28,8 @@ export function calcGoldenTrio({ matchLogs, minRounds = 3, topN = 5 }) {
     if (outcome === 'W') players[name].wins++;
     else if (outcome === 'D') players[name].draws++;
     else players[name].losses++;
+    if (!playerRoundOutcomes[name]) playerRoundOutcomes[name] = {};
+    playerRoundOutcomes[name][roundKey] = outcome;
   };
 
   const bumpPair = (key, outcome, ref) => {
@@ -68,10 +73,23 @@ export function calcGoldenTrio({ matchLogs, minRounds = 3, topN = 5 }) {
     tally(away, awayOutcome, awayRef);
   }
 
-  const playerWinRate = (name) => {
-    const p = players[name];
-    if (!p || p.games === 0) return 0;
-    return (p.wins + 0.5 * p.draws) / p.games;
+  // duo 라운드를 제외한 개인 승률 (전체 승률 폴백)
+  const playerWinRateExcluding = (name, duoRounds) => {
+    const ro = playerRoundOutcomes[name];
+    if (!ro) return 0;
+    let games = 0, wins = 0, draws = 0;
+    for (const rk of Object.keys(ro)) {
+      if (duoRounds.has(rk)) continue;
+      games++;
+      if (ro[rk] === 'W') wins++;
+      else if (ro[rk] === 'D') draws++;
+    }
+    if (games === 0) {
+      // duo로만 출전한 선수 → 전체 승률 폴백
+      const p = players[name];
+      return p && p.games > 0 ? (p.wins + 0.5 * p.draws) / p.games : 0;
+    }
+    return (wins + 0.5 * draws) / games;
   };
 
   return Object.entries(pairs)
@@ -79,7 +97,8 @@ export function calcGoldenTrio({ matchLogs, minRounds = 3, topN = 5 }) {
     .map(([key, v]) => {
       const [a, b] = key.split('|');
       const pairWR = (v.wins + 0.5 * v.draws) / v.games;
-      const indivAvg = (playerWinRate(a) + playerWinRate(b)) / 2;
+      const duoRounds = seenPair[key] || new Set();
+      const indivAvg = (playerWinRateExcluding(a, duoRounds) + playerWinRateExcluding(b, duoRounds)) / 2;
       return {
         members: [a, b],
         games: v.games, wins: v.wins, draws: v.draws, losses: v.losses,

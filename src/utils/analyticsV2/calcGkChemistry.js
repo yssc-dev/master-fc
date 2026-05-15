@@ -12,7 +12,9 @@ function parseMembers(s) {
   }
 }
 
-export function calcGkChemistry({ matchLogs, threshold = 5 }) {
+// includeOpponent: 풋살(매주 팀 로테이션)은 양팀 다 우리 클럽이라 true,
+// 축구는 opponent가 외부팀이라 false (외부 GK 노이즈 방지)
+export function calcGkChemistry({ matchLogs, threshold = 5, includeOpponent = true }) {
   const tally = {};
   function bump(gk, members, isClean) {
     if (!gk) return;
@@ -29,7 +31,9 @@ export function calcGkChemistry({ matchLogs, threshold = 5 }) {
     const our = Number(m.our_score) || 0;
     const opp = Number(m.opponent_score) || 0;
     bump(m.our_gk, parseMembers(m.our_members_json), opp === 0);
-    bump(m.opponent_gk, parseMembers(m.opponent_members_json), our === 0);
+    if (includeOpponent) {
+      bump(m.opponent_gk, parseMembers(m.opponent_members_json), our === 0);
+    }
   }
 
   const byGk = {};

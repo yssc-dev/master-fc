@@ -49,6 +49,20 @@ describe('calcGoldenTrio', () => {
     expect(r).toEqual([]);
   });
 
+  it('개인 baseline은 duo 라운드 제외하고 계산', () => {
+    // A, B는 R1~R5 같이 뛰며 5승, R6~R10은 따로 5패
+    const logs = [];
+    for (let i = 1; i <= 5; i++) logs.push(mk(`R${i}_C1`, ['A','B','X'], 1, 0));
+    for (let i = 6; i <= 10; i++) logs.push(mk(`R${i}_C1`, ['A','C'], 0, 1));
+    for (let i = 11; i <= 15; i++) logs.push(mk(`R${i}_C1`, ['B','D'], 0, 1));
+    const r = calcGoldenTrio({ matchLogs: logs, minRounds: 5, topN: 5 });
+    const ab = r.find(x => x.members[0] === 'A' && x.members[1] === 'B');
+    expect(ab.winRate).toBe(1);
+    // A 개인(duo 제외) = 0/5, B 개인(duo 제외) = 0/5 → indivAvg=0
+    expect(ab.indivAvg).toBe(0);
+    expect(ab.chemistry).toBe(1);
+  });
+
   it('respects topN', () => {
     const matchLogs = [];
     let id = 0;

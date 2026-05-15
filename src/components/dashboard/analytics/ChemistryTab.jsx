@@ -6,7 +6,7 @@ import GoldenTrioView from './GoldenTrioView';
 import AssistPairList from './AssistPairList';
 import GkChemistryView from './GkChemistryView';
 
-export default function ChemistryTab({ matchLogs, eventLogs, C }) {
+export default function ChemistryTab({ matchLogs, eventLogs, C, isSoccer = false }) {
   const [sub, setSub] = useState('trio');
 
   const assistPairs = useMemo(
@@ -14,12 +14,12 @@ export default function ChemistryTab({ matchLogs, eventLogs, C }) {
     [eventLogs]
   );
   const gkChem = useMemo(
-    () => calcGkChemistry({ matchLogs: matchLogs || [], threshold: 5 }),
-    [matchLogs]
+    () => calcGkChemistry({ matchLogs: matchLogs || [], threshold: 5, includeOpponent: !isSoccer }),
+    [matchLogs, isSoccer]
   );
 
   const subs = [
-    { key: 'trio', label: '골든트리오' },
+    { key: 'trio', label: '베스트 듀오' },
     { key: 'assist', label: '어시페어' },
     { key: 'gk', label: 'GK케미' },
   ];

@@ -8,6 +8,19 @@ describe('calcGkChemistry', () => {
     expect(r.byGk).toEqual({});
   });
 
+  it('includeOpponent=false → opponent_gk 집계 안 됨 (축구 모드)', () => {
+    const matchLogs = [
+      {
+        our_gk: 'OurG', our_members_json: '["OurG","X"]',
+        opponent_gk: 'ExtG', opponent_members_json: '["ExtG","Y"]',
+        our_score: 1, opponent_score: 0,
+      },
+    ];
+    const r = calcGkChemistry({ matchLogs, threshold: 1, includeOpponent: false });
+    expect(r.gks).toEqual(['OurG']);
+    expect(r.byGk.ExtG).toBeUndefined();
+  });
+
   it('counts rounds with same GK + same field member', () => {
     const matchLogs = [
       { our_gk: 'G', our_members_json: '["G","A","B"]', opponent_score: 0 },
