@@ -2,11 +2,13 @@
 // 풋살 웹앱 Apps Script v2.0
 //
 // CHANGELOG
+// 2026-05-15: 비매너(반칙) 후속 수정 — _validatePointLogEvent가 foul 이벤트 거부하던 버그 수정,
+//             _writePointLog에 "반칙선수" 컬럼(K열, 팀이름 다음) 추가 및 e.foulPlayer 기록.
+//             ★ 기존 포인트로그 시트(마스터FC 포인트 로그)에 K열 "반칙선수" 헤더 수동 추가 필요.
 // 2026-05-15: 비매너(반칙) 도입 — event_type 'foul' 신규 (1실점 처리, GK conceded+1, 클린시트 깸).
 //             로그_선수경기 헤더에 fouls 컬럼 추가 (goals/assists/owngoals 다음 위치).
-//             포인트로그 (마스터FC 포인트 로그) 헤더에 "반칙" 컬럼 추가 (N열, 소속팀 다음).
+//             선수별집계기록 로그 헤더에 "반칙" 컬럼 추가 (N열, 소속팀 다음) — 점수 합산값 저장.
 //             _writeRawEvents에서 foul도 dedupe 우회 (goal/owngoal과 동일하게 반복 가능).
-//             ★ 기존 포인트로그 시트에 "반칙" 컬럼(N열) 수동 추가 필요.
 // 2026-05-09: backfillFutsalGk 추가 — 4/23 이전 비어있는 our_gk/opponent_gk를 로그_이벤트.concede_gk로 추론 채움 (dryRun 기본). HTTP action 노출.
 // 2026-05-08: _writeRawEvents — goal/owngoal 이벤트는 dedupe 우회 (축구·풋살 공통). 골 이벤트는 같은 (선수,어시,GK) 조합이 정당히 반복 가능
 // 2026-05-02: _writeRawMatches — 풋살 our_gk/opponent_gk 누락 시 경고 로그 (미래 회귀 감지용)
@@ -688,7 +690,7 @@ function _validatePointLogEvent(e, idx) {
   var errors = [];
   if (!e.gameDate) errors.push("이벤트[" + idx + "]: gameDate 누락");
   if (!e.matchId) errors.push("이벤트[" + idx + "]: matchId 누락");
-  if (!e.scorer && !e.ownGoalPlayer) errors.push("이벤트[" + idx + "]: scorer 또는 ownGoalPlayer 필요");
+  if (!e.scorer && !e.ownGoalPlayer && !e.foulPlayer) errors.push("이벤트[" + idx + "]: scorer, ownGoalPlayer, foulPlayer 중 하나 필요");
   return errors;
 }
 
@@ -722,8 +724,8 @@ function _writePointLog(data, sheetName) {
     var sheet = ss.getSheetByName(targetName);
     if (!sheet) {
       sheet = ss.insertSheet(POINT_LOG_SHEET);
-      sheet.getRange("A1:J1").setValues([["경기일자","경기번호","내팀","상대팀","득점선수","어시선수","자책골","실점키퍼명","입력시간","팀이름"]]);
-      sheet.getRange("A1:J1").setFontWeight("bold");
+      sheet.getRange("A1:K1").setValues([["경기일자","경기번호","내팀","상대팀","득점선수","어시선수","자책골","실점키퍼명","입력시간","팀이름","반칙선수"]]);
+      sheet.getRange("A1:K1").setFontWeight("bold");
     }
 
     var values = rows.map(function(e) {
@@ -731,11 +733,12 @@ function _writePointLog(data, sheetName) {
         e.gameDate, e.matchId, e.myTeam || "", e.opponentTeam || "",
         e.scorer || "", e.assist || "", e.ownGoalPlayer || "",
         e.concedingGk || "", e.inputTime || _kstNow(), teamName,
+        e.foulPlayer || "",
       ];
     });
 
     var lastRow = sheet.getLastRow();
-    sheet.getRange(lastRow + 1, 1, values.length, 10).setValues(values);
+    sheet.getRange(lastRow + 1, 1, values.length, 11).setValues(values);
     return { success: true, count: values.length };
   } finally {
     lock.releaseLock();
@@ -1518,7 +1521,7 @@ function _rawPlayerGameToArray(r) {
   return [r.team||"", r.sport||"", r.mode||"", r.tournament_id||"",
     r.date||"", r.player||"", r.session_team||"",
     Number(r.games)||0, Number(r.field_games)||0, Number(r.keeper_games)||0,
-    Number(r.goals)||0, Number(r.assists)||0, Number(r.owngoals)||0,
+    Number(r.goals)||0, Number(r.assists)||0, Number(r.owngoals)||0, Number(r.fouls)||0,
     Number(r.conceded)||0, Number(r.cleansheets)||0,
     Number(r.crova)||0, Number(r.goguma)||0, Number(r["역주행"])||0, Number(r.rank_score)||0,
     r.input_time||""];
@@ -2371,6 +2374,7 @@ function _getPointLog(team, customSheetName) {
     else if (h === "자책골") cm.ownGoal = c;
     else if (h === "실점" || h === "실점키퍼" || h === "실점키퍼명") cm.concedingGk = c;
     else if (h === "팀이름") cm.teamName = c;
+    else if (h === "반칙선수" || h === "반칙") cm.foul = c;
   }
 
   var dataStartRow = headerRow + 1;
@@ -2394,6 +2398,7 @@ function _getPointLog(team, customSheetName) {
       scorer: cm.scorer !== undefined ? String(data[i][cm.scorer] || "").trim() : "",
       assist: cm.assist !== undefined ? String(data[i][cm.assist] || "").trim() : "",
       ownGoal: cm.ownGoal !== undefined ? String(data[i][cm.ownGoal] || "").trim() : "",
+      foul: cm.foul !== undefined ? String(data[i][cm.foul] || "").trim() : "",
       concedingGk: cm.concedingGk !== undefined ? String(data[i][cm.concedingGk] || "").trim() : "",
     });
   }

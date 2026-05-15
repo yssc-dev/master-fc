@@ -28,7 +28,7 @@ export function calcPlayerSummary({ matchLogs = [], eventLogs = [], playerGameLo
       perPlayer[name] = {
         rounds: 0, keeperRounds: 0, fieldRounds: 0,
         games: 0,
-        goals: 0, assists: 0, ownGoals: 0,
+        goals: 0, assists: 0, ownGoals: 0, fouls: 0,
         conceded: 0, fieldConceded: 0, avgConceded: 0,
         matches: 0, wins: 0, draws: 0, losses: 0, winRate: 0,
         _teamConceded: 0,        // 출전 매치의 자기팀 총 실점 (fieldConceded 계산용)
@@ -79,13 +79,15 @@ export function calcPlayerSummary({ matchLogs = [], eventLogs = [], playerGameLo
     away.forEach(n => credit(n, 'opp'));
   }
 
-  // 2) eventLogs 패스: goals/assists/ownGoals
+  // 2) eventLogs 패스: goals/assists/ownGoals/fouls
   for (const e of eventLogs) {
     if (e.event_type === 'goal') {
       if (e.player) ensure(e.player).goals++;
       if (e.related_player) ensure(e.related_player).assists++;
     } else if (e.event_type === 'owngoal') {
       if (e.player) ensure(e.player).ownGoals++;
+    } else if (e.event_type === 'foul') {
+      if (e.player) ensure(e.player).fouls++;
     }
   }
 

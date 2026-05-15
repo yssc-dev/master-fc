@@ -157,8 +157,13 @@ export function calcWinStatsFromPointLog(events) {
       matches[key].opponentGoals++;
       matches[key].players.add(e.ownGoal);
     }
-    // 실점(상대골) — concedingGk가 있고 scorer가 없는 이벤트
-    if (e.concedingGk && !e.scorer) {
+    if (e.foul) {
+      // 반칙도 상대팀 +1점 (1실점 처리)
+      matches[key].opponentGoals++;
+      matches[key].players.add(e.foul);
+    }
+    // 실점(상대골) — concedingGk가 있고 scorer/ownGoal/foul이 없는 이벤트
+    if (e.concedingGk && !e.scorer && !e.ownGoal && !e.foul) {
       matches[key].opponentGoals++;
       matches[key].players.add(e.concedingGk);
     }
