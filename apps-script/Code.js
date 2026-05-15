@@ -2,6 +2,11 @@
 // 풋살 웹앱 Apps Script v2.0
 //
 // CHANGELOG
+// 2026-05-15: 비매너(반칙) 도입 — event_type 'foul' 신규 (1실점 처리, GK conceded+1, 클린시트 깸).
+//             로그_선수경기 헤더에 fouls 컬럼 추가 (goals/assists/owngoals 다음 위치).
+//             포인트로그 (마스터FC 포인트 로그) 헤더에 "반칙" 컬럼 추가 (N열, 소속팀 다음).
+//             _writeRawEvents에서 foul도 dedupe 우회 (goal/owngoal과 동일하게 반복 가능).
+//             ★ 기존 포인트로그 시트에 "반칙" 컬럼(N열) 수동 추가 필요.
 // 2026-05-09: backfillFutsalGk 추가 — 4/23 이전 비어있는 our_gk/opponent_gk를 로그_이벤트.concede_gk로 추론 채움 (dryRun 기본). HTTP action 노출.
 // 2026-05-08: _writeRawEvents — goal/owngoal 이벤트는 dedupe 우회 (축구·풋살 공통). 골 이벤트는 같은 (선수,어시,GK) 조합이 정당히 반복 가능
 // 2026-05-02: _writeRawMatches — 풋살 our_gk/opponent_gk 누락 시 경고 로그 (미래 회귀 감지용)
@@ -49,7 +54,7 @@ var RAW_PLAYER_GAMES_HEADERS = [
   "team","sport","mode","tournament_id","date",
   "player","session_team",
   "games","field_games","keeper_games",
-  "goals","assists","owngoals","conceded","cleansheets",
+  "goals","assists","owngoals","fouls","conceded","cleansheets",
   "crova","goguma","역주행","rank_score",
   "input_time"
 ];
@@ -760,8 +765,8 @@ function _writePlayerLog(data, sheetName) {
     var sheet = ss.getSheetByName(targetName);
     if (!sheet) {
       sheet = ss.insertSheet(PLAYER_LOG_SHEET);
-      sheet.getRange("A1:M1").setValues([["경기일자","선수명","골","어시","역주행","실점","클린시트","크로바","고구마","키퍼경기수","팀순위점수","입력시간","소속팀"]]);
-      sheet.getRange("A1:M1").setFontWeight("bold");
+      sheet.getRange("A1:N1").setValues([["경기일자","선수명","골","어시","역주행","실점","클린시트","크로바","고구마","키퍼경기수","팀순위점수","입력시간","소속팀","반칙"]]);
+      sheet.getRange("A1:N1").setFontWeight("bold");
     }
 
     var values = rows.map(function(p) {
@@ -771,11 +776,12 @@ function _writePlayerLog(data, sheetName) {
         Number(p.conceded) || 0, Number(p.cleanSheets) || 0,
         Number(p.crova) || 0, Number(p.goguma) || 0, Number(p.keeperGames) || 0,
         Number(p.rankScore) || 0, p.inputTime || _kstNow(), teamName,
+        Number(p.fouls) || 0,
       ];
     });
 
     var lastRow = sheet.getLastRow();
-    sheet.getRange(lastRow + 1, 1, values.length, 13).setValues(values);
+    sheet.getRange(lastRow + 1, 1, values.length, 14).setValues(values);
     return { success: true, count: values.length };
   } finally {
     lock.releaseLock();
@@ -926,9 +932,9 @@ function _writeRawEvents(data) {
       var r = rows[i];
       // 서버측 match_id 정규화 (클라이언트 우회 경로 방어)
       r.match_id = _normalizeMatchIdAS(r.match_id || "", r.sport || "");
-      // 골/자책골 이벤트는 dedupe 우회: 같은 매치에서 동일 (선수, 어시, 상대 GK) 조합이
-      // 정당하게 반복 가능 (헤딩 2골 등). 축구·풋살 공통 규칙.
-      var isGoalEvent = r.event_type === "goal" || r.event_type === "owngoal";
+      // 골/자책골/반칙 이벤트는 dedupe 우회: 같은 매치에서 동일 (선수, 어시, 상대 GK) 조합이
+      // 정당하게 반복 가능 (헤딩 2골, 반칙 2회 등). 축구·풋살 공통 규칙.
+      var isGoalEvent = r.event_type === "goal" || r.event_type === "owngoal" || r.event_type === "foul";
       if (!skipDedupe && !isGoalEvent) {
         var key = _rawEventKey(r);
         if (existingKeys[key]) { skipped++; continue; }

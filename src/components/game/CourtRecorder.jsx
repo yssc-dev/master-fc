@@ -126,14 +126,15 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
 
   const playerStats = useMemo(() => {
     const stats = {};
+    const ensure = (p) => { if (!stats[p]) stats[p] = { g: 0, a: 0, og: 0, f: 0 }; return stats[p]; };
     matchEvents.forEach(e => {
       if (e.type === "goal") {
-        if (!stats[e.player]) stats[e.player] = { g: 0, a: 0 };
-        stats[e.player].g += 1;
-        if (e.assist) {
-          if (!stats[e.assist]) stats[e.assist] = { g: 0, a: 0 };
-          stats[e.assist].a += 1;
-        }
+        ensure(e.player).g += 1;
+        if (e.assist) ensure(e.assist).a += 1;
+      } else if (e.type === "owngoal") {
+        ensure(e.player).og += 1;
+      } else if (e.type === "foul") {
+        ensure(e.player).f += 1;
       }
     });
     return stats;
@@ -189,6 +190,17 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
     });
   };
 
+  // 반칙 (비매너) — 상대팀에 +1점, 본인팀 GK는 conceded +1
+  const recordFoulEvent = (player) => {
+    const isHome = isPlayerHome(player);
+    const ownTeam = isHome ? homeTeam : awayTeam;
+    onRecordEvent(courtLabel, {
+      type: "foul", matchId, player,
+      team: ownTeam, scoringTeam: isHome ? awayTeam : homeTeam, concedingTeam: ownTeam,
+      concedingGk: isHome ? homeGk : awayGk, concedingGkLoss: 1, assist: null, homeTeam, awayTeam,
+    });
+  };
+
   // ── 역할 조작 ──
   const applyGoalRole = (player, isHome) => {
     if (readOnly) { readOnlyAlert(); return; }
@@ -208,11 +220,28 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
     setComposeState(null);
   };
 
+  // 어시 먼저 — 어시 지정 후 같은 팀의 다른 선수를 탭하면 그 선수가 득점자가 되어 저장
+  const applyAssistFirstRole = (player, isHome) => {
+    if (readOnly) { readOnlyAlert(); return; }
+    if (isPlayerAbsent(player)) { alert("휴식 중인 선수입니다. 먼저 휴식을 해제해 주세요."); return; }
+    // 이미 본인이 assist로 잡혀있으면 해제 토글
+    if (myCompose?.assist === player && !myCompose.scorer) { setComposeState(null); return; }
+    if (!checkGk()) return;
+    setComposeState({ pitchId: matchId, scorer: null, assist: player, scorerIsHome: isHome });
+  };
+
   const applyOwnGoalRole = (player) => {
     if (readOnly) { readOnlyAlert(); return; }
     if (isPlayerAbsent(player)) { alert("휴식 중인 선수입니다. 먼저 휴식을 해제해 주세요."); return; }
     if (!checkGk()) return;
     recordOwnGoalEvent(player);
+  };
+
+  const applyFoulRole = (player) => {
+    if (readOnly) { readOnlyAlert(); return; }
+    if (isPlayerAbsent(player)) { alert("휴식 중인 선수입니다. 먼저 휴식을 해제해 주세요."); return; }
+    if (!checkGk()) return;
+    recordFoulEvent(player);
   };
 
   const saveSolo = () => {
@@ -248,16 +277,26 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
     const isPopoverOpen = openPopover?.player === player && openPopover.isHome === isHome;
     const stats = playerStats[player];
 
-    const isComposeActive = !!myCompose?.scorer;
+    // compose는 scorer-first 또는 assist-first 두 가지 흐름
+    const isScorerFirst = !!myCompose?.scorer;
+    const isAssistFirst = !!myCompose?.assist && !myCompose?.scorer;
+    const isComposeActive = isScorerFirst || isAssistFirst;
     const isCrossTeamDuringCompose = isComposeActive && myCompose.scorerIsHome !== isHome;
-    const isAssistCandidate = isComposeActive && myCompose.scorerIsHome === isHome && myCompose.scorer !== player;
+    // 어시 후보 (scorer-first 흐름): 같은 팀 + scorer 아님
+    const isAssistCandidate = isScorerFirst && myCompose.scorerIsHome === isHome && myCompose.scorer !== player;
+    // 골 후보 (assist-first 흐름): 같은 팀 + assist 아님
+    const isScorerCandidate = isAssistFirst && myCompose.scorerIsHome === isHome && myCompose.assist !== player;
 
     const ringColor = roleInCompose === 'scorer' ? "var(--app-green)"
+                    : roleInCompose === 'assist' && isAssistFirst ? "var(--app-blue)"
                     : isAssistCandidate ? "var(--app-blue)"
+                    : isScorerCandidate ? "var(--app-green)"
                     : null;
 
     const cardBg = roleInCompose === 'scorer' ? "rgba(52,199,89,0.14)"
+                 : roleInCompose === 'assist' && isAssistFirst ? "rgba(0,122,255,0.14)"
                  : isAssistCandidate ? "rgba(0,122,255,0.08)"
+                 : isScorerCandidate ? "rgba(52,199,89,0.08)"
                  : "var(--app-bg-elevated)";
 
     const border = ringColor
@@ -276,11 +315,18 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
             // Block cross-team during compose
             if (isCrossTeamDuringCompose) return;
             // 휴식 상태에서도 팝오버는 열어야 휴식 해제 가능. compose 흐름만 차단.
-            if (isAbsent && isAssistCandidate) return;
-            // Fast-path: compose active + same team + not scorer → instant assist+save
+            if (isAbsent && (isAssistCandidate || isScorerCandidate)) return;
+            // Fast-path A (scorer-first): compose에 scorer 있고 같은팀 다른 선수 탭 → 어시+저장
             if (isAssistCandidate) {
               if (!checkGk()) return;
               recordGoalEvent(myCompose.scorer, player);
+              setComposeState(null);
+              return;
+            }
+            // Fast-path B (assist-first): compose에 assist 있고 같은팀 다른 선수 탭 → 골+저장
+            if (isScorerCandidate) {
+              if (!checkGk()) return;
+              recordGoalEvent(player, myCompose.assist);
               setComposeState(null);
               return;
             }
@@ -320,6 +366,16 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
               fontSize: 11, lineHeight: 1,
             }} aria-label="휴식">🪑</span>
           )}
+          {stats && stats.f > 0 && (
+            <span style={{
+              position: "absolute", bottom: 4, right: 4,
+              width: 14, height: 18, borderRadius: 2,
+              background: "#eab308", color: "#fff",
+              display: "inline-flex", alignItems: "center", justifyContent: "center",
+              fontSize: 9, fontWeight: 800, lineHeight: 1,
+              boxShadow: "0 1px 2px rgba(0,0,0,0.15)",
+            }} aria-label={`반칙 ${stats.f}회`}>{stats.f}</span>
+          )}
           {isMerc && (
             <span style={{
               position: "absolute", top: 4, left: 6,
@@ -332,13 +388,15 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
           <span style={{
             overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "100%",
           }}>{player}</span>
-          {stats && (stats.g > 0 || stats.a > 0) && (
+          {stats && (stats.g > 0 || stats.a > 0 || stats.og > 0 || stats.f > 0) && (
             <span style={{
               fontSize: 10, color: "var(--app-text-tertiary)", fontVariantNumeric: "tabular-nums",
               display: "inline-flex", gap: 5,
             }}>
               {stats.g > 0 && <span>⚽{stats.g}</span>}
               {stats.a > 0 && <span>🅰{stats.a}</span>}
+              {stats.og > 0 && <span style={{ color: "var(--app-red)" }}>🔴{stats.og}</span>}
+              {stats.f > 0 && <span style={{ color: "#eab308" }}>🟨{stats.f}</span>}
             </span>
           )}
         </button>
@@ -377,40 +435,54 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
               boxShadow: "0 6px 20px rgba(0,0,0,0.14)",
               backdropFilter: "blur(20px)",
               WebkitBackdropFilter: "blur(20px)",
-              display: "flex", alignItems: "stretch",
-              minWidth: 200,
+              display: "flex", flexDirection: "column", alignItems: "stretch",
+              minWidth: 220,
               maxWidth: "min(92vw, 280px)",
               overflow: "hidden",
             }}>
-              <button
-                onClick={(e) => { e.stopPropagation(); applyGoalRole(player, isHome); setOpenPopover(null); }}
-                style={popoverBtn({ primary: !isScorer, active: isScorer })}
-              >{isScorer ? "✓ ⚽ 골" : "⚽ 골"}</button>
-              <button
-                onClick={(e) => { e.stopPropagation(); toggleGk(player, isHome); setOpenPopover(null); }}
-                style={popoverBtn({ active: isGk })}
-              >{isGk ? "✓ 🧤 GK" : "🧤 GK"}</button>
-              <button
-                onClick={(e) => { e.stopPropagation(); applyOwnGoalRole(player); setOpenPopover(null); }}
-                style={popoverBtn()}
-              >🔴 자책</button>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  // 휴식으로 전환 시: GK이면 먼저 GK 해제 (휴식자는 골키퍼 불가)
-                  if (!isAbsent && isGk) {
-                    if (isHome) setHomeGk(null); else setAwayGk(null);
-                    if (onGkChange) onGkChange(isHome ? homeIdx : awayIdx, null);
-                  }
-                  if (onToggleAbsent) onToggleAbsent({ matchId, teamIdx: sideTeamIdx, player });
-                  // 휴식으로 바뀌면 compose 영향 차단: scorer/assist에 잡혀있던 본인은 빠지게
-                  if (!isAbsent && composeState) {
-                    if (composeState.scorer === player) setComposeState(null);
-                  }
-                  setOpenPopover(null);
-                }}
-                style={popoverBtn({ active: isAbsent, isLast: true })}
-              >{isAbsent ? "✓ 🪑 휴식" : "🪑 휴식"}</button>
+              {/* Row 1: 골 / 어시 / GK */}
+              <div style={{ display: "flex", borderBottom: "0.5px solid var(--app-divider)" }}>
+                <button
+                  onClick={(e) => { e.stopPropagation(); applyGoalRole(player, isHome); setOpenPopover(null); }}
+                  style={popoverBtn({ primary: !isScorer, active: isScorer })}
+                >{isScorer ? "✓ ⚽ 골" : "⚽ 골"}</button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); applyAssistFirstRole(player, isHome); setOpenPopover(null); }}
+                  style={popoverBtn({ active: roleInCompose === 'assist' && isAssistFirst })}
+                >{(roleInCompose === 'assist' && isAssistFirst) ? "✓ 🅰 어시" : "🅰 어시"}</button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); toggleGk(player, isHome); setOpenPopover(null); }}
+                  style={popoverBtn({ active: isGk, isLast: true })}
+                >{isGk ? "✓ 🧤 GK" : "🧤 GK"}</button>
+              </div>
+              {/* Row 2: 자책 / 반칙 / 휴식 */}
+              <div style={{ display: "flex" }}>
+                <button
+                  onClick={(e) => { e.stopPropagation(); applyOwnGoalRole(player); setOpenPopover(null); }}
+                  style={popoverBtn()}
+                >🔴 자책</button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); applyFoulRole(player); setOpenPopover(null); }}
+                  style={popoverBtn()}
+                >🟨 반칙</button>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    // 휴식으로 전환 시: GK이면 먼저 GK 해제 (휴식자는 골키퍼 불가)
+                    if (!isAbsent && isGk) {
+                      if (isHome) setHomeGk(null); else setAwayGk(null);
+                      if (onGkChange) onGkChange(isHome ? homeIdx : awayIdx, null);
+                    }
+                    if (onToggleAbsent) onToggleAbsent({ matchId, teamIdx: sideTeamIdx, player });
+                    // 휴식으로 바뀌면 compose 영향 차단: scorer/assist에 잡혀있던 본인은 빠지게
+                    if (!isAbsent && composeState) {
+                      if (composeState.scorer === player || composeState.assist === player) setComposeState(null);
+                    }
+                    setOpenPopover(null);
+                  }}
+                  style={popoverBtn({ active: isAbsent, isLast: true })}
+                >{isAbsent ? "✓ 🪑 휴식" : "🪑 휴식"}</button>
+              </div>
             </div>
           );
         })()}
@@ -437,29 +509,41 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
           display: "flex", alignItems: "center", gap: 8,
         }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6, flex: 1, flexWrap: "wrap", minWidth: 0 }}>
-            <span style={{
-              padding: "4px 8px", borderRadius: 6,
-              background: "rgba(52,199,89,0.18)", color: "var(--app-green)",
-              fontSize: 12, fontWeight: 600,
-              display: "inline-flex", alignItems: "center", gap: 4,
-            }}>⚽ {myCompose.scorer}</span>
-            {/* 어시 선택 또는 단독 저장 — 결정 흐름을 한 곳에 묶음 */}
+            {myCompose.scorer ? (
+              <span style={{
+                padding: "4px 8px", borderRadius: 6,
+                background: "rgba(52,199,89,0.18)", color: "var(--app-green)",
+                fontSize: 12, fontWeight: 600,
+                display: "inline-flex", alignItems: "center", gap: 4,
+              }}>⚽ {myCompose.scorer}</span>
+            ) : (
+              <span style={{
+                padding: "4px 8px", borderRadius: 6,
+                background: "rgba(0,122,255,0.14)", color: "var(--app-blue)",
+                fontSize: 12, fontWeight: 600,
+                display: "inline-flex", alignItems: "center", gap: 4,
+              }}>🅰 {myCompose.assist}</span>
+            )}
             <span style={{
               padding: "4px 8px", borderRadius: 6,
               background: "transparent", color: "var(--app-text-tertiary)",
               fontSize: 11, fontWeight: 500,
               border: "0.5px dashed var(--app-divider)",
-            }}>어시: 선수 탭</span>
-            <span style={{ fontSize: 11, color: "var(--app-text-tertiary)", fontWeight: 500 }}>또는</span>
-            <button onClick={saveSolo} disabled={!myCompose.scorer}
-              style={{
-                padding: "5px 12px", borderRadius: 6,
-                background: "var(--app-blue)", color: "#fff",
-                border: "none", fontSize: 12, fontWeight: 600, cursor: "pointer",
-                fontFamily: "inherit", opacity: myCompose.scorer ? 1 : 0.4,
-                letterSpacing: "-0.01em",
-                display: "inline-flex", alignItems: "center", gap: 4,
-              }}>⚡ 단독</button>
+            }}>{myCompose.scorer ? "어시: 선수 탭" : "골: 선수 탭"}</span>
+            {myCompose.scorer && (
+              <>
+                <span style={{ fontSize: 11, color: "var(--app-text-tertiary)", fontWeight: 500 }}>또는</span>
+                <button onClick={saveSolo} disabled={!myCompose.scorer}
+                  style={{
+                    padding: "5px 12px", borderRadius: 6,
+                    background: "var(--app-blue)", color: "#fff",
+                    border: "none", fontSize: 12, fontWeight: 600, cursor: "pointer",
+                    fontFamily: "inherit", opacity: myCompose.scorer ? 1 : 0.4,
+                    letterSpacing: "-0.01em",
+                    display: "inline-flex", alignItems: "center", gap: 4,
+                  }}>⚡ 단독</button>
+              </>
+            )}
             {(() => {
               const concGk = myCompose.scorerIsHome ? awayGk : homeGk;
               return concGk ? (

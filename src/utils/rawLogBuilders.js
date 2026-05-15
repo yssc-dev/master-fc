@@ -14,7 +14,7 @@ export const RAW_PLAYER_GAME_COLUMNS = [
   "team", "sport", "mode", "tournament_id", "date",
   "player", "session_team",
   "games", "field_games", "keeper_games",
-  "goals", "assists", "owngoals", "conceded", "cleansheets",
+  "goals", "assists", "owngoals", "fouls", "conceded", "cleansheets",
   "crova", "goguma", "역주행", "rank_score",
   "input_time",
 ];
@@ -38,6 +38,8 @@ export function buildRawEventsFromFutsal({ team, gameId = '', events }) {
       out.push({ ...common, event_type: 'goal', player: e.scorer, related_player: e.assist || '', concede_gk: e.concedingGk || '' });
     } else if (e.ownGoalPlayer) {
       out.push({ ...common, event_type: 'owngoal', player: e.ownGoalPlayer, related_player: '', concede_gk: e.concedingGk || '' });
+    } else if (e.foulPlayer) {
+      out.push({ ...common, event_type: 'foul', player: e.foulPlayer, related_player: '', concede_gk: e.concedingGk || '' });
     } else if (e.concedingGk) {
       out.push({ ...common, event_type: 'concede', player: e.concedingGk, related_player: '', concede_gk: e.concedingGk });
     }
@@ -53,6 +55,7 @@ export function buildRawPlayerGamesFromFutsal({ team, inputTime, players }) {
     goals: Number(p.goals) || 0,
     assists: Number(p.assists) || 0,
     owngoals: Number(p.owngoals) || 0,
+    fouls: Number(p.fouls) || 0,
     conceded: Number(p.conceded) || 0,
     cleansheets: Number(p.cleanSheets) || 0,
     crova: Number(p.crova) || 0,
@@ -105,6 +108,7 @@ export function buildRawPlayerGamesFromSoccer({ team, inputTime, players }) {
     goals: Number(p.goals) || 0,
     assists: Number(p.assists) || 0,
     owngoals: Number(p.owngoals) || 0,
+    fouls: Number(p.fouls) || 0,
     conceded: Number(p.conceded) || 0,
     cleansheets: Number(p.cleanSheets) || 0,
     crova: 0, goguma: 0, 역주행: 0, rank_score: 0,
@@ -145,7 +149,7 @@ export function buildRawPlayerGamesFromTournament({ team, tournamentId, inputTim
     team, sport: '축구', mode: '대회', tournament_id: tournamentId || '',
     date: s.date, player: s.player, session_team: team,
     games: s.games, field_games: s.field_games, keeper_games: s.keeper_games,
-    goals: s.goals, assists: s.assists, owngoals: s.owngoals,
+    goals: s.goals, assists: s.assists, owngoals: s.owngoals, fouls: 0,
     conceded: s.conceded, cleansheets: s.cleansheets,
     crova: 0, goguma: 0, 역주행: 0, rank_score: 0,
     input_time: inputTime || '',

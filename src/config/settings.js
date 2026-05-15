@@ -7,6 +7,7 @@ const SETTINGS_KEY = "masterfc_settings";
 export const SPORT_DEFAULTS = {
   풋살: {
     ownGoalPoint: -1,
+    foulPoint: -1,
     useCrovaGoguma: false,
     crovaPoint: 0,
     gogumaPoint: 0,
@@ -14,6 +15,7 @@ export const SPORT_DEFAULTS = {
   },
   축구: {
     ownGoalPoint: -1,
+    foulPoint: -1,
     cleanSheetPoint: 1,
     opponents: [],
   },
@@ -240,11 +242,11 @@ const SHARED_KEYS = [
   "pointLogSheet", "playerLogSheet",
 ];
 const FUTSAL_KEYS = [
-  "ownGoalPoint", "crovaPoint", "gogumaPoint", "bonusMultiplier",
+  "ownGoalPoint", "foulPoint", "crovaPoint", "gogumaPoint", "bonusMultiplier",
   "useCrovaGoguma", "dualTeams", "dualTeamStartDate", "dualTeamEndDate",
 ];
 const SOCCER_KEYS = [
-  "ownGoalPoint", "cleanSheetPoint", "opponents", "eventLogSheet",
+  "ownGoalPoint", "foulPoint", "cleanSheetPoint", "opponents", "eventLogSheet",
 ];
 
 export function isLegacyFormat(raw) {

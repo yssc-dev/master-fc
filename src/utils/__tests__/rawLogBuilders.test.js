@@ -10,14 +10,15 @@ describe('raw log column constants', () => {
     expect(RAW_EVENT_COLUMNS[13]).toBe('input_time');
   });
 
-  it('RAW_PLAYER_GAME_COLUMNS: 20개, 풋살 전용 필드 포함', () => {
-    expect(RAW_PLAYER_GAME_COLUMNS).toHaveLength(20);
+  it('RAW_PLAYER_GAME_COLUMNS: 21개 (fouls 포함), 풋살 전용 필드 포함', () => {
+    expect(RAW_PLAYER_GAME_COLUMNS).toHaveLength(21);
     expect(RAW_PLAYER_GAME_COLUMNS[0]).toBe('team');
-    expect(RAW_PLAYER_GAME_COLUMNS[19]).toBe('input_time');
+    expect(RAW_PLAYER_GAME_COLUMNS[20]).toBe('input_time');
     expect(RAW_PLAYER_GAME_COLUMNS).toContain('crova');
     expect(RAW_PLAYER_GAME_COLUMNS).toContain('goguma');
     expect(RAW_PLAYER_GAME_COLUMNS).toContain('역주행');
     expect(RAW_PLAYER_GAME_COLUMNS).toContain('rank_score');
+    expect(RAW_PLAYER_GAME_COLUMNS).toContain('fouls');
   });
 });
 
@@ -59,6 +60,24 @@ describe('buildRawEventsFromFutsal', () => {
     expect(rows[0].event_type).toBe('owngoal');
     expect(rows[0].player).toBe('이영수');
     expect(rows[0].related_player).toBe('');
+  });
+
+  it('반칙 (foulPlayer 있음) → foul row, concede_gk 포함', () => {
+    const rows = buildRawEventsFromFutsal({
+      team: '마스터FC',
+      events: [{
+        gameDate: '2026-04-10', matchId: '1라운드 A구장',
+        myTeam: '블루', opponentTeam: '레드',
+        scorer: '', assist: '', ownGoalPlayer: '', foulPlayer: '김반칙',
+        concedingGk: '박지성',
+        inputTime: '2026-04-10 20:00:00',
+      }],
+    });
+    expect(rows).toHaveLength(1);
+    expect(rows[0].event_type).toBe('foul');
+    expect(rows[0].player).toBe('김반칙');
+    expect(rows[0].related_player).toBe('');
+    expect(rows[0].concede_gk).toBe('박지성');
   });
 
   it('실점 (scorer 공란, concedingGk 있음) → concede row', () => {

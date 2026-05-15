@@ -352,10 +352,11 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
 
   const playerMatchStats = useMemo(() => {
     const stats = {};
-    attendees.forEach(p => { stats[p] = { goals: 0, assists: 0, owngoals: 0, conceded: 0, keeperGames: 0, cleanSheets: 0 }; });
+    attendees.forEach(p => { stats[p] = { goals: 0, assists: 0, owngoals: 0, fouls: 0, conceded: 0, keeperGames: 0, cleanSheets: 0 }; });
     allEvents.forEach(e => {
       if (e.type === "goal") { if (stats[e.player]) stats[e.player].goals++; if (e.assist && stats[e.assist]) stats[e.assist].assists++; if (e.concedingGk && stats[e.concedingGk]) stats[e.concedingGk].conceded++; }
       if (e.type === "owngoal") { if (stats[e.player]) stats[e.player].owngoals++; if (e.concedingGk && stats[e.concedingGk]) stats[e.concedingGk].conceded += 2; }
+      if (e.type === "foul") { if (stats[e.player]) stats[e.player].fouls++; if (e.concedingGk && stats[e.concedingGk]) stats[e.concedingGk].conceded++; }
     });
     completedMatches.forEach(m => {
       if (m.homeGk && stats[m.homeGk]) { stats[m.homeGk].keeperGames++; if (m.awayScore === 0) stats[m.homeGk].cleanSheets++; }
@@ -375,10 +376,10 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
 
   const calcPlayerPoints = useCallback((player) => {
     const st = playerMatchStats[player];
-    if (!st) return { total: 0, goals: 0, assists: 0, owngoals: 0, cleanSheets: 0, crova: 0, goguma: 0, conceded: 0, keeperGames: 0 };
+    if (!st) return { total: 0, goals: 0, assists: 0, owngoals: 0, fouls: 0, cleanSheets: 0, crova: 0, goguma: 0, conceded: 0, keeperGames: 0 };
     const ES = state.settingsSnapshot || gameSettings;
-    const { ownGoalPoint, crovaPoint, gogumaPoint, bonusMultiplier, useCrovaGoguma } = ES;
-    let pts = st.goals + st.assists + st.owngoals * ownGoalPoint + st.cleanSheets;
+    const { ownGoalPoint, foulPoint = -1, crovaPoint, gogumaPoint, bonusMultiplier, useCrovaGoguma } = ES;
+    let pts = st.goals + st.assists + st.owngoals * ownGoalPoint + (st.fouls || 0) * foulPoint + st.cleanSheets;
     let crova = 0, goguma = 0;
     if (courtCount === 2 && matchMode !== "push" && useCrovaGoguma && (allRoundsComplete || earlyFinish) && finalStandings.length > 0 && completedMatches.filter(m => !m.isExtra).length > 0) {
       const pt = getPlayerTeamName(player);
@@ -390,7 +391,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
       if (pt === first.name) { crova = crovaPoint * cm; pts += crova; }
       if (pt === last.name) { goguma = gogumaPoint * gm; pts += goguma; }
     }
-    return { total: pts, goals: st.goals, assists: st.assists, owngoals: st.owngoals, cleanSheets: st.cleanSheets, crova, goguma, conceded: st.conceded, keeperGames: st.keeperGames };
+    return { total: pts, goals: st.goals, assists: st.assists, owngoals: st.owngoals, fouls: st.fouls || 0, cleanSheets: st.cleanSheets, crova, goguma, conceded: st.conceded, keeperGames: st.keeperGames };
   }, [playerMatchStats, finalStandings, completedMatches, getPlayerTeamName, getSeasonLeader, allRoundsComplete, earlyFinish, gameSettings, courtCount]);
 
   // Actions
@@ -679,12 +680,15 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
       const court = courtCount === 2 ? (p[2] === "0" ? "A구장" : "B구장") : `매치${+p[2]+1}`;
       return `${p[1]}라운드 ${court}`;
     };
-    const pointEvents = allEvents.filter(e => e.type === "goal" || e.type === "owngoal").map(e => ({
+    const pointEvents = allEvents.filter(e => e.type === "goal" || e.type === "owngoal" || e.type === "foul").map(e => ({
       gameDate: dateStr, matchId: e.matchId || "",
       myTeam: e.team || "",
+      // goal: 본인팀이 득점 → 상대팀은 concedingTeam.
+      // owngoal/foul: 본인팀이 실점 → 상대팀은 scoringTeam.
       opponentTeam: e.type === "goal" ? (e.concedingTeam || "") : (e.scoringTeam || ""),
       scorer: e.type === "goal" ? e.player : "", assist: e.assist || "",
       ownGoalPlayer: e.type === "owngoal" ? e.player : "",
+      foulPlayer: e.type === "foul" ? e.player : "",
       concedingGk: e.concedingGk || "",
       inputTime: formatEventInputTime(e.timestamp, inputTime),
     }));
@@ -702,8 +706,8 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
         pts.crova = 0;
         pts.goguma = 0;
       }
-      if (pts.goals === 0 && pts.assists === 0 && pts.owngoals === 0 && pts.conceded === 0 && pts.cleanSheets === 0 && pts.keeperGames === 0 && pts.crova === 0 && pts.goguma === 0 && rankScore === 0) return null;
-      return { gameDate: dateStr, name: p, ...pts, owngoals: pts.owngoals * ES2.ownGoalPoint, rankScore, inputTime };
+      if (pts.goals === 0 && pts.assists === 0 && pts.owngoals === 0 && (pts.fouls || 0) === 0 && pts.conceded === 0 && pts.cleanSheets === 0 && pts.keeperGames === 0 && pts.crova === 0 && pts.goguma === 0 && rankScore === 0) return null;
+      return { gameDate: dateStr, name: p, ...pts, owngoals: pts.owngoals * ES2.ownGoalPoint, fouls: (pts.fouls || 0) * (ES2.foulPoint ?? -1), rankScore, inputTime };
     }).filter(Boolean);
 
     const team = teamContext?.team || '';
