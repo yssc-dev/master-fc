@@ -56,11 +56,11 @@ function MercPicker({ side, candidates, opposingPlayers, teamName, onAdd, onClos
 const popoverBtn = ({ primary = false, active = false, disabled = false, subtle = false, isLast = false } = {}) => {
   if (primary) {
     return {
-      padding: "10px 14px",
+      padding: "8px 10px",
       background: "var(--app-blue)", color: "#fff",
       border: "none",
       borderRight: isLast ? "none" : "0.5px solid rgba(255,255,255,0.2)",
-      fontSize: 14, fontWeight: 600, letterSpacing: "-0.01em",
+      fontSize: 13, fontWeight: 600, letterSpacing: "-0.01em",
       cursor: "pointer", fontFamily: "inherit",
       flex: 1, minWidth: 0, whiteSpace: "nowrap",
     };
@@ -70,12 +70,12 @@ const popoverBtn = ({ primary = false, active = false, disabled = false, subtle 
               : subtle ? "var(--app-text-secondary)"
               : "var(--app-text-primary)";
   return {
-    padding: "10px 8px",
+    padding: "8px 6px",
     background: "transparent",
     color,
     border: "none",
     borderRight: isLast ? "none" : "0.5px solid var(--app-divider)",
-    fontSize: 14, fontWeight: active ? 600 : 500, letterSpacing: "-0.01em",
+    fontSize: 13, fontWeight: active ? 600 : 500, letterSpacing: "-0.01em",
     cursor: disabled ? "not-allowed" : "pointer",
     opacity: disabled ? 0.4 : 1,
     fontFamily: "inherit",
@@ -378,7 +378,8 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
               backdropFilter: "blur(20px)",
               WebkitBackdropFilter: "blur(20px)",
               display: "flex", alignItems: "stretch",
-              minWidth: 220,
+              minWidth: 200,
+              maxWidth: "min(92vw, 280px)",
               overflow: "hidden",
             }}>
               <button
@@ -396,6 +397,11 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
               <button
                 onClick={(e) => {
                   e.stopPropagation();
+                  // 휴식으로 전환 시: GK이면 먼저 GK 해제 (휴식자는 골키퍼 불가)
+                  if (!isAbsent && isGk) {
+                    if (isHome) setHomeGk(null); else setAwayGk(null);
+                    if (onGkChange) onGkChange(isHome ? homeIdx : awayIdx, null);
+                  }
                   if (onToggleAbsent) onToggleAbsent({ matchId, teamIdx: sideTeamIdx, player });
                   // 휴식으로 바뀌면 compose 영향 차단: scorer/assist에 잡혀있던 본인은 빠지게
                   if (!isAbsent && composeState) {
@@ -403,12 +409,8 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
                   }
                   setOpenPopover(null);
                 }}
-                style={popoverBtn({ active: isAbsent })}
+                style={popoverBtn({ active: isAbsent, isLast: true })}
               >{isAbsent ? "✓ 🪑 휴식" : "🪑 휴식"}</button>
-              <button
-                onClick={(e) => { e.stopPropagation(); setOpenPopover(null); }}
-                style={popoverBtn({ subtle: true, isLast: true })}
-              >✕ 취소</button>
             </div>
           );
         })()}
