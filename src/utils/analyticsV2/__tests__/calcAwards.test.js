@@ -22,9 +22,10 @@ describe('calcAwards', () => {
     ]);
   });
 
-  it('guardian counts keeper_games>=2 && conceded=0 sessions', () => {
+  it('guardian counts keeper_games>=2 && conceded=0 sessions, with sessions and rate', () => {
     const r = calcAwards({ playerLogs: logs });
-    expect(r.guardian).toEqual([{ player: 'G', count: 2 }]);
+    // G: keeper>=2 세션 3개 (01/03/04), 그중 무실점 2개 (01/04) → rate 2/3
+    expect(r.guardian).toEqual([{ player: 'G', count: 2, sessions: 3, rate: 2 / 3 }]);
   });
 
   it('owngoalKings returns only players with >0 owngoals, sorted desc', () => {

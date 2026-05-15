@@ -1,0 +1,215 @@
+/* Master FC × Monochrome Canvas — futsal app tokens.
+   The chrome is strictly black/white/dashed-focus from the Figma-inspired
+   system. Color ONLY appears inside match data — team colors, score
+   winners, goal/assist dots. Pretendard-free: Inter variable, figmaMono. */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&family=JetBrains+Mono:wght@400;500;700&family=Pretendard:wght@300..800&display=swap');
+
+:root {
+  /* Chrome — binary */
+  --fg: #000000;
+  --bg: #ffffff;
+  --ink-80: rgba(0, 0, 0, 0.80);
+  --ink-60: rgba(0, 0, 0, 0.55);
+  --ink-40: rgba(0, 0, 0, 0.35);
+  --ink-20: rgba(0, 0, 0, 0.16);
+  --ink-08: rgba(0, 0, 0, 0.08);
+  --ink-04: rgba(0, 0, 0, 0.04);
+  --paper: #fafaf8;
+  --card: #ffffff;
+
+  /* Match-data color — used ONLY for team badges, scorelines, event dots */
+  --data-green:  #14ae5c;   /* GK save, assist, win */
+  --data-red:    #e5484d;   /* own goal, lose */
+  --data-yellow: #eab308;   /* GK indicator */
+  --data-blue:   #3b82f6;
+  --data-orange: #f97316;   /* mercenary, alert */
+  --data-lime:   #84cc16;
+
+  /* Futsal gradient — the "hero" moment. Pitch stripes reimagined. */
+  --gradient-pitch: linear-gradient(100deg, #a0ff4d 0%, #f5ff47 28%, #ff79c6 58%, #b84dff 82%, #5b2bff 100%);
+  --gradient-goal:  linear-gradient(135deg, #a0ff4d 0%, #14ae5c 100%);
+
+  /* Type */
+  --font-sans: 'Inter', 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'SF Mono', Menlo, monospace;
+
+  /* Weight stops (variable axis) */
+  --fw-320: 320;
+  --fw-340: 340;
+  --fw-400: 400;
+  --fw-450: 450;
+  --fw-480: 480;
+  --fw-540: 540;
+  --fw-700: 700;
+
+  /* Radii */
+  --r-2: 2px;
+  --r-6: 6px;
+  --r-8: 8px;
+  --r-pill: 50px;
+  --r-circle: 50%;
+
+  /* Shadows */
+  --sh-1: 0 1px 2px rgba(0,0,0,0.06);
+  --sh-2: 0 4px 16px rgba(0,0,0,0.08);
+  --sh-3: 0 16px 48px rgba(0,0,0,0.14);
+
+  /* Focus */
+  --focus-ring: dashed 2px var(--fg);
+  --focus-offset: 2px;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-feature-settings: "kern" 1, "ss01" 1;
+  -webkit-font-smoothing: antialiased;
+  color: var(--fg);
+  background: var(--paper);
+  font-weight: var(--fw-340);
+  letter-spacing: -0.14px;
+}
+
+button { font-family: inherit; }
+input, textarea { font-family: inherit; }
+
+*:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-offset);
+}
+
+/* ── Type classes ───────────────────────────── */
+.t-display  { font-size: 56px; font-weight: 400; line-height: 1.00; letter-spacing: -1.68px; }
+.t-hero     { font-size: 40px; font-weight: 400; line-height: 1.05; letter-spacing: -1.2px; }
+.t-h1       { font-size: 28px; font-weight: 540; line-height: 1.15; letter-spacing: -0.56px; }
+.t-h2       { font-size: 22px; font-weight: 540; line-height: 1.2;  letter-spacing: -0.34px; }
+.t-h3       { font-size: 18px; font-weight: 540; line-height: 1.25; letter-spacing: -0.22px; }
+.t-body-lg  { font-size: 18px; font-weight: 340; line-height: 1.4;  letter-spacing: -0.22px; }
+.t-body     { font-size: 15px; font-weight: 340; line-height: 1.42; letter-spacing: -0.14px; }
+.t-body-em  { font-size: 15px; font-weight: 480; line-height: 1.42; letter-spacing: -0.14px; }
+.t-small    { font-size: 13px; font-weight: 340; line-height: 1.38; letter-spacing: -0.10px; }
+.t-label    { font-size: 13px; font-weight: 480; line-height: 1.25; letter-spacing: -0.10px; }
+.t-mono     { font-family: var(--font-mono); font-size: 12px; font-weight: 450; letter-spacing: 0.6px; text-transform: uppercase; }
+.t-mono-lg  { font-family: var(--font-mono); font-size: 15px; font-weight: 450; letter-spacing: 0.54px; text-transform: uppercase; }
+.t-score    { font-family: var(--font-sans); font-size: 64px; font-weight: 480; line-height: 1; letter-spacing: -2.56px; font-variant-numeric: tabular-nums; }
+.t-num      { font-variant-numeric: tabular-nums; }
+
+/* ── Button primitives ────────────────────── */
+.btn {
+  font-weight: var(--fw-480);
+  font-size: 15px;
+  letter-spacing: -0.14px;
+  line-height: 1;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: none;
+  transition: background .15s, color .15s, opacity .15s, transform .06s;
+  user-select: none;
+}
+.btn:active { transform: translateY(1px); }
+.btn-solid {
+  background: var(--fg); color: var(--bg);
+  border-radius: var(--r-pill);
+  padding: 11px 18px 12px;
+}
+.btn-solid:hover { background: #1a1a1a; }
+.btn-white {
+  background: var(--bg); color: var(--fg);
+  border: 1px solid var(--ink-08);
+  border-radius: var(--r-pill);
+  padding: 10px 17px 11px;
+}
+.btn-white:hover { background: #f2f2f2; border-color: var(--ink-20); }
+.btn-ghost {
+  background: transparent; color: var(--fg);
+  border-radius: var(--r-pill);
+  padding: 10px 16px 11px;
+}
+.btn-ghost:hover { background: var(--ink-08); }
+.btn-glass {
+  background: var(--ink-08); color: var(--fg);
+  border-radius: var(--r-pill);
+  padding: 10px 17px 11px;
+}
+.btn-glass:hover { background: var(--ink-20); }
+.btn-sm { padding: 7px 13px 8px; font-size: 13px; }
+.btn-xs { padding: 5px 10px 6px; font-size: 12px; }
+
+.btn-icon {
+  width: 40px; height: 40px; border-radius: var(--r-circle);
+  padding: 0; background: var(--fg); color: var(--bg);
+}
+.btn-icon-ghost { background: transparent; color: var(--fg); }
+.btn-icon-ghost:hover { background: var(--ink-08); }
+.btn-icon-glass { background: var(--ink-08); color: var(--fg); }
+.btn-icon-glass:hover { background: var(--ink-20); }
+
+.card {
+  background: var(--card);
+  border-radius: var(--r-8);
+  border: 1px solid var(--ink-08);
+}
+.card-flat { background: var(--card); border-radius: var(--r-8); }
+
+.divider { height: 1px; background: var(--ink-08); }
+
+/* pitch dash pattern for decorative elements */
+.dashed-rule {
+  border: none; border-top: 2px dashed var(--fg); margin: 0;
+}
+
+/* Team color swatch */
+.team-dot {
+  width: 12px; height: 12px; border-radius: var(--r-circle);
+  display: inline-block; flex-shrink: 0;
+}
+
+/* Phone frame */
+.phone {
+  width: 390px;
+  height: 844px;
+  background: var(--bg);
+  position: relative;
+  overflow: hidden;
+  font-family: var(--font-sans);
+  color: var(--fg);
+}
+.phone-scroll {
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+.phone-scroll::-webkit-scrollbar { display: none; }
+
+/* Status bar */
+.status-bar {
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 22px;
+  font-family: var(--font-sans);
+  font-weight: var(--fw-540);
+  font-size: 15px;
+  letter-spacing: -0.2px;
+  flex-shrink: 0;
+}
+
+/* Bottom nav */
+.tab-bar {
+  height: 72px;
+  background: var(--bg);
+  border-top: 1px solid var(--ink-08);
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-around;
+  padding: 8px 12px 0;
+  flex-shrink: 0;
+}

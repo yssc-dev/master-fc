@@ -4,11 +4,13 @@ import { calcAwards } from '../../../utils/analyticsV2/calcAwards';
 import { calcRoundSlope } from '../../../utils/analyticsV2/calcRoundSlope';
 import { calcSoloGoalRatio } from '../../../utils/analyticsV2/calcSoloGoalRatio';
 import { calcMonthlyRanking } from '../../../utils/analyticsV2/calcMonthlyRanking';
+import { calcVolatility } from '../../../utils/analyticsV2/calcVolatility';
 
 export default function AwardsTab({ playerGameLogs, matchLogs, eventLogs, C }) {
   const awards = useMemo(() => calcAwards({ playerLogs: playerGameLogs || [], eventLogs: eventLogs || [] }), [playerGameLogs, eventLogs]);
   const slope = useMemo(() => calcRoundSlope({ eventLogs: eventLogs || [], matchLogs: matchLogs || [], threshold: 10 }), [eventLogs, matchLogs]);
   const solo = useMemo(() => calcSoloGoalRatio({ eventLogs: eventLogs || [], threshold: 10 }), [eventLogs]);
+  const volatility = useMemo(() => calcVolatility({ playerLogs: playerGameLogs || [], minGames: 5, topN: 3 }), [playerGameLogs]);
 
   const months = useMemo(() => {
     const set = new Set();
@@ -25,7 +27,7 @@ export default function AwardsTab({ playerGameLogs, matchLogs, eventLogs, C }) {
     effectiveMonth ? calcMonthlyRanking({ yearMonth: effectiveMonth, playerLogs: playerGameLogs || [], matchLogs: matchLogs || [] }) : null
   , [effectiveMonth, playerGameLogs, matchLogs]);
 
-  const Card = ({ title, items, valueKey, valueFmt }) => (
+  const Card = ({ title, items, valueKey, valueFmt, valueRender }) => (
     <div style={{ padding: 14, background: C.cardLight, borderRadius: 12, marginBottom: 12 }}>
       <div style={{ fontSize: 12, fontWeight: 700, color: C.gray, marginBottom: 8 }}>{title}</div>
       {(!items || items.length === 0) ? (
@@ -37,7 +39,10 @@ export default function AwardsTab({ playerGameLogs, matchLogs, eventLogs, C }) {
           borderBottom: i < items.length - 1 ? `1px dashed ${C.grayDarker}` : 'none',
         }}>
           <span style={{ color: C.gray }}>#{i + 1} {it.player}</span>
-          <span style={{ color: C.green, fontWeight: 600 }}>{valueFmt(it[valueKey])}</span>
+          {valueRender
+            ? valueRender(it)
+            : <span style={{ color: C.green, fontWeight: 600 }}>{valueFmt(it[valueKey])}</span>
+          }
         </div>
       ))}
     </div>
@@ -135,7 +140,16 @@ export default function AwardsTab({ playerGameLogs, matchLogs, eventLogs, C }) {
   return (
     <div>
       <Card title="🔥 불꽃 (해트트릭+ 횟수)" items={awards.fireStarter} valueKey="count" valueFmt={v => `${v}회`} />
-      <Card title="🛡 수호신 (세션 무실점 GK 횟수)" items={awards.guardian} valueKey="count" valueFmt={v => `${v}회`} />
+      <Card title="🛡 수호신 (무실점 GK 세션 · 무실점률)" items={awards.guardian}
+        valueRender={(it) => (
+          <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 6 }}>
+            <span style={{ color: C.green, fontWeight: 600 }}>{it.count}회</span>
+            <span style={{ color: C.gray, fontSize: 11 }}>
+              ({Math.round(it.rate * 100)}% · {it.sessions}세션)
+            </span>
+          </span>
+        )}
+      />
       <Card title="🤦 자책 누적" items={awards.owngoalKings} valueKey="total" valueFmt={v => `${v}회`} />
       {/* 라운드 흐름: 초반강자(-) ← → 후반폭격기(+) */}
       {(() => {
@@ -178,6 +192,46 @@ export default function AwardsTab({ playerGameLogs, matchLogs, eventLogs, C }) {
             {solo.ranking.soloHeroes.slice(0, 3).map((it, i) => (
               <SoloDonut key={it.player} player={it.player} ratio={it.soloRatio} rank={i + 1} />
             ))}
+          </div>
+        )}
+      </div>
+
+      {/* 🎢 변동성 — 몰빵형 vs 꾸준형 */}
+      <div style={{ padding: 14, background: C.cardLight, borderRadius: 12, marginBottom: 12 }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: C.gray, marginBottom: 4 }}>
+          🎢 컨디션 편차 (경기당 G+A 표준편차)
+        </div>
+        <div style={{ fontSize: 10, color: C.gray, marginBottom: 10 }}>
+          5경기 이상 · 꾸준형은 평균 G+A 중앙값 이상에서만 선정
+        </div>
+        {volatility.streaky.length === 0 && volatility.consistent.length === 0 ? (
+          <div style={{ fontSize: 11, color: C.gray }}>표본 부족</div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <div>
+              <div style={{ fontSize: 10, color: C.gray, marginBottom: 6 }}>💥 몰빵형 (편차 ↑)</div>
+              {volatility.streaky.length === 0
+                ? <div style={{ fontSize: 10, color: C.gray }}>-</div>
+                : volatility.streaky.map((it, i) => (
+                  <div key={it.player} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginBottom: 3 }}>
+                    <span style={{ color: C.white }}>{i + 1}. {it.player}</span>
+                    <span style={{ color: C.white, fontWeight: 700 }}>σ {it.std.toFixed(1)}</span>
+                  </div>
+                ))
+              }
+            </div>
+            <div>
+              <div style={{ fontSize: 10, color: C.gray, marginBottom: 6 }}>🎯 꾸준형 (편차 ↓)</div>
+              {volatility.consistent.length === 0
+                ? <div style={{ fontSize: 10, color: C.gray }}>-</div>
+                : volatility.consistent.map((it, i) => (
+                  <div key={it.player} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginBottom: 3 }}>
+                    <span style={{ color: C.white }}>{i + 1}. {it.player}</span>
+                    <span style={{ color: C.white, fontWeight: 700 }}>σ {it.std.toFixed(1)}</span>
+                  </div>
+                ))
+              }
+            </div>
           </div>
         )}
       </div>

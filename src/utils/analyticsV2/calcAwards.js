@@ -8,12 +8,16 @@ export function calcAwards({ playerLogs, eventLogs, topN = {} }) {
     owngoal: topN.owngoal ?? 3,
   };
 
-  const fire = {}, guard = {}, own = {};
+  const fire = {}, guard = {}, gkSessions = {}, own = {};
   for (const p of playerLogs || []) {
     const name = p.player;
     if ((Number(p.goals) || 0) >= 3) fire[name] = (fire[name] || 0) + 1;
-    if ((Number(p.keeper_games) || 0) >= 2 && (Number(p.conceded) || 0) === 0) {
-      guard[name] = (guard[name] || 0) + 1;
+    // 수호신: 세션 내 키퍼로 2경기 이상 출전한 경우만 카운트 (분모/분자 공통)
+    if ((Number(p.keeper_games) || 0) >= 2) {
+      gkSessions[name] = (gkSessions[name] || 0) + 1;
+      if ((Number(p.conceded) || 0) === 0) {
+        guard[name] = (guard[name] || 0) + 1;
+      }
     }
   }
 
@@ -37,9 +41,20 @@ export function calcAwards({ playerLogs, eventLogs, topN = {} }) {
       .sort((a, b) => b[key] - a[key] || a.player.localeCompare(b.player, 'ko'))
       .slice(0, limit);
 
+  // 수호신은 횟수에 무실점률(rate) + 키퍼 세션 수도 같이 노출
+  const guardianList = Object.entries(guard)
+    .map(([player, count]) => ({
+      player,
+      count,
+      sessions: gkSessions[player] || count,
+      rate: (gkSessions[player] || count) > 0 ? count / (gkSessions[player] || count) : 0,
+    }))
+    .sort((a, b) => (b.count - a.count) || (b.rate - a.rate) || a.player.localeCompare(b.player, 'ko'))
+    .slice(0, limits.guardian);
+
   return {
     fireStarter: toList(fire, 'count', limits.fireStarter),
-    guardian: toList(guard, 'count', limits.guardian),
+    guardian: guardianList,
     owngoalKings: toList(own, 'total', limits.owngoal),
   };
 }

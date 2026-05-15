@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Master FC · Figma-styled Futsal App</title>
+  <link rel="stylesheet" href="tokens.css">
+  <style>
+    body { margin: 0; background: #f0eee9; }
+    template { display: none; }
+  </style>
+
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body>
+  <template id="__bundler_thumbnail">
+    <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+      <rect width="100" height="100" fill="#000"/>
+      <circle cx="50" cy="50" r="22" fill="none" stroke="#fff" stroke-width="2" stroke-dasharray="3 3"/>
+      <text x="50" y="57" text-anchor="middle" font-family="Inter,sans-serif" font-weight="700" font-size="18" fill="#fff">M•FC</text>
+    </svg>
+  </template>
+
+  <div id="root"></div>
+
+  <script type="text/babel" src="atoms.jsx"></script>
+  <script type="text/babel" src="screens.jsx"></script>
+  <script type="text/babel" src="design-canvas.jsx"></script>
+
+  <script type="text/babel">
+    function App() {
+      // Interactive flow shell on left; design canvas shows all screens.
+      const [tab, setTab] = React.useState(() => {
+        try { return localStorage.getItem('mfc_tab') || 'home'; } catch { return 'home'; }
+      });
+      React.useEffect(() => { try { localStorage.setItem('mfc_tab', tab); } catch {} }, [tab]);
+
+      return (
+        <DesignCanvas>
+          <DCSection id="flow" title="Interactive prototype" subtitle="Tap through the full Master FC flow — login → home → match capture → stats.">
+            <DCArtboard id="login" label="01 · Login" width={390} height={844}>
+              <LoginScreen onLogin={() => setTab('home')} />
+            </DCArtboard>
+            <DCArtboard id="home" label="02 · Home · 팀 선택" width={390} height={844}>
+              <HomeScreen onSelectTeam={() => setTab('record')} onTab={setTab} />
+            </DCArtboard>
+            <DCArtboard id="record" label="03 · Record · 경기 기록" width={390} height={844}>
+              <RecordScreen onTab={setTab} />
+            </DCArtboard>
+            <DCArtboard id="stats" label="04 · Stats · 랭킹" width={390} height={844}>
+              <StatsScreen onTab={setTab} />
+            </DCArtboard>
+            <DCArtboard id="me" label="05 · Me · 선수 카드" width={390} height={844}>
+              <MeScreen onTab={setTab} />
+            </DCArtboard>
+          </DCSection>
+
+          <DCSection id="atoms" title="Visual atoms" subtitle="The chrome is strictly binary — #000, #fff, dashed 2px focus. Team color is the only chroma in data.">
+            <DCArtboard id="type" label="Type scale" width={420} height={640}>
+              <div style={{ padding: 28, fontFamily: "'Inter',sans-serif", background: '#fff', height: '100%', overflow: 'auto' }}>
+                <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 11, letterSpacing: 0.6, opacity: 0.5, marginBottom: 16 }}>TYPE · VARIABLE WEIGHT</div>
+                <div style={{ fontSize: 44, fontWeight: 400, letterSpacing: -1.3, lineHeight: 1.02 }}>Record every <span style={{ fontStyle: 'italic', fontWeight: 450 }}>match.</span></div>
+                <div style={{ fontSize: 22, fontWeight: 540, letterSpacing: -0.34, marginTop: 24 }}>라운드 3 · 23:14</div>
+                <div style={{ fontSize: 18, fontWeight: 340, letterSpacing: -0.22, marginTop: 10, opacity: 0.7 }}>골·어시·실점을 정확히. 팀의 모든 기록은 여기서.</div>
+                <div style={{ fontSize: 15, fontWeight: 340, letterSpacing: -0.14, marginTop: 18, lineHeight: 1.5, opacity: 0.7 }}>본문 340은 가독성 + 공기감을 동시에. 대부분의 칩, 리스트는 480.</div>
+                <hr style={{ border: 'none', borderTop: '1px dashed rgba(0,0,0,0.2)', margin: '22px 0' }} />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {[320,330,340,400,450,480,540,700].map(w => (
+                    <div key={w} style={{ display: 'flex', alignItems: 'baseline', gap: 14 }}>
+                      <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 11, letterSpacing: 0.4, opacity: 0.5, width: 36 }}>{w}</div>
+                      <div style={{ fontSize: 20, fontWeight: w, letterSpacing: -0.22 }}>마스터 · 15 경기</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </DCArtboard>
+            <DCArtboard id="buttons" label="Buttons + pills" width={420} height={500}>
+              <div style={{ padding: 28, background: '#fff', height: '100%', boxSizing: 'border-box' }}>
+                <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 11, letterSpacing: 0.6, opacity: 0.5, marginBottom: 14 }}>BUTTONS · ALL PILLS</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, alignItems: 'flex-start' }}>
+                  <button className="btn btn-solid">라운드 종료 <Icon name="arrowR" size={16} /></button>
+                  <button className="btn btn-white">취소</button>
+                  <button className="btn btn-glass">확정 취소</button>
+                  <button className="btn btn-ghost">자세히 보기</button>
+                </div>
+                <div style={{ marginTop: 18, fontFamily: "'JetBrains Mono',monospace", fontSize: 11, letterSpacing: 0.6, opacity: 0.5, marginBottom: 10 }}>CHIPS</div>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  <Pill active>전체</Pill>
+                  <Pill>골</Pill>
+                  <Pill>어시</Pill>
+                  <Pill dashed>+ 필터</Pill>
+                  <Pill color="#84cc16">연두팀</Pill>
+                  <Pill color="#1e293b">검정팀</Pill>
+                </div>
+                <div style={{ marginTop: 18, fontFamily: "'JetBrains Mono',monospace", fontSize: 11, letterSpacing: 0.6, opacity: 0.5, marginBottom: 10 }}>ICON BUTTONS</div>
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <IconBtn icon="chevL" />
+                  <IconBtn icon="settings" />
+                  <IconBtn icon="ball" variant="solid" />
+                  <IconBtn icon="share" variant="glass" />
+                </div>
+              </div>
+            </DCArtboard>
+            <DCArtboard id="goalmodal" label="Goal modal — open over Record" width={390} height={844}>
+              <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+                <RecordScreen onTab={() => {}} />
+                <GoalModal
+                  open
+                  scorer={{ player: '손흥민' }}
+                  teammates={['이강인','황희찬','김민재','조규성']}
+                  onClose={() => {}}
+                  onSelect={() => {}}
+                  onNoAssist={() => {}}
+                  onOwnGoal={() => {}}
+                />
+              </div>
+            </DCArtboard>
+          </DCSection>
+
+          <DCSection id="notes" title="Design notes" subtitle="What changed from the original Master FC, and why.">
+            <DCArtboard id="contrast" label="Before / After — comparison" width={760} height={520}>
+              <div style={{ padding: 28, background: '#fff', height: '100%', boxSizing: 'border-box', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
+                <div>
+                  <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 11, letterSpacing: 0.6, opacity: 0.5, marginBottom: 10 }}>BEFORE · ORIGINAL</div>
+                  <div style={{ borderRadius: 8, padding: 16, background: '#0f172a', color: '#fff', fontFamily: 'Pretendard,sans-serif' }}>
+                    <div style={{ fontSize: 20, fontWeight: 800 }}>경기 기록</div>
+                    <div style={{ fontSize: 12, opacity: 0.6, marginTop: 2 }}>로그인</div>
+                    <div style={{ marginTop: 20, background: '#1e293b', borderRadius: 12, padding: 14, border: '1px solid #334155' }}>
+                      <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 4 }}>이름</div>
+                      <div style={{ fontSize: 14, color: '#94a3b8', borderBottom: '1px solid #475569', paddingBottom: 8 }}>홍길동</div>
+                    </div>
+                    <button style={{ marginTop: 16, width: '100%', background: '#22d3ee', color: '#0f172a', border: 'none', borderRadius: 8, padding: '12px', fontWeight: 700 }}>로그인</button>
+                  </div>
+                  <ul style={{ fontSize: 13, lineHeight: 1.6, marginTop: 14, opacity: 0.7, paddingLeft: 18 }}>
+                    <li>Dark navy + cyan accent</li>
+                    <li>Pretendard 800 bold titles</li>
+                    <li>8px rounded rectangles</li>
+                    <li>Emoji ⚽ as a glyph</li>
+                  </ul>
+                </div>
+                <div>
+                  <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 11, letterSpacing: 0.6, opacity: 0.5, marginBottom: 10 }}>AFTER · MONOCHROME CANVAS</div>
+                  <div style={{ borderRadius: 8, padding: 20, background: '#fff', border: '1px solid rgba(0,0,0,0.08)' }}>
+                    <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 10, letterSpacing: 0.6, opacity: 0.5 }}>MASTER FC — V2</div>
+                    <div style={{ fontSize: 30, fontWeight: 400, letterSpacing: -0.9, lineHeight: 1, marginTop: 8 }}>Record every <span style={{ fontStyle: 'italic', fontWeight: 450 }}>match.</span></div>
+                    <div style={{ marginTop: 18 }}>
+                      <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 10, opacity: 0.5 }}>이름</div>
+                      <div style={{ fontSize: 15, borderBottom: '1.5px solid #000', paddingBottom: 6, marginTop: 2 }}>홍길동</div>
+                    </div>
+                    <button className="btn btn-solid" style={{ marginTop: 18, width: '100%', padding: '13px' }}>로그인 <Icon name="arrowR" size={14} /></button>
+                  </div>
+                  <ul style={{ fontSize: 13, lineHeight: 1.6, marginTop: 14, opacity: 0.7, paddingLeft: 18 }}>
+                    <li>Binary B/W chrome · color only in team dots</li>
+                    <li>Inter variable · weight stops 320/340/450/480/540</li>
+                    <li>50px pill buttons · dashed 2px focus</li>
+                    <li>Line icons only — zero emoji</li>
+                  </ul>
+                </div>
+              </div>
+            </DCArtboard>
+
+            <DCArtboard id="principles" label="System principles" width={420} height={520}>
+              <div style={{ padding: 28, background: '#fff', height: '100%', boxSizing: 'border-box' }}>
+                <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 11, letterSpacing: 0.6, opacity: 0.5, marginBottom: 14 }}>PRINCIPLES</div>
+                {[
+                  ['01', 'Chrome is binary.', 'Black, white, dashed borders. Color never touches a button, border, or label.'],
+                  ['02', 'Color means data.', 'Team dots, goal pings, own-goal red. If it isn\'t performance info, it isn\'t chroma.'],
+                  ['03', 'Pill + circle only.', 'All buttons → 50px pill. All icon buttons → perfect circle. No rounded-rectangles.'],
+                  ['04', 'Dashed is emphasis.', 'Focus rings, secondary states, "add team" affordance. The dash IS the attention.'],
+                  ['05', 'Weight is hierarchy.', 'Headlines at 400 with tight tracking; body at 340; labels at 480. The 540 → 700 jump is reserved.'],
+                ].map(([n, t, d]) => (
+                  <div key={n} style={{ display: 'flex', gap: 14, marginBottom: 14 }}>
+                    <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 11, letterSpacing: 0.5, opacity: 0.4, width: 20, paddingTop: 3 }}>{n}</div>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 16, fontWeight: 540, letterSpacing: -0.2 }}>{t}</div>
+                      <div style={{ fontSize: 13, fontWeight: 340, lineHeight: 1.45, opacity: 0.65, marginTop: 3 }}>{d}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </DCArtboard>
+          </DCSection>
+        </DesignCanvas>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
