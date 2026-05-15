@@ -91,8 +91,8 @@ export default function EventLog({ matchEvents, allEvents, matchId, homePlayers,
 
   // 수정 시 같은 팀 선수만 표시하기 위한 헬퍼
   const getTeamPlayers = (event) => {
-    if (event.type === "owngoal") {
-      // 자책골: 본인 팀 선수로 변경 가능
+    if (event.type === "owngoal" || event.type === "foul") {
+      // 자책골/반칙: 본인 팀 선수로 변경 가능
       return event.team === homeTeam ? homePlayers : awayPlayers;
     }
     // 일반 골: 득점 팀 선수
@@ -150,14 +150,20 @@ export default function EventLog({ matchEvents, allEvents, matchId, homePlayers,
                   #{String(localIdx + 1).padStart(2, "0")}
                 </span>
                 <div style={{ display: "inline-flex", alignItems: "center", gap: 6, flex: 1, flexWrap: "wrap", minWidth: 0 }}>
-                  <span style={{
-                    padding: "3px 8px", borderRadius: 6,
-                    background: e.type === "owngoal" ? "rgba(255,59,48,0.14)" : "rgba(52,199,89,0.18)",
-                    color: e.type === "owngoal" ? "var(--app-red)" : "var(--app-green)",
-                    fontSize: 12, fontWeight: 600,
-                  }}>
-                    {e.type === "owngoal" ? "🔴" : "⚽"} {e.player}
-                  </span>
+                  {(() => {
+                    const isFoul = e.type === "foul";
+                    const isOG = e.type === "owngoal";
+                    const bg = isOG ? "rgba(255,59,48,0.14)" : isFoul ? "rgba(234,179,8,0.18)" : "rgba(52,199,89,0.18)";
+                    const fg = isOG ? "var(--app-red)" : isFoul ? "#a16207" : "var(--app-green)";
+                    const icon = isOG ? "🔴" : isFoul ? "🟨" : "⚽";
+                    return (
+                      <span style={{
+                        padding: "3px 8px", borderRadius: 6,
+                        background: bg, color: fg,
+                        fontSize: 12, fontWeight: 600,
+                      }}>{icon} {e.player}</span>
+                    );
+                  })()}
                   {e.type === "goal" && e.assist && (
                     <span style={{
                       padding: "3px 8px", borderRadius: 6,
@@ -194,14 +200,17 @@ export default function EventLog({ matchEvents, allEvents, matchId, homePlayers,
                   onClick={(ev) => ev.stopPropagation()}>
                   <div style={{ marginBottom: 6 }}>
                     <div style={{ fontSize: 11, color: C.gray, marginBottom: 4 }}>
-                      {e.type === "goal" ? "골 선수" : "자책골 선수"} 변경
+                      {e.type === "goal" ? "골 선수" : e.type === "owngoal" ? "자책골 선수" : "반칙 선수"} 변경
                     </div>
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 3 }}>
                       {getTeamPlayers(e).map(p => (
                         <button key={p} onClick={() => {
                           const isHome = homePlayers.includes(p);
                           const updated = { ...e, player: p };
-                          if (e.type === "owngoal") {
+                          // owngoal/foul: 본인팀이 실점, 상대팀이 득점
+                          // goal: 본인팀이 득점, 상대팀이 실점
+                          const isSelfConcede = e.type === "owngoal" || e.type === "foul";
+                          if (isSelfConcede) {
                             updated.team = isHome ? homeTeam : awayTeam;
                             updated.scoringTeam = isHome ? awayTeam : homeTeam;
                             updated.concedingTeam = isHome ? homeTeam : awayTeam;
