@@ -112,13 +112,28 @@ export default function EventLog({ matchEvents, allEvents, matchId, homePlayers,
         {!readOnly && <span style={{ fontSize: 10, color: C.grayDark }}>← swipe · ✕</span>}
         {readOnly && <span style={{ fontSize: 10, color: C.orange }}>LOCKED</span>}
       </div>
+      {/* 팀 헤더 (좌: 홈, 우: 어웨이) */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4, marginBottom: 6 }}>
+        {[{ name: homeTeam, color: homeColor }, { name: awayTeam, color: awayColor }].map((t, i) => (
+          <div key={i} style={{
+            textAlign: "center", padding: "4px 0", borderRadius: 6,
+            background: `${t.color?.bg || (i === 0 ? "var(--app-blue)" : "var(--app-orange)")}14`,
+            color: t.color?.bg || (i === 0 ? "var(--app-blue)" : "var(--app-orange)"),
+            fontSize: 11, fontWeight: 700,
+          }}>{t.name}</div>
+        ))}
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4, alignItems: "start" }}>
       {matchEvents.map((e, localIdx) => {
         const globalIdx = e.id ? allEvents.findIndex(ae => ae.id === e.id) : allEvents.findIndex(ae => ae === e);
         const isEditing = editingEvent === globalIdx;
+        // 이벤트 소속 팀 = 행위자(player)의 팀. e.team이 정확함 (goal=본인팀, owngoal/foul=본인팀).
+        const isHomeSide = e.team === homeTeam;
+        const sideColor = isHomeSide ? (homeColor?.bg || "var(--app-blue)") : (awayColor?.bg || "var(--app-orange)");
 
         return (
+          <div key={localIdx} style={{ gridColumn: isHomeSide ? 1 : 2 }}>
           <SwipeableEvent
-            key={localIdx}
             onDelete={() => {
               if (readOnly) { alert("확정된 라운드입니다. 수정하려면 확정취소를 먼저 진행해주세요."); return; }
               onDeleteEvent(globalIdx); setEditingEvent(null);
@@ -129,12 +144,12 @@ export default function EventLog({ matchEvents, allEvents, matchId, homePlayers,
               style={{
                 ...s.eventLog,
                 flexDirection: "column", alignItems: "stretch",
-                padding: isEditing ? 12 : "10px 12px",
+                padding: isEditing ? 10 : "8px 10px",
                 background: isEditing ? C.card : "transparent",
                 border: isEditing ? `1px solid ${C.accent}` : "none",
                 borderBottom: isEditing ? `1px solid ${C.accent}` : `1px dashed ${C.grayDarker}`,
                 borderRadius: isEditing ? 12 : 0,
-                borderLeft: `3px solid ${e.scoringTeam === homeTeam ? (homeColor?.bg || "var(--app-blue)") : (awayColor?.bg || "var(--app-orange)")}`,
+                borderLeft: `3px solid ${sideColor}`,
                 paddingLeft: isEditing ? 10 : 10,
               }}
               onClick={() => {
@@ -142,14 +157,14 @@ export default function EventLog({ matchEvents, allEvents, matchId, homePlayers,
                 setEditingEvent(isEditing ? null : globalIdx);
               }}
             >
-              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                 <span style={{
                   fontSize: 10, color: "var(--app-text-tertiary)",
-                  width: 22, flexShrink: 0, fontVariantNumeric: "tabular-nums",
+                  flexShrink: 0, fontVariantNumeric: "tabular-nums",
                 }}>
                   #{String(localIdx + 1).padStart(2, "0")}
                 </span>
-                <div style={{ display: "inline-flex", alignItems: "center", gap: 6, flex: 1, flexWrap: "wrap", minWidth: 0 }}>
+                <div style={{ display: "inline-flex", alignItems: "center", gap: 4, flex: 1, flexWrap: "wrap", minWidth: 0 }}>
                   {(() => {
                     const isFoul = e.type === "foul";
                     const isOG = e.type === "owngoal";
@@ -158,7 +173,7 @@ export default function EventLog({ matchEvents, allEvents, matchId, homePlayers,
                     const icon = isOG ? "🔴" : isFoul ? "🟨" : "⚽";
                     return (
                       <span style={{
-                        padding: "3px 8px", borderRadius: 6,
+                        padding: "3px 7px", borderRadius: 6,
                         background: bg, color: fg,
                         fontSize: 12, fontWeight: 600,
                       }}>{icon} {e.player}</span>
@@ -166,30 +181,24 @@ export default function EventLog({ matchEvents, allEvents, matchId, homePlayers,
                   })()}
                   {e.type === "goal" && e.assist && (
                     <span style={{
-                      padding: "3px 8px", borderRadius: 6,
+                      padding: "3px 7px", borderRadius: 6,
                       background: "rgba(0,122,255,0.18)", color: "var(--app-blue)",
                       fontSize: 12, fontWeight: 600,
                     }}>🅰 {e.assist}</span>
                   )}
                   {e.concedingGk && (
                     <span style={{
-                      padding: "3px 8px", borderRadius: 6,
+                      padding: "3px 7px", borderRadius: 6,
                       background: "var(--app-bg-row-hover)", color: "var(--app-text-secondary)",
-                      fontSize: 12, fontWeight: 500,
+                      fontSize: 11, fontWeight: 500,
                     }}>🧤 {e.concedingGk}{e.type === "owngoal" ? "·2" : ""}</span>
                   )}
                 </div>
-                <span style={{
-                  padding: "2px 7px", borderRadius: 6,
-                  background: `${e.scoringTeam === homeTeam ? (homeColor?.bg || "var(--app-blue)") : (awayColor?.bg || "var(--app-orange)")}22`,
-                  color: e.scoringTeam === homeTeam ? (homeColor?.bg || "var(--app-blue)") : (awayColor?.bg || "var(--app-orange)"),
-                  fontSize: 11, fontWeight: 700, flexShrink: 0,
-                }}>{e.scoringTeam}</span>
                 {!readOnly && <button
                   onClick={(ev) => { ev.stopPropagation(); onDeleteEvent(globalIdx); setEditingEvent(null); }}
                   style={{
                     background: `${C.red}30`, border: "none", borderRadius: 4,
-                    color: C.red, fontSize: 10, fontWeight: 700, padding: "2px 6px",
+                    color: C.red, fontSize: 10, fontWeight: 700, padding: "2px 5px",
                     cursor: "pointer", flexShrink: 0, lineHeight: 1.2,
                   }}
                 >✕</button>}
@@ -251,8 +260,10 @@ export default function EventLog({ matchEvents, allEvents, matchId, homePlayers,
               )}
             </div>
           </SwipeableEvent>
+          </div>
         );
       })}
+      </div>
     </div>
   );
 }
