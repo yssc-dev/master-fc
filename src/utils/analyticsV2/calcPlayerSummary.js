@@ -11,9 +11,12 @@
 // - fieldConceded = (출전 매치의 자기팀 실점 합) - conceded(GK)
 // - is_extra=true 매치는 모든 카운트에서 제외
 
+// ★ 휴식 매치는 본인이 안 뛴 매치이므로 모든 카운트(rounds/matches/wins...)에서 제외
+//   our_members_json이 배열/객체 두 형식 모두 수용, actual(출전자)만 반영
+import { parseActualPlayers } from './parseMembers';
+
 function safeParseArray(s) {
-  try { const v = JSON.parse(s); return Array.isArray(v) ? v : []; }
-  catch { return []; }
+  return parseActualPlayers(s);
 }
 
 export function calcPlayerSummary({ matchLogs = [], eventLogs = [], playerGameLogs = [] } = {}) {

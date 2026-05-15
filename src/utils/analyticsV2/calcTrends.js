@@ -1,4 +1,7 @@
 // 선수의 최근 세션 트렌드: 경기당 득점/어시, 팀승률 + 이동평균
+// ★ 휴식 매치는 본인이 안 뛴 매치이므로 카운트에서 제외 (actualPlayers 사용)
+import { parseActualPlayers } from './parseMembers';
+
 export function calcTrends({ playerName, playerLogs, matchLogs, maxSessions = 12, smoothWindow = 3 }) {
   if (!playerName || !playerLogs || !matchLogs) return { points: [], smoothed: [] };
 
@@ -9,11 +12,12 @@ export function calcTrends({ playerName, playerLogs, matchLogs, maxSessions = 12
 
   const sessionMatches = {};
   for (const m of matchLogs) {
-    let members;
-    try { members = JSON.parse(m.our_members_json || '[]'); } catch { continue; }
-    if (!members.includes(playerName)) continue;
+    // home/away 양쪽에서 실제 출전한 매치만 카운트 (휴식 제외)
+    const homeActual = parseActualPlayers(m.our_members_json);
+    const awayActual = parseActualPlayers(m.opponent_members_json);
+    if (!homeActual.includes(playerName) && !awayActual.includes(playerName)) continue;
     if (!sessionMatches[m.date]) sessionMatches[m.date] = [];
-    sessionMatches[m.date].push(m);
+    sessionMatches[m.date].push({ ...m, _playerSide: homeActual.includes(playerName) ? 'home' : 'away' });
   }
 
   const points = playerSessions.map(p => {
@@ -23,8 +27,11 @@ export function calcTrends({ playerName, playerLogs, matchLogs, maxSessions = 12
     for (const m of matches) {
       const our = Number(m.our_score) || 0;
       const opp = Number(m.opponent_score) || 0;
-      if (our > opp) wins++;
-      else if (our === opp) draws++;
+      // 본인이 어웨이 쪽에 있었으면 승률은 opp - our 기준으로 뒤집어 평가
+      const myScore = m._playerSide === 'away' ? opp : our;
+      const oppScore = m._playerSide === 'away' ? our : opp;
+      if (myScore > oppScore) wins++;
+      else if (myScore === oppScore) draws++;
     }
     const winRate = total > 0 ? (wins + 0.5 * draws) / total : 0;
     const gpg = total > 0 ? (p.goals || 0) / total : 0;
