@@ -25,11 +25,30 @@ describe('calcMonthlyRanking', () => {
     expect(r.assists[0]).toEqual({ player: 'B', value: 3 });
   });
 
-  it('winRate uses only that month matches and includes games', () => {
-    const r = calcMonthlyRanking({ yearMonth: '2026-01', playerLogs, matchLogs });
+  it('winRate uses only that month matches and includes games (min games 0)', () => {
+    const r = calcMonthlyRanking({ yearMonth: '2026-01', playerLogs, matchLogs, winRateMinGames: 0 });
     const a = r.winRate.find(x => x.player === 'A');
     expect(a.games).toBe(2);
     expect(a.value).toBeCloseTo(0.5, 5);
+  });
+
+  it('winRate filters out players below min games threshold (default 5)', () => {
+    // A has 2 games, B has 1 game → 둘 다 제외 (기본 minGames=5)
+    const r = calcMonthlyRanking({ yearMonth: '2026-01', playerLogs, matchLogs });
+    expect(r.winRate).toEqual([]);
+  });
+
+  it('winRate includes player only when games >= winRateMinGames', () => {
+    const ml = [
+      { date: '2026-01-01', our_members_json: '["A"]', our_score: 1, opponent_score: 0 },
+      { date: '2026-01-02', our_members_json: '["A"]', our_score: 1, opponent_score: 0 },
+      { date: '2026-01-03', our_members_json: '["A","B"]', our_score: 1, opponent_score: 0 },
+      { date: '2026-01-04', our_members_json: '["A","B"]', our_score: 1, opponent_score: 0 },
+      { date: '2026-01-05', our_members_json: '["A","B"]', our_score: 0, opponent_score: 1 },
+    ];
+    const r = calcMonthlyRanking({ yearMonth: '2026-01', playerLogs: [], matchLogs: ml });
+    expect(r.winRate.find(x => x.player === 'A')?.games).toBe(5);
+    expect(r.winRate.find(x => x.player === 'B')).toBeUndefined(); // 3경기라 제외
   });
 
   it('respects topN', () => {

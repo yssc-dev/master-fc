@@ -1,5 +1,6 @@
 // 특정 YYYY-MM 기준 득점/어시/승률 TOP N
-export function calcMonthlyRanking({ yearMonth, playerLogs, matchLogs, topN = 5 }) {
+// winRateMinGames: 승률 랭킹에 노출되기 위한 최소 경기 수 (표본 신뢰도)
+export function calcMonthlyRanking({ yearMonth, playerLogs, matchLogs, topN = 5, winRateMinGames = 5 }) {
   if (!yearMonth) return { goals: [], assists: [], winRate: [] };
 
   const inMonth = (d) => typeof d === 'string' && d.startsWith(yearMonth + '-');
@@ -27,16 +28,17 @@ export function calcMonthlyRanking({ yearMonth, playerLogs, matchLogs, topN = 5 
     }
   }
 
-  const toList = (map, valueFn) =>
+  const toList = (map, valueFn, minGames = 0) =>
     Object.entries(map)
       .map(([player, v]) => ({ player, ...valueFn(v) }))
-      .filter(x => x.value > 0 || x.games > 0)
+      .filter(x => (x.games == null ? x.value > 0 : x.games >= minGames))
       .sort((a, b) => b.value - a.value || a.player.localeCompare(b.player, 'ko'))
       .slice(0, topN);
 
   return {
     goals: toList(goalsMap, v => ({ value: v })),
     assists: toList(assistsMap, v => ({ value: v })),
-    winRate: toList(winMap, v => ({ value: (v.wins + 0.5 * v.draws) / v.games, games: v.games })),
+    // 승률은 표본 신뢰도를 위해 최소 winRateMinGames경기 이상만 랭킹 (기본 5)
+    winRate: toList(winMap, v => ({ value: (v.wins + 0.5 * v.draws) / v.games, games: v.games }), winRateMinGames),
   };
 }
