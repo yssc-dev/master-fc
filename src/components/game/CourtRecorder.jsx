@@ -54,15 +54,21 @@ function MercPicker({ side, candidates, opposingPlayers, teamName, onAdd, onClos
 
 // Apple UIMenu-style: uniform neutral; 골은 primary(blue filled), active는 blue text
 const popoverBtn = ({ primary = false, active = false, disabled = false, subtle = false, isLast = false } = {}) => {
+  // 모든 버튼이 동일한 padding/box를 사용해야 grid 컬럼이 시각적으로도 정렬됨.
+  const base = {
+    padding: "8px 6px",
+    border: "none",
+    fontSize: 13, fontWeight: active || primary ? 600 : 500, letterSpacing: "-0.01em",
+    cursor: disabled ? "not-allowed" : "pointer",
+    fontFamily: "inherit",
+    minWidth: 0, whiteSpace: "nowrap",
+    transition: "background 0.1s",
+  };
   if (primary) {
     return {
-      padding: "8px 10px",
+      ...base,
       background: "var(--app-blue)", color: "#fff",
-      border: "none",
       borderRight: isLast ? "none" : "0.5px solid rgba(255,255,255,0.2)",
-      fontSize: 13, fontWeight: 600, letterSpacing: "-0.01em",
-      cursor: "pointer", fontFamily: "inherit",
-      flex: 1, minWidth: 0, whiteSpace: "nowrap",
     };
   }
   const color = disabled ? "var(--app-text-tertiary)"
@@ -70,18 +76,11 @@ const popoverBtn = ({ primary = false, active = false, disabled = false, subtle 
               : subtle ? "var(--app-text-secondary)"
               : "var(--app-text-primary)";
   return {
-    padding: "8px 6px",
+    ...base,
     background: "transparent",
     color,
-    border: "none",
     borderRight: isLast ? "none" : "0.5px solid var(--app-divider)",
-    fontSize: 13, fontWeight: active ? 600 : 500, letterSpacing: "-0.01em",
-    cursor: disabled ? "not-allowed" : "pointer",
     opacity: disabled ? 0.4 : 1,
-    fontFamily: "inherit",
-    flex: 1, minWidth: 0,
-    whiteSpace: "nowrap",
-    transition: "background 0.1s",
   };
 };
 
@@ -441,7 +440,7 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
               overflow: "hidden",
             }}>
               {/* Row 1: 골 / 어시 / GK */}
-              <div style={{ display: "flex", borderBottom: "0.5px solid var(--app-divider)" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", borderBottom: "0.5px solid var(--app-divider)" }}>
                 <button
                   onClick={(e) => { e.stopPropagation(); applyGoalRole(player, isHome); setOpenPopover(null); }}
                   style={popoverBtn({ primary: !isScorer, active: isScorer })}
@@ -456,7 +455,7 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
                 >{isGk ? "✓ 🧤 GK" : "🧤 GK"}</button>
               </div>
               {/* Row 2: 자책 / 반칙 / 휴식 */}
-              <div style={{ display: "flex" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)" }}>
                 <button
                   onClick={(e) => { e.stopPropagation(); applyOwnGoalRole(player); setOpenPopover(null); }}
                   style={popoverBtn()}
