@@ -124,15 +124,17 @@ export default function EventLog({ matchEvents, allEvents, matchId, homePlayers,
         ))}
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4, alignItems: "start" }}>
-      {matchEvents.map((e, localIdx) => {
+      {[true, false].map((isHomeColumn) => (
+        <div key={isHomeColumn ? "home" : "away"} style={{ display: "flex", flexDirection: "column" }}>
+        {matchEvents.map((e, localIdx) => {
+        const isHomeSide = e.team === homeTeam;
+        if (isHomeSide !== isHomeColumn) return null;
         const globalIdx = e.id ? allEvents.findIndex(ae => ae.id === e.id) : allEvents.findIndex(ae => ae === e);
         const isEditing = editingEvent === globalIdx;
-        // 이벤트 소속 팀 = 행위자(player)의 팀. e.team이 정확함 (goal=본인팀, owngoal/foul=본인팀).
-        const isHomeSide = e.team === homeTeam;
         const sideColor = isHomeSide ? (homeColor?.bg || "var(--app-blue)") : (awayColor?.bg || "var(--app-orange)");
 
         return (
-          <div key={localIdx} style={{ gridColumn: isHomeSide ? 1 : 2 }}>
+          <div key={localIdx}>
           <SwipeableEvent
             onDelete={() => {
               if (readOnly) { alert("확정된 라운드입니다. 수정하려면 확정취소를 먼저 진행해주세요."); return; }
@@ -157,14 +159,14 @@ export default function EventLog({ matchEvents, allEvents, matchId, homePlayers,
                 setEditingEvent(isEditing ? null : globalIdx);
               }}
             >
-              <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 4, flexWrap: "nowrap", minWidth: 0 }}>
                 <span style={{
                   fontSize: 10, color: "var(--app-text-tertiary)",
                   flexShrink: 0, fontVariantNumeric: "tabular-nums",
                 }}>
                   #{String(localIdx + 1).padStart(2, "0")}
                 </span>
-                <div style={{ display: "inline-flex", alignItems: "center", gap: 4, flex: 1, flexWrap: "wrap", minWidth: 0 }}>
+                <div style={{ display: "inline-flex", alignItems: "center", gap: 3, flex: 1, flexWrap: "nowrap", minWidth: 0, overflow: "hidden" }}>
                   {(() => {
                     const isFoul = e.type === "foul";
                     const isOG = e.type === "owngoal";
@@ -173,24 +175,27 @@ export default function EventLog({ matchEvents, allEvents, matchId, homePlayers,
                     const icon = isOG ? "🔴" : isFoul ? "🟨" : "⚽";
                     return (
                       <span style={{
-                        padding: "3px 7px", borderRadius: 6,
+                        padding: "2px 5px", borderRadius: 6,
                         background: bg, color: fg,
-                        fontSize: 12, fontWeight: 600,
+                        fontSize: 11, fontWeight: 600,
+                        whiteSpace: "nowrap",
                       }}>{icon} {e.player}</span>
                     );
                   })()}
                   {e.type === "goal" && e.assist && (
                     <span style={{
-                      padding: "3px 7px", borderRadius: 6,
+                      padding: "2px 5px", borderRadius: 6,
                       background: "rgba(0,122,255,0.18)", color: "var(--app-blue)",
-                      fontSize: 12, fontWeight: 600,
+                      fontSize: 11, fontWeight: 600,
+                      whiteSpace: "nowrap",
                     }}>🅰 {e.assist}</span>
                   )}
                   {e.concedingGk && (
                     <span style={{
-                      padding: "3px 7px", borderRadius: 6,
-                      background: "var(--app-bg-row-hover)", color: "var(--app-text-secondary)",
-                      fontSize: 11, fontWeight: 500,
+                      padding: "2px 5px", borderRadius: 6,
+                      background: "rgba(255,59,48,0.12)", color: "var(--app-red)",
+                      fontSize: 11, fontWeight: 600,
+                      whiteSpace: "nowrap",
                     }}>🧤 {e.concedingGk}{e.type === "owngoal" ? "·2" : ""}</span>
                   )}
                 </div>
@@ -263,6 +268,8 @@ export default function EventLog({ matchEvents, allEvents, matchId, homePlayers,
           </div>
         );
       })}
+      </div>
+      ))}
       </div>
     </div>
   );
