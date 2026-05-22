@@ -125,7 +125,7 @@ export default function EventLog({ matchEvents, allEvents, matchId, homePlayers,
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4, alignItems: "start" }}>
       {[true, false].map((isHomeColumn) => (
-        <div key={isHomeColumn ? "home" : "away"} style={{ display: "flex", flexDirection: "column" }}>
+        <div key={isHomeColumn ? "home" : "away"} style={{ display: "flex", flexDirection: "column", minWidth: 0, overflow: "hidden" }}>
         {matchEvents.map((e, localIdx) => {
         const isHomeSide = e.team === homeTeam;
         if (isHomeSide !== isHomeColumn) return null;
@@ -134,7 +134,7 @@ export default function EventLog({ matchEvents, allEvents, matchId, homePlayers,
         const sideColor = isHomeSide ? (homeColor?.bg || "var(--app-blue)") : (awayColor?.bg || "var(--app-orange)");
 
         return (
-          <div key={localIdx}>
+          <div key={localIdx} style={{ minWidth: 0 }}>
           <SwipeableEvent
             onDelete={() => {
               if (readOnly) { alert("확정된 라운드입니다. 수정하려면 확정취소를 먼저 진행해주세요."); return; }
@@ -159,14 +159,14 @@ export default function EventLog({ matchEvents, allEvents, matchId, homePlayers,
                 setEditingEvent(isEditing ? null : globalIdx);
               }}
             >
-              <div style={{ display: "flex", alignItems: "center", gap: 4, flexWrap: "nowrap", minWidth: 0 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 3, flexWrap: "nowrap", minWidth: 0, width: "100%" }}>
                 <span style={{
-                  fontSize: 10, color: "var(--app-text-tertiary)",
+                  fontSize: 9, color: "var(--app-text-tertiary)",
                   flexShrink: 0, fontVariantNumeric: "tabular-nums",
                 }}>
                   #{String(localIdx + 1).padStart(2, "0")}
                 </span>
-                <div style={{ display: "inline-flex", alignItems: "center", gap: 3, flex: 1, flexWrap: "nowrap", minWidth: 0, overflow: "hidden" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 2, flex: 1, flexWrap: "nowrap", minWidth: 0, overflow: "hidden" }}>
                   {(() => {
                     const isFoul = e.type === "foul";
                     const isOG = e.type === "owngoal";
@@ -175,38 +175,33 @@ export default function EventLog({ matchEvents, allEvents, matchId, homePlayers,
                     const icon = isOG ? "🔴" : isFoul ? "🟨" : "⚽";
                     return (
                       <span style={{
-                        padding: "2px 5px", borderRadius: 6,
+                        padding: "1px 4px", borderRadius: 5,
                         background: bg, color: fg,
-                        fontSize: 11, fontWeight: 600,
-                        whiteSpace: "nowrap",
-                      }}>{icon} {e.player}</span>
+                        fontSize: 10, fontWeight: 600,
+                        whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+                        minWidth: 0, flexShrink: 1,
+                      }}>{icon}{e.player}</span>
                     );
                   })()}
                   {e.type === "goal" && e.assist && (
                     <span style={{
-                      padding: "2px 5px", borderRadius: 6,
+                      padding: "1px 4px", borderRadius: 5,
                       background: "rgba(0,122,255,0.18)", color: "var(--app-blue)",
-                      fontSize: 11, fontWeight: 600,
-                      whiteSpace: "nowrap",
-                    }}>🅰 {e.assist}</span>
+                      fontSize: 10, fontWeight: 600,
+                      whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+                      minWidth: 0, flexShrink: 1,
+                    }}>🅰{e.assist}</span>
                   )}
                   {e.concedingGk && (
                     <span style={{
-                      padding: "2px 5px", borderRadius: 6,
+                      padding: "1px 4px", borderRadius: 5,
                       background: "rgba(255,59,48,0.12)", color: "var(--app-red)",
-                      fontSize: 11, fontWeight: 600,
-                      whiteSpace: "nowrap",
-                    }}>🧤 {e.concedingGk}{e.type === "owngoal" ? "·2" : ""}</span>
+                      fontSize: 10, fontWeight: 600,
+                      whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+                      minWidth: 0, flexShrink: 1,
+                    }}>🧤{e.concedingGk}{e.type === "owngoal" ? "·2" : ""}</span>
                   )}
                 </div>
-                {!readOnly && <button
-                  onClick={(ev) => { ev.stopPropagation(); onDeleteEvent(globalIdx); setEditingEvent(null); }}
-                  style={{
-                    background: `${C.red}30`, border: "none", borderRadius: 4,
-                    color: C.red, fontSize: 10, fontWeight: 700, padding: "2px 5px",
-                    cursor: "pointer", flexShrink: 0, lineHeight: 1.2,
-                  }}
-                >✕</button>}
               </div>
 
               {isEditing && (
