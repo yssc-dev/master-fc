@@ -92,6 +92,39 @@ function parseSoccerCSV(text) {
   return players.filter(p => seen.has(p.name) ? false : (seen.add(p.name), true));
 }
 
+// 대시보드의 "vs 상대팀명" 표에서 상대팀명 + 경기수 추출 (경기수순 정렬)
+export function parseSoccerOpponents(text) {
+  if (!text) return [];
+  const lines = text.split('\n');
+  // "상대팀명" 포함 헤더 셀 탐지
+  let hRow = -1, hCol = -1;
+  for (let i = 0; i < lines.length; i++) {
+    const f = parseCSVLine(lines[i]);
+    const idx = f.findIndex(c => c.replace(/\s/g, '').includes('상대팀명'));
+    if (idx >= 0) { hRow = i; hCol = idx; break; }
+  }
+  if (hRow < 0) return [];
+  // 같은 헤더 행에서 "경기" 열 탐지 (hCol 이후), 없으면 hCol+1
+  const hf = parseCSVLine(lines[hRow]);
+  let gamesCol = -1;
+  for (let c = hCol + 1; c < hf.length; c++) {
+    if (hf[c].trim() === '경기') { gamesCol = c; break; }
+  }
+  if (gamesCol < 0) gamesCol = hCol + 1;
+  const out = [];
+  const seen = new Set();
+  for (let i = hRow + 1; i < lines.length; i++) {
+    const f = parseCSVLine(lines[i]);
+    const name = (f[hCol] || '').trim();
+    if (!name) break;                  // 상대팀 열이 비면 표 끝
+    if (name.includes('상대팀명')) continue;
+    if (seen.has(name)) continue;
+    seen.add(name);
+    out.push({ name, games: parseInt(f[gamesCol]) || 0 });
+  }
+  return out.sort((a, b) => b.games - a.games);
+}
+
 export async function fetchSheetData() {
   const auth = AuthUtil.getStored();
   const team = auth?.team;
