@@ -10,7 +10,7 @@ import FormationRecorder from './FormationRecorder';
 export default function SoccerMatchView({
   soccerMatches, currentMatchIdx, attendees, opponents,
   onCreateMatch, onAddEvent, onDeleteEvent, onFinishMatch,
-  onAddOpponent, onGoToSummary, gameSettings, styles: s,
+  onAddOpponent, onRemoveOpponent, onRenameOpponent, onGoToSummary, gameSettings, styles: s,
   savedFormation, onFormationChange,
 }) {
   const { C } = useTheme();
@@ -201,7 +201,8 @@ export default function SoccerMatchView({
         <div style={{ fontSize: 14, fontWeight: 700, color: C.white, marginBottom: 10 }}>
           {finishedMatches.length > 0 ? `제${finishedMatches.length + 1}경기` : "경기 생성"}
         </div>
-        <OpponentSelector opponents={opponents} onSelect={handleOpponentSelect} onAddOpponent={onAddOpponent} styles={s} />
+        <OpponentSelector opponents={opponents} onSelect={handleOpponentSelect} onAddOpponent={onAddOpponent}
+          onRemoveOpponent={onRemoveOpponent} onRenameOpponent={onRenameOpponent} styles={s} />
         <button onClick={() => {
           if (!confirm("이번 라운드를 휴식으로 처리하시겠습니까?")) return;
           onCreateMatch({ opponent: "휴식", lineup: [], gk: "", defenders: [] });
