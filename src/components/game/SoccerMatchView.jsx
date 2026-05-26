@@ -6,12 +6,14 @@ import OpponentSelector from './OpponentSelector';
 import RosterSelector from './RosterSelector';
 import FormationSetup from './FormationSetup';
 import FormationRecorder from './FormationRecorder';
+import AttendeeSelector from './AttendeeSelector';
 
 export default function SoccerMatchView({
   soccerMatches, currentMatchIdx, attendees, opponents,
   onCreateMatch, onAddEvent, onDeleteEvent, onFinishMatch,
   onAddOpponent, onRemoveOpponent, onRenameOpponent, onGoToSummary, gameSettings, styles: s,
   savedFormation, onFormationChange,
+  sortedPlayers, playerSortMode, rosterHandlers,
 }) {
   const { C } = useTheme();
 
@@ -59,7 +61,7 @@ export default function SoccerMatchView({
     setMatchFormation(mf);
     const lineup = Object.values(assignments);
     const defenders = Object.entries(positionMap).filter(([, r]) => r === "DF").map(([n]) => n);
-    onCreateMatch({ opponent: selectedOpponent, lineup, gk, defenders });
+    onCreateMatch({ opponent: selectedOpponent, lineup, gk, defenders, subs });
     setViewState("playing");
     setViewingMatchIdx(null);
     saveFormationState({ viewState: "playing", matchFormation: mf });
@@ -179,6 +181,19 @@ export default function SoccerMatchView({
     );
   }
 
+  if (viewState === "editRoster") {
+    return (
+      <div>
+        <button onClick={() => setViewState("selectOpponent")} style={{ marginBottom: 10, padding: "6px 14px", borderRadius: 8, background: C.grayDark, color: C.white, border: "none", fontSize: 12, cursor: "pointer" }}>← 완료</button>
+        <div style={{ fontSize: 13, fontWeight: 700, color: C.white, marginBottom: 4 }}>참석명단 수정</div>
+        <div style={{ fontSize: 11, color: C.gray, marginBottom: 10 }}>변경은 다음 경기부터 반영됩니다. (진행/종료된 경기는 그대로)</div>
+        <AttendeeSelector
+          attendees={attendees} sortedPlayers={sortedPlayers || []} playerSortMode={playerSortMode}
+          {...rosterHandlers} styles={s} />
+      </div>
+    );
+  }
+
   // 상대팀 선택 (기본)
   return (
     <div>
@@ -200,6 +215,12 @@ export default function SoccerMatchView({
       <div style={{ ...s.card }}>
         <div style={{ fontSize: 14, fontWeight: 700, color: C.white, marginBottom: 10 }}>
           {finishedMatches.length > 0 ? `제${finishedMatches.length + 1}경기` : "경기 생성"}
+        </div>
+        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
+          <button onClick={() => setViewState("editRoster")}
+            style={{ fontSize: 12, padding: "4px 10px", borderRadius: 6, background: C.grayDark, color: C.white, border: "none", cursor: "pointer" }}>
+            👥 명단 수정 ({attendees.length})
+          </button>
         </div>
         <OpponentSelector opponents={opponents} onSelect={handleOpponentSelect} onAddOpponent={onAddOpponent}
           onRemoveOpponent={onRemoveOpponent} onRenameOpponent={onRenameOpponent} styles={s} />

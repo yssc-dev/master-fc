@@ -445,6 +445,17 @@ export default function SoccerApp({ authUser, teamContext, isNewGame, gameMode, 
             attendees={attendees} opponents={state.opponents || []}
             opponentSuggestions={opponentSuggestions}
             onRemoveOpponent={removeOpponent} onRenameOpponent={renameOpponent}
+            sortedPlayers={sortedPlayers} playerSortMode={playerSortMode}
+            rosterHandlers={{
+              onSyncSheet: syncAttendance,
+              onToggle: (name) => dispatch({ type: 'TOGGLE_ATTENDEE', name }),
+              onSetAll: (names) => dispatch({ type: 'SET_ATTENDEES', attendees: names }),
+              onClear: () => set('attendees', []),
+              onToggleSort: () => set('playerSortMode', playerSortMode === "point" ? "name" : "point"),
+              onAddManual: (name) => dispatch({ type: 'SET_FIELDS', fields: { attendees: [...attendees, name], newPlayer: "" } }),
+              newPlayer, onNewPlayerChange: (v) => set('newPlayer', v),
+              attendanceLoading,
+            }}
             onCreateMatch={createSoccerMatch} onAddEvent={addSoccerEvent}
             onDeleteEvent={deleteSoccerEvent} onFinishMatch={finishSoccerMatch}
             onAddOpponent={addOpponent} onGoToSummary={() => set('phase', 'summary')}
