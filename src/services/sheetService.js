@@ -151,7 +151,9 @@ export async function fetchSheetData() {
     });
   }
 
-  return { lastUpdated: new Date().toISOString().slice(0, 10), players, keepers, seasonCrova: {}, seasonGoguma: {} };
+  const opponents = mode === "축구" ? parseSoccerOpponents(text) : [];
+
+  return { lastUpdated: new Date().toISOString().slice(0, 10), players, keepers, opponents, seasonCrova: {}, seasonGoguma: {} };
 }
 
 export async function fetchAttendanceData() {
