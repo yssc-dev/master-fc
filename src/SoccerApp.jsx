@@ -10,6 +10,7 @@ import { makeStyles } from './styles/theme';
 import PhaseIndicator from './components/common/PhaseIndicator';
 import Modal from './components/common/Modal';
 import SoccerMatchView from './components/game/SoccerMatchView';
+import AttendeeSelector from './components/game/AttendeeSelector';
 import {
   calcSoccerPlayerStats, calcSoccerPlayerPoint, calcSoccerScore,
   getCleanSheetPlayers, buildEventLogRows, buildPointLogRows, buildPlayerLogRows,
@@ -324,32 +325,17 @@ export default function SoccerApp({ authUser, teamContext, isNewGame, gameMode, 
         <PhaseIndicator activeIndex={0} />
         <div style={s.section}>
           <div style={s.sectionTitle}>👥 참석자 선택 <span style={{ fontSize: 12, fontWeight: 400, color: C.gray }}>({attendees.length}명)</span></div>
-          <div style={{ ...s.row, marginBottom: 10, flexWrap: "wrap" }}>
-            <button onClick={syncAttendance} disabled={attendanceLoading} style={{ ...s.btnSm("#22c55e"), opacity: attendanceLoading ? 0.6 : 1 }}>
-              {attendanceLoading ? "연동 중..." : "📋 시트 연동"}
-            </button>
-            <button onClick={() => dispatch({ type: 'SET_ATTENDEES', attendees: sortedPlayers.filter(p => p.games > 0).map(p => p.name) })} style={s.btnSm(C.grayDark)}>활동선수 전체</button>
-            <button onClick={() => set('attendees', [])} style={s.btnSm(C.grayDark)}>초기화</button>
-            <button onClick={() => set('playerSortMode', playerSortMode === "point" ? "name" : "point")}
-              style={s.btnSm(C.accentDim, C.white)}>
-              {playerSortMode === "point" ? "포인트순" : "이름순"}
-            </button>
-          </div>
-          <div style={s.card}>
-            <div style={{ display: "flex", flexWrap: "wrap" }}>
-              {sortedPlayers.map(p => (
-                <div key={p.name} onClick={() => dispatch({ type: 'TOGGLE_ATTENDEE', name: p.name })} style={s.chip(attendees.includes(p.name))}>
-                  <span>{p.name}</span><span style={{ fontSize: 10, opacity: 0.7 }}>{p.point}p</span>
-                </div>
-              ))}
-            </div>
-          </div>
-          <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-            <input style={s.input} placeholder="새 선수 이름" value={newPlayer} onChange={e => set('newPlayer', e.target.value)} onKeyDown={e => {
-              if (e.key === "Enter") { const name = newPlayer.trim(); if (name && !attendees.includes(name)) { dispatch({ type: 'SET_FIELDS', fields: { attendees: [...attendees, name], newPlayer: "" } }); } }
-            }} />
-            <button onClick={() => { const name = newPlayer.trim(); if (name && !attendees.includes(name)) { dispatch({ type: 'SET_FIELDS', fields: { attendees: [...attendees, name], newPlayer: "" } }); } }} style={s.btn(C.green)}>추가</button>
-          </div>
+          <AttendeeSelector
+            attendees={attendees} sortedPlayers={sortedPlayers} playerSortMode={playerSortMode}
+            onSyncSheet={syncAttendance}
+            onToggle={(name) => dispatch({ type: 'TOGGLE_ATTENDEE', name })}
+            onSetAll={(names) => dispatch({ type: 'SET_ATTENDEES', attendees: names })}
+            onClear={() => set('attendees', [])}
+            onToggleSort={() => set('playerSortMode', playerSortMode === "point" ? "name" : "point")}
+            onAddManual={(name) => dispatch({ type: 'SET_FIELDS', fields: { attendees: [...attendees, name], newPlayer: "" } })}
+            newPlayer={newPlayer} onNewPlayerChange={(v) => set('newPlayer', v)}
+            attendanceLoading={attendanceLoading} styles={s}
+          />
         </div>
         <div style={s.bottomBar}>
           <button onClick={() => dispatch({ type: 'START_MATCHES', schedule: null, pushState: null })}
