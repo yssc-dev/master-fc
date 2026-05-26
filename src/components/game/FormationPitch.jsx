@@ -1,7 +1,7 @@
 import { useTheme } from '../../hooks/useTheme';
 import { ROLE_COLORS } from '../../utils/formations';
 
-export default function FormationPitch({ positions, assignments = {}, onPlayerTap, onEmptyTap, highlightIdx, size = 340 }) {
+export default function FormationPitch({ positions, assignments = {}, onPlayerTap, onEmptyTap, highlightIdx, pendingPlayer, size = 340 }) {
   const { C } = useTheme();
   const h = size * 1.45;
   const pad = 8;
@@ -31,10 +31,10 @@ export default function FormationPitch({ positions, assignments = {}, onPlayerTa
             <div style={{
               width: 32, height: 32, borderRadius: "50%",
               background: hasPlayer ? roleColor + "cc" : "rgba(255,255,255,0.15)",
-              border: isHighlight ? "3px solid #fff" : `2px solid ${hasPlayer ? roleColor : "rgba(255,255,255,0.3)"}`,
+              border: isHighlight ? "3px solid #fff" : (!hasPlayer && pendingPlayer) ? `2px solid ${C.accent}` : `2px solid ${hasPlayer ? roleColor : "rgba(255,255,255,0.3)"}`,
               display: "flex", alignItems: "center", justifyContent: "center",
               fontSize: 9, fontWeight: 800, color: "#fff",
-              boxShadow: isHighlight ? "0 0 12px rgba(255,255,255,0.5)" : hasPlayer ? `0 2px 6px ${roleColor}44` : "none",
+              boxShadow: isHighlight ? "0 0 12px rgba(255,255,255,0.5)" : (!hasPlayer && pendingPlayer) ? `0 0 8px ${C.accent}88` : hasPlayer ? `0 2px 6px ${roleColor}44` : "none",
               transition: "all 0.15s",
             }}>
               {hasPlayer ? player.slice(-2) : pos.role}
