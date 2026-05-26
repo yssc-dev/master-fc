@@ -763,10 +763,11 @@ function gameReducer(state, action) {
       };
     }
     case 'CREATE_SOCCER_MATCH': {
-      const { opponent, lineup, gk, defenders } = action;
+      const { opponent, lineup, gk, defenders, subs } = action;
       const newMatch = {
         matchIdx: state.soccerMatches.length,
         opponent, lineup, gk, defenders,
+        subs: subs || [],
         events: [],
         startedAt: Date.now(),
         ourScore: 0, opponentScore: 0,
