@@ -7,7 +7,8 @@ export default function FormationSetup({ selectedPlayers, onConfirm, onBack, tit
   const { C } = useTheme();
   const [formation, setFormation] = useState("4-4-2");
   const [assignments, setAssignments] = useState({});
-  const [selectingPos, setSelectingPos] = useState(null);
+  const [selectingPos, setSelectingPos] = useState(null);   // 선택된 빈 슬롯
+  const [selectedPlayer, setSelectedPlayer] = useState(null); // 선택된 선수
 
   const formData = FORMATIONS[formation];
   const assignedNames = new Set(Object.values(assignments));
@@ -15,16 +16,38 @@ export default function FormationSetup({ selectedPlayers, onConfirm, onBack, tit
   const assignedCount = Object.keys(assignments).length;
   const canStart = assignedCount === 11;
 
-  const handleEmptyTap = (posIdx) => { setSelectingPos(posIdx); };
-  const handlePlayerTap = (posIdx) => { setAssignments(prev => { const next = { ...prev }; delete next[posIdx]; return next; }); };
-
-  const handleAssignPlayer = (name) => {
-    if (selectingPos === null) return;
-    setAssignments(prev => ({ ...prev, [selectingPos]: name }));
-    setSelectingPos(null);
+  // 빈 슬롯 탭
+  const handleEmptyTap = (posIdx) => {
+    if (selectedPlayer) {
+      setAssignments(prev => ({ ...prev, [posIdx]: selectedPlayer }));
+      setSelectedPlayer(null);
+      setSelectingPos(null);
+    } else {
+      setSelectingPos(prev => prev === posIdx ? null : posIdx);
+    }
+  };
+  // 점유 슬롯 탭: 선택선수 있으면 스왑(기존선수 후보로), 없으면 해제
+  const handlePlayerTap = (posIdx) => {
+    if (selectedPlayer) {
+      setAssignments(prev => ({ ...prev, [posIdx]: selectedPlayer }));
+      setSelectedPlayer(null);
+      setSelectingPos(null);
+    } else {
+      setAssignments(prev => { const next = { ...prev }; delete next[posIdx]; return next; });
+    }
+  };
+  // 선수 칩 탭: 슬롯이 선택돼 있으면 배치, 아니면 선수 선택 토글
+  const handlePlayerChip = (name) => {
+    if (selectingPos !== null) {
+      setAssignments(prev => ({ ...prev, [selectingPos]: name }));
+      setSelectingPos(null);
+      setSelectedPlayer(null);
+    } else {
+      setSelectedPlayer(prev => prev === name ? null : name);
+    }
   };
 
-  const handleFormationChange = (key) => { setFormation(key); setAssignments({}); setSelectingPos(null); };
+  const handleFormationChange = (key) => { setFormation(key); setAssignments({}); setSelectingPos(null); setSelectedPlayer(null); };
 
   const handleConfirm = () => {
     if (!canStart) return;
@@ -51,20 +74,21 @@ export default function FormationSetup({ selectedPlayers, onConfirm, onBack, tit
           </button>
         ))}
       </div>
-      <FormationPitch positions={formData.positions} assignments={assignments} onPlayerTap={handlePlayerTap} onEmptyTap={handleEmptyTap} highlightIdx={selectingPos} />
-      {selectingPos !== null && (
-        <div style={{ marginTop: 12, padding: 12, background: C.card, borderRadius: 10, border: `1px solid ${C.accent}` }}>
-          <div style={{ fontSize: 12, color: C.accent, fontWeight: 700, marginBottom: 8 }}>{formData.positions[selectingPos].role} 포지션에 배치할 선수</div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-            {unassigned.map(name => (
-              <button key={name} onClick={() => handleAssignPlayer(name)}
-                style={{ padding: "8px 12px", borderRadius: 8, border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer", background: C.grayDarker, color: C.white }}>{name}</button>
-            ))}
-          </div>
-          <button onClick={() => setSelectingPos(null)} style={{ marginTop: 8, padding: "6px 12px", borderRadius: 6, border: "none", fontSize: 11, cursor: "pointer", background: C.grayDark, color: C.gray }}>취소</button>
+      <FormationPitch positions={formData.positions} assignments={assignments}
+        onPlayerTap={handlePlayerTap} onEmptyTap={handleEmptyTap}
+        highlightIdx={selectingPos} pendingPlayer={selectedPlayer} />
+      <div style={{ marginTop: 12, padding: 12, background: C.card, borderRadius: 10, border: `1px solid ${selectedPlayer ? C.accent : C.grayDark}` }}>
+        <div style={{ fontSize: 12, color: selectedPlayer ? C.accent : C.gray, fontWeight: 700, marginBottom: 8 }}>
+          {selectedPlayer ? `${selectedPlayer} → 배치할 위치를 탭하세요` : selectingPos !== null ? `${formData.positions[selectingPos].role} 자리에 넣을 선수를 탭하세요` : `후보 (${unassigned.length}) — 선수를 탭한 뒤 위치를 탭`}
         </div>
-      )}
-      {selectingPos === null && unassigned.length > 0 && <div style={{ marginTop: 10, fontSize: 11, color: C.gray }}>후보: {unassigned.join(", ")}</div>}
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+          {unassigned.map(name => (
+            <button key={name} onClick={() => handlePlayerChip(name)}
+              style={{ padding: "8px 12px", borderRadius: 8, border: selectedPlayer === name ? `2px solid ${C.accent}` : "none", fontSize: 13, fontWeight: 600, cursor: "pointer", background: selectedPlayer === name ? `${C.accent}30` : C.grayDarker, color: C.white }}>{name}</button>
+          ))}
+          {unassigned.length === 0 && <span style={{ fontSize: 12, color: C.gray }}>모든 선수 배치 완료</span>}
+        </div>
+      </div>
       <button onClick={handleConfirm}
         style={{ width: "100%", padding: "14px 0", borderRadius: 10, border: "none", fontSize: 15, fontWeight: 700, cursor: "pointer", marginTop: 14,
           background: canStart ? C.green : C.grayDark, color: canStart ? C.bg : C.gray, opacity: canStart ? 1 : 0.5 }}>
