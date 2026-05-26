@@ -5,7 +5,7 @@ import { fetchSheetData, fetchAttendanceData } from './services/sheetService';
 import AppSync from './services/appSync';
 import FirebaseSync from './services/firebaseSync';
 import { useGameReducer } from './hooks/useGameReducer';
-import { getSettings, getEffectiveSettings, saveSettings } from './config/settings';
+import { getSettings, getEffectiveSettings } from './config/settings';
 import { makeStyles } from './styles/theme';
 import PhaseIndicator from './components/common/PhaseIndicator';
 import Modal from './components/common/Modal';
@@ -60,6 +60,7 @@ export default function SoccerApp({ authUser, teamContext, isNewGame, gameMode, 
     ]).then(([sheetData, cumBonus]) => {
       const fields = {};
       if (sheetData) { fields.seasonPlayers = sheetData.players; fields.dataSource = "sheet"; }
+      if (sheetData?.opponents?.length > 0) setOpponentSuggestions(sheetData.opponents);
       if (cumBonus) { fields.seasonCrova = cumBonus.crova || {}; fields.seasonGoguma = cumBonus.goguma || {}; }
       if (Object.keys(fields).length > 0) dispatch({ type: 'SET_FIELDS', fields });
     });
@@ -194,8 +195,8 @@ export default function SoccerApp({ authUser, teamContext, isNewGame, gameMode, 
   }, [state.soccerMatches, state.settingsSnapshot, gameSettings]);
 
   // ── 축구 핸들러 ──
-  const createSoccerMatch = ({ opponent, lineup, gk, defenders }) => {
-    dispatch({ type: 'CREATE_SOCCER_MATCH', opponent, lineup, gk, defenders });
+  const createSoccerMatch = ({ opponent, lineup, gk, defenders, subs }) => {
+    dispatch({ type: 'CREATE_SOCCER_MATCH', opponent, lineup, gk, defenders, subs });
   };
   const addSoccerEvent = (matchIdx, event) => {
     dispatch({ type: 'ADD_SOCCER_EVENT', matchIdx, event });
@@ -443,7 +444,6 @@ export default function SoccerApp({ authUser, teamContext, isNewGame, gameMode, 
           <SoccerMatchView
             soccerMatches={state.soccerMatches} currentMatchIdx={state.currentMatchIdx}
             attendees={attendees} opponents={state.opponents || []}
-            opponentSuggestions={opponentSuggestions}
             onRemoveOpponent={removeOpponent} onRenameOpponent={renameOpponent}
             sortedPlayers={sortedPlayers} playerSortMode={playerSortMode}
             rosterHandlers={{

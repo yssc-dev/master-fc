@@ -31,7 +31,10 @@ export default function SoccerMatchView({
   // 멀티탭 동기화: 다른 탭이 savedFormation 을 바꿨을 때 이 탭의 로컬 state 도 따라가야 함.
   // (CourtRecorder GK 버그와 같은 패턴 — useState 초기값만으론 prop 변경 후 sync 안 됨)
   useEffect(() => {
-    if (savedFormation?.viewState !== undefined) setViewState(savedFormation.viewState);
+    if (savedFormation?.viewState !== undefined) {
+      // 로컬에서 명단수정 중이면 원격 viewState 변화로 화면을 빼앗기지 않게 유지
+      setViewState(local => local === "editRoster" ? local : savedFormation.viewState);
+    }
   }, [savedFormation?.viewState]);
   useEffect(() => { setSelectedOpponent(savedFormation?.selectedOpponent || null); }, [savedFormation?.selectedOpponent]);
   useEffect(() => { setSelectedPlayers(savedFormation?.selectedPlayers || []); }, [savedFormation?.selectedPlayers]);
