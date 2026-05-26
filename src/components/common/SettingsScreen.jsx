@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useTheme } from '../../hooks/useTheme';
-import { BackIcon, XIcon } from './icons';
+import { BackIcon } from './icons';
 import {
   getEffectiveSettings, SPORT_DEFAULTS, PRESETS,
   saveSettings, getSourceOf, loadSettingsFromFirebase,
@@ -19,7 +19,6 @@ export default function SettingsScreen({ teamName, teamMode, teamEntries, isAdmi
   const [saved, setSaved] = useState(false);
   const [sheetList, setSheetList] = useState([]);
   const [loadingSheets, setLoadingSheets] = useState(false);
-  const [newOpponent, setNewOpponent] = useState("");
   const [presetChangeDialog, setPresetChangeDialog] = useState(null);
   const [fbMigrating, setFbMigrating] = useState(false);
   const [fbMigrateResult, setFbMigrateResult] = useState(null);
@@ -387,65 +386,6 @@ export default function SettingsScreen({ teamName, teamMode, teamEntries, isAdmi
             </details>
           </>
         )}
-      </div>
-
-      <div style={ss.section}>
-        <div className="app-section-label">상대팀 관리</div>
-        <div className="app-grouped">
-          <div className="app-row" style={{ flexDirection: "column", alignItems: "stretch", gap: 10, padding: "12px 16px" }}>
-            <div style={{ fontSize: 13, color: "var(--app-text-secondary)" }}>등록된 상대팀</div>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-              {(settings.opponents || []).map(name => (
-                <div key={name} style={{
-                  display: "inline-flex", alignItems: "center", gap: 4,
-                  padding: "4px 4px 4px 10px", borderRadius: 999,
-                  background: "var(--app-bg-row-hover)",
-                  fontSize: 13, color: "var(--app-text-primary)",
-                }}>
-                  <span>{name}</span>
-                  <button onClick={() => {
-                    const next = (settings.opponents || []).filter(n => n !== name);
-                    update("opponents", next);
-                  }} style={{
-                    background: "transparent", border: "none", cursor: "pointer",
-                    width: 20, height: 20, borderRadius: 999,
-                    display: "inline-flex", alignItems: "center", justifyContent: "center",
-                    color: "var(--app-red)", padding: 0,
-                  }} aria-label={`${name} 제거`}>
-                    <XIcon width={12} />
-                  </button>
-                </div>
-              ))}
-              {(settings.opponents || []).length === 0 && (
-                <span style={{ fontSize: 13, color: "var(--app-text-tertiary)" }}>없음</span>
-              )}
-            </div>
-            <div style={{ display: "flex", gap: 8 }}>
-              <input placeholder="새 상대팀 이름" value={newOpponent} onChange={e => setNewOpponent(e.target.value)}
-                onKeyDown={e => {
-                  if (e.key === "Enter") {
-                    const name = newOpponent.trim();
-                    if (name && !(settings.opponents || []).includes(name)) {
-                      update("opponents", [...(settings.opponents || []), name]);
-                      setNewOpponent("");
-                    }
-                  }
-                }}
-                className="app-input" style={{ flex: 1 }} />
-              <button onClick={() => {
-                const name = newOpponent.trim();
-                if (name && !(settings.opponents || []).includes(name)) {
-                  update("opponents", [...(settings.opponents || []), name]);
-                  setNewOpponent("");
-                }
-              }} style={{
-                padding: "0 16px", borderRadius: 10, background: "var(--app-blue)",
-                color: "#fff", border: "none", fontWeight: 600, fontSize: 15, cursor: "pointer",
-                fontFamily: "inherit",
-              }}>추가</button>
-            </div>
-          </div>
-        </div>
       </div>
 
       {isAdmin && (
