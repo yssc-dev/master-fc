@@ -20,6 +20,8 @@ import { buildRoundRowsFromSoccer } from './utils/matchRowBuilder';
 export default function SoccerApp({ authUser, teamContext, isNewGame, gameMode, gameId, onLogout, onBackToMenu }) {
   const gameSettings = useMemo(() => getSettings(teamContext?.team), [teamContext?.team]);
   const [state, dispatch] = useGameReducer();
+  const [opponentSuggestions, setOpponentSuggestions] = useState([]); // 시트에서 받은 상대팀 후보 (비동기화)
+  const [newOpponentSetup, setNewOpponentSetup] = useState("");
   const {
     phase, dataLoading, dataSource, seasonPlayers,
     syncStatus, attendanceLoading, attendees, newPlayer,
@@ -83,14 +85,14 @@ export default function SoccerApp({ authUser, teamContext, isNewGame, gameMode, 
       }
       dispatch({ type: 'SET_FIELDS', fields });
 
-      const opponents = gameSettings.opponents || [];
-      if (opponents.length > 0) dispatch({ type: 'SET_OPPONENTS', opponents });
+      // 상대팀 후보: 구글시트 대시보드에서 (settings 영구저장 대신 시트가 소스)
+      if (sheetData?.opponents?.length > 0) setOpponentSuggestions(sheetData.opponents);
 
-      // 시트 연동 시 참석자 로드 → 바로 경기 진입
+      // 시트 연동 시 참석자는 미리 채우되, setup 화면에 머문다 (자동 경기진입 제거)
       if (gameMode === "sheetSync" && attendanceData && attendanceData.attendees.length > 0) {
         dispatch({
           type: 'SET_FIELDS',
-          fields: { attendees: attendanceData.attendees, matchMode: "soccer", courtCount: 1, phase: "match" },
+          fields: { attendees: attendanceData.attendees, matchMode: "soccer", courtCount: 1 },
         });
       }
     });
@@ -149,7 +151,7 @@ export default function SoccerApp({ authUser, teamContext, isNewGame, gameMode, 
 
   useEffect(() => {
     if (phase !== "setup" && phase !== "") autoSync();
-  }, [state.soccerMatches, phase, state.currentMatchIdx, state.soccerFormation, state.opponents]);
+  }, [state.soccerMatches, phase, state.currentMatchIdx, state.soccerFormation, state.opponents, attendees]);
 
   // ── Firebase 노드별 구독 ──
   const lastRemoteUpdateRef = useRef(0);
@@ -203,13 +205,25 @@ export default function SoccerApp({ authUser, teamContext, isNewGame, gameMode, 
   const finishSoccerMatch = (matchIdx) => {
     dispatch({ type: 'FINISH_SOCCER_MATCH', matchIdx });
   };
-  const addOpponent = async (name) => {
-    if (!teamContext?.team) return;
-    const newOpponents = [...(state.opponents || []), name];
-    dispatch({ type: 'SET_OPPONENTS', opponents: newOpponents });
-    const es = getEffectiveSettings(teamContext.team, "축구");
-    const { _meta, ...rest } = es;
-    await saveSettings(teamContext.team, "축구", { ...rest, opponents: newOpponents }, _meta.preset);
+  // 오늘 참석팀에 추가 (시트가 마스터 소스이므로 settings 영구저장 안 함)
+  const addOpponent = (name) => {
+    const trimmed = (name || "").trim();
+    if (!trimmed) return;
+    if ((state.opponents || []).includes(trimmed)) return;
+    dispatch({ type: 'SET_OPPONENTS', opponents: [...(state.opponents || []), trimmed] });
+  };
+  const removeOpponent = (name) => {
+    dispatch({ type: 'SET_OPPONENTS', opponents: (state.opponents || []).filter(n => n !== name) });
+  };
+  const renameOpponent = (oldName, newName) => {
+    const trimmed = (newName || "").trim();
+    if (!trimmed) return;
+    dispatch({ type: 'SET_OPPONENTS', opponents: (state.opponents || []).map(n => n === oldName ? trimmed : n) });
+  };
+  // setup에서 오늘 참석팀 토글 (후보 칩 탭)
+  const toggleTodayOpponent = (name) => {
+    const list = state.opponents || [];
+    dispatch({ type: 'SET_OPPONENTS', opponents: list.includes(name) ? list.filter(n => n !== name) : [...list, name] });
   };
 
   // ── 기록확정 (구글시트 저장) ──
@@ -410,7 +424,9 @@ export default function SoccerApp({ authUser, teamContext, isNewGame, gameMode, 
         <div style={s.section}>
           <SoccerMatchView
             soccerMatches={state.soccerMatches} currentMatchIdx={state.currentMatchIdx}
-            attendees={attendees} opponents={state.opponents || gameSettings.opponents || []}
+            attendees={attendees} opponents={state.opponents || []}
+            opponentSuggestions={opponentSuggestions}
+            onRemoveOpponent={removeOpponent} onRenameOpponent={renameOpponent}
             onCreateMatch={createSoccerMatch} onAddEvent={addSoccerEvent}
             onDeleteEvent={deleteSoccerEvent} onFinishMatch={finishSoccerMatch}
             onAddOpponent={addOpponent} onGoToSummary={() => set('phase', 'summary')}
