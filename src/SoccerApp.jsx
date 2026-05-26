@@ -337,6 +337,38 @@ export default function SoccerApp({ authUser, teamContext, isNewGame, gameMode, 
             attendanceLoading={attendanceLoading} styles={s}
           />
         </div>
+        <div style={s.section}>
+          <div style={s.sectionTitle}>🆚 참석팀 <span style={{ fontSize: 12, fontWeight: 400, color: C.gray }}>({(state.opponents || []).length}팀)</span></div>
+          <div style={s.card}>
+            <div style={{ fontSize: 12, color: C.gray, marginBottom: 8 }}>오늘 온 상대팀을 고르세요 (시트의 자주 붙은 팀 순)</div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
+              {opponentSuggestions.map(o => (
+                <div key={o.name} onClick={() => toggleTodayOpponent(o.name)} style={s.chip((state.opponents || []).includes(o.name))}>
+                  <span>{o.name}</span>
+                </div>
+              ))}
+              {opponentSuggestions.length === 0 && (
+                <span style={{ fontSize: 12, color: C.gray }}>시트에 상대팀 기록이 없습니다. 아래에서 직접 추가하세요.</span>
+              )}
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <input style={s.input} placeholder="새 상대팀 직접 추가" value={newOpponentSetup}
+                onChange={e => setNewOpponentSetup(e.target.value)}
+                onKeyDown={e => { if (e.key === "Enter") { addOpponent(newOpponentSetup); setNewOpponentSetup(""); } }} />
+              <button onClick={() => { addOpponent(newOpponentSetup); setNewOpponentSetup(""); }} style={s.btn(C.green)}>추가</button>
+            </div>
+            {(state.opponents || []).filter(n => !opponentSuggestions.some(o => o.name === n)).length > 0 && (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 10 }}>
+                {(state.opponents || []).filter(n => !opponentSuggestions.some(o => o.name === n)).map(name => (
+                  <div key={name} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 8px", borderRadius: 999, background: C.cardLight, fontSize: 13, color: C.white }}>
+                    <span>{name}</span>
+                    <button onClick={() => removeOpponent(name)} style={{ background: "transparent", border: "none", color: C.red, cursor: "pointer", padding: 0, fontSize: 14, lineHeight: 1 }} aria-label={`${name} 제거`}>✕</button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
         <div style={s.bottomBar}>
           <button onClick={() => dispatch({ type: 'START_MATCHES', schedule: null, pushState: null })}
             style={s.btnFull(C.accent, C.bg)}>
