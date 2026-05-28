@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { TEAM_COLORS } from '../../config/constants';
 import { useTheme } from '../../hooks/useTheme';
 import { calcMatchScore } from '../../utils/scoring';
+import { BackIcon } from '../common/icons';
 import CourtRecorder from './CourtRecorder';
 
 export default function FreeMatchView({ teams, teamNames, teamColorIndices, gks, gksHistory, courtCount, allEvents, onRecordEvent, onUndoEvent, onDeleteEvent, onEditEvent, onFinishMatch, onConfirmFreeRound, completedMatches, attendees, onGkChange, liveMercs, onAddLiveMerc, onRemoveLiveMerc, onEditPastGk, onEditPastMercAdd, onEditPastMercRemove, absentees, onToggleAbsent, styles: s, isExtraRound }) {
@@ -108,32 +109,44 @@ export default function FreeMatchView({ teams, teamNames, teamColorIndices, gks,
       player: m.player,
       side: m.teamIdx === pm.homeIdx ? "home" : (m.teamIdx === pm.awayIdx ? "away" : null),
     })).filter(m => m.side);
+    const matchNavBtn = (disabled) => ({
+      width: 36, height: 36, borderRadius: 999,
+      background: "var(--app-bg-row)", border: "0.5px solid var(--app-divider)",
+      color: "var(--app-text-primary)", cursor: disabled ? "not-allowed" : "pointer",
+      opacity: disabled ? 0.3 : 1, padding: 0, fontFamily: "inherit",
+      display: "inline-flex", alignItems: "center", justifyContent: "center",
+    });
+    const canPrev = viewingIdx > 0;
+    const canNext = viewingIdx < completedMatches.length;
     return (
       <div>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 6 }}>
-          <button onClick={() => setViewingIdx(Math.max(0, viewingIdx - 1))} disabled={viewingIdx === 0}
-            style={{ ...s.btnSm(C.grayDark), opacity: viewingIdx === 0 ? 0.3 : 1 }}>◀</button>
-          <span style={{ fontSize: 15, fontWeight: 800, color: C.white }}>
-            {viewingIdx + 1}경기
-            <span style={{ fontSize: 11, marginLeft: 6, color: pastEditMode ? C.orange : C.green, fontWeight: 600 }}>
+        {/* 매치 네비게이션 — ScheduleMatchView와 동일 패턴 */}
+        <div style={{
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          gap: 8, marginBottom: 14, padding: "4px 0",
+        }}>
+          <button onClick={() => setViewingIdx(Math.max(0, viewingIdx - 1))}
+            disabled={!canPrev} style={matchNavBtn(!canPrev)}>
+            <BackIcon width={16} />
+          </button>
+          <div style={{ textAlign: "center" }}>
+            <div style={{
+              fontSize: 17, fontWeight: 600, color: "var(--app-text-primary)",
+              letterSpacing: "-0.022em",
+            }}>
+              {viewingIdx + 1}경기 <span style={{ color: "var(--app-text-tertiary)", fontWeight: 500 }}>/ {completedMatches.length}</span>
+            </div>
+            <div style={{
+              fontSize: 11, fontWeight: 600, marginTop: 2,
+              color: pastEditMode ? "var(--app-orange)" : "var(--app-green)",
+            }}>
               {pastEditMode ? "확정취소됨" : "종료됨"}
-            </span>
-          </span>
+            </div>
+          </div>
           <button onClick={() => setViewingIdx(Math.min(completedMatches.length, viewingIdx + 1))}
-            style={{ ...s.btnSm(C.grayDark) }}>▶</button>
-        </div>
-        <div style={{ display: "flex", justifyContent: "center", marginBottom: 8 }}>
-          {pastEditMode ? (
-            <button onClick={() => setPastEditMode(false)}
-              style={{ ...s.btnSm(C.green, C.bg), fontSize: 11, fontWeight: 700 }}>
-              매치 확정
-            </button>
-          ) : (
-            <button onClick={() => setPastEditMode(true)}
-              style={{ ...s.btnSm(C.orange, C.bg), fontSize: 11, fontWeight: 700 }}>
-              확정취소
-            </button>
-          )}
+            disabled={!canNext} style={matchNavBtn(!canNext)}>
+            <BackIcon width={16} style={{ transform: "rotate(180deg)" }} />
+          </button>
         </div>
         <CourtRecorder
           key={`free_past_${viewingIdx}_${pastEditMode ? "edit" : "view"}`}
@@ -162,6 +175,22 @@ export default function FreeMatchView({ teams, teamNames, teamColorIndices, gks,
           onRemoveMerc={(player) => onEditPastMercRemove?.(pm.matchId, player)}
           absentees={{ [pm.matchId]: { [pm.homeIdx]: pm.homeAbsent || [], [pm.awayIdx]: pm.awayAbsent || [] } }}
         />
+        {/* 하단 고정 바 — 대진표 모드의 라운드 종료/확정취소와 동일 패턴 */}
+        <div style={s.bottomBar}>
+          {pastEditMode ? (
+            <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, flexWrap: "wrap" }}>
+              <span style={{ color: C.orange, fontWeight: 700, padding: 10 }}>{viewingIdx + 1}경기 확정취소됨</span>
+              <button onClick={() => setPastEditMode(false)}
+                style={{ ...s.btnSm(C.green, C.bg), fontSize: 11 }}>매치 확정</button>
+            </div>
+          ) : (
+            <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, flexWrap: "wrap" }}>
+              <span style={{ color: C.green, fontWeight: 700, padding: 10 }}>{viewingIdx + 1}경기 종료됨</span>
+              <button onClick={() => setPastEditMode(true)}
+                style={{ ...s.btnSm(C.orange, C.bg), fontSize: 11 }}>확정취소</button>
+            </div>
+          )}
+        </div>
       </div>
     );
   }
