@@ -5,20 +5,22 @@ import { calcMatchScore } from '../../utils/scoring';
 import { BackIcon } from '../common/icons';
 import CourtRecorder from './CourtRecorder';
 
-export default function FreeMatchView({ teams, teamNames, teamColorIndices, gks, gksHistory, courtCount, allEvents, onRecordEvent, onUndoEvent, onDeleteEvent, onEditEvent, onFinishMatch, onConfirmFreeRound, completedMatches, attendees, onGkChange, liveMercs, onAddLiveMerc, onRemoveLiveMerc, onEditPastGk, onEditPastMercAdd, onEditPastMercRemove, absentees, onToggleAbsent, styles: s, isExtraRound }) {
+export default function FreeMatchView({ teams, teamNames, teamColorIndices, gks, gksHistory, courtCount, allEvents, onRecordEvent, onUndoEvent, onDeleteEvent, onEditEvent, onFinishMatch, onConfirmFreeRound, completedMatches, attendees, onGkChange, liveMercs, onAddLiveMerc, onRemoveLiveMerc, onEditPastGk, onEditPastMercAdd, onEditPastMercRemove, absentees, onToggleAbsent, styles: s, isExtraRound, forcedPastIdx, onExitForcedPast }) {
   const { C } = useTheme();
   const [courtMatches, setCourtMatches] = useState({});
   const [activeCourtTab, setActiveCourtTab] = useState(0);
   const [settingCourt, setSettingCourt] = useState(null);
   const [selection, setSelection] = useState({ home: null, away: null });
   // 과거 매치 네비게이션. completedMatches.length = 라이브, 0~length-1 = 과거 매치 단건 보기
-  // free 모드는 후속 매치업에 영향이 없어 과거 매치도 즉시 편집 가능 (토글 없음).
-  const [viewingIdx, setViewingIdx] = useState(completedMatches.length);
+  // forcedPastIdx가 있으면 그 인덱스부터 시작(=다른 화면에서 자유 라운드 보기 진입한 경우)
+  const isForcedPast = typeof forcedPastIdx === "number";
+  const [viewingIdx, setViewingIdx] = useState(isForcedPast ? forcedPastIdx : completedMatches.length);
 
   const [lastMatchCount, setLastMatchCount] = useState(completedMatches.length);
   if (completedMatches.length !== lastMatchCount) {
     setLastMatchCount(completedMatches.length);
-    setViewingIdx(completedMatches.length);
+    // forced 모드면 라이브로 점프하지 않고 현재 보던 과거 매치 유지
+    if (!isForcedPast) setViewingIdx(completedMatches.length);
   }
 
   // 과거 매치는 기본 읽기 전용. "편집" 버튼으로만 수정 모드 진입.
@@ -117,9 +119,24 @@ export default function FreeMatchView({ teams, teamNames, teamColorIndices, gks,
       display: "inline-flex", alignItems: "center", justifyContent: "center",
     });
     const canPrev = viewingIdx > 0;
-    const canNext = viewingIdx < completedMatches.length;
+    // forced 모드는 라이브 진입(viewingIdx === completedMatches.length) 금지 — 과거 매치 범위로 한정.
+    const maxIdx = isForcedPast ? completedMatches.length - 1 : completedMatches.length;
+    const canNext = viewingIdx < maxIdx;
     return (
       <div>
+        {/* forced 모드: 스케줄로 돌아가는 exit 버튼 */}
+        {isForcedPast && (
+          <div style={{ marginBottom: 8 }}>
+            <button onClick={() => onExitForcedPast?.()}
+              style={{
+                background: "var(--app-bg-row)", border: "0.5px solid var(--app-divider)",
+                color: "var(--app-text-primary)", padding: "6px 12px", borderRadius: 999,
+                fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit",
+              }}>
+              ← 스케줄로 돌아가기
+            </button>
+          </div>
+        )}
         {/* 매치 네비게이션 — ScheduleMatchView와 동일 패턴 */}
         <div style={{
           display: "flex", alignItems: "center", justifyContent: "space-between",
@@ -143,7 +160,7 @@ export default function FreeMatchView({ teams, teamNames, teamColorIndices, gks,
               {pastEditMode ? "확정취소됨" : "종료됨"}
             </div>
           </div>
-          <button onClick={() => setViewingIdx(Math.min(completedMatches.length, viewingIdx + 1))}
+          <button onClick={() => setViewingIdx(Math.min(maxIdx, viewingIdx + 1))}
             disabled={!canNext} style={matchNavBtn(!canNext)}>
             <BackIcon width={16} style={{ transform: "rotate(180deg)" }} />
           </button>
