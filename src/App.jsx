@@ -1253,7 +1253,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
             {(matchMode === "schedule" || (matchMode === "free" && schedule.length > 0))
               ? (allRoundsComplete ? "전체 라운드 완료" : `라운드 ${currentRoundIdx + 1} / ${schedule.length}`)
               : matchMode === "push" ? `밀어내기 · ${completedMatches.length}경기`
-              : `자유대전 · ${completedMatches.length}매치`}
+              : `자유대전 · ${completedMatches.length}라운드`}
           </div>
           <div style={{
             display: "flex", gap: 6, marginTop: 12, overflowX: "auto",

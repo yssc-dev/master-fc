@@ -76,7 +76,7 @@ export default function ScheduleModal({ schedule, currentRoundIdx, viewingRoundI
       {freeMatchCount > 0 && (
         <div style={{ marginBottom: 12 }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: C.accent, marginBottom: 6, paddingLeft: 2 }}>
-            자유 매치 ({freeMatchCount})
+            자유 라운드 ({freeMatchCount})
           </div>
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
