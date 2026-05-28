@@ -12,6 +12,18 @@
 - §6.2: APPEND_SCHEDULE_SEGMENT의 currentRoundIdx 검증 케이스 추가
 - §9: 6팀 2코트 비활성화, segment 도중 자유대진 끼워넣기 차단 명시
 
+## v1.2 변경 요약 (기존 모드 회귀 방지)
+- §5.4.3: 렌더 분기를 `shouldShowSchedule` 헬퍼로 정리. 대진표 모드는 라운드 완료 후에도 ScheduleView 잔류(기존 동작 보존), free 모드만 완료 시 자동 복귀.
+- §5.4.4: 하단 바도 동일 조건 사용 — 대진표 모드의 "확정취소" 버튼이 라운드 완료 후에도 노출되도록 보존.
+- §10: 회귀 검증 시나리오 (d)~(h) 추가 — 5팀·4팀·6팀·push·1코트 schedule 모드 모두 검증 명시.
+
+## 기존 경기 방식 영향 요약
+**대진표(schedule), 밀어내기(push) 모드에 동작 변경 없음** — 모든 수정은 다음 두 케이스 중 하나:
+1. `matchMode === "free" && schedule.length > 0` (신규 케이스) 처리만 추가
+2. 헬퍼 변수로 묶어 양쪽 분기에 같은 의미를 부여 (행동표가 기존과 동일)
+
+§10 (d)~(h) 회귀 시나리오로 통합 점검 시 명시적 확인.
+
 ## 1. 배경 & 문제
 
 지금 풋살 앱은 게임 생성 시점에 `courtCount`와 `matchMode`가 고정되고, 대진표(`schedule`) 모드는 그 시점의 코트 수에 맞춰 한 번에 전체 스케줄을 생성한다(`src/utils/brackets.js`).
@@ -254,30 +266,54 @@ const nextIdx = (matchMode !== "push" && !isExtraRound && scanIdx < sched.length
 라운드 확정 시 free 모드에서도 다음 라운드로 자동 이동.
 
 #### 5.4.3 렌더 분기 (`src/App.jsx:1352`)
+
+⚠️ **회귀 방지 주의**: 기존 대진표 모드는 모든 라운드 확정 후에도 ScheduleMatchView 잔류(과거 라운드 리뷰/수정용). 이걸 깨면 안 됨.
+
 **현재**:
 ```jsx
 matchMode === "push" ? <PushMatchView ... />
   : matchMode === "schedule" && schedule.length > 0 && !isExtraRound ? <ScheduleMatchView ... />
   : <FreeMatchView ... />
 ```
-**변경**:
+
+**변경** — mode별 분기 명시:
 ```jsx
+// 헬퍼 변수 — 5.4.4와 공유
+const shouldShowSchedule =
+  matchMode !== "push" &&
+  schedule.length > 0 &&
+  !isExtraRound &&
+  !(matchMode === "free" && allRoundsComplete);  // free 모드만 자동 복귀
+
 matchMode === "push" ? <PushMatchView ... />
-  : schedule.length > 0 && !allRoundsComplete && !isExtraRound ? <ScheduleMatchView ... />
+  : shouldShowSchedule ? <ScheduleMatchView ... />
   : <FreeMatchView ... />
 ```
 
-`allRoundsComplete`가 5.4.1로 free 모드도 정확히 계산되므로, schedule이 모두 끝나면 FreeMatchView로 자연스럽게 복귀.
+**행동표 — 회귀 없음 검증**:
+| matchMode | schedule.length | allRoundsComplete | 결과 | 기존과 동일? |
+|---|---|---|---|---|
+| schedule | > 0 | false | ScheduleView | ✅ 동일 |
+| schedule | > 0 | true | ScheduleView | ✅ 동일 (확정취소 가능) |
+| free | 0 | — | FreeView | ✅ 동일 |
+| free | > 0 | false | ScheduleView | 🆕 신규 동작 |
+| free | > 0 | true | FreeView | 🆕 신규 (자동 복귀) |
+| push | — | — | PushView | ✅ 동일 |
 
 #### 5.4.4 하단 바 / 라운드 확정 UI (`src/App.jsx:1377`)
+
+⚠️ **회귀 방지**: 기존 대진표 모드는 라운드 완료 후에도 하단바의 "확정취소" 버튼을 노출. 그대로 유지해야 함.
+
 **현재**:
 ```jsx
 {matchMode === "schedule" && schedule.length > 0 && !isExtraRound && (...)}
 ```
-**변경**:
+**변경** — §5.4.3의 `shouldShowSchedule` 재사용:
 ```jsx
-{schedule.length > 0 && !allRoundsComplete && !isExtraRound && (...)}
+{shouldShowSchedule && (...)}
 ```
+
+이로써 대진표 모드는 라운드 완료 후에도 하단바 유지(기존 동작), free 모드는 라운드 완료 시점에 자동 복귀(신규).
 
 #### 5.4.5 진행 상태 텍스트 (`src/App.jsx:1236-1237`)
 **현재**:
@@ -427,9 +463,17 @@ UI 통합 테스트는 본 스펙 범위 밖.
 5. **`src/components/game/ScheduleModal.jsx`** — 빈 상태, 자동설정 버튼(노출 조건 §5.2.2), formatDesc 확장, 자유 매치 안내
 6. **`src/App.jsx` 진입점** — `matchMode !== "push"`로 대진표 버튼 노출 (§5.1)
 7. **통합 점검 시나리오**:
-   - (a) 5팀 자유대진 시작 → 자유 매치 2개 → 자동 1코트 1사이클 → 라운드 5개 진행 → FreeMatchView 복귀 → 자동 2코트 1사이클 → 라운드 5개 진행 → 경기마감 후 통계 확인
-   - (b) 4팀 자유대진 → 자동 2코트 2사이클
-   - (c) 기존 5팀 2코트 schedule 모드(이전 기능)도 회귀 동작 확인
-   - (d) 라이브 매치 진행 중 자동설정 누를 때 가드 동작
+
+   **신규 기능 검증**:
+   - (a) 5팀 자유대진 시작 → 자유 매치 2개 → 자동 1코트 1사이클(5R) → 모두 확정 → **FreeMatchView 자동 복귀 확인** → 자동 2코트 1사이클(5R) → 모두 확정 → 경기마감 → 통계 확인 (각 팀 누적 8경기 균등)
+   - (b) 4팀 자유대진 → 자동 2코트 2사이클(6R) → 각 팀 6경기 확인
+   - (c) 라이브 매치 진행 중 자동설정 클릭 → **가드 알림 노출, 진행 차단 확인**
+
+   **기존 모드 회귀 검증 (필수)**:
+   - (d) **5팀 2코트 schedule 모드** — 처음부터 끝까지 진행 → 모든 라운드 확정 후 **ScheduleView 잔류 확인** (FreeView로 전환되면 안 됨) → 하단 "확정취소" 버튼 노출 확인 → 경기마감 정상
+   - (e) **4팀 2코트 schedule 모드** — 12라운드 진행 → 같은 회귀 검증
+   - (f) **6팀 2코트 그룹스플릿 모드** — 전반 6R → midSplit → 후반 6R → 동일 회귀 검증
+   - (g) **밀어내기(push) 모드** — schedule 관련 변경이 영향 없음 확인 (대진표 버튼 숨김, PushMatchView 정상)
+   - (h) **5팀 1코트 schedule 모드** — `rotations` 정상 동작 확인
 
 상세 구현 단계는 별도 implementation plan에서 진행.
