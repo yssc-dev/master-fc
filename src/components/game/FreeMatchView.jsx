@@ -116,7 +116,7 @@ export default function FreeMatchView({ teams, teamNames, teamColorIndices, gks,
           <span style={{ fontSize: 15, fontWeight: 800, color: C.white }}>
             {viewingIdx + 1}경기
             <span style={{ fontSize: 11, marginLeft: 6, color: pastEditMode ? C.orange : C.green, fontWeight: 600 }}>
-              {pastEditMode ? "편집중" : "종료됨"}
+              {pastEditMode ? "확정취소됨" : "종료됨"}
             </span>
           </span>
           <button onClick={() => setViewingIdx(Math.min(completedMatches.length, viewingIdx + 1))}
@@ -126,12 +126,12 @@ export default function FreeMatchView({ teams, teamNames, teamColorIndices, gks,
           {pastEditMode ? (
             <button onClick={() => setPastEditMode(false)}
               style={{ ...s.btnSm(C.green, C.bg), fontSize: 11, fontWeight: 700 }}>
-              ✓ 편집 완료
+              매치 확정
             </button>
           ) : (
             <button onClick={() => setPastEditMode(true)}
               style={{ ...s.btnSm(C.orange, C.bg), fontSize: 11, fontWeight: 700 }}>
-              ✎ 편집
+              확정취소
             </button>
           )}
         </div>
