@@ -742,6 +742,22 @@ function gameReducer(state, action) {
         editingTeamName: null,
       };
     }
+    case 'APPEND_SCHEDULE_SEGMENT': {
+      const { newRounds, newCourtCount } = action;
+      if (!Array.isArray(newRounds) || newRounds.length === 0) return state;
+      const newSchedule = [...state.schedule, ...newRounds];
+      const prevLen = state.schedule.length;
+      // 이전 segment를 다 확정했으면(currentRoundIdx >= prevLen) 새 첫 라운드 가리킴.
+      // 미확정이 남아있으면 현재 위치 보존.
+      const nextCurrent = (prevLen === 0 || state.currentRoundIdx >= prevLen) ? prevLen : state.currentRoundIdx;
+      return {
+        ...state,
+        schedule: newSchedule,
+        courtCount: typeof newCourtCount === 'number' ? newCourtCount : state.courtCount,
+        currentRoundIdx: nextCurrent,
+        viewingRoundIdx: nextCurrent,
+      };
+    }
     case 'START_MATCHES': {
       const { schedule, pushState: initPushState } = action;
       return {
