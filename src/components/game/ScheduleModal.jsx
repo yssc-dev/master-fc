@@ -43,7 +43,10 @@ export default function ScheduleModal({ schedule, currentRoundIdx, viewingRoundI
     );
   };
 
-  const is2Court = courtCount === 2;
+  // 세그먼트마다 코트수가 다를 수 있으므로 전역 courtCount 대신
+  // schedule 내 라운드별 matches.length 최대값으로 레이아웃 결정
+  const maxMatchesPerRound = schedule.reduce((max, r) => Math.max(max, r.matches?.length || 0), 1);
+  const is2Court = maxMatchesPerRound >= 2;
 
   const formatDesc = (() => {
     if (matchMode === "free" && schedule.length > 0) return `자유대진 + 자동 ${schedule.length}라운드 · ${courtCount}코트`;
@@ -125,13 +128,13 @@ export default function ScheduleModal({ schedule, currentRoundIdx, viewingRoundI
                     <td style={{ ...s.td(isCurrent), fontSize: 13, fontWeight: 700 }}>{ri + 1}</td>
                     {is2Court ? (
                       <>
-                        <td style={{ ...s.td(), padding: "6px 2px" }}>{getMatchCell(round.matches[0], 0, ri)}</td>
-                        <td style={{ ...s.td(), padding: "6px 2px" }}>{getMatchCell(round.matches[1], 1, ri)}</td>
+                        <td style={{ ...s.td(), padding: "6px 2px" }}>{getMatchCell(round.matches?.[0], 0, ri)}</td>
+                        <td style={{ ...s.td(), padding: "6px 2px" }}>{getMatchCell(round.matches?.[1], 1, ri)}</td>
                       </>
                     ) : (
                       <td style={{ ...s.td(), padding: "6px 2px" }}>
-                        {round.matches.map((pair, mi) => (
-                          <div key={mi} style={{ marginBottom: mi < round.matches.length - 1 ? 4 : 0 }}>
+                        {(round.matches || []).map((pair, mi) => (
+                          <div key={mi} style={{ marginBottom: mi < (round.matches?.length ?? 1) - 1 ? 4 : 0 }}>
                             {getMatchCell(pair, mi, ri)}
                           </div>
                         ))}

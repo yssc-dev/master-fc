@@ -129,9 +129,10 @@ export default function ScheduleMatchView({ schedule, currentRoundIdx, viewingRo
 
       {matchInfos.map((mi, i) => {
         const isSecondHalf = splitPhase === "second" && viewingRoundIdx >= 6;
+        const currentMatchCount = round?.matches?.length || 1;
         const courtLabel = isSecondHalf
           ? (i === 0 ? "상위 리그" : "하위 리그")
-          : courtCount === 2 ? (i === 0 ? "A구장" : "B구장") : `매치 ${i + 1}`;
+          : currentMatchCount >= 2 ? (i === 0 ? "A구장" : "B구장") : `매치 ${i + 1}`;
         const courtColorVar = isSecondHalf
           ? (i === 0 ? "var(--app-green)" : "var(--app-orange)")
           : (i === 0 ? "var(--app-blue)" : "var(--app-orange)");
