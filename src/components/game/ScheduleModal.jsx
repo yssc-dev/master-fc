@@ -4,7 +4,7 @@ import { TEAM_COLORS } from '../../config/constants';
 import { calcMatchScore } from '../../utils/scoring';
 import Modal from '../common/Modal';
 
-export default function ScheduleModal({ schedule, currentRoundIdx, viewingRoundIdx, setViewingRoundIdx, confirmedRounds, allEvents, teamNames, teamColorIndices, courtCount, splitPhase, teamCount, matchMode, rotations, onClose, styles: s }) {
+export default function ScheduleModal({ schedule, currentRoundIdx, viewingRoundIdx, setViewingRoundIdx, confirmedRounds, allEvents, teamNames, teamColorIndices, courtCount, splitPhase, teamCount, matchMode, rotations, completedMatches = [], onOpenAutoConfig, onClose, styles: s }) {
   const { C } = useTheme();
 
   const pill = (teamIdx) => {
@@ -46,13 +46,17 @@ export default function ScheduleModal({ schedule, currentRoundIdx, viewingRoundI
   const is2Court = courtCount === 2;
 
   const formatDesc = (() => {
-    if (teamCount === 4 && courtCount === 2) return "4팀·2코트 — 동일팀 4번씩 경기 · 12라운드";
-    if (teamCount === 5 && courtCount === 2) return "5팀·2코트 — 동일팀 2번씩 · 10라운드 · 매R 1팀 휴식";
-    if (teamCount === 6 && courtCount === 2) return "6팀·2코트 — 그룹 스플릿 · 12라운드";
+    if (matchMode === "free" && schedule.length > 0) return `자유대진 + 자동 ${schedule.length}라운드 · ${courtCount}코트`;
+    if (teamCount === 4 && courtCount === 2 && matchMode === "schedule") return "4팀·2코트 — 동일팀 4번씩 경기 · 12라운드";
+    if (teamCount === 5 && courtCount === 2 && matchMode === "schedule") return "5팀·2코트 — 동일팀 2번씩 · 10라운드 · 매R 1팀 휴식";
+    if (teamCount === 6 && courtCount === 2 && matchMode === "schedule") return "6팀·2코트 — 그룹 스플릿 · 12라운드";
     if (courtCount === 1 && matchMode === "schedule") return `${teamCount}팀·1코트 — 라운드로빈 × ${rotations || 1}회전`;
     if (matchMode === "free") return "자유대진 — 매 라운드 직접 선택";
     return `${teamCount}팀 · ${courtCount}코트`;
   })();
+
+  const freeMatchCount = completedMatches.filter(m => m?.matchId?.startsWith?.('F')).length;
+  const canOpenAutoConfig = typeof onOpenAutoConfig === 'function';
 
   return (
     <Modal onClose={onClose} title="대진표">
@@ -65,75 +69,99 @@ export default function ScheduleModal({ schedule, currentRoundIdx, viewingRoundI
         <span style={{ margin: "0 6px", opacity: 0.4 }}>|</span>
         {formatDesc}
       </div>
-      <table style={{ width: "100%", borderCollapse: "collapse" }}>
-        <thead>
-          <tr>
-            <th style={{ ...s.th, minWidth: 28 }}>R</th>
-            {is2Court ? (
-              <>
-                <th style={s.th}>A구장</th>
-                <th style={s.th}>B구장</th>
-              </>
-            ) : (
-              <th style={s.th}>대진</th>
-            )}
-            <th style={{ ...s.th, minWidth: 30 }}>상태</th>
-          </tr>
-        </thead>
-        <tbody>
-          {schedule.map((round, ri) => {
-            const isCurrent = ri === currentRoundIdx;
-            const isConfirmed = confirmedRounds[ri];
-            const isSplitBoundary = teamCount === 6 && splitPhase === "second" && ri === 6;
-            return (
-              <React.Fragment key={ri}>
-                {/* 스플릿 구분선 */}
-                {isSplitBoundary && (
-                  <tr>
-                    <td colSpan={is2Court ? 4 : 3} style={{ padding: 0 }}>
-                      <div style={{
-                        textAlign: "center", padding: "8px 0", margin: "4px 0",
-                        background: `linear-gradient(90deg, ${C.green}22, ${C.orange}22)`,
-                        borderTop: `1px solid ${C.grayDark}`, borderBottom: `1px solid ${C.grayDark}`,
-                      }}>
-                        <span style={{ fontSize: 11, fontWeight: 700, color: C.white }}>
-                          ── 그룹 스플릿 ──
-                        </span>
-                        <div style={{ fontSize: 10, color: C.gray, marginTop: 2 }}>
-                          <span style={{ color: C.green }}>상위 리그(1~3위)</span> | <span style={{ color: C.orange }}>하위 리그(4~6위)</span>
+      {freeMatchCount > 0 && (
+        <div style={{ fontSize: 11, color: C.gray, textAlign: "center", marginBottom: 8 }}>
+          자유 매치 {freeMatchCount}개 별도 진행
+        </div>
+      )}
+      {schedule.length === 0 ? (
+        <div style={{ textAlign: "center", color: C.gray, padding: "24px 8px", fontSize: 13 }}>
+          아직 자동 생성된 대진표가 없습니다.
+        </div>
+      ) : (
+        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <thead>
+            <tr>
+              <th style={{ ...s.th, minWidth: 28 }}>R</th>
+              {is2Court ? (
+                <>
+                  <th style={s.th}>A구장</th>
+                  <th style={s.th}>B구장</th>
+                </>
+              ) : (
+                <th style={s.th}>대진</th>
+              )}
+              <th style={{ ...s.th, minWidth: 30 }}>상태</th>
+            </tr>
+          </thead>
+          <tbody>
+            {schedule.map((round, ri) => {
+              const isCurrent = ri === currentRoundIdx;
+              const isConfirmed = confirmedRounds[ri];
+              const isSplitBoundary = teamCount === 6 && splitPhase === "second" && ri === 6;
+              return (
+                <React.Fragment key={ri}>
+                  {/* 스플릿 구분선 */}
+                  {isSplitBoundary && (
+                    <tr>
+                      <td colSpan={is2Court ? 4 : 3} style={{ padding: 0 }}>
+                        <div style={{
+                          textAlign: "center", padding: "8px 0", margin: "4px 0",
+                          background: `linear-gradient(90deg, ${C.green}22, ${C.orange}22)`,
+                          borderTop: `1px solid ${C.grayDark}`, borderBottom: `1px solid ${C.grayDark}`,
+                        }}>
+                          <span style={{ fontSize: 11, fontWeight: 700, color: C.white }}>
+                            ── 그룹 스플릿 ──
+                          </span>
+                          <div style={{ fontSize: 10, color: C.gray, marginTop: 2 }}>
+                            <span style={{ color: C.green }}>상위 리그(1~3위)</span> | <span style={{ color: C.orange }}>하위 리그(4~6위)</span>
+                          </div>
                         </div>
-                      </div>
+                      </td>
+                    </tr>
+                  )}
+                  <tr onClick={() => { setViewingRoundIdx(ri <= currentRoundIdx ? ri : viewingRoundIdx); onClose(); }}
+                    style={{ cursor: "pointer", background: isCurrent ? `${C.accent}11` : "transparent" }}>
+                    <td style={{ ...s.td(isCurrent), fontSize: 13, fontWeight: 700 }}>{ri + 1}</td>
+                    {is2Court ? (
+                      <>
+                        <td style={{ ...s.td(), padding: "6px 2px" }}>{getMatchCell(round.matches[0], 0, ri)}</td>
+                        <td style={{ ...s.td(), padding: "6px 2px" }}>{getMatchCell(round.matches[1], 1, ri)}</td>
+                      </>
+                    ) : (
+                      <td style={{ ...s.td(), padding: "6px 2px" }}>
+                        {round.matches.map((pair, mi) => (
+                          <div key={mi} style={{ marginBottom: mi < round.matches.length - 1 ? 4 : 0 }}>
+                            {getMatchCell(pair, mi, ri)}
+                          </div>
+                        ))}
+                      </td>
+                    )}
+                    <td style={{ ...s.td(), padding: "4px 2px" }}>
+                      <span style={{ fontSize: 11, fontWeight: 600, padding: "3px 6px", borderRadius: 4, background: isConfirmed ? "#22c55e22" : isCurrent || ri < currentRoundIdx ? `${C.orange}22` : "transparent", color: isConfirmed ? "#22c55e" : isCurrent || ri < currentRoundIdx ? C.orange : C.grayDark }}>
+                        {isConfirmed ? "종료" : isCurrent || ri < currentRoundIdx ? "진행" : "-"}
+                      </span>
                     </td>
                   </tr>
-                )}
-                <tr onClick={() => { setViewingRoundIdx(ri <= currentRoundIdx ? ri : viewingRoundIdx); onClose(); }}
-                  style={{ cursor: "pointer", background: isCurrent ? `${C.accent}11` : "transparent" }}>
-                  <td style={{ ...s.td(isCurrent), fontSize: 13, fontWeight: 700 }}>{ri + 1}</td>
-                  {is2Court ? (
-                    <>
-                      <td style={{ ...s.td(), padding: "6px 2px" }}>{getMatchCell(round.matches[0], 0, ri)}</td>
-                      <td style={{ ...s.td(), padding: "6px 2px" }}>{getMatchCell(round.matches[1], 1, ri)}</td>
-                    </>
-                  ) : (
-                    <td style={{ ...s.td(), padding: "6px 2px" }}>
-                      {round.matches.map((pair, mi) => (
-                        <div key={mi} style={{ marginBottom: mi < round.matches.length - 1 ? 4 : 0 }}>
-                          {getMatchCell(pair, mi, ri)}
-                        </div>
-                      ))}
-                    </td>
-                  )}
-                  <td style={{ ...s.td(), padding: "4px 2px" }}>
-                    <span style={{ fontSize: 11, fontWeight: 600, padding: "3px 6px", borderRadius: 4, background: isConfirmed ? "#22c55e22" : isCurrent || ri < currentRoundIdx ? `${C.orange}22` : "transparent", color: isConfirmed ? "#22c55e" : isCurrent || ri < currentRoundIdx ? C.orange : C.grayDark }}>
-                      {isConfirmed ? "종료" : isCurrent || ri < currentRoundIdx ? "진행" : "-"}
-                    </span>
-                  </td>
-                </tr>
-              </React.Fragment>
-            );
-          })}
-        </tbody>
-      </table>
+                </React.Fragment>
+              );
+            })}
+          </tbody>
+        </table>
+      )}
+      {canOpenAutoConfig && (
+        <div style={{ marginTop: 12, display: "flex", justifyContent: "center" }}>
+          <button
+            onClick={onOpenAutoConfig}
+            style={{
+              background: C.accent, color: C.bg, border: 0, borderRadius: 999,
+              padding: "10px 16px", fontSize: 13, fontWeight: 700, cursor: "pointer",
+            }}
+          >
+            + 대진표 자동설정
+          </button>
+        </div>
+      )}
     </Modal>
   );
 }
