@@ -1090,13 +1090,13 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
               <div key={tIdx} style={{ ...s.teamCard(teamColorIndices[tIdx]), border: canAddHere ? `2px dashed ${color?.bg || C.accent}` : "none" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    {!teamEditMode && editingTeamName === tIdx ? (
+                    {editingTeamName === tIdx ? (
                       <input autoFocus style={{ ...s.input, width: 100, padding: "4px 8px", fontSize: 14, fontWeight: 700 }} value={teamNames[tIdx]}
                         onChange={e => { const c = [...teamNames]; c[tIdx] = e.target.value; set('teamNames', c); }}
                         onBlur={() => set('editingTeamName', null)} onKeyDown={e => e.key === "Enter" && set('editingTeamName', null)} />
                     ) : (
-                      <span style={{ fontWeight: 700, fontSize: 14, cursor: teamEditMode ? "default" : "pointer" }}
-                        onClick={(e) => { if (teamEditMode) return; e.stopPropagation(); set('editingTeamName', tIdx); }}>{teamNames[tIdx]}</span>
+                      <span style={{ fontWeight: 700, fontSize: 14, cursor: "pointer" }}
+                        onClick={(e) => { e.stopPropagation(); set('editingTeamName', tIdx); }}>{teamNames[tIdx]}</span>
                     )}
                     <span style={{ fontSize: 11, color: C.gray }}>전력 {teamPower(team, seasonPlayers)}</span>
                   </div>
