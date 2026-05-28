@@ -41,6 +41,9 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
 
   const set = (field, value) => dispatch({ type: 'SET_FIELD', field, value });
   const [selectedPoolPlayers, setSelectedPoolPlayers] = useState([]);
+  // ScheduleView 활성 중에도 자유 라운드(F-id) 매치를 직접 열어볼 수 있게.
+  // null이 아니면 해당 자유 매치를 FreeMatchView의 forced 모드로 렌더링.
+  const [viewingFreeIdx, setViewingFreeIdx] = useState(null);
 
   // eslint-disable-next-line react-hooks/exhaustive-deps -- 마운트 시 1회: gameId/isNewGame는 props로 변경되지 않음
   useEffect(() => {
@@ -1266,10 +1269,21 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
             color: "var(--app-text-primary)", margin: 0, lineHeight: 1.1,
           }}>경기 진행</h1>
           <div style={{ fontSize: 14, color: "var(--app-text-secondary)", marginTop: 4 }}>
-            {(matchMode === "schedule" || (matchMode === "free" && schedule.length > 0))
-              ? (allRoundsComplete ? "전체 라운드 완료" : `라운드 ${currentRoundIdx + 1} / ${schedule.length}`)
-              : matchMode === "push" ? `밀어내기 · ${completedMatches.length}경기`
-              : `자유대전 · ${completedMatches.length}라운드`}
+            {(() => {
+              if (matchMode === "push") return `밀어내기 · ${completedMatches.length}경기`;
+              if (matchMode === "schedule") {
+                return allRoundsComplete ? "전체 라운드 완료" : `라운드 ${currentRoundIdx + 1} / ${schedule.length}`;
+              }
+              // free 모드 — 자유 라운드와 자동 schedule을 합산 누적 카운트로 표시
+              const freeCount = completedMatches.filter(m => m?.matchId?.startsWith?.('F')).length;
+              if (schedule.length > 0) {
+                const total = freeCount + schedule.length;
+                return allRoundsComplete
+                  ? `전체 ${total}라운드 완료`
+                  : `라운드 ${freeCount + currentRoundIdx + 1} / ${total}`;
+              }
+              return `자유대전 · ${completedMatches.length}라운드`;
+            })()}
           </div>
           <div style={{
             display: "flex", gap: 6, marginTop: 12, overflowX: "auto",
@@ -1310,6 +1324,17 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
             onOpenAutoConfig={matchMode === "free" && [4, 5].includes(teamCount)
               ? () => set('matchModal', 'balancedAuto')
               : undefined}
+            onViewFreeMatch={(idx) => {
+              // 자유 라운드 (F-id) 매치를 열기 — completedMatches 내 인덱스 매핑
+              const fMatchIds = completedMatches
+                .map((m, i) => m?.matchId?.startsWith?.('F') ? i : null)
+                .filter(i => i !== null);
+              const targetIdx = fMatchIds[idx];
+              if (targetIdx != null) {
+                setViewingFreeIdx(targetIdx);
+                set('matchModal', null);
+              }
+            }}
             onClose={() => set('matchModal', null)} styles={s} />
         )}
         {matchModal === "balancedAuto" && (
@@ -1402,6 +1427,18 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
               absentees={absentees || {}} onToggleAbsent={handleToggleAbsent}
               onEditPastGk={handleEditPastGk} onEditPastMercAdd={handleEditPastMercAdd} onEditPastMercRemove={handleEditPastMercRemove}
               styles={s} />
+          ) : viewingFreeIdx !== null ? (
+            <FreeMatchView teams={teams} teamNames={teamNames} teamColorIndices={teamColorIndices} gks={gks}
+              courtCount={courtCount} allEvents={allEvents} onRecordEvent={recordMatchEvent}
+              onUndoEvent={undoMatchEvent} onDeleteEvent={deleteEvent} onEditEvent={editEvent}
+              onFinishMatch={finishMatch} onConfirmFreeRound={confirmFreeRound} completedMatches={completedMatches}
+              attendees={attendees} onGkChange={handleGkChange}
+              liveMercs={liveMercs || {}} onAddLiveMerc={handleAddLiveMerc} onRemoveLiveMerc={handleRemoveLiveMerc}
+              absentees={absentees || {}} onToggleAbsent={handleToggleAbsent}
+              onEditPastGk={handleEditPastGk} onEditPastMercAdd={handleEditPastMercAdd} onEditPastMercRemove={handleEditPastMercRemove}
+              styles={s} isExtraRound={isExtraRound}
+              forcedPastIdx={viewingFreeIdx}
+              onExitForcedPast={() => setViewingFreeIdx(null)} />
           ) : shouldShowSchedule ? (
             <ScheduleMatchView schedule={schedule} currentRoundIdx={currentRoundIdx}
               viewingRoundIdx={viewingRoundIdx} setViewingRoundIdx={(v) => set('viewingRoundIdx', v)}
@@ -1427,7 +1464,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
           )}
         </div>
 
-        {shouldShowSchedule && (
+        {shouldShowSchedule && viewingFreeIdx === null && (
           <div style={s.bottomBar}>
             {!viewRoundConfirmed && viewingRoundIdx <= currentRoundIdx && viewingRoundIdx < schedule.length ? (
               <button onClick={handleConfirmScheduleRound} style={{ ...s.btn(C.accent, C.bg), flex: 1 }}>

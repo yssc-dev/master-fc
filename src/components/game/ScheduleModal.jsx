@@ -4,7 +4,7 @@ import { TEAM_COLORS } from '../../config/constants';
 import { calcMatchScore } from '../../utils/scoring';
 import Modal from '../common/Modal';
 
-export default function ScheduleModal({ schedule, currentRoundIdx, viewingRoundIdx, setViewingRoundIdx, confirmedRounds, allEvents, teamNames, teamColorIndices, courtCount, splitPhase, teamCount, matchMode, rotations, completedMatches = [], onOpenAutoConfig, onClose, styles: s }) {
+export default function ScheduleModal({ schedule, currentRoundIdx, viewingRoundIdx, setViewingRoundIdx, confirmedRounds, allEvents, teamNames, teamColorIndices, courtCount, splitPhase, teamCount, matchMode, rotations, completedMatches = [], onOpenAutoConfig, onViewFreeMatch, onClose, styles: s }) {
   const { C } = useTheme();
 
   const pill = (teamIdx) => {
@@ -99,8 +99,11 @@ export default function ScheduleModal({ schedule, currentRoundIdx, viewingRoundI
                   border: tc ? `1px solid ${tc.bg}88` : "none",
                   whiteSpace: "nowrap",
                 });
+                const canClick = typeof onViewFreeMatch === "function";
                 return (
-                  <tr key={m.matchId || i}>
+                  <tr key={m.matchId || i}
+                      onClick={canClick ? () => onViewFreeMatch(i) : undefined}
+                      style={{ cursor: canClick ? "pointer" : "default" }}>
                     <td style={{ ...s.td(), fontSize: 12, fontWeight: 700, color: C.gray }}>F{i + 1}</td>
                     <td style={{ ...s.td(), padding: "6px 2px" }}>
                       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 4 }}>
