@@ -355,6 +355,13 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
   const shouldShowSchedule = matchMode !== "push" && schedule.length > 0 && !isExtraRound
     && !(matchMode === "free" && allRoundsComplete);
 
+  // 자유 + 자동 schedule 혼합 모드에서 schedule 라운드 표시 번호를 자유 라운드 수만큼 offset.
+  // 예: 자유 5R 후 자동 R1은 사용자에겐 '라운드 6'으로 보여야 함.
+  // 일반 대진표 모드(matchMode='schedule')는 offset=0이라 영향 없음.
+  const roundDisplayOffset = matchMode === "free"
+    ? completedMatches.filter(m => m?.matchId?.startsWith?.('F')).length
+    : 0;
+
   // 자유대진 라이브 매치 진행 중 여부 — F{n}_C{c} 이벤트가 있고 completedMatches에 없음
   const hasLiveFreeMatch = useMemo(() => {
     if (matchMode !== "free") return false;
@@ -662,14 +669,14 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
       }
     }
     const msg = results.map(r => `${r.court ? r.court + ": " : ""}${r.homeTeam} ${r.homeScore}:${r.awayScore} ${r.awayTeam}`).join("\n");
-    if (!confirm(msg + "\n\n라운드 " + (viewingRoundIdx + 1) + " 결과를 확정하시겠습니까?")) return;
+    if (!confirm(msg + "\n\n라운드 " + (viewingRoundIdx + 1 + roundDisplayOffset) + " 결과를 확정하시겠습니까?")) return;
     confirmRound(viewingRoundIdx, results);
     // 다음 라운드로 자동 이동 후 화면 상단으로 스크롤
     requestAnimationFrame(() => window.scrollTo({ top: 0, behavior: "smooth" }));
   };
 
   const handleUnconfirmRound = (roundIdx) => {
-    if (!confirm(`라운드 ${roundIdx + 1} 확정을 취소하시겠습니까?\n결과가 초기화되고 다시 수정할 수 있습니다.`)) return;
+    if (!confirm(`라운드 ${roundIdx + 1 + roundDisplayOffset} 확정을 취소하시겠습니까?\n결과가 초기화되고 다시 수정할 수 있습니다.`)) return;
     dispatch({ type: 'UNCONFIRM_ROUND', roundIdx });
   };
 
@@ -1321,6 +1328,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
             allEvents={allEvents} teamNames={teamNames} teamColorIndices={teamColorIndices} courtCount={courtCount}
             splitPhase={splitPhase} teamCount={teamCount} matchMode={matchMode} rotations={rotations}
             completedMatches={completedMatches}
+            roundDisplayOffset={roundDisplayOffset}
             onOpenAutoConfig={matchMode === "free" && [4, 5].includes(teamCount)
               ? () => set('matchModal', 'balancedAuto')
               : undefined}
@@ -1443,6 +1451,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
             <ScheduleMatchView schedule={schedule} currentRoundIdx={currentRoundIdx}
               viewingRoundIdx={viewingRoundIdx} setViewingRoundIdx={(v) => set('viewingRoundIdx', v)}
               confirmedRounds={confirmedRounds} onConfirmRound={confirmRound}
+              roundDisplayOffset={roundDisplayOffset}
               teams={teams} teamNames={teamNames} teamColorIndices={teamColorIndices} gks={gks} gksHistory={gksHistory || {}}
               courtCount={courtCount} allEvents={allEvents} onRecordEvent={recordMatchEvent}
               onUndoEvent={undoMatchEvent} onDeleteEvent={deleteEvent} onEditEvent={editEvent}
@@ -1468,11 +1477,11 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
           <div style={s.bottomBar}>
             {!viewRoundConfirmed && viewingRoundIdx <= currentRoundIdx && viewingRoundIdx < schedule.length ? (
               <button onClick={handleConfirmScheduleRound} style={{ ...s.btn(C.accent, C.bg), flex: 1 }}>
-                라운드 {viewingRoundIdx + 1} 종료 확정
+                라운드 {viewingRoundIdx + 1 + roundDisplayOffset} 종료 확정
               </button>
             ) : viewRoundConfirmed ? (
               <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, flexWrap: "wrap" }}>
-                <span style={{ color: C.green, fontWeight: 700, padding: 10 }}>라운드 {viewingRoundIdx + 1} 종료됨</span>
+                <span style={{ color: C.green, fontWeight: 700, padding: 10 }}>라운드 {viewingRoundIdx + 1 + roundDisplayOffset} 종료됨</span>
                 <button onClick={() => handleUnconfirmRound(viewingRoundIdx)}
                   style={{ ...s.btnSm(C.orange, C.bg), fontSize: 11 }}>확정취소</button>
               </div>
