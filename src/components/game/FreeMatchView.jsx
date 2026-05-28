@@ -84,6 +84,14 @@ export default function FreeMatchView({ teams, teamNames, teamColorIndices, gks,
       results.push({ ...mi, homeScore, awayScore, court: courtCount2 ? (ci === 0 ? "A구장" : "B구장") : "", mercenaries: [] });
     }
     if (results.length === 0) { alert("진행 중인 경기가 없습니다"); return; }
+    // GK 필수 체크 — 대진표 모드의 handleConfirmScheduleRound와 동일 패턴
+    for (const r of results) {
+      if (!r.homeGk || !r.awayGk) {
+        const courtPrefix = r.court ? r.court + ": " : "";
+        alert(`${courtPrefix}키퍼를 지정하세요: ${!r.homeGk ? r.homeTeam : ""}${!r.homeGk && !r.awayGk ? ", " : ""}${!r.awayGk ? r.awayTeam : ""}`);
+        return;
+      }
+    }
     const msg = results.map(r => `${r.court ? r.court + ": " : ""}${r.homeTeam} ${r.homeScore}:${r.awayScore} ${r.awayTeam}`).join("\n");
     if (!confirm(msg + "\n\n경기결과를 확정하시겠습니까?")) return;
     // 두 코트 atomic finalize — 차출자 base 제외 처리가 한 번에 적용됨.
@@ -148,20 +156,8 @@ export default function FreeMatchView({ teams, teamNames, teamColorIndices, gks,
     };
     return (
       <div>
-        {/* forced 모드: 스케줄로 돌아가는 exit 버튼 */}
-        {isForcedPast && (
-          <div style={{ marginBottom: 8 }}>
-            <button onClick={() => onExitForcedPast?.()}
-              style={{
-                background: "var(--app-bg-row)", border: "0.5px solid var(--app-divider)",
-                color: "var(--app-text-primary)", padding: "6px 12px", borderRadius: 999,
-                fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "inherit",
-              }}>
-              ← 스케줄로 돌아가기
-            </button>
-          </div>
-        )}
-        {/* 매치 네비게이션 — ScheduleMatchView와 동일 패턴 */}
+        {/* 매치 네비게이션 — ScheduleMatchView와 동일 패턴.
+            forced 모드에서 마지막 F의 ▶ 클릭 시 onExitForcedPast로 스케줄 복귀. */}
         <div style={{
           display: "flex", alignItems: "center", justifyContent: "space-between",
           gap: 8, marginBottom: 14, padding: "4px 0",
