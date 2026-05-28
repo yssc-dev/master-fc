@@ -134,7 +134,7 @@ export default function FreeMatchView({ teams, teamNames, teamColorIndices, gks,
               fontSize: 17, fontWeight: 600, color: "var(--app-text-primary)",
               letterSpacing: "-0.022em",
             }}>
-              {viewingIdx + 1}경기 <span style={{ color: "var(--app-text-tertiary)", fontWeight: 500 }}>/ {completedMatches.length}</span>
+              라운드 {viewingIdx + 1} <span style={{ color: "var(--app-text-tertiary)", fontWeight: 500 }}>/ {completedMatches.length}</span>
             </div>
             <div style={{
               fontSize: 11, fontWeight: 600, marginTop: 2,
@@ -179,13 +179,13 @@ export default function FreeMatchView({ teams, teamNames, teamColorIndices, gks,
         <div style={s.bottomBar}>
           {pastEditMode ? (
             <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, flexWrap: "wrap" }}>
-              <span style={{ color: C.orange, fontWeight: 700, padding: 10 }}>{viewingIdx + 1}경기 확정취소됨</span>
+              <span style={{ color: C.orange, fontWeight: 700, padding: 10 }}>라운드 {viewingIdx + 1} 확정취소됨</span>
               <button onClick={() => setPastEditMode(false)}
-                style={{ ...s.btnSm(C.green, C.bg), fontSize: 11 }}>매치 확정</button>
+                style={{ ...s.btnSm(C.green, C.bg), fontSize: 11 }}>라운드 확정</button>
             </div>
           ) : (
             <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, flexWrap: "wrap" }}>
-              <span style={{ color: C.green, fontWeight: 700, padding: 10 }}>{viewingIdx + 1}경기 종료됨</span>
+              <span style={{ color: C.green, fontWeight: 700, padding: 10 }}>라운드 {viewingIdx + 1} 종료됨</span>
               <button onClick={() => setPastEditMode(true)}
                 style={{ ...s.btnSm(C.orange, C.bg), fontSize: 11 }}>확정취소</button>
             </div>
