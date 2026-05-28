@@ -273,13 +273,14 @@ export function makeStyles(C) {
       padding: "10px 14px",
       borderRadius: 10,
       fontSize: 14,
-      fontWeight: 500,
+      fontWeight: color ? 700 : 500,
       margin: 3,
       cursor: "pointer",
-      background: C.cardLight,
+      background: color ? `${color.bg}33` : C.cardLight,
       color: C.white,
       minWidth: 60,
-      border: "none",
+      border: color ? `2px solid ${color.bg}` : "2px solid transparent",
+      transition: "background 0.12s ease, border-color 0.12s ease",
     }),
   };
 }
