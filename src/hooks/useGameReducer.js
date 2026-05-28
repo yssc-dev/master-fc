@@ -758,6 +758,27 @@ function gameReducer(state, action) {
         viewingRoundIdx: nextCurrent,
       };
     }
+    case 'RESET_MATCH_PROGRESS': {
+      // 팀 구성/명단/설정은 유지하고 라운드 진행 기록만 모두 초기화.
+      // 게임 처음 시작 직후 상태와 동일.
+      return {
+        ...state,
+        schedule: [],
+        currentRoundIdx: 0,
+        viewingRoundIdx: 0,
+        completedMatches: [],
+        allEvents: [],
+        confirmedRounds: {},
+        liveMercs: {},
+        absentees: {},
+        gks: {},
+        gksHistory: {},
+        isExtraRound: false,
+        earlyFinish: false,
+        splitPhase: null,
+        pushState: state.matchMode === 'push' ? createInitialPushState(state.teamCount) : null,
+      };
+    }
     case 'START_MATCHES': {
       const { schedule, pushState: initPushState } = action;
       return {

@@ -1310,6 +1310,13 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
                 ? <button onClick={() => set('phase', 'summary')} style={pillBtnStyle({ tone: "green", strong: true })}>최종집계</button>
                 : <button onClick={handleEarlyFinish} style={pillBtnStyle({ tone: "orange", strong: true })}>조기마감</button>
             )}
+            {teamContext?.role === "관리자" && completedMatches.length > 0 && (
+              <button onClick={() => {
+                if (!confirm("라운드 진행 기록을 모두 초기화하시겠습니까?\n팀 구성과 명단은 유지되고 매치/이벤트/스케줄만 지워집니다.")) return;
+                if (!confirm("되돌릴 수 없습니다. 정말 초기화하시겠습니까?")) return;
+                dispatch({ type: 'RESET_MATCH_PROGRESS' });
+              }} style={pillBtnStyle({ tone: "orange" })}>라운드초기화</button>
+            )}
             {teamContext?.role === "관리자" && (
               <button onClick={async () => {
                 if (!confirm("경기를 삭제하시겠습니까?\n모든 기록이 초기화됩니다.")) return;
