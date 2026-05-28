@@ -118,10 +118,34 @@ export default function FreeMatchView({ teams, teamNames, teamColorIndices, gks,
       opacity: disabled ? 0.3 : 1, padding: 0, fontFamily: "inherit",
       display: "inline-flex", alignItems: "center", justifyContent: "center",
     });
-    const canPrev = viewingIdx > 0;
-    // forced 모드는 라이브 진입(viewingIdx === completedMatches.length) 금지 — 과거 매치 범위로 한정.
-    const maxIdx = isForcedPast ? completedMatches.length - 1 : completedMatches.length;
-    const canNext = viewingIdx < maxIdx;
+    // forced 모드(스케줄에서 자유 라운드로 점프)면 F-id 매치들 사이에서만 이동.
+    // ◀ F1에서 더 이상 못 감. ▶ 마지막 F에서는 스케줄(R1)로 복귀(onExitForcedPast).
+    const fMatchIndices = isForcedPast
+      ? completedMatches.map((m, i) => m?.matchId?.startsWith?.('F') ? i : -1).filter(i => i >= 0)
+      : null;
+    const fPos = fMatchIndices ? fMatchIndices.indexOf(viewingIdx) : -1;
+    const canPrev = isForcedPast ? (fPos > 0) : (viewingIdx > 0);
+    // 일반 모드는 라이브 진입(viewingIdx === completedMatches.length) 금지 — 과거 매치 범위로 한정.
+    const canNext = isForcedPast ? true : (viewingIdx < completedMatches.length);
+    const goPrev = () => {
+      if (isForcedPast && fMatchIndices && fPos > 0) {
+        setViewingIdx(fMatchIndices[fPos - 1]);
+      } else if (!isForcedPast) {
+        setViewingIdx(Math.max(0, viewingIdx - 1));
+      }
+    };
+    const goNext = () => {
+      if (isForcedPast && fMatchIndices) {
+        if (fPos < fMatchIndices.length - 1) {
+          setViewingIdx(fMatchIndices[fPos + 1]);
+        } else {
+          // 마지막 F → 스케줄로 복귀
+          onExitForcedPast?.();
+        }
+      } else if (!isForcedPast) {
+        setViewingIdx(Math.min(completedMatches.length, viewingIdx + 1));
+      }
+    };
     return (
       <div>
         {/* forced 모드: 스케줄로 돌아가는 exit 버튼 */}
@@ -142,7 +166,7 @@ export default function FreeMatchView({ teams, teamNames, teamColorIndices, gks,
           display: "flex", alignItems: "center", justifyContent: "space-between",
           gap: 8, marginBottom: 14, padding: "4px 0",
         }}>
-          <button onClick={() => setViewingIdx(Math.max(0, viewingIdx - 1))}
+          <button onClick={goPrev}
             disabled={!canPrev} style={matchNavBtn(!canPrev)}>
             <BackIcon width={16} />
           </button>
@@ -160,7 +184,7 @@ export default function FreeMatchView({ teams, teamNames, teamColorIndices, gks,
               {pastEditMode ? "확정취소됨" : "종료됨"}
             </div>
           </div>
-          <button onClick={() => setViewingIdx(Math.min(maxIdx, viewingIdx + 1))}
+          <button onClick={goNext}
             disabled={!canNext} style={matchNavBtn(!canNext)}>
             <BackIcon width={16} style={{ transform: "rotate(180deg)" }} />
           </button>

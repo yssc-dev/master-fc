@@ -3,7 +3,7 @@ import { TEAM_COLORS } from '../../config/constants';
 import { BackIcon } from '../common/icons';
 import CourtRecorder from './CourtRecorder';
 
-export default function ScheduleMatchView({ schedule, currentRoundIdx, viewingRoundIdx, setViewingRoundIdx, confirmedRounds, onConfirmRound, teams, teamNames, teamColorIndices, gks, gksHistory, courtCount, allEvents, onRecordEvent, onUndoEvent, onDeleteEvent, onEditEvent, completedMatches, attendees, onGkChange, liveMercs, onAddLiveMerc, onRemoveLiveMerc, onEditPastGk, onEditPastMercAdd, onEditPastMercRemove, splitPhase, absentees, onToggleAbsent, styles: s, roundDisplayOffset = 0 }) {
+export default function ScheduleMatchView({ schedule, currentRoundIdx, viewingRoundIdx, setViewingRoundIdx, confirmedRounds, onConfirmRound, teams, teamNames, teamColorIndices, gks, gksHistory, courtCount, allEvents, onRecordEvent, onUndoEvent, onDeleteEvent, onEditEvent, completedMatches, attendees, onGkChange, liveMercs, onAddLiveMerc, onRemoveLiveMerc, onEditPastGk, onEditPastMercAdd, onEditPastMercRemove, splitPhase, absentees, onToggleAbsent, styles: s, roundDisplayOffset = 0, onWrapToLastFree }) {
   const [compose, setCompose] = useState(null);
   const round = schedule[viewingRoundIdx];
   const matches = round?.matches || [];
@@ -74,9 +74,16 @@ export default function ScheduleMatchView({ schedule, currentRoundIdx, viewingRo
         display: "flex", alignItems: "center", justifyContent: "space-between",
         gap: 8, marginBottom: 14, padding: "4px 0",
       }}>
-        <button onClick={() => setViewingRoundIdx(Math.max(0, viewingRoundIdx - 1))}
-          disabled={viewingRoundIdx === 0}
-          style={roundNavBtn(viewingRoundIdx === 0)}>
+        <button onClick={() => {
+            if (viewingRoundIdx === 0 && typeof onWrapToLastFree === 'function') {
+              // 자유 라운드가 앞에 있는 혼합 모드: R1에서 ◀ → 마지막 F로 점프
+              onWrapToLastFree();
+            } else {
+              setViewingRoundIdx(Math.max(0, viewingRoundIdx - 1));
+            }
+          }}
+          disabled={viewingRoundIdx === 0 && typeof onWrapToLastFree !== 'function'}
+          style={roundNavBtn(viewingRoundIdx === 0 && typeof onWrapToLastFree !== 'function')}>
           <BackIcon width={16} />
         </button>
         <div style={{ textAlign: "center" }}>

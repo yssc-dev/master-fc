@@ -1452,6 +1452,10 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
               viewingRoundIdx={viewingRoundIdx} setViewingRoundIdx={(v) => set('viewingRoundIdx', v)}
               confirmedRounds={confirmedRounds} onConfirmRound={confirmRound}
               roundDisplayOffset={roundDisplayOffset}
+              onWrapToLastFree={roundDisplayOffset > 0 ? () => {
+                const fIndices = completedMatches.map((m, i) => m?.matchId?.startsWith?.('F') ? i : -1).filter(i => i >= 0);
+                if (fIndices.length > 0) setViewingFreeIdx(fIndices[fIndices.length - 1]);
+              } : undefined}
               teams={teams} teamNames={teamNames} teamColorIndices={teamColorIndices} gks={gks} gksHistory={gksHistory || {}}
               courtCount={courtCount} allEvents={allEvents} onRecordEvent={recordMatchEvent}
               onUndoEvent={undoMatchEvent} onDeleteEvent={deleteEvent} onEditEvent={editEvent}
