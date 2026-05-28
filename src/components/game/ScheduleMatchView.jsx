@@ -3,7 +3,7 @@ import { TEAM_COLORS } from '../../config/constants';
 import { BackIcon } from '../common/icons';
 import CourtRecorder from './CourtRecorder';
 
-export default function ScheduleMatchView({ schedule, currentRoundIdx, viewingRoundIdx, setViewingRoundIdx, confirmedRounds, onConfirmRound, teams, teamNames, teamColorIndices, gks, gksHistory, courtCount, allEvents, onRecordEvent, onUndoEvent, onDeleteEvent, onEditEvent, completedMatches, attendees, onGkChange, liveMercs, onAddLiveMerc, onRemoveLiveMerc, onEditPastGk, onEditPastMercAdd, onEditPastMercRemove, splitPhase, absentees, onToggleAbsent, styles: s }) {
+export default function ScheduleMatchView({ schedule, currentRoundIdx, viewingRoundIdx, setViewingRoundIdx, confirmedRounds, onConfirmRound, teams, teamNames, teamColorIndices, gks, gksHistory, courtCount, allEvents, onRecordEvent, onUndoEvent, onDeleteEvent, onEditEvent, completedMatches, attendees, onGkChange, liveMercs, onAddLiveMerc, onRemoveLiveMerc, onEditPastGk, onEditPastMercAdd, onEditPastMercRemove, splitPhase, absentees, onToggleAbsent, styles: s, roundDisplayOffset = 0 }) {
   const [compose, setCompose] = useState(null);
   const round = schedule[viewingRoundIdx];
   const matches = round?.matches || [];
@@ -84,7 +84,7 @@ export default function ScheduleMatchView({ schedule, currentRoundIdx, viewingRo
             fontSize: 17, fontWeight: 600, color: "var(--app-text-primary)",
             letterSpacing: "-0.022em",
           }}>
-            라운드 {viewingRoundIdx + 1} <span style={{ color: "var(--app-text-tertiary)", fontWeight: 500 }}>/ {schedule.length}</span>
+            라운드 {viewingRoundIdx + 1 + roundDisplayOffset} <span style={{ color: "var(--app-text-tertiary)", fontWeight: 500 }}>/ {schedule.length + roundDisplayOffset}</span>
           </div>
           <div style={{
             fontSize: 11, fontWeight: 600, marginTop: 2,

@@ -4,7 +4,7 @@ import { TEAM_COLORS } from '../../config/constants';
 import { calcMatchScore } from '../../utils/scoring';
 import Modal from '../common/Modal';
 
-export default function ScheduleModal({ schedule, currentRoundIdx, viewingRoundIdx, setViewingRoundIdx, confirmedRounds, allEvents, teamNames, teamColorIndices, courtCount, splitPhase, teamCount, matchMode, rotations, completedMatches = [], onOpenAutoConfig, onViewFreeMatch, onClose, styles: s }) {
+export default function ScheduleModal({ schedule, currentRoundIdx, viewingRoundIdx, setViewingRoundIdx, confirmedRounds, allEvents, teamNames, teamColorIndices, courtCount, splitPhase, teamCount, matchMode, rotations, completedMatches = [], onOpenAutoConfig, onViewFreeMatch, roundDisplayOffset = 0, onClose, styles: s }) {
   const { C } = useTheme();
 
   const pill = (teamIdx) => {
@@ -174,7 +174,7 @@ export default function ScheduleModal({ schedule, currentRoundIdx, viewingRoundI
                   )}
                   <tr onClick={() => { setViewingRoundIdx(ri <= currentRoundIdx ? ri : viewingRoundIdx); onClose(); }}
                     style={{ cursor: "pointer", background: isCurrent ? `${C.accent}11` : "transparent" }}>
-                    <td style={{ ...s.td(isCurrent), fontSize: 13, fontWeight: 700 }}>{ri + 1}</td>
+                    <td style={{ ...s.td(isCurrent), fontSize: 13, fontWeight: 700 }}>{ri + 1 + roundDisplayOffset}</td>
                     {is2Court ? (
                       <>
                         <td style={{ ...s.td(), padding: "6px 2px" }}>{getMatchCell(round.matches?.[0], 0, ri)}</td>
