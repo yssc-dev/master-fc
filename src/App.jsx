@@ -40,7 +40,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
   } = state;
 
   const set = (field, value) => dispatch({ type: 'SET_FIELD', field, value });
-  const [selectedPoolPlayer, setSelectedPoolPlayer] = useState(null);
+  const [selectedPoolPlayers, setSelectedPoolPlayers] = useState([]);
 
   // eslint-disable-next-line react-hooks/exhaustive-deps -- 마운트 시 1회: gameId/isNewGame는 props로 변경되지 않음
   useEffect(() => {
@@ -528,25 +528,32 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
     dispatch({ type: 'SET_FIELDS', fields: { teams: d, teamNames: d.map(t => makeTeamName(t)), gks: {} } });
   };
 
-  const freeAddPlayer = (player, targetIdx = freeSelectTeam) => {
+  // 다중 선택된 선수를 한 팀에 일괄 배정 (attendees 자동 포함 + 한 번의 dispatch로 batch)
+  const addPlayersToTeam = (players, targetIdx) => {
+    if (!players.length) return;
+    const newAttendees = [...attendees];
+    for (const p of players) {
+      if (!newAttendees.includes(p)) newAttendees.push(p);
+    }
     const newTeams = teams.map(t => [...t]);
-    newTeams[targetIdx].push(player);
+    newTeams[targetIdx].push(...players);
     const newNames = [...teamNames];
     newNames[targetIdx] = makeTeamName(newTeams[targetIdx]);
-    dispatch({ type: 'SET_FIELDS', fields: { teams: newTeams, teamNames: newNames } });
+    dispatch({ type: 'SET_FIELDS', fields: {
+      attendees: newAttendees,
+      teams: newTeams,
+      teamNames: newNames,
+    } });
   };
 
   const togglePoolSelect = (player) => {
-    setSelectedPoolPlayer(prev => prev === player ? null : player);
+    setSelectedPoolPlayers(prev => prev.includes(player) ? prev.filter(p => p !== player) : [...prev, player]);
   };
 
   const addSelectedToTeam = (targetIdx) => {
-    if (!selectedPoolPlayer) return;
-    if (!attendees.includes(selectedPoolPlayer)) {
-      dispatch({ type: 'SET_FIELDS', fields: { attendees: [...attendees, selectedPoolPlayer] } });
-    }
-    freeAddPlayer(selectedPoolPlayer, targetIdx);
-    setSelectedPoolPlayer(null);
+    if (!selectedPoolPlayers.length) return;
+    addPlayersToTeam(selectedPoolPlayers, targetIdx);
+    setSelectedPoolPlayers([]);
   };
 
   const freeRemovePlayer = (player, teamIdx) => {
@@ -1037,7 +1044,16 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
             <div style={{ ...s.card, border: `2px solid ${C.accent}44`, marginBottom: 14 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
                 <div style={{ fontSize: 12, fontWeight: 700, color: C.accent, flex: 1 }}>
-                  미배정 선수 ({unassignedPlayers.length}명) {selectedPoolPlayer ? `· ${selectedPoolPlayer} 선택됨 → 아래 팀의 + 버튼 탭` : "· 선수를 탭하여 선택 후 아래 팀의 + 버튼 탭"}
+                  미배정 선수 ({unassignedPlayers.length}명)
+                  {selectedPoolPlayers.length === 0
+                    ? " · 선수 다중 선택 후 아래 팀의 + 추가 탭"
+                    : ` · ${selectedPoolPlayers.length}명 선택됨 → 아래 팀의 + 추가 탭`}
+                  {selectedPoolPlayers.length > 0 && (
+                    <button onClick={() => setSelectedPoolPlayers([])}
+                      style={{ marginLeft: 6, padding: "2px 8px", borderRadius: 999, background: C.cardLight, color: C.gray, border: "none", fontSize: 10, cursor: "pointer", fontFamily: "inherit" }}>
+                      선택 해제
+                    </button>
+                  )}
                 </div>
                 <button onClick={() => set('playerSortMode', playerSortMode === "point" ? "name" : "point")} style={{
                   padding: "3px 10px", borderRadius: 999,
@@ -1048,14 +1064,14 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
               <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
                 {[...unassignedPlayers].sort((a, b) => playerSortMode === "name" ? a.localeCompare(b, "ko") : getPlayerPoint(b, seasonPlayers) - getPlayerPoint(a, seasonPlayers)).map(p => {
                   const pd = getPlayerData(p, seasonPlayers);
-                  const isSel = selectedPoolPlayer === p;
+                  const isSel = selectedPoolPlayers.includes(p);
                   return (
                     <div key={p} onClick={() => togglePoolSelect(p)} style={{ ...s.chip(isSel), cursor: "pointer", padding: "6px 10px", fontSize: 12, display: "inline-flex", alignItems: "center", gap: 6 }}>
                       <span>{p}</span><span style={{ fontSize: 10, opacity: 0.6 }}>{pd.point}p</span>
                       <span
                         onClick={(e) => {
                           e.stopPropagation();
-                          if (selectedPoolPlayer === p) setSelectedPoolPlayer(null);
+                          setSelectedPoolPlayers(prev => prev.filter(x => x !== p));
                           dispatch({ type: 'SET_ATTENDEES', attendees: attendees.filter(a => a !== p) });
                         }}
                         title="불참 처리"
@@ -1077,7 +1093,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
                     {[...absentSeasonPool].sort((a, b) => playerSortMode === "name" ? a.localeCompare(b, "ko") : getPlayerPoint(b, seasonPlayers) - getPlayerPoint(a, seasonPlayers)).map(p => {
                       const pd = getPlayerData(p, seasonPlayers);
-                      const isSel = selectedPoolPlayer === p;
+                      const isSel = selectedPoolPlayers.includes(p);
                       return (
                         <div key={p} onClick={() => togglePoolSelect(p)}
                           style={{ ...s.chip(isSel), cursor: "pointer", padding: "6px 10px", fontSize: 12, opacity: isSel ? 1 : 0.85 }}>
@@ -1102,7 +1118,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
           {teams.map((team, tIdx) => {
             const color = TEAM_COLORS[teamColorIndices[tIdx]];
             const sorted = sortedTeam(team);
-            const canAddHere = draftMode === "free" && !!selectedPoolPlayer;
+            const canAddHere = draftMode === "free" && selectedPoolPlayers.length > 0;
             return (
               <div key={tIdx} style={{ ...s.teamCard(teamColorIndices[tIdx]), border: canAddHere ? `2px dashed ${color?.bg || C.accent}` : "none" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
@@ -1128,9 +1144,9 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
                     )}
                     {draftMode === "free" && (
                       <button onClick={(e) => { e.stopPropagation(); addSelectedToTeam(tIdx); }}
-                        disabled={!selectedPoolPlayer}
-                        style={{ ...s.btnSm(selectedPoolPlayer ? C.green : C.grayDarker, selectedPoolPlayer ? C.bg : C.gray), padding: "4px 12px", fontSize: 13, fontWeight: 700, opacity: selectedPoolPlayer ? 1 : 0.5, cursor: selectedPoolPlayer ? "pointer" : "not-allowed" }}>
-                        + 추가
+                        disabled={selectedPoolPlayers.length === 0}
+                        style={{ ...s.btnSm(selectedPoolPlayers.length > 0 ? C.green : C.grayDarker, selectedPoolPlayers.length > 0 ? C.bg : C.gray), padding: "4px 12px", fontSize: 13, fontWeight: 700, opacity: selectedPoolPlayers.length > 0 ? 1 : 0.5, cursor: selectedPoolPlayers.length > 0 ? "pointer" : "not-allowed" }}>
+                        + 추가{selectedPoolPlayers.length > 0 ? ` (${selectedPoolPlayers.length})` : ""}
                       </button>
                     )}
                   </div>
