@@ -133,15 +133,20 @@ export default function EventLog({ matchEvents, allEvents, matchId, homePlayers,
         const isEditing = editingEvent === globalIdx;
         const sideColor = isHomeSide ? (homeColor?.bg || "var(--app-blue)") : (awayColor?.bg || "var(--app-orange)");
 
+        const deleteEvent = () => {
+          if (readOnly) { alert("확정된 라운드입니다. 수정하려면 확정취소를 먼저 진행해주세요."); return; }
+          onDeleteEvent(globalIdx); setEditingEvent(null);
+        };
+        const deleteWithConfirm = () => {
+          if (readOnly) { alert("확정된 라운드입니다. 수정하려면 확정취소를 먼저 진행해주세요."); return; }
+          const label = e.type === "goal" ? "골" : e.type === "owngoal" ? "자책골" : "반칙";
+          if (!confirm(`${e.player}의 ${label} 이벤트를 삭제할까요?`)) return;
+          onDeleteEvent(globalIdx); setEditingEvent(null);
+        };
+
         return (
           <div key={localIdx} style={{ minWidth: 0 }}>
-          <SwipeableEvent
-            onDelete={() => {
-              if (readOnly) { alert("확정된 라운드입니다. 수정하려면 확정취소를 먼저 진행해주세요."); return; }
-              onDeleteEvent(globalIdx); setEditingEvent(null);
-            }}
-            C={C}
-          >
+          <SwipeableEvent onDelete={deleteEvent} C={C}>
             <div
               style={{
                 ...s.eventLog,
@@ -202,6 +207,23 @@ export default function EventLog({ matchEvents, allEvents, matchId, homePlayers,
                     }}>🧤{e.concedingGk}{e.type === "owngoal" ? "·2" : ""}</span>
                   )}
                 </div>
+                {!readOnly && (
+                  <button
+                    onClick={(ev) => { ev.stopPropagation(); deleteWithConfirm(); }}
+                    title="이벤트 삭제"
+                    style={{
+                      flexShrink: 0,
+                      width: 18, height: 18,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      padding: 0, marginLeft: 2,
+                      border: "none", borderRadius: 4,
+                      background: "transparent", color: C.grayDark,
+                      fontSize: 12, lineHeight: 1, cursor: "pointer",
+                    }}
+                    onMouseEnter={(ev) => { ev.currentTarget.style.background = C.red; ev.currentTarget.style.color = "#fff"; }}
+                    onMouseLeave={(ev) => { ev.currentTarget.style.background = "transparent"; ev.currentTarget.style.color = C.grayDark; }}
+                  >✕</button>
+                )}
               </div>
 
               {isEditing && (
