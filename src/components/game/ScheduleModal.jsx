@@ -58,7 +58,8 @@ export default function ScheduleModal({ schedule, currentRoundIdx, viewingRoundI
     return `${teamCount}팀 · ${courtCount}코트`;
   })();
 
-  const freeMatchCount = completedMatches.filter(m => m?.matchId?.startsWith?.('F')).length;
+  const freeMatches = completedMatches.filter(m => m?.matchId?.startsWith?.('F'));
+  const freeMatchCount = freeMatches.length;
   const canOpenAutoConfig = typeof onOpenAutoConfig === 'function';
 
   return (
@@ -73,8 +74,53 @@ export default function ScheduleModal({ schedule, currentRoundIdx, viewingRoundI
         {formatDesc}
       </div>
       {freeMatchCount > 0 && (
-        <div style={{ fontSize: 11, color: C.gray, textAlign: "center", marginBottom: 8 }}>
-          자유 매치 {freeMatchCount}개 별도 진행
+        <div style={{ marginBottom: 12 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: C.accent, marginBottom: 6, paddingLeft: 2 }}>
+            자유 매치 ({freeMatchCount})
+          </div>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr>
+                <th style={{ ...s.th, minWidth: 28 }}>#</th>
+                <th style={s.th}>대진</th>
+                <th style={{ ...s.th, minWidth: 30 }}>상태</th>
+              </tr>
+            </thead>
+            <tbody>
+              {freeMatches.map((m, i) => {
+                const hc = teamColorIndices?.[m.homeIdx];
+                const ac = teamColorIndices?.[m.awayIdx];
+                const homePill = hc != null ? TEAM_COLORS[hc] : null;
+                const awayPill = ac != null ? TEAM_COLORS[ac] : null;
+                const pillStyle = (tc) => ({
+                  display: "inline-block", padding: "3px 8px", borderRadius: 12, fontSize: 12, fontWeight: 700,
+                  background: tc ? `${tc.bg}55` : C.cardLight,
+                  color: C.white,
+                  border: tc ? `1px solid ${tc.bg}88` : "none",
+                  whiteSpace: "nowrap",
+                });
+                return (
+                  <tr key={m.matchId || i}>
+                    <td style={{ ...s.td(), fontSize: 12, fontWeight: 700, color: C.gray }}>F{i + 1}</td>
+                    <td style={{ ...s.td(), padding: "6px 2px" }}>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 4 }}>
+                        <span style={pillStyle(homePill)}>{m.homeTeam}</span>
+                        <span style={{ fontSize: 13, fontWeight: 800, color: C.white, minWidth: 28, textAlign: "center" }}>
+                          {m.homeScore}:{m.awayScore}
+                        </span>
+                        <span style={pillStyle(awayPill)}>{m.awayTeam}</span>
+                      </div>
+                    </td>
+                    <td style={{ ...s.td(), padding: "4px 2px" }}>
+                      <span style={{ fontSize: 11, fontWeight: 600, padding: "3px 6px", borderRadius: 4, background: "#22c55e22", color: "#22c55e" }}>
+                        종료
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       )}
       {schedule.length === 0 ? (

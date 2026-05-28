@@ -20,6 +20,14 @@ export default function FreeMatchView({ teams, teamNames, teamColorIndices, gks,
     setViewingIdx(completedMatches.length);
   }
 
+  // 과거 매치는 기본 읽기 전용. "편집" 버튼으로만 수정 모드 진입.
+  const [pastEditMode, setPastEditMode] = useState(false);
+  const [lastViewingIdx, setLastViewingIdx] = useState(viewingIdx);
+  if (viewingIdx !== lastViewingIdx) {
+    setLastViewingIdx(viewingIdx);
+    setPastEditMode(false); // 다른 매치로 이동하면 편집 모드 해제
+  }
+
   const isLive = viewingIdx >= completedMatches.length;
   const viewingPast = !isLive ? completedMatches[viewingIdx] : null;
 
@@ -107,13 +115,28 @@ export default function FreeMatchView({ teams, teamNames, teamColorIndices, gks,
             style={{ ...s.btnSm(C.grayDark), opacity: viewingIdx === 0 ? 0.3 : 1 }}>◀</button>
           <span style={{ fontSize: 15, fontWeight: 800, color: C.white }}>
             {viewingIdx + 1}경기
-            <span style={{ fontSize: 11, marginLeft: 6, color: C.green, fontWeight: 600 }}>종료됨</span>
+            <span style={{ fontSize: 11, marginLeft: 6, color: pastEditMode ? C.orange : C.green, fontWeight: 600 }}>
+              {pastEditMode ? "편집중" : "종료됨"}
+            </span>
           </span>
           <button onClick={() => setViewingIdx(Math.min(completedMatches.length, viewingIdx + 1))}
             style={{ ...s.btnSm(C.grayDark) }}>▶</button>
         </div>
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: 8 }}>
+          {pastEditMode ? (
+            <button onClick={() => setPastEditMode(false)}
+              style={{ ...s.btnSm(C.green, C.bg), fontSize: 11, fontWeight: 700 }}>
+              ✓ 편집 완료
+            </button>
+          ) : (
+            <button onClick={() => setPastEditMode(true)}
+              style={{ ...s.btnSm(C.orange, C.bg), fontSize: 11, fontWeight: 700 }}>
+              ✎ 편집
+            </button>
+          )}
+        </div>
         <CourtRecorder
-          key={`free_past_${viewingIdx}`}
+          key={`free_past_${viewingIdx}_${pastEditMode ? "edit" : "view"}`}
           matchInfo={matchInfo}
           homePlayers={matchInfo.homePlayers}
           awayPlayers={matchInfo.awayPlayers}
@@ -130,7 +153,7 @@ export default function FreeMatchView({ teams, teamNames, teamColorIndices, gks,
           styles={s}
           courtLabel={pm.court || ""}
           attendees={attendees}
-          readOnly={false}
+          readOnly={!pastEditMode}
           mercs={pastMercs}
           onAddMerc={(player, side) => {
             const teamIdx = side === "home" ? pm.homeIdx : pm.awayIdx;
