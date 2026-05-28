@@ -336,7 +336,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
   const finalStandings = useMemo(() => getTeamStandings(), [getTeamStandings]);
 
   const allRoundsComplete = useMemo(() => {
-    if (matchMode === "schedule" && schedule.length > 0) {
+    if (schedule.length > 0 && matchMode !== "push") {
       // 마지막 라운드가 확정됐으면 전체 완료
       const lastIdx = schedule.length - 1;
       return confirmedRounds[lastIdx] === true;
@@ -344,6 +344,12 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
     if (matchMode === "free" || matchMode === "push") return phase === "summary";
     return false;
   }, [matchMode, schedule, confirmedRounds, phase]);
+
+  // 자동 segment + free 모드 공존 케이스를 위한 헬퍼.
+  // 대진표 모드는 라운드 완료 후에도 ScheduleView 잔류(기존 동작 보존),
+  // free 모드만 라운드 완료 시 FreeView로 자동 복귀.
+  const shouldShowSchedule = matchMode !== "push" && schedule.length > 0 && !isExtraRound
+    && !(matchMode === "free" && allRoundsComplete);
 
   const getPlayerTeamName = useCallback((player) => {
     for (let i = 0; i < teams.length; i++) { if (teams[i].includes(player)) return teamNames[i]; }
@@ -608,7 +614,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
     const sched = newSchedule || schedule;
     let scanIdx = roundIdx + 1;
     while (scanIdx < sched.length && confirmedRounds[scanIdx]) scanIdx++;
-    const nextIdx = (matchMode === "schedule" && !isExtraRound && scanIdx < sched.length) ? scanIdx : null;
+    const nextIdx = (matchMode !== "push" && !isExtraRound && scanIdx < sched.length) ? scanIdx : null;
     dispatch({ type: 'CONFIRM_ROUND', roundIdx, matchResults, nextRoundIdx: nextIdx, newSchedule, newSplitPhase });
   };
 
@@ -1233,7 +1239,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
             color: "var(--app-text-primary)", margin: 0, lineHeight: 1.1,
           }}>경기 진행</h1>
           <div style={{ fontSize: 14, color: "var(--app-text-secondary)", marginTop: 4 }}>
-            {matchMode === "schedule"
+            {(matchMode === "schedule" || (matchMode === "free" && schedule.length > 0))
               ? (allRoundsComplete ? "전체 라운드 완료" : `라운드 ${currentRoundIdx + 1} / ${schedule.length}`)
               : matchMode === "push" ? `밀어내기 · ${completedMatches.length}경기`
               : `자유대전 · ${completedMatches.length}매치`}
@@ -1349,7 +1355,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
               absentees={absentees || {}} onToggleAbsent={handleToggleAbsent}
               onEditPastGk={handleEditPastGk} onEditPastMercAdd={handleEditPastMercAdd} onEditPastMercRemove={handleEditPastMercRemove}
               styles={s} />
-          ) : matchMode === "schedule" && schedule.length > 0 && !isExtraRound ? (
+          ) : shouldShowSchedule ? (
             <ScheduleMatchView schedule={schedule} currentRoundIdx={currentRoundIdx}
               viewingRoundIdx={viewingRoundIdx} setViewingRoundIdx={(v) => set('viewingRoundIdx', v)}
               confirmedRounds={confirmedRounds} onConfirmRound={confirmRound}
@@ -1374,7 +1380,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
           )}
         </div>
 
-        {matchMode === "schedule" && schedule.length > 0 && !isExtraRound && (
+        {shouldShowSchedule && (
           <div style={s.bottomBar}>
             {!viewRoundConfirmed && viewingRoundIdx <= currentRoundIdx && viewingRoundIdx < schedule.length ? (
               <button onClick={handleConfirmScheduleRound} style={{ ...s.btn(C.accent, C.bg), flex: 1 }}>
