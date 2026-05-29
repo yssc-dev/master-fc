@@ -1456,7 +1456,9 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
               onEditPastGk={handleEditPastGk} onEditPastMercAdd={handleEditPastMercAdd} onEditPastMercRemove={handleEditPastMercRemove}
               styles={s} isExtraRound={isExtraRound}
               forcedPastIdx={viewingFreeIdx}
-              onExitForcedPast={() => setViewingFreeIdx(null)} />
+              onExitForcedPast={() => setViewingFreeIdx(null)}
+              roundDisplayOffset={roundDisplayOffset}
+              totalRoundsForDisplay={schedule.length > 0 ? roundDisplayOffset + schedule.length : undefined} />
           ) : shouldShowSchedule ? (
             <ScheduleMatchView schedule={schedule} currentRoundIdx={currentRoundIdx}
               viewingRoundIdx={viewingRoundIdx} setViewingRoundIdx={(v) => set('viewingRoundIdx', v)}
@@ -1483,7 +1485,9 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
               liveMercs={liveMercs || {}} onAddLiveMerc={handleAddLiveMerc} onRemoveLiveMerc={handleRemoveLiveMerc}
               absentees={absentees || {}} onToggleAbsent={handleToggleAbsent}
               onEditPastGk={handleEditPastGk} onEditPastMercAdd={handleEditPastMercAdd} onEditPastMercRemove={handleEditPastMercRemove}
-              styles={s} isExtraRound={isExtraRound} />
+              styles={s} isExtraRound={isExtraRound}
+              roundDisplayOffset={roundDisplayOffset}
+              totalRoundsForDisplay={schedule.length > 0 ? roundDisplayOffset + schedule.length : undefined} />
           )}
         </div>
 

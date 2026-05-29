@@ -5,7 +5,7 @@ import { calcMatchScore } from '../../utils/scoring';
 import { BackIcon } from '../common/icons';
 import CourtRecorder from './CourtRecorder';
 
-export default function FreeMatchView({ teams, teamNames, teamColorIndices, gks, gksHistory, courtCount, allEvents, onRecordEvent, onUndoEvent, onDeleteEvent, onEditEvent, onFinishMatch, onConfirmFreeRound, completedMatches, attendees, onGkChange, liveMercs, onAddLiveMerc, onRemoveLiveMerc, onEditPastGk, onEditPastMercAdd, onEditPastMercRemove, absentees, onToggleAbsent, styles: s, isExtraRound, forcedPastIdx, onExitForcedPast }) {
+export default function FreeMatchView({ teams, teamNames, teamColorIndices, gks, gksHistory, courtCount, allEvents, onRecordEvent, onUndoEvent, onDeleteEvent, onEditEvent, onFinishMatch, onConfirmFreeRound, completedMatches, attendees, onGkChange, liveMercs, onAddLiveMerc, onRemoveLiveMerc, onEditPastGk, onEditPastMercAdd, onEditPastMercRemove, absentees, onToggleAbsent, styles: s, isExtraRound, forcedPastIdx, onExitForcedPast, roundDisplayOffset = 0, totalRoundsForDisplay }) {
   const { C } = useTheme();
   const [courtMatches, setCourtMatches] = useState({});
   const [activeCourtTab, setActiveCourtTab] = useState(0);
@@ -154,6 +154,16 @@ export default function FreeMatchView({ teams, teamNames, teamColorIndices, gks,
         setViewingIdx(Math.min(completedMatches.length, viewingIdx + 1));
       }
     };
+    // matchId 기반 라벨 — 같은 schedule 라운드의 A/B 매치를 같은 라운드 번호로 묶어서 표시.
+    const fMatch = pm?.matchId?.match?.(/^F(\d+)_C\d+$/);
+    const rMatch = !fMatch ? pm?.matchId?.match?.(/^R(\d+)_C(\d+)$/) : null;
+    const labelNumber = fMatch
+      ? parseInt(fMatch[1], 10)
+      : rMatch
+        ? parseInt(rMatch[1], 10) + (roundDisplayOffset || 0)
+        : viewingIdx + 1;
+    const courtSuffix = rMatch ? (rMatch[2] === '0' ? ' · A구장' : ' · B구장') : '';
+    const denom = typeof totalRoundsForDisplay === 'number' ? totalRoundsForDisplay : completedMatches.length;
     return (
       <div>
         {/* 매치 네비게이션 — ScheduleMatchView와 동일 패턴.
@@ -171,7 +181,7 @@ export default function FreeMatchView({ teams, teamNames, teamColorIndices, gks,
               fontSize: 17, fontWeight: 600, color: "var(--app-text-primary)",
               letterSpacing: "-0.022em",
             }}>
-              라운드 {viewingIdx + 1} <span style={{ color: "var(--app-text-tertiary)", fontWeight: 500 }}>/ {completedMatches.length}</span>
+              라운드 {labelNumber}{courtSuffix} <span style={{ color: "var(--app-text-tertiary)", fontWeight: 500 }}>/ {denom}</span>
             </div>
             <div style={{
               fontSize: 11, fontWeight: 600, marginTop: 2,
@@ -216,13 +226,13 @@ export default function FreeMatchView({ teams, teamNames, teamColorIndices, gks,
         <div style={s.bottomBar}>
           {pastEditMode ? (
             <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, flexWrap: "wrap" }}>
-              <span style={{ color: C.orange, fontWeight: 700, padding: 10 }}>라운드 {viewingIdx + 1} 확정취소됨</span>
+              <span style={{ color: C.orange, fontWeight: 700, padding: 10 }}>라운드 {labelNumber}{courtSuffix} 확정취소됨</span>
               <button onClick={() => setPastEditMode(false)}
                 style={{ ...s.btnSm(C.green, C.bg), fontSize: 11 }}>라운드 확정</button>
             </div>
           ) : (
             <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, flexWrap: "wrap" }}>
-              <span style={{ color: C.green, fontWeight: 700, padding: 10 }}>라운드 {viewingIdx + 1} 종료됨</span>
+              <span style={{ color: C.green, fontWeight: 700, padding: 10 }}>라운드 {labelNumber}{courtSuffix} 종료됨</span>
               <button onClick={() => setPastEditMode(true)}
                 style={{ ...s.btnSm(C.orange, C.bg), fontSize: 11 }}>확정취소</button>
             </div>
