@@ -347,28 +347,18 @@ function gameReducer(state, action) {
     case 'EDIT_PAST_MERC_ADD': {
       const { matchId, player, teamIdx } = action;
       const idx = state.completedMatches.findIndex(m => m.matchId === matchId);
-      // 임시 diagnostic — 추가 안 되는 케이스 찾기 위한 로그. 검증 후 제거 예정.
-      if (idx === -1) {
-        console.warn('[EDIT_PAST_MERC_ADD] matchId not found:', matchId, 'available:', state.completedMatches.map(m => m.matchId));
-        return state;
-      }
+      if (idx === -1) return state;
       const target = state.completedMatches[idx];
-      if ((target.mercenaries || []).some(x => x.player === player)) {
-        console.warn('[EDIT_PAST_MERC_ADD] already merc:', player, 'in', matchId);
-        return state;
-      }
       const isHome = teamIdx === target.homeIdx;
       const isAway = teamIdx === target.awayIdx;
-      if (!isHome && !isAway) {
-        console.warn('[EDIT_PAST_MERC_ADD] teamIdx mismatch — teamIdx:', teamIdx, 'target.homeIdx:', target.homeIdx, 'target.awayIdx:', target.awayIdx);
-        return state;
-      }
-      console.info('[EDIT_PAST_MERC_ADD] success — adding', player, 'to', matchId, 'teamIdx:', teamIdx);
-      // 같은 배치의 다른 confirmed 매치에서 같은 player가 mercs로 등록돼 있으면 거기서 제거 (자동 이동)
+      if (!isHome && !isAway) return state;
+      // 같은 배치의 다른 confirmed 매치에서 같은 player가 mercs로 등록돼 있으면 거기서 제거 (자동 이동).
+      // 본 매치에 stale entry(잘못된 teamIdx)가 있으면 정리하고 새 entry로 교체.
       const batchKey = getMatchBatchKey(matchId);
       let nextCompleted = state.completedMatches.map((m, i) => {
         if (i === idx) {
-          return { ...m, mercenaries: [...(m.mercenaries || []), { player, teamIdx }] };
+          const cleaned = (m.mercenaries || []).filter(x => x.player !== player);
+          return { ...m, mercenaries: [...cleaned, { player, teamIdx }] };
         }
         if (batchKey && getMatchBatchKey(m.matchId) === batchKey) {
           const mercs = m.mercenaries || [];
