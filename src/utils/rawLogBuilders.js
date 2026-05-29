@@ -60,7 +60,7 @@ export function buildRawPlayerGamesFromFutsal({ team, inputTime, players }) {
     cleansheets: Number(p.cleanSheets) || 0,
     crova: Number(p.crova) || 0,
     goguma: Number(p.goguma) || 0,
-    역주행: Number(p.역주행) || 0,
+    역주행: 0, // owngoals(자책골)와 중복 개념 — 정본은 owngoals. PG 역주행은 미사용 휴면 컬럼이라 항상 0(중복 데이터 누적 방지).
     rank_score: Number(p.rankScore) || 0,
     input_time: inputTime || '',
   }));
