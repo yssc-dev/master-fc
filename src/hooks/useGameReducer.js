@@ -758,6 +758,46 @@ function gameReducer(state, action) {
         viewingRoundIdx: nextCurrent,
       };
     }
+    case 'POP_SCHEDULE_SEGMENT': {
+      // 마지막 자동 segment 취소 — N개 라운드를 schedule 끝에서 제거.
+      // 해당 라운드들의 confirmedRounds / completedMatches (R{ri+1}_C*) / gksHistory 도 같이 정리.
+      const { count } = action;
+      const n = Math.max(1, Math.min(Number(count) || 0, state.schedule.length));
+      if (n <= 0) return state;
+      const newLen = state.schedule.length - n;
+      const removedIndices = new Set();
+      for (let i = newLen; i < state.schedule.length; i++) removedIndices.add(i);
+      // matchId R{ri+1}_C* 가 removed에 속하면 제거
+      const removedMatchPrefix = (mid) => {
+        const mt = mid?.match?.(/^R(\d+)_C\d+$/);
+        if (!mt) return false;
+        return removedIndices.has(+mt[1] - 1);
+      };
+      const newConfirmed = { ...state.confirmedRounds };
+      for (const idx of removedIndices) delete newConfirmed[idx];
+      const newGksHistory = { ...state.gksHistory };
+      for (const idx of removedIndices) delete newGksHistory[idx];
+      const newCompleted = state.completedMatches.filter(m => !removedMatchPrefix(m?.matchId));
+      const newEvents = state.allEvents.filter(e => !removedMatchPrefix(e?.matchId));
+      const newLiveMercs = { ...state.liveMercs };
+      for (const mid of Object.keys(newLiveMercs)) if (removedMatchPrefix(mid)) delete newLiveMercs[mid];
+      const newAbsentees = { ...state.absentees };
+      for (const mid of Object.keys(newAbsentees)) if (removedMatchPrefix(mid)) delete newAbsentees[mid];
+      const newCurrent = Math.min(state.currentRoundIdx, newLen);
+      const newViewing = Math.min(state.viewingRoundIdx, Math.max(0, newLen - 1));
+      return {
+        ...state,
+        schedule: state.schedule.slice(0, newLen),
+        confirmedRounds: newConfirmed,
+        completedMatches: newCompleted,
+        allEvents: newEvents,
+        gksHistory: newGksHistory,
+        liveMercs: newLiveMercs,
+        absentees: newAbsentees,
+        currentRoundIdx: newCurrent,
+        viewingRoundIdx: newViewing,
+      };
+    }
     case 'RESET_MATCH_PROGRESS': {
       // 팀 구성/명단/설정은 유지하고 라운드 진행 기록만 모두 초기화.
       // 게임 처음 시작 직후 상태와 동일.

@@ -34,6 +34,8 @@ export default function BalancedScheduleModal({
     [completedMatches, allEvents],
   );
   const [minutes, setMinutes] = useState(defaultMinutes);
+  // 더블 클릭/연타 방지 — 한 번 생성 누르면 잠금
+  const [submitted, setSubmitted] = useState(false);
 
   const currentCounts = useMemo(
     () => countCurrentMatchesPerTeam(completedMatches, teamCount),
@@ -64,10 +66,12 @@ export default function BalancedScheduleModal({
   const isImbalanced = Math.max(...currentCounts) - Math.min(...currentCounts) >= 1;
 
   const handleConfirm = () => {
+    if (submitted) return; // 더블 클릭/연타 방지
     if (hasLiveMatch) {
       alert("라이브 매치를 먼저 확정하거나 취소한 뒤 자동설정을 진행해주세요.");
       return;
     }
+    setSubmitted(true);
     onConfirm({ newRounds: preview, newCourtCount: courtCount });
   };
 
@@ -180,10 +184,13 @@ export default function BalancedScheduleModal({
             flex: 1, background: C.grayDark, color: C.white, border: 0, borderRadius: 8,
             padding: "10px", fontSize: 13, fontWeight: 700, cursor: "pointer",
           }}>취소</button>
-          <button onClick={handleConfirm} style={{
-            flex: 2, background: C.accent, color: C.bg, border: 0, borderRadius: 8,
-            padding: "10px", fontSize: 13, fontWeight: 800, cursor: "pointer",
-          }}>생성</button>
+          <button onClick={handleConfirm}
+            disabled={submitted}
+            style={{
+              flex: 2, background: submitted ? C.grayDarker : C.accent, color: submitted ? C.gray : C.bg,
+              border: 0, borderRadius: 8, padding: "10px", fontSize: 13, fontWeight: 800,
+              cursor: submitted ? "not-allowed" : "pointer", opacity: submitted ? 0.6 : 1,
+            }}>{submitted ? "생성 중..." : "생성"}</button>
         </div>
       </div>
     </Modal>

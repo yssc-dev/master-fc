@@ -1339,6 +1339,9 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
             onOpenAutoConfig={matchMode === "free" && [4, 5].includes(teamCount)
               ? () => set('matchModal', 'balancedAuto')
               : undefined}
+            onPopScheduleSegment={matchMode === "free" && schedule.length > 0
+              ? (n) => dispatch({ type: 'POP_SCHEDULE_SEGMENT', count: n })
+              : undefined}
             onViewFreeMatch={(idx) => {
               // 자유 라운드 (F-id) 매치를 열기 — completedMatches 내 인덱스 매핑
               const fMatchIds = completedMatches
