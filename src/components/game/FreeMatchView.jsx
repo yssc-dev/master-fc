@@ -106,19 +106,30 @@ export default function FreeMatchView({ teams, teamNames, teamColorIndices, gks,
   // 과거 매치 단건 보기 / 부분 수정
   if (!isLive && viewingPast) {
     const pm = viewingPast;
-    const matchInfo = {
-      homeIdx: pm.homeIdx, awayIdx: pm.awayIdx, matchId: pm.matchId,
-      homeTeam: pm.homeTeam, awayTeam: pm.awayTeam,
-      homeGk: pm.homeGk || null, awayGk: pm.awayGk || null,
-      homeColor: TEAM_COLORS[teamColorIndices[pm.homeIdx]],
-      awayColor: TEAM_COLORS[teamColorIndices[pm.awayIdx]],
-      homePlayers: pm.homePlayers || teams[pm.homeIdx] || [],
-      awayPlayers: pm.awayPlayers || teams[pm.awayIdx] || [],
-    };
-    const pastMercs = (pm.mercenaries || []).map(m => ({
-      player: m.player,
-      side: m.teamIdx === pm.homeIdx ? "home" : (m.teamIdx === pm.awayIdx ? "away" : null),
-    })).filter(m => m.side);
+
+    // 같은 라운드 묶음 계산 — F는 각 매치가 1라운드, R은 같은 R{N}의 A/B를 하나로.
+    const displayRounds = [];
+    const rGroupIdx = new Map(); // roundN → displayRounds 내 인덱스
+    completedMatches.forEach((m, i) => {
+      const id = m?.matchId;
+      if (!id) return;
+      if (id.startsWith('F')) {
+        displayRounds.push({ matches: [{ m, idx: i }], anchorIdx: i, type: 'F' });
+      } else {
+        const r = id.match(/^R(\d+)_C/);
+        if (!r) return;
+        const n = r[1];
+        if (rGroupIdx.has(n)) {
+          displayRounds[rGroupIdx.get(n)].matches.push({ m, idx: i });
+        } else {
+          rGroupIdx.set(n, displayRounds.length);
+          displayRounds.push({ matches: [{ m, idx: i }], anchorIdx: i, type: 'R', roundN: parseInt(n, 10) });
+        }
+      }
+    });
+    const myDisplayIdx = displayRounds.findIndex(dr => dr.matches.some(x => x.idx === viewingIdx));
+    const currentDr = displayRounds[myDisplayIdx] || displayRounds[0];
+
     const matchNavBtn = (disabled) => ({
       width: 36, height: 36, borderRadius: 999,
       background: "var(--app-bg-row)", border: "0.5px solid var(--app-divider)",
@@ -126,48 +137,53 @@ export default function FreeMatchView({ teams, teamNames, teamColorIndices, gks,
       opacity: disabled ? 0.3 : 1, padding: 0, fontFamily: "inherit",
       display: "inline-flex", alignItems: "center", justifyContent: "center",
     });
-    // forced 모드(스케줄에서 자유 라운드로 점프)면 F-id 매치들 사이에서만 이동.
-    // ◀ F1에서 더 이상 못 감. ▶ 마지막 F에서는 스케줄(R1)로 복귀(onExitForcedPast).
-    const fMatchIndices = isForcedPast
-      ? completedMatches.map((m, i) => m?.matchId?.startsWith?.('F') ? i : -1).filter(i => i >= 0)
+
+    // forced 모드면 F 라운드만 이동.
+    const fDisplayIndices = isForcedPast
+      ? displayRounds.map((dr, idx) => dr.type === 'F' ? idx : -1).filter(i => i >= 0)
       : null;
-    const fPos = fMatchIndices ? fMatchIndices.indexOf(viewingIdx) : -1;
-    const canPrev = isForcedPast ? (fPos > 0) : (viewingIdx > 0);
-    // 일반 모드는 라이브 진입(viewingIdx === completedMatches.length) 금지 — 과거 매치 범위로 한정.
-    const canNext = isForcedPast ? true : (viewingIdx < completedMatches.length);
+    const fPos = fDisplayIndices ? fDisplayIndices.indexOf(myDisplayIdx) : -1;
+    const canPrev = isForcedPast ? (fPos > 0) : (myDisplayIdx > 0);
+    const canNext = isForcedPast ? true : (myDisplayIdx < displayRounds.length - 1 || (!isForcedPast && myDisplayIdx === displayRounds.length - 1));
+
     const goPrev = () => {
-      if (isForcedPast && fMatchIndices && fPos > 0) {
-        setViewingIdx(fMatchIndices[fPos - 1]);
-      } else if (!isForcedPast) {
-        setViewingIdx(Math.max(0, viewingIdx - 1));
+      if (isForcedPast && fDisplayIndices && fPos > 0) {
+        setViewingIdx(displayRounds[fDisplayIndices[fPos - 1]].anchorIdx);
+      } else if (!isForcedPast && myDisplayIdx > 0) {
+        setViewingIdx(displayRounds[myDisplayIdx - 1].anchorIdx);
       }
     };
     const goNext = () => {
-      if (isForcedPast && fMatchIndices) {
-        if (fPos < fMatchIndices.length - 1) {
-          setViewingIdx(fMatchIndices[fPos + 1]);
+      if (isForcedPast && fDisplayIndices) {
+        if (fPos < fDisplayIndices.length - 1) {
+          setViewingIdx(displayRounds[fDisplayIndices[fPos + 1]].anchorIdx);
         } else {
           // 마지막 F → 스케줄로 복귀
           onExitForcedPast?.();
         }
       } else if (!isForcedPast) {
-        setViewingIdx(Math.min(completedMatches.length, viewingIdx + 1));
+        if (myDisplayIdx < displayRounds.length - 1) {
+          setViewingIdx(displayRounds[myDisplayIdx + 1].anchorIdx);
+        } else {
+          // 마지막 과거 → 라이브로
+          setViewingIdx(completedMatches.length);
+        }
       }
     };
-    // matchId 기반 라벨 — 같은 schedule 라운드의 A/B 매치를 같은 라운드 번호로 묶어서 표시.
-    const fMatch = pm?.matchId?.match?.(/^F(\d+)_C\d+$/);
-    const rMatch = !fMatch ? pm?.matchId?.match?.(/^R(\d+)_C(\d+)$/) : null;
-    const labelNumber = fMatch
-      ? parseInt(fMatch[1], 10)
-      : rMatch
-        ? parseInt(rMatch[1], 10) + (roundDisplayOffset || 0)
-        : viewingIdx + 1;
-    const courtSuffix = rMatch ? (rMatch[2] === '0' ? ' · A구장' : ' · B구장') : '';
-    const denom = typeof totalRoundsForDisplay === 'number' ? totalRoundsForDisplay : completedMatches.length;
+
+    // 라운드 번호 계산
+    const labelNumber = currentDr?.type === 'F'
+      ? (() => {
+          const fm = currentDr.matches[0].m?.matchId?.match?.(/^F(\d+)_C\d+$/);
+          return fm ? parseInt(fm[1], 10) : (currentDr.matches[0].idx + 1);
+        })()
+      : (currentDr?.roundN || 0) + (roundDisplayOffset || 0);
+    const denom = typeof totalRoundsForDisplay === 'number' ? totalRoundsForDisplay : displayRounds.length;
+    const isMultiCourt = currentDr && currentDr.matches.length > 1;
+
     return (
       <div>
-        {/* 매치 네비게이션 — ScheduleMatchView와 동일 패턴.
-            forced 모드에서 마지막 F의 ▶ 클릭 시 onExitForcedPast로 스케줄 복귀. */}
+        {/* 매치 네비게이션 */}
         <div style={{
           display: "flex", alignItems: "center", justifyContent: "space-between",
           gap: 8, marginBottom: 14, padding: "4px 0",
@@ -181,7 +197,7 @@ export default function FreeMatchView({ teams, teamNames, teamColorIndices, gks,
               fontSize: 17, fontWeight: 600, color: "var(--app-text-primary)",
               letterSpacing: "-0.022em",
             }}>
-              라운드 {labelNumber}{courtSuffix} <span style={{ color: "var(--app-text-tertiary)", fontWeight: 500 }}>/ {denom}</span>
+              라운드 {labelNumber} <span style={{ color: "var(--app-text-tertiary)", fontWeight: 500 }}>/ {denom}</span>
             </div>
             <div style={{
               fontSize: 11, fontWeight: 600, marginTop: 2,
@@ -195,44 +211,81 @@ export default function FreeMatchView({ teams, teamNames, teamColorIndices, gks,
             <BackIcon width={16} style={{ transform: "rotate(180deg)" }} />
           </button>
         </div>
-        <CourtRecorder
-          key={`free_past_${viewingIdx}_${pastEditMode ? "edit" : "view"}`}
-          matchInfo={matchInfo}
-          homePlayers={matchInfo.homePlayers}
-          awayPlayers={matchInfo.awayPlayers}
-          allEvents={allEvents}
-          onRecordEvent={onRecordEvent}
-          onUndoEvent={onUndoEvent}
-          onDeleteEvent={onDeleteEvent}
-          onEditEvent={onEditEvent}
-          onFinish={() => {}}
-          onGkChange={(teamIdx, player) => {
-            const side = teamIdx === pm.homeIdx ? 'home' : (teamIdx === pm.awayIdx ? 'away' : null);
-            if (side) onEditPastGk?.(pm.matchId, side, player);
-          }}
-          styles={s}
-          courtLabel={pm.court || ""}
-          attendees={attendees}
-          readOnly={!pastEditMode}
-          mercs={pastMercs}
-          onAddMerc={(player, side) => {
-            const teamIdx = side === "home" ? pm.homeIdx : pm.awayIdx;
-            onEditPastMercAdd?.(pm.matchId, teamIdx, player);
-          }}
-          onRemoveMerc={(player) => onEditPastMercRemove?.(pm.matchId, player)}
-          absentees={{ [pm.matchId]: { [pm.homeIdx]: pm.homeAbsent || [], [pm.awayIdx]: pm.awayAbsent || [] } }}
-        />
-        {/* 하단 고정 바 — 대진표 모드의 라운드 종료/확정취소와 동일 패턴 */}
+
+        {/* 같은 라운드의 모든 매치 (단일 또는 A구장/B구장) 스택 렌더링 */}
+        {currentDr?.matches.map((entry, ci) => {
+          const cm = entry.m;
+          const courtLabel = isMultiCourt
+            ? (ci === 0 ? "A구장" : "B구장")
+            : (cm.court || "");
+          const matchInfo = {
+            homeIdx: cm.homeIdx, awayIdx: cm.awayIdx, matchId: cm.matchId,
+            homeTeam: cm.homeTeam, awayTeam: cm.awayTeam,
+            homeGk: cm.homeGk || null, awayGk: cm.awayGk || null,
+            homeColor: TEAM_COLORS[teamColorIndices[cm.homeIdx]],
+            awayColor: TEAM_COLORS[teamColorIndices[cm.awayIdx]],
+            homePlayers: cm.homePlayers || teams[cm.homeIdx] || [],
+            awayPlayers: cm.awayPlayers || teams[cm.awayIdx] || [],
+          };
+          const courtMercs = (cm.mercenaries || []).map(mc => ({
+            player: mc.player,
+            side: mc.teamIdx === cm.homeIdx ? "home" : (mc.teamIdx === cm.awayIdx ? "away" : null),
+          })).filter(mc => mc.side);
+          const courtColorVar = ci === 0 ? "var(--app-blue)" : "var(--app-orange)";
+          return (
+            <div key={cm.matchId} style={{ marginBottom: 18 }}>
+              {isMultiCourt && (
+                <div style={{
+                  fontSize: 12, fontWeight: 600, color: courtColorVar,
+                  marginBottom: 8, marginLeft: 4,
+                  display: "inline-flex", alignItems: "center", gap: 6,
+                }}>
+                  <span style={{ width: 8, height: 8, borderRadius: 2, background: courtColorVar }} />
+                  {courtLabel}
+                </div>
+              )}
+              <CourtRecorder
+                key={`free_past_${entry.idx}_${pastEditMode ? "edit" : "view"}`}
+                matchInfo={matchInfo}
+                homePlayers={matchInfo.homePlayers}
+                awayPlayers={matchInfo.awayPlayers}
+                allEvents={allEvents}
+                onRecordEvent={onRecordEvent}
+                onUndoEvent={onUndoEvent}
+                onDeleteEvent={onDeleteEvent}
+                onEditEvent={onEditEvent}
+                onFinish={() => {}}
+                onGkChange={(teamIdx, player) => {
+                  const side = teamIdx === cm.homeIdx ? 'home' : (teamIdx === cm.awayIdx ? 'away' : null);
+                  if (side) onEditPastGk?.(cm.matchId, side, player);
+                }}
+                styles={s}
+                courtLabel={courtLabel}
+                attendees={attendees}
+                readOnly={!pastEditMode}
+                mercs={courtMercs}
+                onAddMerc={(player, side) => {
+                  const teamIdx = side === "home" ? cm.homeIdx : cm.awayIdx;
+                  onEditPastMercAdd?.(cm.matchId, teamIdx, player);
+                }}
+                onRemoveMerc={(player) => onEditPastMercRemove?.(cm.matchId, player)}
+                absentees={{ [cm.matchId]: { [cm.homeIdx]: cm.homeAbsent || [], [cm.awayIdx]: cm.awayAbsent || [] } }}
+              />
+            </div>
+          );
+        })}
+
+        {/* 하단 고정 바 */}
         <div style={s.bottomBar}>
           {pastEditMode ? (
             <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, flexWrap: "wrap" }}>
-              <span style={{ color: C.orange, fontWeight: 700, padding: 10 }}>라운드 {labelNumber}{courtSuffix} 확정취소됨</span>
+              <span style={{ color: C.orange, fontWeight: 700, padding: 10 }}>라운드 {labelNumber} 확정취소됨</span>
               <button onClick={() => setPastEditMode(false)}
                 style={{ ...s.btnSm(C.green, C.bg), fontSize: 11 }}>라운드 확정</button>
             </div>
           ) : (
             <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, flexWrap: "wrap" }}>
-              <span style={{ color: C.green, fontWeight: 700, padding: 10 }}>라운드 {labelNumber}{courtSuffix} 종료됨</span>
+              <span style={{ color: C.green, fontWeight: 700, padding: 10 }}>라운드 {labelNumber} 종료됨</span>
               <button onClick={() => setPastEditMode(true)}
                 style={{ ...s.btnSm(C.orange, C.bg), fontSize: 11 }}>확정취소</button>
             </div>
