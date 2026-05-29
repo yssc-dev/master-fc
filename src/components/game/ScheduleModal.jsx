@@ -4,7 +4,7 @@ import { TEAM_COLORS } from '../../config/constants';
 import { calcMatchScore } from '../../utils/scoring';
 import Modal from '../common/Modal';
 
-export default function ScheduleModal({ schedule, currentRoundIdx, viewingRoundIdx, setViewingRoundIdx, confirmedRounds, allEvents, teamNames, teamColorIndices, courtCount, splitPhase, teamCount, matchMode, rotations, completedMatches = [], onOpenAutoConfig, onViewFreeMatch, roundDisplayOffset = 0, onClose, styles: s }) {
+export default function ScheduleModal({ schedule, currentRoundIdx, viewingRoundIdx, setViewingRoundIdx, confirmedRounds, allEvents, teamNames, teamColorIndices, courtCount, splitPhase, teamCount, matchMode, rotations, completedMatches = [], onOpenAutoConfig, onViewFreeMatch, onPopScheduleSegment, roundDisplayOffset = 0, onClose, styles: s }) {
   const { C } = useTheme();
 
   const pill = (teamIdx) => {
@@ -202,7 +202,7 @@ export default function ScheduleModal({ schedule, currentRoundIdx, viewingRoundI
         </table>
       )}
       {canOpenAutoConfig && (
-        <div style={{ marginTop: 12, display: "flex", justifyContent: "center" }}>
+        <div style={{ marginTop: 12, display: "flex", justifyContent: "center", gap: 8, flexWrap: "wrap" }}>
           <button
             onClick={onOpenAutoConfig}
             style={{
@@ -212,6 +212,25 @@ export default function ScheduleModal({ schedule, currentRoundIdx, viewingRoundI
           >
             + 대진표 자동설정
           </button>
+          {schedule.length > 0 && typeof onPopScheduleSegment === "function" && (
+            <button
+              onClick={() => {
+                const input = prompt(`마지막 N개 라운드를 제거합니다 (현재 자동 ${schedule.length}라운드). 제거할 N을 입력:`, "5");
+                if (!input) return;
+                const n = parseInt(input, 10);
+                if (!Number.isFinite(n) || n <= 0) { alert("올바른 숫자를 입력하세요."); return; }
+                if (n > schedule.length) { alert(`자동 schedule 라운드 수(${schedule.length})보다 큽니다.`); return; }
+                if (!confirm(`마지막 ${n}개 라운드와 그 매치/이벤트 기록을 모두 제거합니다. 진행할까요?`)) return;
+                onPopScheduleSegment(n);
+              }}
+              style={{
+                background: "transparent", color: C.orange, border: `1px solid ${C.orange}88`,
+                borderRadius: 999, padding: "10px 14px", fontSize: 12, fontWeight: 600, cursor: "pointer",
+              }}
+            >
+              마지막 N라운드 제거
+            </button>
+          )}
         </div>
       )}
     </Modal>
