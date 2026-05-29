@@ -762,7 +762,9 @@ function gameReducer(state, action) {
       // 마지막 자동 segment 취소 — N개 라운드를 schedule 끝에서 제거.
       // 해당 라운드들의 confirmedRounds / completedMatches (R{ri+1}_C*) / gksHistory 도 같이 정리.
       const { count } = action;
-      const n = Math.max(1, Math.min(Number(count) || 0, state.schedule.length));
+      const rawCount = Number(count) || 0;
+      if (rawCount <= 0) return state;
+      const n = Math.min(rawCount, state.schedule.length);
       if (n <= 0) return state;
       const newLen = state.schedule.length - n;
       const removedIndices = new Set();
