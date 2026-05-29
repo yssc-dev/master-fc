@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useTheme } from '../../hooks/useTheme';
 
 /**
@@ -86,6 +86,16 @@ function SwipeableEvent({ children, onDelete, C }) {
 export default function EventLog({ matchEvents, allEvents, matchId, homePlayers, awayPlayers, homeTeam, awayTeam, homeGk, awayGk, homeColor, awayColor, onDeleteEvent, onEditEvent, styles: s, readOnly }) {
   const { C } = useTheme();
   const [editingEvent, setEditingEvent] = useState(null);
+  // 좁은 화면(폰)에서는 좌우 2열이 잘리므로 팀별 세로 스택(1열)으로 전환
+  const [narrow, setNarrow] = useState(
+    () => typeof window !== "undefined" && window.matchMedia("(max-width: 479px)").matches
+  );
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 479px)");
+    const onChange = (e) => setNarrow(e.matches);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, []);
 
   if (matchEvents.length === 0) return null;
 
@@ -105,30 +115,16 @@ export default function EventLog({ matchEvents, allEvents, matchId, homePlayers,
     return teamPlayers.filter(p => p !== event.player);
   };
 
-  return (
-    <div style={{ marginTop: 10 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-        <span style={{ fontSize: 10, color: C.gray }}>LOG · {matchEvents.length}</span>
-        {!readOnly && <span style={{ fontSize: 10, color: C.grayDark }}>← swipe · ✕</span>}
-        {readOnly && <span style={{ fontSize: 10, color: C.orange }}>LOCKED</span>}
-      </div>
-      {/* 팀 헤더 (좌: 홈, 우: 어웨이) */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4, marginBottom: 6 }}>
-        {[{ name: homeTeam, color: homeColor }, { name: awayTeam, color: awayColor }].map((t, i) => (
-          <div key={i} style={{
-            textAlign: "center", padding: "4px 0", borderRadius: 6,
-            background: `${t.color?.bg || (i === 0 ? "var(--app-blue)" : "var(--app-orange)")}14`,
-            color: t.color?.bg || (i === 0 ? "var(--app-blue)" : "var(--app-orange)"),
-            fontSize: 11, fontWeight: 700,
-          }}>{t.name}</div>
-        ))}
-      </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4, alignItems: "start" }}>
-      {[true, false].map((isHomeColumn) => (
-        <div key={isHomeColumn ? "home" : "away"} style={{ display: "flex", flexDirection: "column", minWidth: 0, overflow: "hidden" }}>
-        {matchEvents.map((e, localIdx) => {
+  const teamHeaderStyle = (t, i) => ({
+    textAlign: "center", padding: "4px 0", borderRadius: 6,
+    background: `${t.color?.bg || (i === 0 ? "var(--app-blue)" : "var(--app-orange)")}14`,
+    color: t.color?.bg || (i === 0 ? "var(--app-blue)" : "var(--app-orange)"),
+    fontSize: 11, fontWeight: 700,
+  });
+
+  // 단일 이벤트 행 — 1열/2열 레이아웃 공용
+  const renderRow = (e, localIdx) => {
         const isHomeSide = e.team === homeTeam;
-        if (isHomeSide !== isHomeColumn) return null;
         const globalIdx = e.id ? allEvents.findIndex(ae => ae.id === e.id) : allEvents.findIndex(ae => ae === e);
         const isEditing = editingEvent === globalIdx;
         const sideColor = isHomeSide ? (homeColor?.bg || "var(--app-blue)") : (awayColor?.bg || "var(--app-orange)");
@@ -284,10 +280,53 @@ export default function EventLog({ matchEvents, allEvents, matchId, homePlayers,
           </SwipeableEvent>
           </div>
         );
-      })}
+  };
+
+  return (
+    <div style={{ marginTop: 10 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+        <span style={{ fontSize: 10, color: C.gray }}>LOG · {matchEvents.length}</span>
+        {!readOnly && <span style={{ fontSize: 10, color: C.grayDark }}>← swipe · ✕</span>}
+        {readOnly && <span style={{ fontSize: 10, color: C.orange }}>LOCKED</span>}
       </div>
-      ))}
-      </div>
+      {narrow ? (
+        /* 좁은 화면: 팀별 섹션 세로 스택 (1열, 전체 폭) — 골 잘림 방지 */
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {[{ name: homeTeam, color: homeColor }, { name: awayTeam, color: awayColor }].map((t, i) => {
+            const rows = matchEvents
+              .map((e, idx) => [e, idx])
+              .filter(([e]) => (e.team === homeTeam) === (i === 0));
+            if (rows.length === 0) return null;
+            return (
+              <div key={i}>
+                <div style={{ ...teamHeaderStyle(t, i), marginBottom: 4 }}>{t.name}</div>
+                <div style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
+                  {rows.map(([e, idx]) => renderRow(e, idx))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        /* 넓은 화면: 기존 좌우 2열 (좌: 홈, 우: 어웨이) */
+        <>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4, marginBottom: 6 }}>
+            {[{ name: homeTeam, color: homeColor }, { name: awayTeam, color: awayColor }].map((t, i) => (
+              <div key={i} style={teamHeaderStyle(t, i)}>{t.name}</div>
+            ))}
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4, alignItems: "start" }}>
+            {[true, false].map((isHomeColumn) => (
+              <div key={isHomeColumn ? "home" : "away"} style={{ display: "flex", flexDirection: "column", minWidth: 0, overflow: "hidden" }}>
+                {matchEvents.map((e, localIdx) => {
+                  if ((e.team === homeTeam) !== isHomeColumn) return null;
+                  return renderRow(e, localIdx);
+                })}
+              </div>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }
