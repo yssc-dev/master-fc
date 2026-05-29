@@ -16,6 +16,32 @@ export const WHOLE_REPLACE_FIELDS = [
   'freeCourtMatches',
 ];
 
+// 자식 노드 단위로 diff/동기화되는 필드 (META/WHOLE_REPLACE 외). diffStateToWrites 의 개별 분기와 1:1.
+export const CHILD_NODE_FIELDS = [
+  'allEvents',        // events/{id}
+  'completedMatches', // matches/{matchId}
+  'soccerMatches',    // soccerMatches/{idx}
+  'gks',              // gks/{teamIdx}
+  'gksHistory',       // gksHistory/{round}
+  'liveMercs',        // liveMercs/{matchId}
+  'absentees',        // absentees/{matchId}
+  'confirmedRounds',  // confirmedRounds/{idx}
+];
+
+// initialState 의 필드 중 RTDB 동기화 대상이 "아닌" 것 (로컬 UI 상태 / 임시 / 시즌 참조 데이터).
+// ★ 새 state 필드 추가 시: 멀티유저 공유돼야 하면 META/WHOLE_REPLACE/CHILD_NODE 중 하나에,
+//   아니면 여기에 분류해야 함. 어디에도 없으면 syncCoverage 테스트가 실패해 강제로 분류하게 함.
+//   (자유대진 freeCourtMatches / CourtRecorder GK 처럼 "공유돼야 하는데 안 됐던" 버그 재발 방지 가드)
+export const LOCAL_ONLY_FIELDS = [
+  'dataLoading', 'dataSource',                       // 데이터 로드 상태
+  'seasonPlayers', 'seasonCrova', 'seasonGoguma',    // 시즌 참조 데이터(별도 로드)
+  'syncStatus', 'attendanceLoading', 'newPlayer',    // UI 상태/입력 드래프트
+  'freeSelectTeam', 'editingTeamName', 'moveSource', // UI 선택/드래그
+  'viewingRoundIdx',                                 // 보기 위치 — 사용자별 로컬(원격값 무시)
+  'matchModal', 'matchModal_sortKey', 'playerSortMode',
+  'teamEditMode', 'teamEditSnapshot',                // 팀명단 수정 임시 상태
+];
+
 export function deepEqual(a, b) {
   if (a === b) return true;
   if (a == null || b == null) return a === b;
