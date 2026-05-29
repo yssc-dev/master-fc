@@ -163,6 +163,59 @@ export function diffStateToWrites(prev, next) {
   return writes;
 }
 
+// RTDB는 빈 배열을 저장하지 않고, 희소 배열/중첩 배열은 객체로 변환됨.
+// schedule[i].matches[j] = [homeIdx, awayIdx] 같은 깊은 중첩 구조에서
+// 두 번째 매치가 trailing null로 인식돼 누락되거나 객체로 역직렬화되는 케이스 복구.
+//
+// 추가로 confirmedMatches에 라운드별 R{n}_C{ci} 매치가 남아있으면
+// 그 정보로 누락된 round.matches 슬롯 보강.
+export function normalizeSchedule(raw, completedMatches) {
+  const objToArray = (v) => {
+    if (Array.isArray(v)) return v;
+    if (v && typeof v === 'object') {
+      const arr = [];
+      for (const k of Object.keys(v)) {
+        const i = +k;
+        if (Number.isInteger(i) && i >= 0) arr[i] = v[k];
+      }
+      return arr;
+    }
+    return [];
+  };
+  const rounds = objToArray(raw);
+  const completedByRound = {};
+  for (const m of (completedMatches || [])) {
+    const id = m?.matchId;
+    const match = id ? id.match(/^R(\d+)_C(\d+)$/) : null;
+    if (!match) continue;
+    const ri = +match[1] - 1;
+    const ci = +match[2];
+    if (!completedByRound[ri]) completedByRound[ri] = {};
+    completedByRound[ri][ci] = [m.homeIdx, m.awayIdx];
+  }
+  return rounds.map((round, ri) => {
+    if (!round || typeof round !== 'object') return { matches: [] };
+    let matches = objToArray(round.matches).map(p => {
+      if (Array.isArray(p)) return p;
+      if (p && typeof p === 'object') return objToArray(p);
+      return p;
+    });
+    // completedMatches에 라운드 ri의 매치가 더 있으면 매치 슬롯 보강
+    const completed = completedByRound[ri];
+    if (completed) {
+      for (const ciStr of Object.keys(completed)) {
+        const ci = +ciStr;
+        if (!matches[ci] || !Array.isArray(matches[ci]) || matches[ci].length !== 2) {
+          matches[ci] = completed[ci];
+        }
+      }
+    }
+    // 희소 → 밀집(빈 슬롯은 제거)
+    matches = matches.filter(m => Array.isArray(m) && m.length === 2);
+    return { ...round, matches };
+  });
+}
+
 // RTDB는 빈 배열을 저장하지 않고, 희소 배열은 객체로 변환됨.
 // 0~teamCount-1 인덱스를 가진 배열로 정규화 + 길이를 teamCount로 패딩.
 function normalizeTeamArray(raw, teamCount, fill) {
@@ -213,7 +266,7 @@ export function reconstructState(gameId, raw) {
     teams: normalizeTeamArray(raw.teams, teamCount, () => []),
     teamNames: normalizeTeamArray(raw.teamNames, teamCount, (i) => `팀${i + 1}`),
     teamColorIndices: normalizeTeamArray(raw.teamColorIndices, teamCount, (i) => i),
-    schedule: raw.schedule || [],
+    schedule: normalizeSchedule(raw.schedule, matches),
     attendees: raw.attendees || [],
     opponents: raw.opponents || [],
     pushState: raw.pushState ?? null,
