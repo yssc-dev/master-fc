@@ -2,9 +2,9 @@
 // 풋살 웹앱 Apps Script v2.0
 //
 // CHANGELOG
-// 2026-05-29: 로그_선수경기 중복 컬럼 "역주행"(=owngoals와 동일 자책골) 제거 — PG 스키마 21→20칸.
-//             RAW_PLAYER_GAMES_HEADERS/_rawPlayerGameToArray에서 역주행 삭제 + 시트 컬럼 삭제용
-//             일회성 removeYeokjuhaengColumn_dryRun/_apply 추가. (선수별집계 로그의 역주행=owngoal 정식컬럼은 유지)
+// 2026-05-29: 로그_선수경기 중복 컬럼 "역주행"(=owngoals와 동일 자책골) 제거 완료 — PG 스키마 21→20칸.
+//             RAW_PLAYER_GAMES_HEADERS/_rawPlayerGameToArray에서 역주행 삭제 + 일회성 함수로 시트 컬럼
+//             삭제 완료(함수는 적용 후 제거). (선수별집계 로그의 역주행=owngoal 정식컬럼은 유지)
 // 2026-05-29: 로그_선수경기 21칸 정합화 완료 — 5/15 fouls(N,14번) 중간삽입 이전 옛 행(739개, 20칸)을
 //             N열 fouls=0 삽입으로 21칸 재정렬 + 시트 헤더도 20→21칸 갱신(5/15에 수동 헤더추가 누락분).
 //             일회성 마이그레이션 함수는 적용 후 제거함.
@@ -1532,32 +1532,6 @@ function _rawPlayerGameToArray(r) {
     Number(r.crova)||0, Number(r.goguma)||0, Number(r.rank_score)||0,
     r.input_time||""];
 }
-
-// ─────────────────────────────────────────────────────────────
-// [일회성] 로그_선수경기에서 중복 컬럼 "역주행"(=owngoals와 동일 자책골) 삭제.
-// PG 스키마를 21칸→20칸으로 줄임. owngoals가 정본이라 역주행 컬럼은 불필요.
-// 헤더명으로 컬럼을 찾아 deleteColumn(데이터·헤더 함께 삭제, 뒤 컬럼 자동 좌측이동) → 이미 없으면 no-op(재실행 안전).
-// ★ 반드시 RAW_PLAYER_GAMES_HEADERS가 20칸(역주행 제거)인 새 코드를 저장한 뒤 실행할 것.
-//   먼저 removeYeokjuhaengColumn_dryRun()으로 대상 열 확인 → removeYeokjuhaengColumn_apply().
-function _removeRawPlayerGamesYeokjuhaeng(dryRun) {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var sheet = ss.getSheetByName(RAW_PLAYER_GAMES_SHEET);
-  if (!sheet) { Logger.log("시트 없음: " + RAW_PLAYER_GAMES_SHEET); return; }
-  var lastCol = sheet.getLastColumn();
-  var header = sheet.getRange(1, 1, 1, lastCol).getValues()[0];
-  var idx = header.indexOf("역주행"); // 0-based
-  if (idx < 0) {
-    Logger.log("역주행 컬럼 없음 — 이미 제거됨. 현재 헤더(" + lastCol + "칸): " + header.join(", "));
-    return;
-  }
-  Logger.log("역주행 = " + (idx + 1) + "번째 열 발견. 현재 총 " + lastCol + "칸. 삭제 시 " + (lastCol - 1) + "칸.");
-  Logger.log("  삭제 후 헤더 예상: " + header.filter(function(h){ return h !== "역주행"; }).join(", "));
-  if (dryRun) { Logger.log("DRY RUN — 미삭제. 적용하려면 removeYeokjuhaengColumn_apply() 실행."); return; }
-  sheet.deleteColumn(idx + 1); // 1-based
-  Logger.log("✅ 역주행 열 삭제 완료. 이제 " + (lastCol - 1) + "칸.");
-}
-function removeYeokjuhaengColumn_dryRun() { _removeRawPlayerGamesYeokjuhaeng(true); }
-function removeYeokjuhaengColumn_apply()  { _removeRawPlayerGamesYeokjuhaeng(false); }
 
 function _loadRawPlayerGameKeys(sheet) {
   var lastRow = sheet.getLastRow();
