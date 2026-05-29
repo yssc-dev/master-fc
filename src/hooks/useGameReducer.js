@@ -352,6 +352,9 @@ function gameReducer(state, action) {
       const isHome = teamIdx === target.homeIdx;
       const isAway = teamIdx === target.awayIdx;
       if (!isHome && !isAway) return state;
+      // 같은 player가 같은 teamIdx로 이미 있으면 no-op (기존 동작 보존).
+      const existing = (target.mercenaries || []).find(x => x.player === player);
+      if (existing && existing.teamIdx === teamIdx) return state;
       // 같은 배치의 다른 confirmed 매치에서 같은 player가 mercs로 등록돼 있으면 거기서 제거 (자동 이동).
       // 본 매치에 stale entry(잘못된 teamIdx)가 있으면 정리하고 새 entry로 교체.
       const batchKey = getMatchBatchKey(matchId);
