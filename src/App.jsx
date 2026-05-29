@@ -33,7 +33,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
     phase, dataLoading, dataSource, seasonPlayers, seasonCrova, seasonGoguma,
     syncStatus, attendanceLoading, attendees, newPlayer, teamCount, courtCount,
     matchMode, rotations, draftMode, freeSelectTeam, teams, teamNames,
-    teamColorIndices, gks, gksHistory, liveMercs, absentees, editingTeamName, moveSource, schedule, currentRoundIdx,
+    teamColorIndices, gks, gksHistory, liveMercs, absentees, freeCourtMatches, editingTeamName, moveSource, schedule, currentRoundIdx,
     viewingRoundIdx, confirmedRounds, completedMatches, allEvents, isExtraRound,
     splitPhase, earlyFinish, gameFinalized, matchModal, matchModal_sortKey, playerSortMode, pushState, teamEditMode,
     settingsSnapshot,
@@ -233,12 +233,12 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
   const gameState = useMemo(() => ({
     gameId: gameId || "legacy",
     gameCreator: state.gameCreator || authUser?.name || "알 수 없음",
-    phase, teams, teamNames, teamColorIndices, gks, gksHistory, liveMercs, absentees, allEvents,
+    phase, teams, teamNames, teamColorIndices, gks, gksHistory, liveMercs, absentees, freeCourtMatches, allEvents,
     completedMatches, schedule, currentRoundIdx, confirmedRounds, attendees,
     teamCount, courtCount, matchMode, isExtraRound, splitPhase, rotations, earlyFinish, gameFinalized, pushState,
     settingsSnapshot,
     lastEditor: editorTag,
-  }), [state.gameCreator, phase, teams, teamNames, teamColorIndices, gks, gksHistory, liveMercs, absentees, allEvents, completedMatches, schedule, currentRoundIdx, confirmedRounds, attendees, teamCount, courtCount, matchMode, isExtraRound, splitPhase, rotations, earlyFinish, gameFinalized, pushState, settingsSnapshot, authUser, gameId, editorTag]);
+  }), [state.gameCreator, phase, teams, teamNames, teamColorIndices, gks, gksHistory, liveMercs, absentees, freeCourtMatches, allEvents, completedMatches, schedule, currentRoundIdx, confirmedRounds, attendees, teamCount, courtCount, matchMode, isExtraRound, splitPhase, rotations, earlyFinish, gameFinalized, pushState, settingsSnapshot, authUser, gameId, editorTag]);
 
   // 변경된 노드만 diff 해서 RTDB update. 동시 편집자끼리 다른 노드를 동시에 써도 안전.
   const autoSync = useCallback(() => {
@@ -267,7 +267,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
     if (phase !== "setup" && phase !== "") {
       autoSync();
     }
-  }, [allEvents, completedMatches, currentRoundIdx, phase, gks, gksHistory, liveMercs, confirmedRounds, pushState, teams, teamNames, splitPhase]);
+  }, [allEvents, completedMatches, currentRoundIdx, phase, gks, gksHistory, liveMercs, absentees, freeCourtMatches, confirmedRounds, pushState, teams, teamNames, splitPhase]);
 
   // Firebase 노드별 구독 — 어떤 자식이라도 바뀌면 재조립된 state 가 콜백으로 옴.
   const lastRemoteUpdateRef = useRef(0);
@@ -461,6 +461,8 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
   const finishMatch = (matchData) => dispatch({ type: 'FINISH_MATCH', match: { ...matchData, isExtra: isExtraRound } });
   // free 모드 두 코트 atomic finalize. 라운드 내 다른 매치 mercs를 base에서 제외하고 한 번에 저장.
   const confirmFreeRound = (results) => dispatch({ type: 'CONFIRM_FREE_ROUND', results: results.map(r => ({ ...r, isExtra: isExtraRound })) });
+  // 자유대진 수동 편성 — reducer state(freeCourtMatches)에 저장해 RTDB로 실시간 공유.
+  const setFreeCourtMatch = (courtIdx, home, away) => dispatch({ type: 'SET_FREE_COURT_MATCH', courtIdx, home, away });
   const confirmPushRound = (matchResult, newPushState) => {
     dispatch({ type: 'CONFIRM_PUSH_ROUND', matchResult, newPushState });
   };
@@ -1453,6 +1455,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
               courtCount={courtCount} allEvents={allEvents} onRecordEvent={recordMatchEvent}
               onUndoEvent={undoMatchEvent} onDeleteEvent={deleteEvent} onEditEvent={editEvent}
               onFinishMatch={finishMatch} onConfirmFreeRound={confirmFreeRound} completedMatches={completedMatches}
+              freeCourtMatches={freeCourtMatches} onSetFreeCourtMatch={setFreeCourtMatch}
               attendees={attendees} onGkChange={handleGkChange}
               liveMercs={liveMercs || {}} onAddLiveMerc={handleAddLiveMerc} onRemoveLiveMerc={handleRemoveLiveMerc}
               absentees={absentees || {}} onToggleAbsent={handleToggleAbsent}
@@ -1484,6 +1487,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
               courtCount={courtCount} allEvents={allEvents} onRecordEvent={recordMatchEvent}
               onUndoEvent={undoMatchEvent} onDeleteEvent={deleteEvent} onEditEvent={editEvent}
               onFinishMatch={finishMatch} onConfirmFreeRound={confirmFreeRound} completedMatches={completedMatches}
+              freeCourtMatches={freeCourtMatches} onSetFreeCourtMatch={setFreeCourtMatch}
               attendees={attendees} onGkChange={handleGkChange}
               liveMercs={liveMercs || {}} onAddLiveMerc={handleAddLiveMerc} onRemoveLiveMerc={handleRemoveLiveMerc}
               absentees={absentees || {}} onToggleAbsent={handleToggleAbsent}

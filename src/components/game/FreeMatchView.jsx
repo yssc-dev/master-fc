@@ -5,9 +5,10 @@ import { calcMatchScore } from '../../utils/scoring';
 import { BackIcon } from '../common/icons';
 import CourtRecorder from './CourtRecorder';
 
-export default function FreeMatchView({ teams, teamNames, teamColorIndices, gks, gksHistory, courtCount, allEvents, onRecordEvent, onUndoEvent, onDeleteEvent, onEditEvent, onFinishMatch, onConfirmFreeRound, completedMatches, attendees, onGkChange, liveMercs, onAddLiveMerc, onRemoveLiveMerc, onEditPastGk, onEditPastMercAdd, onEditPastMercRemove, onEditPastAbsent, absentees, onToggleAbsent, styles: s, isExtraRound, forcedPastIdx, onExitForcedPast, roundDisplayOffset = 0, totalRoundsForDisplay }) {
+export default function FreeMatchView({ teams, teamNames, teamColorIndices, gks, gksHistory, courtCount, allEvents, onRecordEvent, onUndoEvent, onDeleteEvent, onEditEvent, onFinishMatch, onConfirmFreeRound, completedMatches, attendees, onGkChange, liveMercs, onAddLiveMerc, onRemoveLiveMerc, onEditPastGk, onEditPastMercAdd, onEditPastMercRemove, onEditPastAbsent, absentees, onToggleAbsent, freeCourtMatches, onSetFreeCourtMatch, styles: s, isExtraRound, forcedPastIdx, onExitForcedPast, roundDisplayOffset = 0, totalRoundsForDisplay }) {
   const { C } = useTheme();
-  const [courtMatches, setCourtMatches] = useState({});
+  // 수동 편성 대진은 reducer state(freeCourtMatches)에서 옴 — RTDB로 실시간 공유됨(예전엔 로컬 useState라 공유 안 됐던 버그).
+  const courtMatches = freeCourtMatches || {};
   const [activeCourtTab, setActiveCourtTab] = useState(0);
   const [settingCourt, setSettingCourt] = useState(null);
   const [selection, setSelection] = useState({ home: null, away: null });
@@ -68,7 +69,7 @@ export default function FreeMatchView({ teams, teamNames, teamColorIndices, gks,
 
   const handleSetCourt = () => {
     if (selection.home === null || selection.away === null || selection.home === selection.away) return;
-    setCourtMatches(prev => ({ ...prev, [settingCourt]: { home: selection.home, away: selection.away } }));
+    onSetFreeCourtMatch?.(settingCourt, selection.home, selection.away);
     setSelection({ home: null, away: null });
     setSettingCourt(null);
   };
@@ -100,7 +101,7 @@ export default function FreeMatchView({ teams, teamNames, teamColorIndices, gks,
     } else {
       results.forEach(r => onFinishMatch(r));
     }
-    setCourtMatches({});
+    // freeCourtMatches는 reducer가 확정 액션(FINISH_MATCH/CONFIRM_FREE_ROUND)에서 {}로 클리어함.
   };
 
   // 과거 매치 단건 보기 / 부분 수정

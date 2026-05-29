@@ -29,6 +29,8 @@ const initialState = {
   liveMercs: {},
   // 매치별 휴식 선수 — { matchId: { teamIdx: [name] } }. 라운드 확정 시 completedMatches[i].homeAbsent/awayAbsent로 박제.
   absentees: {},
+  // 자유대진 수동 편성(확정 전) — { courtIdx: { home: teamIdx, away: teamIdx } }. RTDB 동기화 대상이라 실시간 공유됨(대진표모드 schedule / 밀어내기 pushState와 동급). 라운드 확정 시 {}로 클리어.
+  freeCourtMatches: {},
   editingTeamName: null,
   moveSource: null,
   schedule: [],
@@ -268,6 +270,7 @@ function gameReducer(state, action) {
         updates.viewingRoundIdx = maxIdx2 >= 0 ? Math.min(resolvedCurrent, maxIdx2) : resolvedCurrent;
       }
       if (s.confirmedRounds != null) updates.confirmedRounds = s.confirmedRounds;
+      if (s.freeCourtMatches != null) updates.freeCourtMatches = s.freeCourtMatches;
       if (s.earlyFinish != null) updates.earlyFinish = s.earlyFinish;
       if (s.gameFinalized != null) updates.gameFinalized = s.gameFinalized;
       if (s.pushState != null) updates.pushState = s.pushState;
@@ -489,6 +492,13 @@ function gameReducer(state, action) {
       else next[matchId] = forMatch;
       return { ...state, absentees: next };
     }
+    case 'SET_FREE_COURT_MATCH': {
+      // 자유대진 수동 편성 — courtIdx별 {home, away}. reducer state라 RTDB로 실시간 공유됨.
+      return {
+        ...state,
+        freeCourtMatches: { ...state.freeCourtMatches, [action.courtIdx]: { home: action.home, away: action.away } },
+      };
+    }
     case 'FINISH_MATCH': {
       // 단건 finalize (free 모드 단일 코트 등). 다른 라이브 매치는 scope 외.
       const snapped = snapshotMatchResult(action.match, state.teams, state.liveMercs, [action.match?.matchId], state.absentees);
@@ -512,6 +522,7 @@ function gameReducer(state, action) {
         gksHistory,
         liveMercs: nextLiveMercs,
         absentees: nextAbsentees,
+        freeCourtMatches: {},
       };
     }
     case 'CONFIRM_FREE_ROUND': {
@@ -542,6 +553,7 @@ function gameReducer(state, action) {
         gksHistory,
         liveMercs: nextLiveMercs,
         absentees: nextAbsenteesFR,
+        freeCourtMatches: {},
       };
     }
     case 'CONFIRM_PUSH_ROUND': {
@@ -837,6 +849,7 @@ function gameReducer(state, action) {
         confirmedRounds: {},
         liveMercs: {},
         absentees: {},
+        freeCourtMatches: {},
         gks: {},
         gksHistory: {},
         isExtraRound: false,

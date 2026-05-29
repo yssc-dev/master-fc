@@ -13,6 +13,7 @@ export const WHOLE_REPLACE_FIELDS = [
   'teams', 'teamNames', 'teamColorIndices',
   'schedule', 'attendees', 'opponents',
   'pushState', 'settingsSnapshot', 'soccerFormation',
+  'freeCourtMatches',
 ];
 
 export function deepEqual(a, b) {
@@ -269,6 +270,7 @@ export function reconstructState(gameId, raw) {
     schedule: normalizeSchedule(raw.schedule, matches),
     attendees: raw.attendees || [],
     opponents: raw.opponents || [],
+    freeCourtMatches: raw.freeCourtMatches || {},
     pushState: raw.pushState ?? null,
     settingsSnapshot: raw.settingsSnapshot ?? null,
     soccerFormation: raw.soccerFormation ?? null,
