@@ -5,7 +5,7 @@ import { calcMatchScore } from '../../utils/scoring';
 import { BackIcon } from '../common/icons';
 import CourtRecorder from './CourtRecorder';
 
-export default function FreeMatchView({ teams, teamNames, teamColorIndices, gks, gksHistory, courtCount, allEvents, onRecordEvent, onUndoEvent, onDeleteEvent, onEditEvent, onFinishMatch, onConfirmFreeRound, completedMatches, attendees, onGkChange, liveMercs, onAddLiveMerc, onRemoveLiveMerc, onEditPastGk, onEditPastMercAdd, onEditPastMercRemove, absentees, onToggleAbsent, styles: s, isExtraRound, forcedPastIdx, onExitForcedPast, roundDisplayOffset = 0, totalRoundsForDisplay }) {
+export default function FreeMatchView({ teams, teamNames, teamColorIndices, gks, gksHistory, courtCount, allEvents, onRecordEvent, onUndoEvent, onDeleteEvent, onEditEvent, onFinishMatch, onConfirmFreeRound, completedMatches, attendees, onGkChange, liveMercs, onAddLiveMerc, onRemoveLiveMerc, onEditPastGk, onEditPastMercAdd, onEditPastMercRemove, onEditPastAbsent, absentees, onToggleAbsent, styles: s, isExtraRound, forcedPastIdx, onExitForcedPast, roundDisplayOffset = 0, totalRoundsForDisplay }) {
   const { C } = useTheme();
   const [courtMatches, setCourtMatches] = useState({});
   const [activeCourtTab, setActiveCourtTab] = useState(0);
@@ -270,6 +270,9 @@ export default function FreeMatchView({ teams, teamNames, teamColorIndices, gks,
                 }}
                 onRemoveMerc={(player) => onEditPastMercRemove?.(cm.matchId, player)}
                 absentees={{ [cm.matchId]: { [cm.homeIdx]: cm.homeAbsent || [], [cm.awayIdx]: cm.awayAbsent || [] } }}
+                onToggleAbsent={onEditPastAbsent
+                  ? ({ matchId, teamIdx, player }) => onEditPastAbsent({ matchId, teamIdx, player })
+                  : undefined}
               />
             </div>
           );

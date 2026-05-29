@@ -449,6 +449,9 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
   const handleEditPastMercRemove = useCallback((matchId, player) => {
     dispatch({ type: 'EDIT_PAST_MERC_REMOVE', matchId, player });
   }, []);
+  const handleEditPastAbsent = useCallback(({ matchId, teamIdx, player }) => {
+    dispatch({ type: 'EDIT_PAST_ABSENT_TOGGLE', matchId, teamIdx, player });
+  }, []);
 
   const recordMatchEvent = (courtId, event) => dispatch({ type: 'ADD_EVENT', event: { ...event, id: generateEventId(), courtId, timestamp: Date.now() } });
   const undoMatchEvent = (courtId, matchId) => dispatch({ type: 'UNDO_EVENT', courtId, matchId });
@@ -1443,7 +1446,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
               attendees={attendees} onGkChange={handleGkChange} pushState={pushState}
               liveMercs={liveMercs || {}} onAddLiveMerc={handleAddLiveMerc} onRemoveLiveMerc={handleRemoveLiveMerc}
               absentees={absentees || {}} onToggleAbsent={handleToggleAbsent}
-              onEditPastGk={handleEditPastGk} onEditPastMercAdd={handleEditPastMercAdd} onEditPastMercRemove={handleEditPastMercRemove}
+              onEditPastGk={handleEditPastGk} onEditPastMercAdd={handleEditPastMercAdd} onEditPastMercRemove={handleEditPastMercRemove} onEditPastAbsent={handleEditPastAbsent}
               styles={s} />
           ) : viewingFreeIdx !== null ? (
             <FreeMatchView teams={teams} teamNames={teamNames} teamColorIndices={teamColorIndices} gks={gks}
@@ -1453,7 +1456,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
               attendees={attendees} onGkChange={handleGkChange}
               liveMercs={liveMercs || {}} onAddLiveMerc={handleAddLiveMerc} onRemoveLiveMerc={handleRemoveLiveMerc}
               absentees={absentees || {}} onToggleAbsent={handleToggleAbsent}
-              onEditPastGk={handleEditPastGk} onEditPastMercAdd={handleEditPastMercAdd} onEditPastMercRemove={handleEditPastMercRemove}
+              onEditPastGk={handleEditPastGk} onEditPastMercAdd={handleEditPastMercAdd} onEditPastMercRemove={handleEditPastMercRemove} onEditPastAbsent={handleEditPastAbsent}
               styles={s} isExtraRound={isExtraRound}
               forcedPastIdx={viewingFreeIdx}
               onExitForcedPast={() => setViewingFreeIdx(null)}
@@ -1474,7 +1477,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
               completedMatches={completedMatches} attendees={attendees} onGkChange={handleGkChange}
               liveMercs={liveMercs || {}} onAddLiveMerc={handleAddLiveMerc} onRemoveLiveMerc={handleRemoveLiveMerc}
               absentees={absentees || {}} onToggleAbsent={handleToggleAbsent}
-              onEditPastGk={handleEditPastGk} onEditPastMercAdd={handleEditPastMercAdd} onEditPastMercRemove={handleEditPastMercRemove}
+              onEditPastGk={handleEditPastGk} onEditPastMercAdd={handleEditPastMercAdd} onEditPastMercRemove={handleEditPastMercRemove} onEditPastAbsent={handleEditPastAbsent}
               splitPhase={splitPhase} styles={s} />
           ) : (
             <FreeMatchView teams={teams} teamNames={teamNames} teamColorIndices={teamColorIndices} gks={gks}
@@ -1484,7 +1487,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
               attendees={attendees} onGkChange={handleGkChange}
               liveMercs={liveMercs || {}} onAddLiveMerc={handleAddLiveMerc} onRemoveLiveMerc={handleRemoveLiveMerc}
               absentees={absentees || {}} onToggleAbsent={handleToggleAbsent}
-              onEditPastGk={handleEditPastGk} onEditPastMercAdd={handleEditPastMercAdd} onEditPastMercRemove={handleEditPastMercRemove}
+              onEditPastGk={handleEditPastGk} onEditPastMercAdd={handleEditPastMercAdd} onEditPastMercRemove={handleEditPastMercRemove} onEditPastAbsent={handleEditPastAbsent}
               styles={s} isExtraRound={isExtraRound}
               roundDisplayOffset={roundDisplayOffset}
               totalRoundsForDisplay={schedule.length > 0 ? roundDisplayOffset + schedule.length : undefined} />
