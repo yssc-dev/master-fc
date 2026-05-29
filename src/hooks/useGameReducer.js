@@ -454,6 +454,26 @@ function gameReducer(state, action) {
       if (next.length === 0) delete nextLiveMercs[matchId]; else nextLiveMercs[matchId] = next;
       return { ...state, liveMercs: nextLiveMercs };
     }
+    case 'EDIT_PAST_ABSENT_TOGGLE': {
+      // 과거 매치의 휴식 토글 — completedMatches[idx].homeAbsent/awayAbsent 스냅샷 직접 변경.
+      // TOGGLE_ABSENT는 state.absentees 라이브 맵만 다루므로 confirmed 매치엔 효과 없음.
+      const { matchId, teamIdx, player } = action;
+      if (!matchId || teamIdx == null || !player) return state;
+      const idx = state.completedMatches.findIndex(m => m.matchId === matchId);
+      if (idx === -1) return state;
+      const target = state.completedMatches[idx];
+      const isHome = teamIdx === target.homeIdx;
+      const isAway = teamIdx === target.awayIdx;
+      if (!isHome && !isAway) return state;
+      const field = isHome ? 'homeAbsent' : 'awayAbsent';
+      const current = target[field] || [];
+      const has = current.includes(player);
+      const updated = has ? current.filter(p => p !== player) : [...current, player];
+      const nextCompleted = state.completedMatches.map((m, i) =>
+        i === idx ? { ...m, [field]: updated } : m
+      );
+      return { ...state, completedMatches: nextCompleted };
+    }
     case 'TOGGLE_ABSENT': {
       // 매치별 휴식 토글. matchId + teamIdx 단위, player가 이미 있으면 제거, 없으면 추가.
       const { matchId, teamIdx, player } = action;
