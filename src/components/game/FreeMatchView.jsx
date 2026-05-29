@@ -266,6 +266,8 @@ export default function FreeMatchView({ teams, teamNames, teamColorIndices, gks,
                 mercs={courtMercs}
                 onAddMerc={(player, side) => {
                   const teamIdx = side === "home" ? cm.homeIdx : cm.awayIdx;
+                  // 임시 diagnostic
+                  console.info('[FreeMatchView onAddMerc] player:', player, 'side:', side, 'teamIdx:', teamIdx, 'cm.matchId:', cm.matchId, 'cm.homeIdx:', cm.homeIdx, 'cm.awayIdx:', cm.awayIdx);
                   onEditPastMercAdd?.(cm.matchId, teamIdx, player);
                 }}
                 onRemoveMerc={(player) => onEditPastMercRemove?.(cm.matchId, player)}
