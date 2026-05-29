@@ -15,7 +15,7 @@ export const RAW_PLAYER_GAME_COLUMNS = [
   "player", "session_team",
   "games", "field_games", "keeper_games",
   "goals", "assists", "owngoals", "fouls", "conceded", "cleansheets",
-  "crova", "goguma", "역주행", "rank_score",
+  "crova", "goguma", "rank_score",
   "input_time",
 ];
 
@@ -60,7 +60,6 @@ export function buildRawPlayerGamesFromFutsal({ team, inputTime, players }) {
     cleansheets: Number(p.cleanSheets) || 0,
     crova: Number(p.crova) || 0,
     goguma: Number(p.goguma) || 0,
-    역주행: 0, // owngoals(자책골)와 중복 개념 — 정본은 owngoals. PG 역주행은 미사용 휴면 컬럼이라 항상 0(중복 데이터 누적 방지).
     rank_score: Number(p.rankScore) || 0,
     input_time: inputTime || '',
   }));
@@ -111,7 +110,7 @@ export function buildRawPlayerGamesFromSoccer({ team, inputTime, players }) {
     fouls: Number(p.fouls) || 0,
     conceded: Number(p.conceded) || 0,
     cleansheets: Number(p.cleanSheets) || 0,
-    crova: 0, goguma: 0, 역주행: 0, rank_score: 0,
+    crova: 0, goguma: 0, rank_score: 0,
     input_time: inputTime || '',
   }));
 }
@@ -151,7 +150,7 @@ export function buildRawPlayerGamesFromTournament({ team, tournamentId, inputTim
     games: s.games, field_games: s.field_games, keeper_games: s.keeper_games,
     goals: s.goals, assists: s.assists, owngoals: s.owngoals, fouls: 0,
     conceded: s.conceded, cleansheets: s.cleansheets,
-    crova: 0, goguma: 0, 역주행: 0, rank_score: 0,
+    crova: 0, goguma: 0, rank_score: 0,
     input_time: inputTime || '',
   }));
 }

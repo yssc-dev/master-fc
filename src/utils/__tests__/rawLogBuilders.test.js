@@ -10,13 +10,13 @@ describe('raw log column constants', () => {
     expect(RAW_EVENT_COLUMNS[13]).toBe('input_time');
   });
 
-  it('RAW_PLAYER_GAME_COLUMNS: 21개 (fouls 포함), 풋살 전용 필드 포함', () => {
-    expect(RAW_PLAYER_GAME_COLUMNS).toHaveLength(21);
+  it('RAW_PLAYER_GAME_COLUMNS: 20개 (fouls 포함, 역주행 제거), 풋살 전용 필드 포함', () => {
+    expect(RAW_PLAYER_GAME_COLUMNS).toHaveLength(20);
     expect(RAW_PLAYER_GAME_COLUMNS[0]).toBe('team');
-    expect(RAW_PLAYER_GAME_COLUMNS[20]).toBe('input_time');
+    expect(RAW_PLAYER_GAME_COLUMNS[19]).toBe('input_time');
     expect(RAW_PLAYER_GAME_COLUMNS).toContain('crova');
     expect(RAW_PLAYER_GAME_COLUMNS).toContain('goguma');
-    expect(RAW_PLAYER_GAME_COLUMNS).toContain('역주행');
+    expect(RAW_PLAYER_GAME_COLUMNS).not.toContain('역주행'); // owngoals와 중복이라 제거됨
     expect(RAW_PLAYER_GAME_COLUMNS).toContain('rank_score');
     expect(RAW_PLAYER_GAME_COLUMNS).toContain('fouls');
   });
@@ -132,19 +132,19 @@ describe('buildRawPlayerGamesFromFutsal', () => {
       games: 0, field_games: 0,       // 풋살은 games 원본 없음 → 0 기본
       keeper_games: 1,
       goals: 3, assists: 1, owngoals: 0, conceded: 0, cleansheets: 1,
-      crova: 1, goguma: 0, 역주행: 0, rank_score: 4,
+      crova: 1, goguma: 0, rank_score: 4,
       input_time: '2026-04-10 21:00:00',
     });
   });
 
-  it('역주행 기본 0', () => {
+  it('역주행 컬럼은 스키마에서 제거됨 (owngoals와 중복)', () => {
     const rows = buildRawPlayerGamesFromFutsal({
       team: '마스터FC', inputTime: 't',
       players: [{ gameDate: '2026-04-10', name: 'A', goals:0, assists:0, owngoals:0,
                   conceded:0, cleanSheets:0, crova:0, goguma:0, keeperGames:0, rankScore:0,
                   playerTeam:'블루' }],
     });
-    expect(rows[0].역주행).toBe(0);
+    expect(rows[0]).not.toHaveProperty('역주행');
   });
 
   it('빈 players → 빈 배열', () => {
@@ -230,7 +230,7 @@ describe('buildRawPlayerGamesFromSoccer', () => {
       date: '2026-04-10', player: 'A', session_team: '하버FC',
       games: 3, field_games: 2, keeper_games: 1,
       goals: 2, assists: 1, owngoals: 0, conceded: 3, cleansheets: 1,
-      crova: 0, goguma: 0, 역주행: 0, rank_score: 0,
+      crova: 0, goguma: 0, rank_score: 0,
       input_time: 't',
     });
   });
