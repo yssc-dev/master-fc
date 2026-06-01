@@ -74,6 +74,20 @@ export default function FreeMatchView({ teams, teamNames, teamColorIndices, gks,
     setSettingCourt(null);
   };
 
+  // 라이브 매치 대진(팀) 재선택 — 확정 전에 팀을 잘못 고른 경우. 기록된 이벤트가 있으면
+  // 옛 팀에 묶인 골이 오귀속되므로 차단(먼저 삭제 요구). 없으면 기존 팀 선택 화면 재오픈.
+  const handleChangeMatchup = (ci) => {
+    const mid = getLiveMatchId(ci);
+    const evCount = allEvents.filter(e => e.matchId === mid).length;
+    if (evCount > 0) {
+      alert(`이 코트에 기록된 골/이벤트 ${evCount}건이 있어 대진을 바꿀 수 없습니다.\n먼저 기록을 삭제한 뒤 변경해주세요.`);
+      return;
+    }
+    const cur = courtMatches[ci];
+    setSelection({ home: cur?.home ?? null, away: cur?.away ?? null });
+    setSettingCourt(ci);
+  };
+
   const handleConfirmRound = () => {
     const results = [];
     for (const ci of courts) {
@@ -370,6 +384,10 @@ export default function FreeMatchView({ teams, teamNames, teamColorIndices, gks,
         </div>
       ) : (
         <div>
+          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 6 }}>
+            <button onClick={() => handleChangeMatchup(activeCourtTab)}
+              style={{ ...s.btnSm(C.grayDark), fontSize: 11 }}>대진 변경</button>
+          </div>
           <CourtRecorder
             key={`free_${activeCourtTab}_${courtMatches[activeCourtTab]?.home}_${courtMatches[activeCourtTab]?.away}`}
             matchInfo={activeMatchInfo}
