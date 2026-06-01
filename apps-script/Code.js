@@ -2,6 +2,9 @@
 // 풋살 웹앱 Apps Script v2.0
 //
 // CHANGELOG
+// 2026-06-01: 선수별집계 로그 읽기 함수(_getCumulativeBonus/_getPrevRankings/_getRankingHistory)를
+//             하드코딩 인덱스(소속팀=12, 크로바=7 등) → 헤더명 기반(_playerLogColMap)으로 전환.
+//             향후 컬럼 삽입/순서변경에 견고. 헤더 탐색 실패 시 기존 표준 인덱스로 폴백.
 // 2026-05-29: 로그_선수경기 중복 컬럼 "역주행"(=owngoals와 동일 자책골) 제거 완료 — PG 스키마 21→20칸.
 //             RAW_PLAYER_GAMES_HEADERS/_rawPlayerGameToArray에서 역주행 삭제 + 일회성 함수로 시트 컬럼
 //             삭제 완료(함수는 적용 후 제거). (선수별집계 로그의 역주행=owngoal 정식컬럼은 유지)
@@ -2135,6 +2138,42 @@ function _reimportMasterFCFutsalPoint() {
 // 누적 크로바/고구마 조회
 // ═══════════════════════════════════════════════════════════════
 
+// 선수별집계 로그 헤더명 기반 컬럼 인덱스 맵 — 컬럼 순서/삽입 변경에 견고(하드코딩 인덱스 금지).
+// 헤더 탐색 실패 시 표준 인덱스로 폴백. _getCumulativeBonus/_getPrevRankings/_getRankingHistory 공용.
+function _playerLogColMap(sheet) {
+  var lastRow = sheet.getLastRow();
+  var colCount = sheet.getLastColumn();
+  var headerRow = 1;
+  var scanRows = sheet.getRange(1, 1, Math.min(5, lastRow), colCount).getValues();
+  for (var r = 0; r < scanRows.length; r++) {
+    if (scanRows[r].some(function(cell){ var s = String(cell).trim(); return s === "선수명" || s === "경기일자"; })) { headerRow = r + 1; break; }
+  }
+  var headers = sheet.getRange(headerRow, 1, 1, colCount).getValues()[0].map(function(h){ return String(h).trim(); });
+  var cm = {};
+  for (var c = 0; c < headers.length; c++) {
+    var h = headers[c];
+    if (h === "경기일자") cm.date = c;
+    else if (h === "선수명") cm.name = c;
+    else if (h === "골") cm.goals = c;
+    else if (h === "어시") cm.assists = c;
+    else if (h === "역주행" || h === "자책골") cm.ownGoals = c;
+    else if (h === "실점") cm.conceded = c;
+    else if (h === "클린시트") cm.cleanSheets = c;
+    else if (h === "크로바") cm.crova = c;
+    else if (h === "고구마") cm.goguma = c;
+    else if (h === "키퍼경기수" || h === "키퍼경기") cm.keeperGames = c;
+    else if (h === "팀순위점수") cm.rankScore = c;
+    else if (h === "소속팀") cm.teamName = c;
+  }
+  function idx(key, def) { return cm[key] !== undefined ? cm[key] : def; }
+  return {
+    headerRow: headerRow, colCount: colCount, cm: cm,
+    iDate: idx('date', 0), iName: idx('name', 1), iGoals: idx('goals', 2),
+    iAssists: idx('assists', 3), iOwn: idx('ownGoals', 4), iClean: idx('cleanSheets', 6),
+    iCrova: idx('crova', 7), iGoguma: idx('goguma', 8), iTeam: idx('teamName', 12),
+  };
+}
+
 function _getCumulativeBonus(team, sheetName) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName(sheetName || PLAYER_LOG_SHEET);
@@ -2143,23 +2182,25 @@ function _getCumulativeBonus(team, sheetName) {
   var lastRow = sheet.getLastRow();
   if (lastRow < 2) return { success: true, crova: {}, goguma: {} };
 
-  var colCount = sheet.getLastColumn();
-  var data = sheet.getRange(2, 1, lastRow - 1, colCount).getValues();
+  var m = _playerLogColMap(sheet);
+  var dataStartRow = m.headerRow + 1;
+  if (dataStartRow > lastRow) return { success: true, crova: {}, goguma: {} };
+  var data = sheet.getRange(dataStartRow, 1, lastRow - dataStartRow + 1, m.colCount).getValues();
 
   var crova = {};
   var goguma = {};
 
   for (var i = 0; i < data.length; i++) {
-    if (team && colCount >= 13) {
-      var rowTeam = String(data[i][12]).trim();
+    if (team && m.cm.teamName !== undefined) {
+      var rowTeam = String(data[i][m.iTeam]).trim();
       if (rowTeam && rowTeam !== team) continue;
     }
 
-    var name = String(data[i][1]).trim();
+    var name = String(data[i][m.iName]).trim();
     if (!name) continue;
 
-    var c = Number(data[i][7]) || 0;
-    var g = Number(data[i][8]) || 0;
+    var c = Number(data[i][m.iCrova]) || 0;
+    var g = Number(data[i][m.iGoguma]) || 0;
 
     if (c !== 0) crova[name] = (crova[name] || 0) + c;
     if (g !== 0) goguma[name] = (goguma[name] || 0) + g;
@@ -2193,15 +2234,17 @@ function _getPrevRankings(team, sheetName) {
   var lastRow = sheet.getLastRow();
   if (lastRow < 2) return { success: true, latestDeltas: {} };
 
-  var data = sheet.getRange(2, 1, lastRow - 1, 13).getValues();
-  // 열: 경기일자(0), 선수명(1), 골(2), 어시(3), 역주행(4), 실점(5), 클린시트(6), 크로바(7), 고구마(8), 키퍼경기수(9), 팀순위점수(10), 입력시간(11), 소속팀(12)
+  var m = _playerLogColMap(sheet);
+  var dataStartRow = m.headerRow + 1;
+  if (dataStartRow > lastRow) return { success: true, latestDeltas: {} };
+  var data = sheet.getRange(dataStartRow, 1, lastRow - dataStartRow + 1, m.colCount).getValues();
 
   // 팀 필터 + 최신 경기일자 찾기
   var latestDate = "";
   for (var i = 0; i < data.length; i++) {
-    var rowTeam = data[i][12] ? String(data[i][12]).trim() : "";
+    var rowTeam = data[i][m.iTeam] ? String(data[i][m.iTeam]).trim() : "";
     if (rowTeam && rowTeam !== team) continue;
-    var dateStr = _toDateStr(data[i][0]);
+    var dateStr = _toDateStr(data[i][m.iDate]);
     if (dateStr > latestDate) latestDate = dateStr;
   }
 
@@ -2210,19 +2253,19 @@ function _getPrevRankings(team, sheetName) {
   // 최신 경기일자의 선수별 증분만 추출
   var deltas = {};
   for (var j = 0; j < data.length; j++) {
-    var rTeam = data[j][12] ? String(data[j][12]).trim() : "";
+    var rTeam = data[j][m.iTeam] ? String(data[j][m.iTeam]).trim() : "";
     if (rTeam && rTeam !== team) continue;
-    var ds = _toDateStr(data[j][0]);
+    var ds = _toDateStr(data[j][m.iDate]);
     if (ds !== latestDate) continue;
-    var name = String(data[j][1]).trim();
+    var name = String(data[j][m.iName]).trim();
     if (!name) continue;
     deltas[name] = {
-      goals: Number(data[j][2]) || 0,
-      assists: Number(data[j][3]) || 0,
-      ownGoals: Number(data[j][4]) || 0,
-      cleanSheets: Number(data[j][6]) || 0,
-      crova: Number(data[j][7]) || 0,
-      goguma: Number(data[j][8]) || 0,
+      goals: Number(data[j][m.iGoals]) || 0,
+      assists: Number(data[j][m.iAssists]) || 0,
+      ownGoals: Number(data[j][m.iOwn]) || 0,
+      cleanSheets: Number(data[j][m.iClean]) || 0,
+      crova: Number(data[j][m.iCrova]) || 0,
+      goguma: Number(data[j][m.iGoguma]) || 0,
     };
   }
 
@@ -2242,27 +2285,30 @@ function _getRankingHistory(team, allPlayers, customSheetName) {
   var lastRow = sheet.getLastRow();
   if (lastRow < 2) return { success: true, rankingHistory: { dates: [], players: {} } };
 
-  var data = sheet.getRange(2, 1, lastRow - 1, 13).getValues();
+  var m = _playerLogColMap(sheet);
+  var dataStartRow = m.headerRow + 1;
+  if (dataStartRow > lastRow) return { success: true, rankingHistory: { dates: [], players: {} } };
+  var data = sheet.getRange(dataStartRow, 1, lastRow - dataStartRow + 1, m.colCount).getValues();
 
   // 경기일자별 선수 데이터 그룹핑
   var dateMap = {}; // { "2025-09-15": [ {name, goals, assists, ...} ] }
   for (var i = 0; i < data.length; i++) {
-    var rowTeam = data[i][12] ? String(data[i][12]).trim() : "";
+    var rowTeam = data[i][m.iTeam] ? String(data[i][m.iTeam]).trim() : "";
     if (rowTeam && rowTeam !== team) continue;
 
-    var dateStr = _toDateStr(data[i][0]);
-    var name = String(data[i][1]).trim();
+    var dateStr = _toDateStr(data[i][m.iDate]);
+    var name = String(data[i][m.iName]).trim();
     if (!name || !dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) continue;
 
     if (!dateMap[dateStr]) dateMap[dateStr] = [];
     dateMap[dateStr].push({
       name: name,
-      goals: Number(data[i][2]) || 0,
-      assists: Number(data[i][3]) || 0,
-      ownGoals: Number(data[i][4]) || 0,
-      cleanSheets: Number(data[i][6]) || 0,
-      crova: Number(data[i][7]) || 0,
-      goguma: Number(data[i][8]) || 0,
+      goals: Number(data[i][m.iGoals]) || 0,
+      assists: Number(data[i][m.iAssists]) || 0,
+      ownGoals: Number(data[i][m.iOwn]) || 0,
+      cleanSheets: Number(data[i][m.iClean]) || 0,
+      crova: Number(data[i][m.iCrova]) || 0,
+      goguma: Number(data[i][m.iGoguma]) || 0,
     });
   }
 
@@ -2271,7 +2317,7 @@ function _getRankingHistory(team, allPlayers, customSheetName) {
   var debug = {
     totalRows: data.length,
     datesFound: sortedDates,
-    first5RawDates: data.slice(0, 5).map(function(r) { return { raw: String(r[0]), type: typeof r[0], isDate: r[0] instanceof Date, converted: _toDateStr(r[0]), name: String(r[1]).trim(), team: String(r[12] || "").trim() }; }),
+    first5RawDates: data.slice(0, 5).map(function(r) { return { raw: String(r[m.iDate]), type: typeof r[m.iDate], isDate: r[m.iDate] instanceof Date, converted: _toDateStr(r[m.iDate]), name: String(r[m.iName]).trim(), team: String(r[m.iTeam] || "").trim() }; }),
   };
   if (sortedDates.length === 0) return { success: true, rankingHistory: { dates: [], players: {} }, debug: debug };
 
