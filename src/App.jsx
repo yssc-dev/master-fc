@@ -774,20 +774,37 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
       ]);
       const [r1, r2, r3, r4, r5] = results;
       const legacyOk = r1.status === 'fulfilled' && r2.status === 'fulfilled';
-      if (!legacyOk) throw new Error('기존 시트 저장 실패');
+      if (!legacyOk) {
+        const f = [];
+        if (r1.status !== 'fulfilled') f.push('포인트로그');
+        if (r2.status !== 'fulfilled') f.push('선수별집계');
+        throw new Error(`핵심 시트 저장 실패: ${f.join(', ')}`);
+      }
+      // 분석 소스(로그_*) 전송 실패를 silent 처리하지 않음 — 하나라도 실패하면 미확정으로 두고 경고.
+      const rawFailed = [];
+      if (r3.status !== 'fulfilled') rawFailed.push('로그_이벤트');
+      if (r4.status !== 'fulfilled') rawFailed.push('로그_선수경기');
+      if (r5.status !== 'fulfilled') rawFailed.push('로그_매치');
+      const allOk = rawFailed.length === 0;
       // Firebase에 확정 state 저장 (HistoryView/PlayerAnalytics 소스)
       await FirebaseSync.saveFinalized(teamContext?.team, gameId, gameState);
-      // active state에 gameFinalized:true 즉시 저장 (debounce 없이) → 목록에 "전송완료" 뱃지 표시
+      // 모든 시트 성공 시에만 gameFinalized:true (분석 로그 누락 시 false로 두어 재전송 유도 + Archive 차단)
       const team = teamContext?.team || '';
-      const finalState = { ...gameState, gameFinalized: true };
+      const finalState = { ...gameState, gameFinalized: allOk };
       await FirebaseSync.syncDiff(team, gameId || "legacy", lastSyncedStateRef.current, finalState);
       lastSyncedStateRef.current = finalState;
       const r1v = r1.value, r2v = r2.value;
       const r3v = r3.status === 'fulfilled' ? r3.value : null;
       const r4v = r4.status === 'fulfilled' ? r4.value : null;
       const r5v = r5.status === 'fulfilled' ? r5.value : null;
-      alert(`기록 확정 완료!\n\n포인트로그: ${r1v?.count || 0}건\n선수별집계: ${r2v?.count || 0}명\n로그_이벤트: ${r3v?.count || 0}건${r3v?.skipped ? ` (skip ${r3v.skipped})` : ''}\n로그_선수경기: ${r4v?.count || 0}명${r4v?.skipped ? ` (skip ${r4v.skipped})` : ''}\n로그_매치: ${r5v?.count || 0}건${r5v?.skipped ? ` (skip ${r5v.skipped})` : ''}\n\n수정이 필요하면 "경기로" 버튼으로 돌아갈 수 있습니다.`);
-      set('gameFinalized', true);
+      const ct = (v, unit) => v ? `${v.count || 0}${unit}${v.skipped ? ` (skip ${v.skipped})` : ''}` : '❌ 실패';
+      const detail = `포인트로그: ${r1v?.count || 0}건\n선수별집계: ${r2v?.count || 0}명\n로그_이벤트: ${ct(r3v, '건')}\n로그_선수경기: ${ct(r4v, '명')}\n로그_매치: ${ct(r5v, '건')}`;
+      if (allOk) {
+        alert(`기록 확정 완료!\n\n${detail}\n\n수정이 필요하면 "경기로" 버튼으로 돌아갈 수 있습니다.`);
+      } else {
+        alert(`⚠️ 분석 로그 일부 전송 실패: ${rawFailed.join(', ')}\n\n${detail}\n\n분석용 데이터가 누락됐습니다. "기록확정"을 다시 눌러 재전송하세요.\n(전부 성공 전까지 미확정 상태로 둡니다.)`);
+      }
+      set('gameFinalized', allOk);
     } catch (err) {
       alert("시트 저장 실패: " + err.message);
     }
