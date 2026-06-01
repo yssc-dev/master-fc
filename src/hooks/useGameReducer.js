@@ -873,7 +873,9 @@ function gameReducer(state, action) {
         phase: "match",
         gameFinalized: false,
         pushState: initPushState || null,
+        splitPhase: action.splitPhase ?? null, // 6팀 스플릿만 'first', 나머지 모드/팀수는 null로 초기화(이전 게임 잔재 방지)
         liveMercs: {},
+        freeCourtMatches: {},
         soccerMatches: [],
         currentMatchIdx: -1,
       };

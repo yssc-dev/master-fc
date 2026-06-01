@@ -38,6 +38,20 @@ describe('gameReducer — freeCourtMatches (자유대진 편성 실시간 공유
     expect(next.completedMatches).toHaveLength(1);
   });
 
+  it('START_MATCHES: splitPhase/freeCourtMatches 초기화 (이전 게임 잔재 방지)', () => {
+    // 이전이 6팀 스플릿('second')이고 자유편성 잔재가 있던 상태에서 새 4팀 경기 시작
+    const s = withState({ matchMode: 'schedule', splitPhase: 'second', freeCourtMatches: { 0: { home: 0, away: 1 } } });
+    const next = gameReducer(s, { type: 'START_MATCHES', schedule: [], pushState: null, splitPhase: null });
+    expect(next.splitPhase).toBe(null);
+    expect(next.freeCourtMatches).toEqual({});
+    expect(next.phase).toBe('match');
+  });
+
+  it('START_MATCHES: 6팀 스플릿이면 splitPhase=first 전달', () => {
+    const next = gameReducer(withState({}), { type: 'START_MATCHES', schedule: [], pushState: null, splitPhase: 'first' });
+    expect(next.splitPhase).toBe('first');
+  });
+
   it('CONFIRM_FREE_ROUND 확정 시 freeCourtMatches 클리어', () => {
     const s = withState({
       matchMode: 'free',

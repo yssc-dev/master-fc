@@ -110,22 +110,23 @@ export async function recoverFinalizedStateFromSheets({ team, date, settingsSnap
       isExtra: !!m.is_extra,
     }));
 
-  // allEvents (goal/owngoal만 — concede 행은 concede_gk 컬럼으로 이미 보존됨)
+  // allEvents (goal/owngoal/foul — concede 행은 concede_gk 컬럼으로 이미 보존됨)
+  // foul: 상대팀 +1실점 처리(owngoal과 같은 방향, loss=1). assist는 goal에만.
   const allEvents = events
-    .filter(e => e.event_type === 'goal' || e.event_type === 'owngoal')
+    .filter(e => e.event_type === 'goal' || e.event_type === 'owngoal' || e.event_type === 'foul')
     .map(e => {
       const matchId = labelToCanonicalMatchId(e.match_id);
       const isGoal = e.event_type === 'goal';
       return {
         matchId,
-        type: isGoal ? 'goal' : 'owngoal',
+        type: e.event_type, // 'goal' | 'owngoal' | 'foul'
         player: e.player || '',
-        assist: e.related_player || '',
+        assist: isGoal ? (e.related_player || '') : '',
         team: e.our_team || '',
         scoringTeam: isGoal ? (e.our_team || '') : (e.opponent || ''),
         concedingTeam: isGoal ? (e.opponent || '') : (e.our_team || ''),
         concedingGk: e.concede_gk || '',
-        concedingGkLoss: isGoal ? 1 : 2,
+        concedingGkLoss: e.event_type === 'owngoal' ? 2 : 1,
       };
     });
 

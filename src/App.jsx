@@ -605,16 +605,17 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
     if (teams.some(t => t.length < 1)) { alert("모든 팀에 최소 1명"); return; }
     let sched = null;
     let initPushState = null;
+    let initSplitPhase = null;
     if (matchMode === "schedule") {
       if (courtCount === 2) {
         if (teamCount === 4) sched = generate4Team2Court();
         else if (teamCount === 5) sched = generate5Team2Court();
-        else if (teamCount === 6) { sched = generate6Team2Court().firstHalf; set('splitPhase', 'first'); }
+        else if (teamCount === 6) { sched = generate6Team2Court().firstHalf; initSplitPhase = 'first'; }
       } else sched = generate1Court(teamCount, rotations);
     } else if (matchMode === "push") {
       initPushState = createInitialPushState(teamCount);
     }
-    dispatch({ type: 'START_MATCHES', schedule: sched, pushState: initPushState });
+    dispatch({ type: 'START_MATCHES', schedule: sched, pushState: initPushState, splitPhase: initSplitPhase });
   };
 
   const confirmRound = (roundIdx, matchResults) => {
@@ -912,7 +913,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
                   {teamCount === 6 && courtCount === 2 ? "그룹 스플릿" : "대진표"}
                 </button>
                 <button onClick={() => set('matchMode', 'free')} style={segBtn(matchMode === "free")}>자유대진</button>
-                <button onClick={() => { set('matchMode', 'push'); set('courtCount', 1); }} style={segBtn(matchMode === "push")}>밀어내기</button>
+                <button onClick={() => dispatch({ type: 'SET_FIELDS', fields: { matchMode: 'push', courtCount: 1 } })} style={segBtn(matchMode === "push")}>밀어내기</button>
               </div>
             </div>
             <div className="app-row" style={{ flexDirection: "column", alignItems: "stretch", gap: 8 }}>
@@ -1641,7 +1642,9 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
                 try {
                   await FirebaseSync.saveFinalized(teamContext?.team, gameId, gameState);
                 } catch (e) {
-                  if (!confirm(`Archive 실패: finalized 저장 실패\n(${e.message})\n\n그대로 진행하면 경기가 사라질 수 있습니다. 그래도 active를 지울까요?`)) return;
+                  // finalized 저장 실패 시 active를 지우면 경기가 유실됨 → 차단하고 active 보존.
+                  alert(`Archive 실패: finalized 저장에 실패했습니다.\n(${e.message})\n\n데이터 보존을 위해 active를 지우지 않았습니다. 잠시 후 다시 시도해주세요.`);
+                  return;
                 }
                 await FirebaseSync.clearState(teamContext?.team, gameId);
                 onBackToMenu();
