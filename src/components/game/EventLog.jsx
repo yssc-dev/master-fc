@@ -167,7 +167,7 @@ export default function EventLog({ matchEvents, allEvents, matchId, homePlayers,
                 }}>
                   #{String(localIdx + 1).padStart(2, "0")}
                 </span>
-                <div style={{ display: "flex", alignItems: "center", gap: 2, flex: 1, flexWrap: "nowrap", minWidth: 0, overflow: "hidden" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 2, rowGap: 2, flex: 1, flexWrap: "wrap", minWidth: 0 }}>
                   {(() => {
                     const isFoul = e.type === "foul";
                     const isOG = e.type === "owngoal";
@@ -179,8 +179,8 @@ export default function EventLog({ matchEvents, allEvents, matchId, homePlayers,
                         padding: "1px 4px", borderRadius: 5,
                         background: bg, color: fg,
                         fontSize: 10, fontWeight: 600,
-                        whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
-                        minWidth: 0, flexShrink: 1,
+                        whiteSpace: "nowrap",
+                        flexShrink: 0,
                       }}>{icon}{e.player}</span>
                     );
                   })()}
@@ -189,8 +189,8 @@ export default function EventLog({ matchEvents, allEvents, matchId, homePlayers,
                       padding: "1px 4px", borderRadius: 5,
                       background: "rgba(0,122,255,0.18)", color: "var(--app-blue)",
                       fontSize: 10, fontWeight: 600,
-                      whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
-                      minWidth: 0, flexShrink: 1,
+                      whiteSpace: "nowrap",
+                      flexShrink: 0,
                     }}>🅰{e.assist}</span>
                   )}
                   {e.concedingGk && (
@@ -198,8 +198,8 @@ export default function EventLog({ matchEvents, allEvents, matchId, homePlayers,
                       padding: "1px 4px", borderRadius: 5,
                       background: "rgba(255,59,48,0.12)", color: "var(--app-red)",
                       fontSize: 10, fontWeight: 600,
-                      whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
-                      minWidth: 0, flexShrink: 1,
+                      whiteSpace: "nowrap",
+                      flexShrink: 0,
                     }}>🧤{e.concedingGk}{e.type === "owngoal" ? "·2" : ""}</span>
                   )}
                 </div>
