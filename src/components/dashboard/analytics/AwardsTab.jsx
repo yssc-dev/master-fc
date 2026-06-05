@@ -5,6 +5,7 @@ import { calcRoundSlope } from '../../../utils/analyticsV2/calcRoundSlope';
 import { calcSoloGoalRatio } from '../../../utils/analyticsV2/calcSoloGoalRatio';
 import { calcMonthlyRanking } from '../../../utils/analyticsV2/calcMonthlyRanking';
 import { calcVolatility } from '../../../utils/analyticsV2/calcVolatility';
+import { calcDarkhorse } from '../../../utils/analyticsV2/calcDarkhorse';
 
 export default function AwardsTab({ playerGameLogs, matchLogs, eventLogs, C }) {
   const awards = useMemo(() => calcAwards({ playerLogs: playerGameLogs || [], eventLogs: eventLogs || [] }), [playerGameLogs, eventLogs]);
@@ -26,6 +27,10 @@ export default function AwardsTab({ playerGameLogs, matchLogs, eventLogs, C }) {
   const ranking = useMemo(() =>
     effectiveMonth ? calcMonthlyRanking({ yearMonth: effectiveMonth, playerLogs: playerGameLogs || [], matchLogs: matchLogs || [] }) : null
   , [effectiveMonth, playerGameLogs, matchLogs]);
+
+  const darkhorse = useMemo(() =>
+    calcDarkhorse({ matchLogs: matchLogs || [], playerGameLogs: playerGameLogs || [], eventLogs: eventLogs || [] })
+  , [matchLogs, playerGameLogs, eventLogs]);
 
   const Card = ({ title, items, valueKey, valueFmt, valueRender }) => (
     <div style={{ padding: 14, background: C.cardLight, borderRadius: 12, marginBottom: 12 }}>
@@ -122,6 +127,33 @@ export default function AwardsTab({ playerGameLogs, matchLogs, eventLogs, C }) {
       </div>
     );
   };
+
+  // Δ 칩: 향상이면 초록, 악화면 주황. lowerIsBetter면 부호 해석 반전(실점).
+  const Delta = ({ value, fmt, lowerIsBetter = false }) => {
+    if (value == null) return <span style={{ color: C.gray }}>본팀기록 없음</span>;
+    const good = lowerIsBetter ? value < 0 : value > 0;
+    const neutral = value === 0;
+    const color = neutral ? C.gray : (good ? '#4ade80' : '#ff8a4c');
+    const sign = value > 0 ? '+' : '';
+    return <span style={{ color }}>Δ{sign}{fmt(value)}</span>;
+  };
+
+  const DarkhorseRow = ({ item, rank }) => (
+    <div style={{ padding: '6px 0', borderBottom: `1px dashed ${C.grayDarker}`, fontSize: 11 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}>
+        <span style={{ color: C.white, fontWeight: 600 }}>#{rank} {item.player}</span>
+        <span style={{ color: C.gray }}>용병 {item.mercGames}경기</span>
+      </div>
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', color: C.gray }}>
+        <span>승률 <b style={{ color: C.white }}>{Math.round(item.mercWinRate * 100)}%</b>{' '}
+          <Delta value={item.dWin} fmt={v => `${Math.round(v * 100)}%p`} /></span>
+        <span>G+A <b style={{ color: C.white }}>{item.mercContrib.toFixed(1)}</b>{' '}
+          <Delta value={item.dContrib} fmt={v => v.toFixed(1)} /></span>
+        <span>실점 <b style={{ color: C.white }}>{item.mercConceded.toFixed(1)}</b>{' '}
+          <Delta value={item.dConceded} fmt={v => v.toFixed(1)} lowerIsBetter /></span>
+      </div>
+    </div>
+  );
 
   const RankingCol = ({ title, rows, suffix }) => (
     <div>
@@ -253,6 +285,21 @@ export default function AwardsTab({ playerGameLogs, matchLogs, eventLogs, C }) {
           </div>
         ) : (
           <div style={{ fontSize: 11, color: C.gray }}>월 데이터 없음</div>
+        )}
+      </div>
+
+      {/* ── 🐎 다크호스 (용병 출전 시 성과) ── */}
+      <div style={{ padding: 14, background: C.cardLight, borderRadius: 12, marginBottom: 12 }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: C.gray, marginBottom: 4 }}>
+          🐎 다크호스 (용병 출전 시 성과)
+        </div>
+        <div style={{ fontSize: 10, color: C.gray, marginBottom: 8 }}>
+          누적 · 용병 4경기 이상 · Δ는 본팀일 때 대비 (실점은 낮을수록 좋음)
+        </div>
+        {(!darkhorse.ranking || darkhorse.ranking.length === 0) ? (
+          <div style={{ fontSize: 11, color: C.gray }}>표본 부족</div>
+        ) : (
+          darkhorse.ranking.map((it, i) => <DarkhorseRow key={it.player} item={it} rank={i + 1} />)
         )}
       </div>
     </div>
