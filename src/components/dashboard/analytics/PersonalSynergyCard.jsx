@@ -4,15 +4,16 @@
 import { useState, useMemo } from 'react';
 
 export default function PersonalSynergyCard({ data, C }) {
-  const [sortKey, setSortKey] = useState('winRate'); // 'winRate' | 'liftSymmetric'
+  const [sortKey, setSortKey] = useState('winRate'); // 'winRate' | 'liftSymmetric' | 'link'
   const partners = data?.partners || [];
 
+  const sortVal = (p) => sortKey === 'link' ? (p.links?.total ?? 0) : (p[sortKey] ?? 0);
   const sorted = useMemo(() => {
     const arr = [...partners];
     arr.sort((a, b) => {
       // 표본부족은 항상 하단으로
       if (a.isLowSample !== b.isLowSample) return a.isLowSample ? 1 : -1;
-      const dv = (b[sortKey] ?? 0) - (a[sortKey] ?? 0);
+      const dv = sortVal(b) - sortVal(a);
       if (dv !== 0) return dv;
       return b.games - a.games;
     });
@@ -58,11 +59,12 @@ export default function PersonalSynergyCard({ data, C }) {
         <div style={{ display: 'flex', gap: 6 }}>
           <Tab k="winRate" label="승률순" />
           <Tab k="liftSymmetric" label="케미순" />
+          <Tab k="link" label="연결순" />
         </div>
       </div>
 
       <div style={{ fontSize: 10, color: C.gray, lineHeight: 1.6, marginBottom: 8 }}>
-        <b>승률</b> 함께 뛴 매치의 팀 승률 · <b>케미</b> 두 사람 평균 대비 함께 뛸 때 추가 효과
+        <b>승률</b> 함께 뛴 매치의 팀 승률 · <b>케미</b> 두 사람 평균 대비 추가 효과 · <b>연결</b> 둘이 직접 합작한 골(내어시=내가 도움, 내득점=내가 마무리)
       </div>
 
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
@@ -72,6 +74,7 @@ export default function PersonalSynergyCard({ data, C }) {
             <th style={{ textAlign: 'right', padding: '6px 4px', color: C.gray, fontWeight: 600, width: 50 }}>함께</th>
             <th style={{ textAlign: 'right', padding: '6px 4px', color: sortKey === 'winRate' ? C.white : C.gray, fontWeight: 600, width: 60 }}>승률</th>
             <th style={{ textAlign: 'right', padding: '6px 4px', color: sortKey === 'liftSymmetric' ? C.white : C.gray, fontWeight: 600, width: 60 }}>케미</th>
+            <th style={{ textAlign: 'right', padding: '6px 4px', color: sortKey === 'link' ? C.white : C.gray, fontWeight: 600, width: 72 }}>연결</th>
           </tr>
         </thead>
         <tbody>
@@ -87,6 +90,16 @@ export default function PersonalSynergyCard({ data, C }) {
                 <td style={{ padding: '6px 4px', color: C.gray, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{p.games}</td>
                 <td style={{ padding: '6px 4px', color: dim ? C.gray : winColor(p.winRate), textAlign: 'right', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{Math.round(p.winRate * 100)}%</td>
                 <td style={{ padding: '6px 4px', color: dim ? C.gray : liftColor(p.liftSymmetric), textAlign: 'right', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{liftStr}</td>
+                <td style={{ padding: '6px 4px', color: C.white, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                  {(p.links?.total ?? 0) > 0 ? (
+                    <div>
+                      <div style={{ fontWeight: 600 }}>{p.links.total}</div>
+                      <div style={{ fontSize: 9, color: C.gray, fontWeight: 400 }}>내어시 {p.links.iAssisted} · 내득점 {p.links.iScored}</div>
+                    </div>
+                  ) : (
+                    <span style={{ color: C.gray }}>0</span>
+                  )}
+                </td>
               </tr>
             );
           })}
