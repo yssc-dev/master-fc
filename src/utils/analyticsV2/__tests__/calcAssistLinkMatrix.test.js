@@ -31,6 +31,23 @@ describe('calcAssistLinkMatrix', () => {
     const eventLogs = [{ event_type: 'goal', player: '나', related_player: '나' }];
     expect(calcAssistLinkMatrix({ eventLogs })).toEqual({ cells: {} });
   });
+
+  it('third-party goal does not affect an unrelated pair', () => {
+    const eventLogs = [
+      { event_type: 'goal', player: '나', related_player: '다' }, // 다→나, NOT 가|나
+    ];
+    const { cells } = calcAssistLinkMatrix({ eventLogs });
+    expect(cells['가|나']).toBeUndefined();
+    // 가나다 정렬: 나<다 → key '나|다', a='나'가 득점
+    expect(cells['나|다']).toEqual({ total: 1, aToB: 1, bToA: 0 });
+  });
+
+  it('key is order-independent regardless of which side scores', () => {
+    const x = calcAssistLinkMatrix({ eventLogs: [{ event_type: 'goal', player: '나', related_player: '가' }] });
+    const y = calcAssistLinkMatrix({ eventLogs: [{ event_type: 'goal', player: '가', related_player: '나' }] });
+    expect(Object.keys(x.cells)).toEqual(['가|나']);
+    expect(Object.keys(y.cells)).toEqual(['가|나']);
+  });
 });
 
 describe('personalLink', () => {

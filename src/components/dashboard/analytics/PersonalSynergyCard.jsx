@@ -7,8 +7,8 @@ export default function PersonalSynergyCard({ data, C }) {
   const [sortKey, setSortKey] = useState('winRate'); // 'winRate' | 'liftSymmetric' | 'link'
   const partners = data?.partners || [];
 
-  const sortVal = (p) => sortKey === 'link' ? (p.links?.total ?? 0) : (p[sortKey] ?? 0);
   const sorted = useMemo(() => {
+    const sortVal = (p) => sortKey === 'link' ? (p.links?.total ?? 0) : (p[sortKey] ?? 0);
     const arr = [...partners];
     arr.sort((a, b) => {
       // 표본부족은 항상 하단으로
