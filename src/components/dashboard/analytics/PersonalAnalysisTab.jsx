@@ -8,6 +8,7 @@ import { calcRoundSlope } from '../../../utils/analyticsV2/calcRoundSlope';
 import { calcSoloGoalRatio } from '../../../utils/analyticsV2/calcSoloGoalRatio';
 import { calcPersonalSynergy } from '../../../utils/analyticsV2/calcPersonalSynergy';
 import { calcSynergyMatrix } from '../../../utils/analyticsV2/calcSynergyMatrix';
+import { calcAssistLinkMatrix, personalLink } from '../../../utils/analyticsV2/calcAssistLinkMatrix';
 import { calcPlayerSummary } from '../../../utils/analyticsV2/calcPlayerSummary';
 import RoundDistribution from './RoundDistribution';
 import SoloGoalDonut from './SoloGoalDonut';
@@ -266,10 +267,16 @@ export default function PersonalAnalysisTab({
   const roundSlope = useMemo(() => calcRoundSlope({ eventLogs: eventLogs || [], matchLogs: matchLogs || [], threshold: 10 }), [eventLogs, matchLogs]);
   const soloRatio = useMemo(() => calcSoloGoalRatio({ eventLogs: eventLogs || [], threshold: 10 }), [eventLogs]);
   const synergyMatrix = useMemo(() => calcSynergyMatrix({ matchLogs: matchLogs || [], minRounds: 5 }), [matchLogs]);
-  const myPair = useMemo(
-    () => selected ? calcPersonalSynergy({ matrix: synergyMatrix, player: selected }) : { partners: [], best: [], worst: [] },
-    [synergyMatrix, selected]
-  );
+  const linkMatrix = useMemo(() => calcAssistLinkMatrix({ eventLogs: eventLogs || [] }), [eventLogs]);
+  const myPair = useMemo(() => {
+    if (!selected) return { partners: [], best: [], worst: [] };
+    const base = calcPersonalSynergy({ matrix: synergyMatrix, player: selected });
+    const partners = base.partners.map(p => ({
+      ...p,
+      links: personalLink({ linkMatrix, player: selected, partner: p.partner }),
+    }));
+    return { ...base, partners };
+  }, [synergyMatrix, selected, linkMatrix]);
 
   // ── Personal Records (PR) for selected player ────────────────────────────
   const pr = useMemo(() =>
