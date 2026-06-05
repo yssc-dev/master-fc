@@ -15,19 +15,29 @@ export function calcMonthlyRanking({ yearMonth, playerLogs, matchLogs, topN = 5,
     assistsMap[p.player] = (assistsMap[p.player] || 0) + (Number(p.assists) || 0);
   }
 
+  // 승률: 양 팀 모두 집계해야 함.
+  // our_members_json만 보면 자유대진에서 '홈' 자리에 배정된 라운드만 카운트되어
+  // 같은 팀이었던 선수끼리도 승률이 갈린다 (opponent 측 라운드가 통째로 누락).
+  // → calcPlayerSummary와 동일하게 home=our, away=opp(승패 반전)로 양면 집계.
   const winMap = {};
   for (const m of matchLogs || []) {
+    if (m.is_extra) continue;
     if (!inMonth(m.date)) continue;
-    const members = parseActualPlayers(m.our_members_json);
     const our = Number(m.our_score) || 0;
     const opp = Number(m.opponent_score) || 0;
-    const outcome = our > opp ? 'W' : (our === opp ? 'D' : 'L');
-    for (const name of members) {
+    const ourWin = our > opp;
+    const draw = our === opp;
+    const seen = new Set();
+    const credit = (name, side) => {
+      if (!name || seen.has(name)) return;
+      seen.add(name);
       if (!winMap[name]) winMap[name] = { wins: 0, draws: 0, games: 0 };
       winMap[name].games++;
-      if (outcome === 'W') winMap[name].wins++;
-      else if (outcome === 'D') winMap[name].draws++;
-    }
+      if (draw) winMap[name].draws++;
+      else if (side === 'our' ? ourWin : !ourWin) winMap[name].wins++;
+    };
+    parseActualPlayers(m.our_members_json).forEach(n => credit(n, 'our'));
+    parseActualPlayers(m.opponent_members_json).forEach(n => credit(n, 'opp'));
   }
 
   const toList = (map, valueFn, minGames = 0) =>
