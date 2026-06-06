@@ -129,8 +129,9 @@ export default function AwardsTab({ playerGameLogs, matchLogs, eventLogs, C }) {
   };
 
   // Δ 칩: 향상이면 초록, 악화면 주황. lowerIsBetter면 부호 해석 반전(실점).
+  // value==null = 빌린 팀이 P 없이 뛴 매치가 없어 비교 불가.
   const Delta = ({ value, fmt, lowerIsBetter = false }) => {
-    if (value == null) return <span style={{ color: C.gray }}>본팀기록 없음</span>;
+    if (value == null) return <span style={{ color: C.gray }}>비교 없음</span>;
     const good = lowerIsBetter ? value < 0 : value > 0;
     const neutral = value === 0;
     const color = neutral ? C.gray : (good ? '#4ade80' : '#ff8a4c');
@@ -147,8 +148,7 @@ export default function AwardsTab({ playerGameLogs, matchLogs, eventLogs, C }) {
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', color: C.gray }}>
         <span>승률 <b style={{ color: C.white }}>{Math.round(item.mercWinRate * 100)}%</b>{' '}
           <Delta value={item.dWin} fmt={v => `${Math.round(v * 100)}%p`} /></span>
-        <span>G+A <b style={{ color: C.white }}>{item.mercContrib.toFixed(1)}</b>{' '}
-          <Delta value={item.dContrib} fmt={v => v.toFixed(1)} /></span>
+        <span>G+A <b style={{ color: C.white }}>{item.mercContrib.toFixed(1)}</b></span>
         <span>실점 <b style={{ color: C.white }}>{item.mercConceded.toFixed(1)}</b>{' '}
           <Delta value={item.dConceded} fmt={v => v.toFixed(1)} lowerIsBetter /></span>
       </div>
@@ -294,7 +294,7 @@ export default function AwardsTab({ playerGameLogs, matchLogs, eventLogs, C }) {
           🐎 다크호스 (용병 출전 시 성과)
         </div>
         <div style={{ fontSize: 10, color: C.gray, marginBottom: 8 }}>
-          누적 · 용병 4경기 이상 · Δ는 본팀일 때 대비 (실점은 낮을수록 좋음)
+          누적 · 용병 4경기 이상 · Δ는 그 팀이 P 없을 때 대비 (실점은 낮을수록 좋음)
         </div>
         {(!darkhorse.ranking || darkhorse.ranking.length === 0) ? (
           <div style={{ fontSize: 11, color: C.gray }}>표본 부족</div>
