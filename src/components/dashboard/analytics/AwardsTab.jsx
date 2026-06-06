@@ -5,7 +5,6 @@ import { calcRoundSlope } from '../../../utils/analyticsV2/calcRoundSlope';
 import { calcSoloGoalRatio } from '../../../utils/analyticsV2/calcSoloGoalRatio';
 import { calcMonthlyRanking } from '../../../utils/analyticsV2/calcMonthlyRanking';
 import { calcVolatility } from '../../../utils/analyticsV2/calcVolatility';
-import { calcDarkhorse } from '../../../utils/analyticsV2/calcDarkhorse';
 
 export default function AwardsTab({ playerGameLogs, matchLogs, eventLogs, C }) {
   const awards = useMemo(() => calcAwards({ playerLogs: playerGameLogs || [], eventLogs: eventLogs || [] }), [playerGameLogs, eventLogs]);
@@ -27,10 +26,6 @@ export default function AwardsTab({ playerGameLogs, matchLogs, eventLogs, C }) {
   const ranking = useMemo(() =>
     effectiveMonth ? calcMonthlyRanking({ yearMonth: effectiveMonth, playerLogs: playerGameLogs || [], matchLogs: matchLogs || [] }) : null
   , [effectiveMonth, playerGameLogs, matchLogs]);
-
-  const darkhorse = useMemo(() =>
-    calcDarkhorse({ matchLogs: matchLogs || [], playerGameLogs: playerGameLogs || [], eventLogs: eventLogs || [] })
-  , [matchLogs, playerGameLogs, eventLogs]);
 
   const Card = ({ title, items, valueKey, valueFmt, valueRender }) => (
     <div style={{ padding: 14, background: C.cardLight, borderRadius: 12, marginBottom: 12 }}>
@@ -128,33 +123,6 @@ export default function AwardsTab({ playerGameLogs, matchLogs, eventLogs, C }) {
     );
   };
 
-  // Δ 칩: 향상이면 초록, 악화면 주황. lowerIsBetter면 부호 해석 반전(실점).
-  // value==null = 빌린 팀이 P 없이 뛴 매치가 없어 비교 불가.
-  const Delta = ({ value, fmt, lowerIsBetter = false }) => {
-    if (value == null) return <span style={{ color: C.gray }}>비교 없음</span>;
-    const good = lowerIsBetter ? value < 0 : value > 0;
-    const neutral = value === 0;
-    const color = neutral ? C.gray : (good ? '#4ade80' : '#ff8a4c');
-    const sign = value > 0 ? '+' : '';
-    return <span style={{ color }}>Δ{sign}{fmt(value)}</span>;
-  };
-
-  const DarkhorseRow = ({ item, rank }) => (
-    <div style={{ padding: '6px 0', borderBottom: `1px dashed ${C.grayDarker}`, fontSize: 11 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}>
-        <span style={{ color: C.white, fontWeight: 600 }}>#{rank} {item.player}</span>
-        <span style={{ color: C.gray }}>용병 {item.mercGames}경기</span>
-      </div>
-      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', color: C.gray }}>
-        <span>승률 <b style={{ color: C.white }}>{Math.round(item.mercWinRate * 100)}%</b>{' '}
-          <Delta value={item.dWin} fmt={v => `${Math.round(v * 100)}%p`} /></span>
-        <span>G+A <b style={{ color: C.white }}>{item.mercContrib.toFixed(1)}</b></span>
-        <span>실점 <b style={{ color: C.white }}>{item.mercConceded.toFixed(1)}</b>{' '}
-          <Delta value={item.dConceded} fmt={v => v.toFixed(1)} lowerIsBetter /></span>
-      </div>
-    </div>
-  );
-
   const RankingCol = ({ title, rows, suffix }) => (
     <div>
       <div style={{ fontSize: 10, color: C.gray, marginBottom: 6 }}>{title}</div>
@@ -172,16 +140,39 @@ export default function AwardsTab({ playerGameLogs, matchLogs, eventLogs, C }) {
   return (
     <div>
       <Card title="🔥 불꽃 (해트트릭+ 횟수)" items={awards.fireStarter} valueKey="count" valueFmt={v => `${v}회`} />
-      <Card title="🛡 수호신 (무실점 GK 세션 · 무실점률)" items={awards.guardian}
-        valueRender={(it) => (
-          <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 6 }}>
-            <span style={{ color: C.green, fontWeight: 600 }}>{it.count}회</span>
-            <span style={{ color: C.gray, fontSize: 11 }}>
-              ({Math.round(it.rate * 100)}% · {it.sessions}세션)
-            </span>
-          </span>
+      {/* 🧤 키퍼 — 클린시트 수 · 실점률 (PG 누적) */}
+      <div style={{ padding: 14, background: C.cardLight, borderRadius: 12, marginBottom: 12 }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: C.gray, marginBottom: 4 }}>
+          🧤 키퍼 (수문장)
+        </div>
+        <div style={{ fontSize: 10, color: C.gray, marginBottom: 10 }}>
+          PG 누적 · 실점률 = 경기당 실점(낮을수록 ↑) · 키퍼 4경기 이상
+        </div>
+        {(awards.keepers.cleanSheetKings.length === 0 && awards.keepers.stingiest.length === 0) ? (
+          <div style={{ fontSize: 11, color: C.gray }}>표본 부족</div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <RankingCol title="🧤 클린시트 수"
+              rows={awards.keepers.cleanSheetKings.map(k => ({ player: k.player, value: k.cleanSheets }))}
+              suffix="회" />
+            <div>
+              <div style={{ fontSize: 10, color: C.gray, marginBottom: 6 }}>🧱 실점률 (경기당)</div>
+              {awards.keepers.stingiest.length === 0
+                ? <div style={{ fontSize: 10, color: C.gray }}>-</div>
+                : awards.keepers.stingiest.map((k, i) => (
+                  <div key={k.player} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginBottom: 2 }}>
+                    <span style={{ color: C.white }}>{i + 1}. {k.player}</span>
+                    <span>
+                      <b style={{ color: C.white, fontWeight: 700 }}>{k.concededRate.toFixed(1)}</b>
+                      <span style={{ color: C.gray, fontSize: 10 }}> ({k.keeperGames}경기)</span>
+                    </span>
+                  </div>
+                ))
+              }
+            </div>
+          </div>
         )}
-      />
+      </div>
       <Card title="🤦 자책 누적" items={awards.owngoalKings} valueKey="total" valueFmt={v => `${v}회`} />
       {/* 라운드 흐름: 초반강자(-) ← → 후반폭격기(+) */}
       {(() => {
@@ -285,21 +276,6 @@ export default function AwardsTab({ playerGameLogs, matchLogs, eventLogs, C }) {
           </div>
         ) : (
           <div style={{ fontSize: 11, color: C.gray }}>월 데이터 없음</div>
-        )}
-      </div>
-
-      {/* ── 🐎 다크호스 (용병 출전 시 성과) ── */}
-      <div style={{ padding: 14, background: C.cardLight, borderRadius: 12, marginBottom: 12 }}>
-        <div style={{ fontSize: 12, fontWeight: 700, color: C.gray, marginBottom: 4 }}>
-          🐎 다크호스 (용병 출전 시 성과)
-        </div>
-        <div style={{ fontSize: 10, color: C.gray, marginBottom: 8 }}>
-          누적 · 용병 4경기 이상 · Δ는 그 팀이 P 없을 때 대비 (실점은 낮을수록 좋음)
-        </div>
-        {(!darkhorse.ranking || darkhorse.ranking.length === 0) ? (
-          <div style={{ fontSize: 11, color: C.gray }}>표본 부족</div>
-        ) : (
-          darkhorse.ranking.map((it, i) => <DarkhorseRow key={it.player} item={it} rank={i + 1} />)
         )}
       </div>
     </div>
