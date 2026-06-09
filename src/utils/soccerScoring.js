@@ -5,7 +5,7 @@
  */
 export function calcSoccerScore(events) {
   let ourScore = 0, opponentScore = 0;
-  for (const e of events) {
+  for (const e of (events || [])) {
     if (e.type === "goal" || e.type === "opponentOwnGoal") ourScore++;
     else if (e.type === "owngoal" || e.type === "opponentGoal") opponentScore++;
   }
@@ -40,8 +40,8 @@ export function getCleanSheetPlayers(match) {
   if (opponentScore > 0) return [];
   const csPlayers = new Set();
   if (match.gk) csPlayers.add(match.gk);
-  match.defenders.forEach(d => csPlayers.add(d));
-  for (const e of match.events) {
+  (match.defenders || []).forEach(d => csPlayers.add(d));
+  for (const e of (match.events || [])) {
     if (e.type === "sub" && (e.position === "GK" || e.position === "DF")) {
       csPlayers.add(e.playerIn);
     }
@@ -53,8 +53,8 @@ export function getCleanSheetPlayers(match) {
  * 현재 피치 위 선수 목록 (교체 반영)
  */
 export function getCurrentLineup(match) {
-  const lineup = new Set(match.lineup);
-  for (const e of match.events) {
+  const lineup = new Set(match.lineup || []);
+  for (const e of (match.events || [])) {
     if (e.type === "sub") {
       lineup.delete(e.playerOut);
       lineup.add(e.playerIn);
@@ -68,7 +68,7 @@ export function getCurrentLineup(match) {
  */
 export function getCurrentGk(match) {
   let gk = match.gk;
-  for (const e of match.events) {
+  for (const e of (match.events || [])) {
     if (e.type === "sub" && e.position === "GK") {
       gk = e.playerIn;
     }
@@ -80,8 +80,8 @@ export function getCurrentGk(match) {
  * 현재 DF 목록 (교체 반영)
  */
 export function getCurrentDefenders(match) {
-  const defs = new Set(match.defenders);
-  for (const e of match.events) {
+  const defs = new Set(match.defenders || []);
+  for (const e of (match.events || [])) {
     if (e.type === "sub") {
       if (defs.has(e.playerOut)) {
         defs.delete(e.playerOut);
@@ -105,8 +105,8 @@ export function calcSoccerPlayerStats(soccerMatches) {
   };
   for (const match of soccerMatches) {
     if (match.status !== "finished") continue;
-    const allPlayed = new Set(match.lineup);
-    for (const e of match.events) {
+    const allPlayed = new Set(match.lineup || []);
+    for (const e of (match.events || [])) {
       if (e.type === "sub") allPlayed.add(e.playerIn);
     }
     const csPlayers = getCleanSheetPlayers(match);
@@ -118,7 +118,7 @@ export function calcSoccerPlayerStats(soccerMatches) {
       else stats[name].fieldGames++;
       if (csPlayers.includes(name)) stats[name].cleanSheets++;
     }
-    for (const e of match.events) {
+    for (const e of (match.events || [])) {
       if (e.type === "goal") {
         ensure(e.player); stats[e.player].goals++;
         if (e.assist) { ensure(e.assist); stats[e.assist].assists++; }
@@ -147,10 +147,10 @@ export function buildEventLogRows(soccerMatches, gameDate) {
     if (match.status !== "finished") continue;
     const matchNum = match.matchIdx + 1;
     const opponent = match.opponent;
-    for (const name of match.lineup) {
+    for (const name of (match.lineup || [])) {
       let position = "";
       if (name === match.gk) position = "GK";
-      else if (match.defenders.includes(name)) position = "DF";
+      else if ((match.defenders || []).includes(name)) position = "DF";
       else position = "FW";
       rows.push({
         gameDate, matchNum, opponent,
@@ -158,7 +158,7 @@ export function buildEventLogRows(soccerMatches, gameDate) {
         inputTime: new Date(match.startedAt).toLocaleString("ko-KR"),
       });
     }
-    const sorted = [...match.events].sort((a, b) => a.timestamp - b.timestamp);
+    const sorted = [...(match.events || [])].sort((a, b) => a.timestamp - b.timestamp);
     for (const e of sorted) {
       if (e.type === "goal") {
         rows.push({ gameDate, matchNum, opponent, event: "골", player: e.player, relatedPlayer: e.assist || "", position: "", inputTime: new Date(e.timestamp).toLocaleString("ko-KR") });
@@ -182,7 +182,7 @@ export function buildPointLogRows(soccerMatches, gameDate, inputTime) {
   for (const match of soccerMatches) {
     if (match.status !== "finished") continue;
     const matchNum = match.matchIdx + 1;
-    for (const e of match.events) {
+    for (const e of (match.events || [])) {
       if (e.type === "goal") {
         rows.push({ gameDate, matchId: String(matchNum), opponent: match.opponent, scorer: e.player, assist: e.assist || "", conceded: "", ownGoalPlayer: "", inputTime });
       } else if (e.type === "owngoal") {

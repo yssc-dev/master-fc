@@ -183,7 +183,7 @@ export default function SoccerMatchView({
           <div style={{ fontSize: 14, fontWeight: 700, color: C.white }}>vs {viewingMatch.opponent}</div>
           {csPlayers.length > 0 && <div style={{ fontSize: 11, color: C.yellow, marginTop: 6 }}>🛡 클린시트: {csPlayers.join(", ")}</div>}
         </div>
-        {[...viewingMatch.events].sort((a, b) => a.timestamp - b.timestamp).map(e => (
+        {[...(viewingMatch.events || [])].sort((a, b) => a.timestamp - b.timestamp).map(e => (
           <div key={e.id} style={{ padding: "5px 10px", background: C.cardLight, borderRadius: 6, marginBottom: 3, fontSize: 11, color: C.white }}>
             {e.type === "goal" && `⚽ ${e.player}${e.assist ? ` ← ${e.assist}` : ""}`}
             {e.type === "owngoal" && `🔴 ${e.player} (자책골)`}
