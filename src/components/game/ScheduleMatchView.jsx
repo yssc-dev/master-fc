@@ -8,8 +8,8 @@ export default function ScheduleMatchView({ schedule, currentRoundIdx, viewingRo
   const round = schedule[viewingRoundIdx];
   const matches = round?.matches || [];
   const isConfirmed = confirmedRounds[viewingRoundIdx] || false;
-  // schedule 모드는 항상 즉시 편집 가능 — 정정은 확정취소 후 재기록 흐름으로 일원화.
-  const editingThisRound = true;
+  // 확정된 라운드는 잠금(readOnly). 골/GK/용병/휴식 수정은 "확정취소" 후 라이브 상태에서만.
+  const editingThisRound = false;
 
   // 확정된 라운드면 gksHistory에서, 현재 라운드면 gks에서 GK 참조
   const roundGks = isConfirmed ? (gksHistory?.[viewingRoundIdx] || {}) : gks;
