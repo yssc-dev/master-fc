@@ -13,6 +13,7 @@ import SoccerMatchView from './components/game/SoccerMatchView';
 import SoccerScheduleModal from './components/game/SoccerScheduleModal';
 import SoccerStandingsModal from './components/game/SoccerStandingsModal';
 import SoccerStandingsTable from './components/game/SoccerStandingsTable';
+import MatchTabBar from './components/game/MatchTabBar';
 import AttendeeSelector from './components/game/AttendeeSelector';
 import {
   calcSoccerPlayerStats, calcSoccerPlayerPoint, calcSoccerScore,
@@ -396,10 +397,12 @@ export default function SoccerApp({ authUser, teamContext, isNewGame, gameMode, 
     const finishedCount = state.soccerMatches.filter(m => m.status === "finished").length;
     const teamRec = calcSoccerTeamRecord(state.soccerMatches);
     const oppRecords = calcSoccerOpponentRecords(state.soccerMatches);
-    const pillBtn = (tone = "neutral") => {
-      const map = { neutral: { bg: C.grayDark, fg: C.white }, green: { bg: C.green, fg: C.bg }, red: { bg: C.red, fg: C.white } };
-      const t = map[tone] || map.neutral;
-      return { flexShrink: 0, padding: "7px 14px", borderRadius: 999, background: t.bg, color: t.fg, border: "none", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" };
+    const deleteSoccerGame = async () => {
+      if (!confirm("경기를 삭제하시겠습니까?\n모든 기록이 초기화됩니다.")) return;
+      if (!confirm("되돌릴 수 없습니다. 정말 삭제하시겠습니까?")) return;
+      await FirebaseSync.clearState(teamContext?.team, gameId);
+      await AppSync.clearState(gameId);
+      window.location.reload();
     };
 
     return (
@@ -417,23 +420,13 @@ export default function SoccerApp({ authUser, teamContext, isNewGame, gameMode, 
               </div>
             )}
           </div>
-          <div style={{ display: "flex", gap: 6, justifyContent: "center", marginTop: 8, flexWrap: "wrap" }}>
-            <button onClick={() => set('matchModal', 'soccerSchedule')} style={pillBtn()}>대진표</button>
-            <button onClick={() => set('matchModal', 'soccerStandings')} style={pillBtn()}>팀순위</button>
-            <button onClick={() => set('matchModal', 'playerStats')} style={pillBtn()}>개인기록</button>
-            {finishedCount > 0 && (
-              <button onClick={() => set('phase', 'summary')} style={pillBtn("green")}>경기마감</button>
-            )}
-            {teamContext?.role === "관리자" && (
-              <button onClick={async () => {
-                if (!confirm("경기를 삭제하시겠습니까?\n모든 기록이 초기화됩니다.")) return;
-                if (!confirm("되돌릴 수 없습니다. 정말 삭제하시겠습니까?")) return;
-                await FirebaseSync.clearState(teamContext?.team, gameId);
-                await AppSync.clearState(gameId);
-                window.location.reload();
-              }} style={pillBtn("red")}>경기삭제</button>
-            )}
-          </div>
+          <MatchTabBar tabs={[
+            { key: 'schedule', label: '대진표', onClick: () => set('matchModal', 'soccerSchedule') },
+            { key: 'standings', label: '팀순위', onClick: () => set('matchModal', 'soccerStandings') },
+            { key: 'playerStats', label: '개인기록', onClick: () => set('matchModal', 'playerStats') },
+            { key: 'finish', label: '경기마감', tone: 'green', strong: true, onClick: () => set('phase', 'summary'), hidden: finishedCount === 0 },
+            { key: 'delete', label: '경기삭제', tone: 'red', onClick: deleteSoccerGame, hidden: teamContext?.role !== '관리자' },
+          ]} />
         </div>
 
         {matchModal === "soccerSchedule" && (
