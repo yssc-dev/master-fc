@@ -881,11 +881,15 @@ function gameReducer(state, action) {
       };
     }
     case 'CREATE_SOCCER_MATCH': {
-      const { opponent, lineup, gk, defenders, subs } = action;
+      const { opponent, lineup, gk, defenders, subs, formation, assignments, positionMap } = action;
       const newMatch = {
         matchIdx: state.soccerMatches.length,
         opponent, lineup, gk, defenders,
         subs: subs || [],
+        // 포메이션 배치는 경기마다 영구 저장 — 다시 열기/풀편집을 위해
+        formation: formation || null,
+        assignments: assignments || null,
+        positionMap: positionMap || null,
         events: [],
         startedAt: Date.now(),
         ourScore: 0, opponentScore: 0,
@@ -896,6 +900,18 @@ function gameReducer(state, action) {
         soccerMatches: [...state.soccerMatches, newMatch],
         currentMatchIdx: state.soccerMatches.length,
       };
+    }
+    // 경기 진행 중 포메이션/교체/카드로 배치가 바뀌면 경기 객체에 반영
+    case 'UPDATE_SOCCER_MATCH_FORMATION': {
+      const { matchIdx, patch } = action;
+      const matches = state.soccerMatches.map((m, i) => i === matchIdx ? { ...m, ...patch } : m);
+      return { ...state, soccerMatches: matches };
+    }
+    // 끝난 경기 다시 열기(풀편집): finished → playing 복귀
+    case 'REOPEN_SOCCER_MATCH': {
+      const { matchIdx } = action;
+      const matches = state.soccerMatches.map((m, i) => i === matchIdx ? { ...m, status: "playing" } : m);
+      return { ...state, soccerMatches: matches, currentMatchIdx: matchIdx };
     }
     case 'ADD_SOCCER_EVENT': {
       const { matchIdx, event } = action;

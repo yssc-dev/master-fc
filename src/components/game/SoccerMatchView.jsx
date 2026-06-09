@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useTheme } from '../../hooks/useTheme';
 import { calcSoccerScore, getCleanSheetPlayers } from '../../utils/soccerScoring';
 import { generateEventId } from '../../utils/idGenerator';
+import { FORMATIONS } from '../../utils/formations';
 import OpponentSelector from './OpponentSelector';
 import RosterSelector from './RosterSelector';
 import FormationSetup from './FormationSetup';
@@ -11,6 +12,7 @@ import AttendeeSelector from './AttendeeSelector';
 export default function SoccerMatchView({
   soccerMatches, currentMatchIdx, attendees, opponents,
   onCreateMatch, onAddEvent, onDeleteEvent, onFinishMatch,
+  onUpdateMatchFormation, onReopenMatch,
   onAddOpponent, onRemoveOpponent, onRenameOpponent, onGoToSummary, gameSettings, styles: s,
   savedFormation, onFormationChange,
   sortedPlayers, playerSortMode, rosterHandlers,
@@ -64,7 +66,51 @@ export default function SoccerMatchView({
     setMatchFormation(mf);
     const lineup = Object.values(assignments);
     const defenders = Object.entries(positionMap).filter(([, r]) => r === "DF").map(([n]) => n);
-    onCreateMatch({ opponent: selectedOpponent, lineup, gk, defenders, subs });
+    onCreateMatch({ opponent: selectedOpponent, lineup, gk, defenders, subs, formation, assignments, positionMap });
+    setViewState("playing");
+    setViewingMatchIdx(null);
+    saveFormationState({ viewState: "playing", matchFormation: mf });
+  };
+
+  // 진행 중 포메이션/교체/카드로 배치가 바뀌면 경기 객체에 영구 반영(+로컬/멀티탭 동기화)
+  const handleFormationStateChange = (updates) => {
+    const merged = { ...(matchFormation || {}), ...updates };
+    setMatchFormation(merged);
+    onUpdateMatchFormation?.(currentMatchIdx, updates);
+    saveFormationState({ matchFormation: merged });
+  };
+
+  // 경기 객체에서 레코더용 포메이션 복원 (저장돼 있으면 그대로, 없으면 lineup/gk/defenders로 4-4-2 재구성)
+  const reconstructFormation = (m) => {
+    if (m.formation && m.assignments && m.positionMap) {
+      return { formation: m.formation, assignments: m.assignments, positionMap: m.positionMap, gk: m.gk || "", subs: m.subs || [] };
+    }
+    const formation = "4-4-2";
+    const positions = FORMATIONS[formation].positions;
+    const gk = m.gk || "";
+    const defenders = m.defenders || [];
+    const lineup = m.lineup || [];
+    const others = lineup.filter(n => n !== gk && !defenders.includes(n));
+    const assignments = {}; const positionMap = {};
+    let di = 0, oi = 0;
+    positions.forEach((pos, idx) => {
+      let name = null;
+      if (pos.role === "GK") name = gk || others[oi++] || null;
+      else if (pos.role === "DF") name = defenders[di++] ?? others[oi++] ?? null;
+      else name = others[oi++] ?? null;
+      if (name) { assignments[idx] = name; positionMap[name] = pos.role; }
+    });
+    return { formation, assignments, positionMap, gk, subs: m.subs || [] };
+  };
+
+  // 끝난 경기 다시 열기(풀편집)
+  const handleReopenMatch = (matchIdx) => {
+    const m = soccerMatches[matchIdx];
+    if (!m) return;
+    if (!confirm(`제${matchIdx + 1}경기 (vs ${m.opponent}) 기록을 다시 열어 수정하시겠습니까?`)) return;
+    const mf = reconstructFormation(m);
+    onReopenMatch?.(matchIdx);
+    setMatchFormation(mf);
     setViewState("playing");
     setViewingMatchIdx(null);
     saveFormationState({ viewState: "playing", matchFormation: mf });
@@ -98,7 +144,12 @@ export default function SoccerMatchView({
     const csPlayers = getCleanSheetPlayers(viewingMatch);
     return (
       <div>
-        <button onClick={() => setViewingMatchIdx(null)} style={{ marginBottom: 10, padding: "6px 14px", borderRadius: 8, background: C.grayDark, color: C.white, border: "none", fontSize: 12, cursor: "pointer" }}>← 돌아가기</button>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+          <button onClick={() => setViewingMatchIdx(null)} style={{ padding: "6px 14px", borderRadius: 8, background: C.grayDark, color: C.white, border: "none", fontSize: 12, cursor: "pointer" }}>← 돌아가기</button>
+          {viewingMatch.opponent !== "휴식" && (
+            <button onClick={() => handleReopenMatch(viewingMatch.matchIdx)} style={{ padding: "6px 14px", borderRadius: 8, background: `${C.accent}25`, color: C.accent, border: "none", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>✏️ 수정</button>
+          )}
+        </div>
         <div style={{ ...s.card, textAlign: "center", marginBottom: 12 }}>
           <div style={{ fontSize: 11, color: C.gray }}>제{viewingMatch.matchIdx + 1}경기</div>
           <div style={{ fontSize: 22, fontWeight: 900, margin: "8px 0" }}>
@@ -168,11 +219,12 @@ export default function SoccerMatchView({
         subs={matchFormation.subs}
         gk={matchFormation.gk}
         opponent={currentMatch.opponent}
-        startedAt={Date.now()}
+        startedAt={currentMatch.startedAt || Date.now()}
         events={currentMatch.events || []}
         onAddEvent={handleAddEvent}
         onDeleteEvent={handleDeleteEvent}
         onFinishMatch={handleFinishMatch}
+        onStateChange={handleFormationStateChange}
       />
     );
   }

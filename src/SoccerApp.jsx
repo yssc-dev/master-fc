@@ -195,8 +195,8 @@ export default function SoccerApp({ authUser, teamContext, isNewGame, gameMode, 
   }, [state.soccerMatches, state.settingsSnapshot, gameSettings]);
 
   // ── 축구 핸들러 ──
-  const createSoccerMatch = ({ opponent, lineup, gk, defenders, subs }) => {
-    dispatch({ type: 'CREATE_SOCCER_MATCH', opponent, lineup, gk, defenders, subs });
+  const createSoccerMatch = ({ opponent, lineup, gk, defenders, subs, formation, assignments, positionMap }) => {
+    dispatch({ type: 'CREATE_SOCCER_MATCH', opponent, lineup, gk, defenders, subs, formation, assignments, positionMap });
   };
   const addSoccerEvent = (matchIdx, event) => {
     dispatch({ type: 'ADD_SOCCER_EVENT', matchIdx, event });
@@ -206,6 +206,13 @@ export default function SoccerApp({ authUser, teamContext, isNewGame, gameMode, 
   };
   const finishSoccerMatch = (matchIdx) => {
     dispatch({ type: 'FINISH_SOCCER_MATCH', matchIdx });
+  };
+  const updateSoccerMatchFormation = (matchIdx, patch) => {
+    if (matchIdx < 0) return;
+    dispatch({ type: 'UPDATE_SOCCER_MATCH_FORMATION', matchIdx, patch });
+  };
+  const reopenSoccerMatch = (matchIdx) => {
+    dispatch({ type: 'REOPEN_SOCCER_MATCH', matchIdx });
   };
   // 오늘 참석팀에 추가 (시트가 마스터 소스이므로 settings 영구저장 안 함)
   const addOpponent = (name) => {
@@ -458,6 +465,7 @@ export default function SoccerApp({ authUser, teamContext, isNewGame, gameMode, 
             }}
             onCreateMatch={createSoccerMatch} onAddEvent={addSoccerEvent}
             onDeleteEvent={deleteSoccerEvent} onFinishMatch={finishSoccerMatch}
+            onUpdateMatchFormation={updateSoccerMatchFormation} onReopenMatch={reopenSoccerMatch}
             onAddOpponent={addOpponent} onGoToSummary={() => set('phase', 'summary')}
             gameSettings={state.settingsSnapshot || gameSettings} styles={s}
             savedFormation={state.soccerFormation}

@@ -91,6 +91,13 @@ export default function FormationRecorder({
   };
 
   const handleSubOut = (posIdx, name) => { setSubOut({ posIdx, name }); };
+  // 선수 액션 모달에서 바로 교체: 그 선수를 빼고 벤치 선택 단계로
+  const handleSubFromAction = () => {
+    if (!actionPlayer) return;
+    setSubOut({ posIdx: actionPlayer.posIdx, name: actionPlayer.name });
+    setShowSubModal(true);
+    setActionPlayer(null);
+  };
   const handleSubIn = (subName) => {
     if (!subOut) return;
     const role = formData.positions[subOut.posIdx]?.role || "FW";
@@ -214,7 +221,7 @@ export default function FormationRecorder({
 
       {/* Action menu */}
       {actionPlayer && !goalFlow && (
-        <PlayerActionMenu player={actionPlayer.name} position={actionPlayer.role} onGoal={handleGoal} onAssist={handleAssist} onOwnGoal={handleOwnGoal} onYellowCard={handleYellowCard} onRedCard={handleRedCard} onClose={() => setActionPlayer(null)} />
+        <PlayerActionMenu player={actionPlayer.name} position={actionPlayer.role} onGoal={handleGoal} onAssist={handleAssist} onOwnGoal={handleOwnGoal} onYellowCard={handleYellowCard} onRedCard={handleRedCard} onSub={handleSubFromAction} onClose={() => setActionPlayer(null)} />
       )}
 
       {/* Sub modal */}
