@@ -27,6 +27,7 @@ export default function SoccerMatchView({
   });
   const [selectedOpponent, setSelectedOpponent] = useState(savedFormation?.selectedOpponent || null);
   const [viewingMatchIdx, setViewingMatchIdx] = useState(null);
+  const [justFinishedIdx, setJustFinishedIdx] = useState(null);
   const [selectedPlayers, setSelectedPlayers] = useState(savedFormation?.selectedPlayers || []);
   const [matchFormation, setMatchFormation] = useState(savedFormation?.matchFormation || null);
 
@@ -100,7 +101,28 @@ export default function SoccerMatchView({
       else name = others[oi++] ?? null;
       if (name) { assignments[idx] = name; positionMap[name] = pos.role; }
     });
-    return { formation, assignments, positionMap, gk, subs: m.subs || [] };
+    // 기존 교체/퇴장 이벤트를 재생해 현재 피치 상태로 복원(레거시 경기 — 이미 나간 선수 재교체 방지)
+    let curGk = gk;
+    let curSubs = [...(m.subs || [])];
+    const slotOf = (player) => Object.keys(assignments).find(idx => assignments[idx] === player);
+    [...(m.events || [])].sort((a, b) => a.timestamp - b.timestamp).forEach(e => {
+      if (e.type === "sub") {
+        const slot = slotOf(e.playerOut);
+        if (slot !== undefined) {
+          const role = positions[slot].role;
+          assignments[slot] = e.playerIn;
+          delete positionMap[e.playerOut];
+          positionMap[e.playerIn] = role;
+          if (role === "GK") curGk = e.playerIn;
+        }
+        curSubs = curSubs.filter(n => n !== e.playerIn);
+        if (!curSubs.includes(e.playerOut)) curSubs.push(e.playerOut);
+      } else if (e.type === "redCard") {
+        const slot = slotOf(e.player);
+        if (slot !== undefined) { delete assignments[slot]; delete positionMap[e.player]; }
+      }
+    });
+    return { formation, assignments, positionMap, gk: curGk, subs: curSubs };
   };
 
   // 끝난 경기 다시 열기(풀편집)
@@ -124,6 +146,7 @@ export default function SoccerMatchView({
 
   // 경기 종료
   const handleFinishMatch = () => {
+    setJustFinishedIdx(currentMatchIdx);
     onFinishMatch(currentMatchIdx);
     setViewState("matchFinished");
     setMatchFormation(null);
@@ -177,15 +200,17 @@ export default function SoccerMatchView({
 
   // 경기 종료 후
   if (viewState === "matchFinished" && finishedMatches.length > 0) {
-    const lastMatch = finishedMatches[finishedMatches.length - 1];
-    const { ourScore, opponentScore } = calcSoccerScore(lastMatch.events);
+    // 방금 종료(또는 재마감)한 경기를 표시 — 단순히 마지막 인덱스가 아님
+    const shownMatch = (justFinishedIdx != null && finishedMatches.find(m => m.matchIdx === justFinishedIdx)) || finishedMatches[finishedMatches.length - 1];
+    const otherMatches = finishedMatches.filter(m => m.matchIdx !== shownMatch.matchIdx);
+    const { ourScore, opponentScore } = calcSoccerScore(shownMatch.events);
     const result = ourScore > opponentScore ? "승" : ourScore < opponentScore ? "패" : "무";
     const resultColor = result === "승" ? C.green : result === "패" ? C.red : C.gray;
     return (
       <div>
-        {finishedMatches.length > 1 && (
+        {otherMatches.length > 0 && (
           <div style={{ marginBottom: 12 }}>
-            {finishedMatches.slice(0, -1).map((m, i) => {
+            {otherMatches.map((m, i) => {
               const sc = calcSoccerScore(m.events);
               return (
                 <div key={i} onClick={() => setViewingMatchIdx(m.matchIdx)}
@@ -198,8 +223,12 @@ export default function SoccerMatchView({
           </div>
         )}
         <div style={{ ...s.card, textAlign: "center", marginBottom: 12 }}>
+          <div style={{ fontSize: 11, color: C.gray }}>제{shownMatch.matchIdx + 1}경기</div>
           <div style={{ fontSize: 28, fontWeight: 900, margin: "8px 0" }}>{ourScore} : {opponentScore}</div>
-          <div style={{ fontSize: 16, fontWeight: 700, color: resultColor }}>vs {lastMatch.opponent} — {result}</div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: resultColor }}>vs {shownMatch.opponent} — {result}</div>
+          {shownMatch.opponent !== "휴식" && (
+            <button onClick={() => handleReopenMatch(shownMatch.matchIdx)} style={{ marginTop: 10, padding: "6px 16px", borderRadius: 8, background: `${C.accent}25`, color: C.accent, border: "none", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>✏️ 이 경기 수정</button>
+          )}
         </div>
         <div style={{ display: "flex", gap: 8 }}>
           <button onClick={handleNextMatch} style={{ flex: 1, padding: "14px 0", borderRadius: 10, border: "none", fontSize: 14, fontWeight: 700, cursor: "pointer", background: C.accent, color: C.bg }}>다음 경기</button>

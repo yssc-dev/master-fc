@@ -902,9 +902,14 @@ function gameReducer(state, action) {
       };
     }
     // 경기 진행 중 포메이션/교체/카드로 배치가 바뀌면 경기 객체에 반영
+    // (events/status/score 등 다른 필드는 덮어쓰지 않도록 포메이션 필드만 화이트리스트)
     case 'UPDATE_SOCCER_MATCH_FORMATION': {
       const { matchIdx, patch } = action;
-      const matches = state.soccerMatches.map((m, i) => i === matchIdx ? { ...m, ...patch } : m);
+      const allowed = {};
+      for (const k of ["formation", "assignments", "positionMap", "gk", "subs"]) {
+        if (patch && patch[k] !== undefined) allowed[k] = patch[k];
+      }
+      const matches = state.soccerMatches.map((m, i) => i === matchIdx ? { ...m, ...allowed } : m);
       return { ...state, soccerMatches: matches };
     }
     // 끝난 경기 다시 열기(풀편집): finished → playing 복귀

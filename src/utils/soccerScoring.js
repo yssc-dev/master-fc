@@ -13,6 +13,25 @@ export function calcSoccerScore(events) {
 }
 
 /**
+ * 오늘 팀 전적 집계 (우리팀 기준, 휴식 경기 제외)
+ * @returns {{ played, wins, draws, losses, gf, ga }}
+ */
+export function calcSoccerTeamRecord(soccerMatches) {
+  const rec = { played: 0, wins: 0, draws: 0, losses: 0, gf: 0, ga: 0 };
+  for (const m of soccerMatches) {
+    if (m.status !== "finished" || m.opponent === "휴식") continue;
+    const { ourScore, opponentScore } = calcSoccerScore(m.events || []);
+    rec.played++;
+    rec.gf += ourScore;
+    rec.ga += opponentScore;
+    if (ourScore > opponentScore) rec.wins++;
+    else if (ourScore < opponentScore) rec.losses++;
+    else rec.draws++;
+  }
+  return rec;
+}
+
+/**
  * 클린시트 대상 선수 목록 (무실점 경기 시 GK + 모든 DF)
  * 교체로 나간 DF/GK도 포함
  */
