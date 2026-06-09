@@ -77,7 +77,7 @@ export function buildRoundRowsFromSoccer({ team, mode = '기본', tournamentId =
   return stateJSON.soccerMatches.map(m => {
     const startedAt = m.startedAt;
     const gameId = startedAt ? `s_${startedAt}` : `s_${date}_${m.matchIdx}`;
-    const startingPlayers = (m.lineup || []).map(l => l.player).filter(Boolean);
+    const startingPlayers = (m.lineup || []).filter(Boolean); // lineup은 선수 이름 문자열 배열
     const subInPlayers = (m.events || [])
       .filter(e => e.type === 'sub' && e.playerIn)
       .map(e => e.playerIn);

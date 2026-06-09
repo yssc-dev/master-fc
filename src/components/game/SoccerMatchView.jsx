@@ -145,7 +145,9 @@ export default function SoccerMatchView({
   const handleDeleteEvent = (eventId) => { onDeleteEvent(currentMatchIdx, eventId); };
 
   // 경기 종료
-  const handleFinishMatch = () => {
+  const handleFinishMatch = (finalSnapshot) => {
+    // FormationRecorder가 넘긴 종료 직전 최종 포메이션을 경기 객체에 확정 반영(스냅샷 유실 방지)
+    if (finalSnapshot && typeof finalSnapshot === "object") onUpdateMatchFormation?.(currentMatchIdx, finalSnapshot);
     setJustFinishedIdx(currentMatchIdx);
     onFinishMatch(currentMatchIdx);
     setViewState("matchFinished");
@@ -310,8 +312,10 @@ export default function SoccerMatchView({
           onRemoveOpponent={onRemoveOpponent} onRenameOpponent={onRenameOpponent} styles={s} />
         <button onClick={() => {
           if (!confirm("이번 라운드를 휴식으로 처리하시겠습니까?")) return;
+          // 방금 생성한 휴식 경기(= 현재 배열 끝 인덱스)를 그대로 마감 — 진행중 다른 경기를 잘못 마감하지 않도록 고정
+          const restIdx = soccerMatches.length;
           onCreateMatch({ opponent: "휴식", lineup: [], gk: "", defenders: [] });
-          onFinishMatch(currentMatchIdx >= 0 ? currentMatchIdx : soccerMatches.length);
+          onFinishMatch(restIdx);
         }}
           style={{ marginTop: 10, width: "100%", padding: "12px 0", borderRadius: 10, border: `1px dashed ${C.grayDark}`, background: "transparent", fontSize: 13, color: C.gray, cursor: "pointer" }}>
           😴 휴식 (이번 라운드 스킵)

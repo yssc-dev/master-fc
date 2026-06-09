@@ -264,6 +264,23 @@ function normalizeTeamArray(raw, teamCount, fill) {
 }
 
 // RTDB 노드 트리 → gameState 객체 재조립.
+// RTDB는 빈 배열/객체를 저장하지 않고, 비어있지 않은 배열은 객체화함.
+// 경기 객체의 배열/객체 필드를 단일 지점에서 재정규화해 다운스트림 크래시(events undefined 등)를 원천 차단.
+function normalizeSoccerMatch(m) {
+  if (!m || typeof m !== 'object') return m;
+  const asArr = (v) => Array.isArray(v) ? v : (v && typeof v === 'object' ? Object.values(v) : []);
+  return {
+    ...m,
+    events: asArr(m.events).sort((a, b) => (a?.timestamp || 0) - (b?.timestamp || 0)),
+    lineup: asArr(m.lineup),
+    defenders: asArr(m.defenders),
+    subs: asArr(m.subs),
+    assignments: m.assignments || null,
+    positionMap: m.positionMap || null,
+    formation: m.formation || null,
+  };
+}
+
 export function reconstructState(gameId, raw) {
   if (!raw) return null;
   const meta = raw.meta || {};
@@ -271,7 +288,7 @@ export function reconstructState(gameId, raw) {
   events.sort((a, b) => (a?.timestamp || 0) - (b?.timestamp || 0));
   const matches = raw.matches ? Object.values(raw.matches) : [];
   const soccerMatches = raw.soccerMatches
-    ? Object.values(raw.soccerMatches).sort((a, b) => (a?.matchIdx || 0) - (b?.matchIdx || 0))
+    ? Object.values(raw.soccerMatches).sort((a, b) => (a?.matchIdx || 0) - (b?.matchIdx || 0)).map(normalizeSoccerMatch)
     : [];
   const teamCount = meta.teamCount ?? 4;
   return {

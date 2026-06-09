@@ -277,7 +277,7 @@ function gameReducer(state, action) {
       if (s.soccerMatches != null) updates.soccerMatches = s.soccerMatches;
       if (s.currentMatchIdx != null) updates.currentMatchIdx = s.currentMatchIdx;
       if (s.opponents != null) updates.opponents = s.opponents;
-      if (s.soccerFormation != null) updates.soccerFormation = s.soccerFormation;
+      if (s.soccerFormation !== undefined) updates.soccerFormation = s.soccerFormation; // null도 반영(다른 탭이 종료/초기화 시 동기화)
       if (s.gameCreator != null) updates.gameCreator = s.gameCreator;
       if (s.phase != null) updates.phase = s.phase;
       if (s.settingsSnapshot != null) updates.settingsSnapshot = s.settingsSnapshot;
@@ -913,16 +913,21 @@ function gameReducer(state, action) {
       return { ...state, soccerMatches: matches };
     }
     // 끝난 경기 다시 열기(풀편집): finished → playing 복귀
+    // 다른 진행중 경기는 finished로 정리해 "playing은 최대 1개" 불변식 유지(오펀/중복 진행 방지)
     case 'REOPEN_SOCCER_MATCH': {
       const { matchIdx } = action;
-      const matches = state.soccerMatches.map((m, i) => i === matchIdx ? { ...m, status: "playing" } : m);
+      const matches = state.soccerMatches.map((m, i) => {
+        if (i === matchIdx) return { ...m, status: "playing" };
+        if (m.status === "playing") return { ...m, status: "finished" };
+        return m;
+      });
       return { ...state, soccerMatches: matches, currentMatchIdx: matchIdx };
     }
     case 'ADD_SOCCER_EVENT': {
       const { matchIdx, event } = action;
       const matches = state.soccerMatches.map((m, i) => {
         if (i !== matchIdx) return m;
-        const events = [...m.events, { ...event, id: event.id || Date.now().toString(), timestamp: event.timestamp || Date.now() }];
+        const events = [...(m.events || []), { ...event, id: event.id || Date.now().toString(), timestamp: event.timestamp || Date.now() }];
         let ourScore = 0, opponentScore = 0;
         for (const ev of events) {
           if (ev.type === "goal") ourScore++;
@@ -937,7 +942,7 @@ function gameReducer(state, action) {
       const { matchIdx, eventId } = action;
       const matches = state.soccerMatches.map((m, i) => {
         if (i !== matchIdx) return m;
-        const events = m.events.filter(e => e.id !== eventId);
+        const events = (m.events || []).filter(e => e.id !== eventId);
         let ourScore = 0, opponentScore = 0;
         for (const ev of events) {
           if (ev.type === "goal") ourScore++;

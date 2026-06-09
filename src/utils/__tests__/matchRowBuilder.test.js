@@ -153,19 +153,8 @@ describe('buildRoundRowsFromSoccer', () => {
       {
         matchIdx: 1,
         opponent: '라이벌FC',
-        lineup: [
-          { player: '손흥민', position: 'FW' },
-          { player: '김민재', position: 'DF' },
-          { player: '이강인', position: 'MF' },
-          { player: '조현우', position: 'GK' },
-          { player: '황희찬', position: 'FW' },
-          { player: '황인범', position: 'MF' },
-          { player: '김영권', position: 'DF' },
-          { player: '이재성', position: 'MF' },
-          { player: '정우영', position: 'MF' },
-          { player: '김진수', position: 'DF' },
-          { player: '송민규', position: 'FW' },
-        ],
+        // lineup은 선수 이름 문자열 배열 (production: Object.values(assignments))
+        lineup: ['손흥민', '김민재', '이강인', '조현우', '황희찬', '황인범', '김영권', '이재성', '정우영', '김진수', '송민규'],
         formation: '4-3-3',
         gk: '조현우',
         defenders: ['김민재', '김영권', '김진수'],

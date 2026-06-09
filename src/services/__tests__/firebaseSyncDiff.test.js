@@ -287,7 +287,10 @@ describe('expandStateForRtdb / 라운드트립', () => {
     expect(restored.gksHistory).toEqual(original.gksHistory);
     expect(restored.allEvents).toEqual(original.allEvents);
     expect(restored.completedMatches).toEqual(original.completedMatches);
-    expect(restored.soccerMatches).toEqual(original.soccerMatches);
+    // 경기 객체는 reconstruct 시 정규화됨(RTDB가 누락한 빈 배열/객체 필드를 기본값으로 복원)
+    expect(restored.soccerMatches).toEqual([
+      { matchIdx: 0, score: [1, 0], events: [], lineup: [], defenders: [], subs: [], assignments: null, positionMap: null, formation: null },
+    ]);
     expect(restored.confirmedRounds).toEqual(original.confirmedRounds);
   });
 
