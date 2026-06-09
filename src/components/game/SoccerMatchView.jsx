@@ -27,7 +27,6 @@ export default function SoccerMatchView({
   });
   const [selectedOpponent, setSelectedOpponent] = useState(savedFormation?.selectedOpponent || null);
   const [viewingMatchIdx, setViewingMatchIdx] = useState(null);
-  const [justFinishedIdx, setJustFinishedIdx] = useState(null);
   const [selectedPlayers, setSelectedPlayers] = useState(savedFormation?.selectedPlayers || []);
   const [matchFormation, setMatchFormation] = useState(savedFormation?.matchFormation || null);
 
@@ -148,7 +147,6 @@ export default function SoccerMatchView({
   const handleFinishMatch = (finalSnapshot) => {
     // FormationRecorder가 넘긴 종료 직전 최종 포메이션을 경기 객체에 확정 반영(스냅샷 유실 방지)
     if (finalSnapshot && typeof finalSnapshot === "object") onUpdateMatchFormation?.(currentMatchIdx, finalSnapshot);
-    setJustFinishedIdx(currentMatchIdx);
     onFinishMatch(currentMatchIdx);
     setViewState("matchFinished");
     setMatchFormation(null);
@@ -202,9 +200,9 @@ export default function SoccerMatchView({
 
   // 경기 종료 후
   if (viewState === "matchFinished" && finishedMatches.length > 0) {
-    // 방금 종료(또는 재마감)한 경기를 표시 — 단순히 마지막 인덱스가 아님
-    const shownMatch = (justFinishedIdx != null && finishedMatches.find(m => m.matchIdx === justFinishedIdx)) || finishedMatches[finishedMatches.length - 1];
-    const otherMatches = finishedMatches.filter(m => m.matchIdx !== shownMatch.matchIdx);
+    // 마지막(가장 최근 번호) 경기를 큰 카드로 표시 — 가장 직관적
+    const shownMatch = finishedMatches[finishedMatches.length - 1];
+    const otherMatches = finishedMatches.slice(0, -1);
     const { ourScore, opponentScore } = calcSoccerScore(shownMatch.events);
     const result = soccerResultLabel(ourScore, opponentScore);
     const resultColor = result === "승" ? C.green : result === "패" ? C.red : C.gray;
