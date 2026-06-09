@@ -148,6 +148,9 @@ export function buildEventLogRows(soccerMatches, gameDate) {
         rows.push({ gameDate, matchNum, opponent, event: "자책골", player: e.player, relatedPlayer: "", position: "", inputTime: new Date(e.timestamp).toLocaleString("ko-KR") });
       } else if (e.type === "opponentGoal") {
         rows.push({ gameDate, matchNum, opponent, event: "실점", player: e.currentGk || "", relatedPlayer: "", position: "GK", inputTime: new Date(e.timestamp).toLocaleString("ko-KR") });
+      } else if (e.type === "opponentOwnGoal") {
+        // 상대 자책골(우리팀 +1) — 귀속 선수 없음. 이벤트 완전성을 위해 기록
+        rows.push({ gameDate, matchNum, opponent, event: "상대자책골", player: "", relatedPlayer: "", position: "", inputTime: new Date(e.timestamp).toLocaleString("ko-KR") });
       } else if (e.type === "sub") {
         rows.push({ gameDate, matchNum, opponent, event: "교체", player: e.playerIn, relatedPlayer: e.playerOut, position: e.position || "", inputTime: new Date(e.timestamp).toLocaleString("ko-KR") });
       }

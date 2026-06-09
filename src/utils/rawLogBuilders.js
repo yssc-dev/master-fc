@@ -71,6 +71,7 @@ const SOCCER_EVENT_MAP = {
   '자책골': 'owngoal',
   '실점': 'concede',
   '교체': 'sub',
+  '상대자책골': 'opponent_owngoal', // 우리팀 +1, 귀속 선수 없음(분석에선 무시되나 로그 완전성 위해 기록)
 };
 
 /**
