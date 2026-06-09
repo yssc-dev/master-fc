@@ -1,6 +1,8 @@
 // Firebase stateJSON → 로그_매치 rows 빌더.
 // 풋살 / 축구 공통 스키마로 정규화.
 
+import { calcSoccerScore } from './soccerScoring';
+
 // our_members_json 직렬화: 휴식 정보가 있으면 객체 형식, 없으면 기존 배열 형식 (호환 유지).
 //   - 휴식 있음 : { "players": ["A","B","C"], "absent": ["C"] }
 //   - 휴식 없음 : ["A","B","C"]
@@ -93,8 +95,9 @@ export function buildRoundRowsFromSoccer({ team, mode = '기본', tournamentId =
       opponent_team_name: m.opponent || '',
       our_members_json: JSON.stringify(allMembers),
       opponent_members_json: JSON.stringify([]),
-      our_score: Number(m.ourScore) || 0,
-      opponent_score: Number(m.opponentScore) || 0,
+      // 저장 필드(m.ourScore) 대신 events에서 도출 — 단일소스, 상대자책골 포함 보장
+      our_score: calcSoccerScore(m.events || []).ourScore,
+      opponent_score: calcSoccerScore(m.events || []).opponentScore,
       our_gk: m.gk || '',
       opponent_gk: '',
       formation: m.formation || '',

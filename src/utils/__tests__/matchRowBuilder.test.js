@@ -158,7 +158,11 @@ describe('buildRoundRowsFromSoccer', () => {
         formation: '4-3-3',
         gk: '조현우',
         defenders: ['김민재', '김영권', '김진수'],
+        // 점수는 events에서 도출(2:1) — 단일소스
         events: [
+          { type: 'goal', player: '손흥민' },
+          { type: 'goal', player: '이강인', assist: '손흥민' },
+          { type: 'opponentGoal', currentGk: '조현우' },
           { type: 'sub', playerIn: '오현규', playerOut: '황희찬', position: 'FW' },
         ],
         ourScore: 2, opponentScore: 1,
