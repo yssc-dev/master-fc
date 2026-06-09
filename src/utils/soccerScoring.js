@@ -138,7 +138,7 @@ export function calcSoccerPlayerStats(soccerMatches) {
     for (const name of allPlayed) {
       ensure(name);
       stats[name].games++;
-      const wasGk = name === match.gk || match.events.some(e => e.type === "sub" && e.playerIn === name && e.position === "GK");
+      const wasGk = name === match.gk || (match.events || []).some(e => e.type === "sub" && e.playerIn === name && e.position === "GK");
       if (wasGk) stats[name].keeperGames++;
       else stats[name].fieldGames++;
       if (csPlayers.includes(name)) stats[name].cleanSheets++;
