@@ -7,8 +7,7 @@ export default function FormationSetup({ selectedPlayers, onConfirm, onBack, tit
   const { C } = useTheme();
   const [formation, setFormation] = useState("4-4-2");
   const [assignments, setAssignments] = useState({});
-  const [selectingPos, setSelectingPos] = useState(null);   // 선택된 빈 슬롯
-  const [selectedPlayer, setSelectedPlayer] = useState(null); // 선택된 선수
+  const [selectingPos, setSelectingPos] = useState(null);   // 포지션 먼저 선택한 빈 슬롯
 
   const formData = FORMATIONS[formation];
   const assignedNames = new Set(Object.values(assignments));
@@ -16,38 +15,34 @@ export default function FormationSetup({ selectedPlayers, onConfirm, onBack, tit
   const assignedCount = Object.keys(assignments).length;
   const canStart = assignedCount === 11;
 
-  // 빈 슬롯 탭
+  // 자동 배치 순서: FW → MF → DF → GK, 같은 라인은 배열 인덱스(좌→우) 순
+  const ROLE_FILL_PRIORITY = { FW: 0, MF: 1, DF: 2, GK: 3 };
+  const fillOrder = formData.positions
+    .map((pos, idx) => idx)
+    .sort((a, b) => {
+      const pa = ROLE_FILL_PRIORITY[formData.positions[a].role] ?? 9;
+      const pb = ROLE_FILL_PRIORITY[formData.positions[b].role] ?? 9;
+      return pa - pb || a - b;
+    });
+  const nextEmptyIdx = fillOrder.find(idx => assignments[idx] === undefined) ?? null;
+
+  // 빈 슬롯 탭: 포지션 먼저 선택(토글)
   const handleEmptyTap = (posIdx) => {
-    if (selectedPlayer) {
-      setAssignments(prev => ({ ...prev, [posIdx]: selectedPlayer }));
-      setSelectedPlayer(null);
-      setSelectingPos(null);
-    } else {
-      setSelectingPos(prev => prev === posIdx ? null : posIdx);
-    }
+    setSelectingPos(prev => prev === posIdx ? null : posIdx);
   };
-  // 점유 슬롯 탭: 선택선수 있으면 스왑(기존선수 후보로), 없으면 해제
+  // 점유 슬롯 탭: 배치 해제(후보로 복귀)
   const handlePlayerTap = (posIdx) => {
-    if (selectedPlayer) {
-      setAssignments(prev => ({ ...prev, [posIdx]: selectedPlayer }));
-      setSelectedPlayer(null);
-      setSelectingPos(null);
-    } else {
-      setAssignments(prev => { const next = { ...prev }; delete next[posIdx]; return next; });
-    }
+    setAssignments(prev => { const next = { ...prev }; delete next[posIdx]; return next; });
   };
-  // 선수 칩 탭: 슬롯이 선택돼 있으면 배치, 아니면 선수 선택 토글
+  // 선수 칩 탭: 선택된 슬롯이 있으면 그 자리에, 없으면 다음 빈 슬롯에 자동 배치
   const handlePlayerChip = (name) => {
-    if (selectingPos !== null) {
-      setAssignments(prev => ({ ...prev, [selectingPos]: name }));
-      setSelectingPos(null);
-      setSelectedPlayer(null);
-    } else {
-      setSelectedPlayer(prev => prev === name ? null : name);
-    }
+    const target = selectingPos !== null ? selectingPos : nextEmptyIdx;
+    if (target === null) return;
+    setAssignments(prev => ({ ...prev, [target]: name }));
+    setSelectingPos(null);
   };
 
-  const handleFormationChange = (key) => { setFormation(key); setAssignments({}); setSelectingPos(null); setSelectedPlayer(null); };
+  const handleFormationChange = (key) => { setFormation(key); setAssignments({}); setSelectingPos(null); };
 
   const handleConfirm = () => {
     if (!canStart) return;
@@ -76,15 +71,15 @@ export default function FormationSetup({ selectedPlayers, onConfirm, onBack, tit
       </div>
       <FormationPitch positions={formData.positions} assignments={assignments}
         onPlayerTap={handlePlayerTap} onEmptyTap={handleEmptyTap}
-        highlightIdx={selectingPos} pendingPlayer={selectedPlayer} />
-      <div style={{ marginTop: 12, padding: 12, background: C.card, borderRadius: 10, border: `1px solid ${selectedPlayer ? C.accent : C.grayDark}` }}>
-        <div style={{ fontSize: 12, color: selectedPlayer ? C.accent : C.gray, fontWeight: 700, marginBottom: 8 }}>
-          {selectedPlayer ? `${selectedPlayer} → 배치할 위치를 탭하세요` : selectingPos !== null ? `${formData.positions[selectingPos].role} 자리에 넣을 선수를 탭하세요` : `후보 (${unassigned.length}) — 선수를 탭한 뒤 위치를 탭`}
+        highlightIdx={selectingPos !== null ? selectingPos : nextEmptyIdx} />
+      <div style={{ marginTop: 12, padding: 12, background: C.card, borderRadius: 10, border: `1px solid ${C.grayDark}` }}>
+        <div style={{ fontSize: 12, color: C.gray, fontWeight: 700, marginBottom: 8 }}>
+          {selectingPos !== null ? `${formData.positions[selectingPos].role} 자리에 넣을 선수를 탭하세요` : `후보 (${unassigned.length}) — 탭하면 순서대로 자동 배치`}
         </div>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
           {unassigned.map(name => (
             <button key={name} onClick={() => handlePlayerChip(name)}
-              style={{ padding: "8px 12px", borderRadius: 8, border: selectedPlayer === name ? `2px solid ${C.accent}` : "none", fontSize: 13, fontWeight: 600, cursor: "pointer", background: selectedPlayer === name ? `${C.accent}30` : C.grayDarker, color: C.white }}>{name}</button>
+              style={{ padding: "8px 12px", borderRadius: 8, border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer", background: C.grayDarker, color: C.white }}>{name}</button>
           ))}
           {unassigned.length === 0 && <span style={{ fontSize: 12, color: C.gray }}>모든 선수 배치 완료</span>}
         </div>
