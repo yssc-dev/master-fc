@@ -10,10 +10,13 @@ import { makeStyles } from './styles/theme';
 import PhaseIndicator from './components/common/PhaseIndicator';
 import Modal from './components/common/Modal';
 import SoccerMatchView from './components/game/SoccerMatchView';
+import SoccerScheduleModal from './components/game/SoccerScheduleModal';
+import SoccerStandingsModal from './components/game/SoccerStandingsModal';
+import SoccerStandingsTable from './components/game/SoccerStandingsTable';
 import AttendeeSelector from './components/game/AttendeeSelector';
 import {
   calcSoccerPlayerStats, calcSoccerPlayerPoint, calcSoccerScore,
-  calcSoccerTeamRecord,
+  calcSoccerTeamRecord, calcSoccerOpponentRecords, soccerResultLabel,
   getCleanSheetPlayers, buildEventLogRows, buildPointLogRows, buildPlayerLogRows,
 } from './utils/soccerScoring';
 import { buildRawEventsFromSoccer, buildRawPlayerGamesFromSoccer } from './utils/rawLogBuilders';
@@ -392,6 +395,12 @@ export default function SoccerApp({ authUser, teamContext, isNewGame, gameMode, 
   if (phase === "match") {
     const finishedCount = state.soccerMatches.filter(m => m.status === "finished").length;
     const teamRec = calcSoccerTeamRecord(state.soccerMatches);
+    const oppRecords = calcSoccerOpponentRecords(state.soccerMatches);
+    const pillBtn = (tone = "neutral") => {
+      const map = { neutral: { bg: C.grayDark, fg: C.white }, green: { bg: C.green, fg: C.bg }, red: { bg: C.red, fg: C.white } };
+      const t = map[tone] || map.neutral;
+      return { flexShrink: 0, padding: "7px 14px", borderRadius: 999, background: t.bg, color: t.fg, border: "none", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap" };
+    };
 
     return (
       <div style={s.app}>
@@ -401,7 +410,7 @@ export default function SoccerApp({ authUser, teamContext, isNewGame, gameMode, 
             <div style={s.title}>⚽ 경기 진행</div>
           </div>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-            <div style={s.subtitle}>축구 · {finishedCount}경기{teamRec.played > 0 ? ` · ${teamRec.wins}승 ${teamRec.draws}무 ${teamRec.losses}패` : ""}</div>
+            <div style={s.subtitle}>축구 · {finishedCount}경기</div>
             {AppSync.enabled() && syncStatus && (
               <div style={{ fontSize: 9, padding: "2px 6px", borderRadius: 4, background: syncStatus === "saved" ? "#22c55e22" : syncStatus === "saving" ? "#3b82f622" : "#ef444422", color: syncStatus === "saved" ? "#22c55e" : syncStatus === "saving" ? "#3b82f6" : "#ef4444", fontWeight: 600 }}>
                 {syncStatus === "saving" ? "저장 중..." : syncStatus === "saved" ? "저장됨" : "저장 실패"}
@@ -409,9 +418,11 @@ export default function SoccerApp({ authUser, teamContext, isNewGame, gameMode, 
             )}
           </div>
           <div style={{ display: "flex", gap: 6, justifyContent: "center", marginTop: 8, flexWrap: "wrap" }}>
-            <button onClick={() => set('matchModal', 'playerStats')} style={{ ...s.btnSm(C.grayDark, C.white), fontSize: 11 }}>개인기록</button>
+            <button onClick={() => set('matchModal', 'soccerSchedule')} style={pillBtn()}>대진표</button>
+            <button onClick={() => set('matchModal', 'soccerStandings')} style={pillBtn()}>팀순위</button>
+            <button onClick={() => set('matchModal', 'playerStats')} style={pillBtn()}>개인기록</button>
             {finishedCount > 0 && (
-              <button onClick={() => set('phase', 'summary')} style={{ ...s.btnSm(C.green, C.bg), fontSize: 11, fontWeight: 700 }}>경기마감</button>
+              <button onClick={() => set('phase', 'summary')} style={pillBtn("green")}>경기마감</button>
             )}
             {teamContext?.role === "관리자" && (
               <button onClick={async () => {
@@ -420,10 +431,18 @@ export default function SoccerApp({ authUser, teamContext, isNewGame, gameMode, 
                 await FirebaseSync.clearState(teamContext?.team, gameId);
                 await AppSync.clearState(gameId);
                 window.location.reload();
-              }} style={{ ...s.btnSm(C.red, C.white), fontSize: 11 }}>경기삭제</button>
+              }} style={pillBtn("red")}>경기삭제</button>
             )}
           </div>
         </div>
+
+        {matchModal === "soccerSchedule" && (
+          <SoccerScheduleModal soccerMatches={state.soccerMatches} onClose={() => set('matchModal', null)} styles={s} />
+        )}
+
+        {matchModal === "soccerStandings" && (
+          <SoccerStandingsModal records={oppRecords} total={teamRec} onClose={() => set('matchModal', null)} styles={s} />
+        )}
 
         {matchModal === "playerStats" && (
           <Modal onClose={() => set('matchModal', null)} title="오늘의 선수기록" maxWidth={500}>
@@ -483,6 +502,7 @@ export default function SoccerApp({ authUser, teamContext, isNewGame, gameMode, 
     const finished = state.soccerMatches.filter(m => m.status === "finished");
     const sRows = soccerStats;
     const rec = calcSoccerTeamRecord(state.soccerMatches);
+    const oppRecords = calcSoccerOpponentRecords(state.soccerMatches);
 
     return (
       <div style={s.app}>
@@ -492,22 +512,13 @@ export default function SoccerApp({ authUser, teamContext, isNewGame, gameMode, 
         </div>
         <PhaseIndicator activeIndex={3} />
         <div style={s.section}>
+          <div style={s.sectionTitle}>🏆 팀 순위 (상대별 전적)</div>
+          <div style={s.card}>
+            <SoccerStandingsTable records={oppRecords} total={rec} styles={s} />
+          </div>
+        </div>
+        <div style={s.section}>
           <div style={s.sectionTitle}>📊 경기 결과</div>
-          {rec.played > 0 && (
-            <div style={{ ...s.card, display: "flex", alignItems: "center", justifyContent: "space-around", marginBottom: 8, padding: "12px 8px" }}>
-              <div style={{ textAlign: "center" }}>
-                <div style={{ fontSize: 20, fontWeight: 900, color: C.white }}>
-                  <span style={{ color: C.green }}>{rec.wins}</span>승 <span style={{ color: C.gray }}>{rec.draws}</span>무 <span style={{ color: C.red }}>{rec.losses}</span>패
-                </div>
-                <div style={{ fontSize: 11, color: C.gray, marginTop: 2 }}>{rec.played}경기</div>
-              </div>
-              <div style={{ width: 1, height: 32, background: C.grayDark }} />
-              <div style={{ textAlign: "center" }}>
-                <div style={{ fontSize: 16, fontWeight: 800, color: C.white }}>{rec.gf} : {rec.ga}</div>
-                <div style={{ fontSize: 11, color: C.gray, marginTop: 2 }}>득점 : 실점 ({rec.gf - rec.ga >= 0 ? "+" : ""}{rec.gf - rec.ga})</div>
-              </div>
-            </div>
-          )}
           <div style={s.card}>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
               <thead><tr>{["#", "상대팀", "결과", "CS"].map(h => <th key={h} style={s.th}>{h}</th>)}</tr></thead>
@@ -515,7 +526,7 @@ export default function SoccerApp({ authUser, teamContext, isNewGame, gameMode, 
                 {finished.map(m => {
                   const sc = calcSoccerScore(m.events);
                   const cs = getCleanSheetPlayers(m);
-                  const result = sc.ourScore > sc.opponentScore ? "승" : sc.ourScore < sc.opponentScore ? "패" : "무";
+                  const result = soccerResultLabel(sc.ourScore, sc.opponentScore);
                   return (
                     <tr key={m.matchIdx}>
                       <td style={s.td()}>{m.matchIdx + 1}</td>

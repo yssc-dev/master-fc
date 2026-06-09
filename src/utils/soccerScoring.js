@@ -12,23 +12,48 @@ export function calcSoccerScore(events) {
   return { ourScore, opponentScore };
 }
 
+/** 단일 경기 결과 라벨 (우리팀 기준) */
+export function soccerResultLabel(ourScore, opponentScore) {
+  return ourScore > opponentScore ? "승" : ourScore < opponentScore ? "패" : "무";
+}
+
 /**
- * 오늘 팀 전적 집계 (우리팀 기준, 휴식 경기 제외)
+ * 오늘 팀 전적 집계 (우리팀 기준, 휴식 경기 제외) — 상대별 전적의 합계
  * @returns {{ played, wins, draws, losses, gf, ga }}
  */
 export function calcSoccerTeamRecord(soccerMatches) {
-  const rec = { played: 0, wins: 0, draws: 0, losses: 0, gf: 0, ga: 0 };
-  for (const m of soccerMatches) {
+  return calcSoccerOpponentRecords(soccerMatches).reduce((acc, r) => ({
+    played: acc.played + r.played,
+    wins: acc.wins + r.wins,
+    draws: acc.draws + r.draws,
+    losses: acc.losses + r.losses,
+    gf: acc.gf + r.gf,
+    ga: acc.ga + r.ga,
+  }), { played: 0, wins: 0, draws: 0, losses: 0, gf: 0, ga: 0 });
+}
+
+/**
+ * 상대별 전적 집계 (우리팀 기준, 휴식 제외) — 승점/득실 순 정렬
+ * @returns {Array<{opponent, played, wins, draws, losses, gf, ga}>}
+ */
+export function calcSoccerOpponentRecords(soccerMatches) {
+  const map = {};
+  for (const m of (soccerMatches || [])) {
     if (m.status !== "finished" || m.opponent === "휴식") continue;
+    const opp = m.opponent;
+    if (!map[opp]) map[opp] = { opponent: opp, played: 0, wins: 0, draws: 0, losses: 0, gf: 0, ga: 0 };
     const { ourScore, opponentScore } = calcSoccerScore(m.events || []);
-    rec.played++;
-    rec.gf += ourScore;
-    rec.ga += opponentScore;
-    if (ourScore > opponentScore) rec.wins++;
-    else if (ourScore < opponentScore) rec.losses++;
-    else rec.draws++;
+    const r = map[opp];
+    r.played++; r.gf += ourScore; r.ga += opponentScore;
+    if (ourScore > opponentScore) r.wins++;
+    else if (ourScore < opponentScore) r.losses++;
+    else r.draws++;
   }
-  return rec;
+  return Object.values(map).sort((a, b) =>
+    ((b.wins * 3 + b.draws) - (a.wins * 3 + a.draws)) ||
+    ((b.gf - b.ga) - (a.gf - a.ga)) ||
+    (b.gf - a.gf)
+  );
 }
 
 /**

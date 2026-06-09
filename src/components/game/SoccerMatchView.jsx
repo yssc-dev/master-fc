@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useTheme } from '../../hooks/useTheme';
-import { calcSoccerScore, getCleanSheetPlayers } from '../../utils/soccerScoring';
+import { calcSoccerScore, getCleanSheetPlayers, soccerResultLabel } from '../../utils/soccerScoring';
 import { generateEventId } from '../../utils/idGenerator';
 import { FORMATIONS } from '../../utils/formations';
 import OpponentSelector from './OpponentSelector';
@@ -204,7 +204,7 @@ export default function SoccerMatchView({
     const shownMatch = (justFinishedIdx != null && finishedMatches.find(m => m.matchIdx === justFinishedIdx)) || finishedMatches[finishedMatches.length - 1];
     const otherMatches = finishedMatches.filter(m => m.matchIdx !== shownMatch.matchIdx);
     const { ourScore, opponentScore } = calcSoccerScore(shownMatch.events);
-    const result = ourScore > opponentScore ? "승" : ourScore < opponentScore ? "패" : "무";
+    const result = soccerResultLabel(ourScore, opponentScore);
     const resultColor = result === "승" ? C.green : result === "패" ? C.red : C.gray;
     return (
       <div>
