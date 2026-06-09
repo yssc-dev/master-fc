@@ -75,52 +75,6 @@ export function getCleanSheetPlayers(match) {
 }
 
 /**
- * 현재 피치 위 선수 목록 (교체 반영)
- */
-export function getCurrentLineup(match) {
-  const lineup = new Set(match.lineup || []);
-  for (const e of (match.events || [])) {
-    if (e.type === "sub") {
-      lineup.delete(e.playerOut);
-      lineup.add(e.playerIn);
-    }
-  }
-  return [...lineup];
-}
-
-/**
- * 현재 GK (교체 반영)
- */
-export function getCurrentGk(match) {
-  let gk = match.gk;
-  for (const e of (match.events || [])) {
-    if (e.type === "sub" && e.position === "GK") {
-      gk = e.playerIn;
-    }
-  }
-  return gk;
-}
-
-/**
- * 현재 DF 목록 (교체 반영)
- */
-export function getCurrentDefenders(match) {
-  const defs = new Set(match.defenders || []);
-  for (const e of (match.events || [])) {
-    if (e.type === "sub") {
-      if (defs.has(e.playerOut)) {
-        defs.delete(e.playerOut);
-        if (e.position === "DF") defs.add(e.playerIn);
-      }
-      if (e.position === "DF" && !defs.has(e.playerOut)) {
-        defs.add(e.playerIn);
-      }
-    }
-  }
-  return [...defs];
-}
-
-/**
  * 경기별 선수 통계 집계
  */
 export function calcSoccerPlayerStats(soccerMatches) {
