@@ -173,10 +173,13 @@ export function buildEventLogRows(soccerMatches, gameDate) {
     const matchNum = match.matchIdx + 1;
     const opponent = match.opponent;
     for (const name of (match.lineup || [])) {
-      let position = "";
-      if (name === match.gk) position = "GK";
-      else if ((match.defenders || []).includes(name)) position = "DF";
-      else position = "FW";
+      // 정확한 포지션은 positionMap 우선, 없으면 gk/defenders로 폴백(MF가 FW로 잘못 기록되던 문제 수정)
+      let position = (match.positionMap && match.positionMap[name]) || "";
+      if (!position) {
+        if (name === match.gk) position = "GK";
+        else if ((match.defenders || []).includes(name)) position = "DF";
+        else position = "FW";
+      }
       rows.push({
         gameDate, matchNum, opponent,
         event: "출전", player: name, relatedPlayer: "", position,

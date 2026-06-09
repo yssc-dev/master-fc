@@ -1,6 +1,7 @@
 import { useReducer } from 'react';
 import { FALLBACK_DATA } from '../config/fallbackData';
 import { calcMatchScore } from '../utils/scoring';
+import { calcSoccerScore } from '../utils/soccerScoring';
 import { createInitialPushState, calcNextPushMatch } from '../utils/pushMatch';
 
 const initialState = {
@@ -928,12 +929,7 @@ function gameReducer(state, action) {
       const matches = state.soccerMatches.map((m, i) => {
         if (i !== matchIdx) return m;
         const events = [...(m.events || []), { ...event, id: event.id || Date.now().toString(), timestamp: event.timestamp || Date.now() }];
-        let ourScore = 0, opponentScore = 0;
-        for (const ev of events) {
-          if (ev.type === "goal") ourScore++;
-          else if (ev.type === "owngoal") opponentScore++;
-          else if (ev.type === "opponentGoal") opponentScore++;
-        }
+        const { ourScore, opponentScore } = calcSoccerScore(events); // 상대자책골 포함 단일 집계
         return { ...m, events, ourScore, opponentScore };
       });
       return { ...state, soccerMatches: matches };
@@ -943,12 +939,7 @@ function gameReducer(state, action) {
       const matches = state.soccerMatches.map((m, i) => {
         if (i !== matchIdx) return m;
         const events = (m.events || []).filter(e => e.id !== eventId);
-        let ourScore = 0, opponentScore = 0;
-        for (const ev of events) {
-          if (ev.type === "goal") ourScore++;
-          else if (ev.type === "owngoal") opponentScore++;
-          else if (ev.type === "opponentGoal") opponentScore++;
-        }
+        const { ourScore, opponentScore } = calcSoccerScore(events); // 상대자책골 포함 단일 집계
         return { ...m, events, ourScore, opponentScore };
       });
       return { ...state, soccerMatches: matches };
