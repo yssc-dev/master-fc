@@ -188,7 +188,7 @@ export default function SoccerMatchView({
         </div>
         {[...(viewingMatch.events || [])].sort((a, b) => a.timestamp - b.timestamp).map(e => (
           <div key={e.id} style={{ padding: "5px 10px", background: C.cardLight, borderRadius: 6, marginBottom: 3, fontSize: 11, color: C.white }}>
-            {e.type === "goal" && `⚽ ${e.player}${e.assist ? ` ← ${e.assist}` : ""}`}
+            {e.type === "goal" && `⚽ ${e.player}${e.assist ? ` · 🅰️ ${e.assist}` : ""}`}
             {e.type === "owngoal" && `🔴 ${e.player} (자책골)`}
             {e.type === "opponentGoal" && `⚽ 상대골 (GK: ${e.currentGk || ""})`}
             {e.type === "opponentOwnGoal" && `🔴 상대 자책골`}
@@ -212,27 +212,13 @@ export default function SoccerMatchView({
   // 경기 종료 후
   if (viewState === "matchFinished" && finishedMatches.length > 0) {
     // 마지막(가장 최근 번호) 경기를 큰 카드로 표시 — 가장 직관적
+    // (경기 목록은 대진표 모달에 있으므로 여기선 중복 표시 안 함)
     const shownMatch = finishedMatches[finishedMatches.length - 1];
-    const otherMatches = finishedMatches.slice(0, -1);
     const { ourScore, opponentScore } = calcSoccerScore(shownMatch.events);
     const result = soccerResultLabel(ourScore, opponentScore);
     const resultColor = result === "승" ? C.green : result === "패" ? C.red : C.gray;
     return (
       <div>
-        {otherMatches.length > 0 && (
-          <div style={{ marginBottom: 12 }}>
-            {otherMatches.map((m, i) => {
-              const sc = calcSoccerScore(m.events);
-              return (
-                <div key={i} onClick={() => m.opponent !== "휴식" && setViewingMatchIdx(m.matchIdx)}
-                  style={{ display: "flex", justifyContent: "space-between", padding: "6px 10px", background: C.cardLight, borderRadius: 6, marginBottom: 3, fontSize: 12, cursor: m.opponent === "휴식" ? "default" : "pointer", color: C.white, opacity: m.opponent === "휴식" ? 0.5 : 1 }}>
-                  <span>제{m.matchIdx + 1}경기 vs {m.opponent}</span>
-                  <span style={{ fontWeight: 700 }}>{sc.ourScore}:{sc.opponentScore}</span>
-                </div>
-              );
-            })}
-          </div>
-        )}
         <div style={{ ...s.card, textAlign: "center", marginBottom: 12 }}>
           <div style={{ fontSize: 11, color: C.gray }}>제{shownMatch.matchIdx + 1}경기</div>
           <div style={{ fontSize: 28, fontWeight: 900, margin: "8px 0" }}>{ourScore} : {opponentScore}</div>

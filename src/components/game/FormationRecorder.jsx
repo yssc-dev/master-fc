@@ -189,7 +189,7 @@ export default function FormationRecorder({
           {sortedEvents.map(e => (
             <div key={e.id} style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 8px", background: C.cardLight, borderRadius: 6, marginBottom: 3, fontSize: 11 }}>
               <span style={{ color: C.grayDark, minWidth: 24 }}>{formatTime(e.timestamp)}</span>
-              {e.type === "goal" && <><span>⚽</span><span style={{ fontWeight: 600, color: C.white }}>{e.player}</span>{e.assist && <span style={{ color: C.gray }}> ← {e.assist}</span>}</>}
+              {e.type === "goal" && <><span>⚽</span><span style={{ fontWeight: 600, color: C.white }}>{e.player}</span>{e.assist && <span style={{ color: C.gray }}> · 🅰️ {e.assist}</span>}</>}
               {e.type === "owngoal" && <><span>🔴</span><span style={{ color: C.red }}>{e.player} (자책)</span></>}
               {e.type === "opponentGoal" && <><span>⚽</span><span style={{ color: C.red }}>상대골</span>{e.currentGk && <span style={{ color: C.gray }}> GK:{e.currentGk}</span>}</>}
               {e.type === "opponentOwnGoal" && <><span>🔴</span><span style={{ color: C.green }}>상대 자책골 (+1)</span></>}
