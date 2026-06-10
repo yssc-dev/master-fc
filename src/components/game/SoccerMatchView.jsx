@@ -7,6 +7,7 @@ import OpponentSelector from './OpponentSelector';
 import RosterSelector from './RosterSelector';
 import FormationSetup from './FormationSetup';
 import FormationRecorder from './FormationRecorder';
+import RoundNav from './RoundNav';
 import AttendeeSelector from './AttendeeSelector';
 
 export default function SoccerMatchView({
@@ -173,8 +174,20 @@ export default function SoccerMatchView({
             <button onClick={() => handleReopenMatch(viewingMatch.matchIdx)} style={{ padding: "6px 14px", borderRadius: 8, background: `${C.accent}25`, color: C.accent, border: "none", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>✏️ 수정</button>
           )}
         </div>
+        {(() => {
+          // 끝난 경기들 사이 ◀▶ 이동(읽기 전용 보기). active 플로우는 미변경.
+          const pos = finishedMatches.findIndex(m => m.matchIdx === viewingMatch.matchIdx);
+          return (
+            <RoundNav
+              label={`제${viewingMatch.matchIdx + 1}경기`} total={soccerMatches.length}
+              statusText={viewingMatch.opponent === "휴식" ? "휴식" : "종료됨"} statusTone="green"
+              canPrev={pos > 0} canNext={pos >= 0 && pos < finishedMatches.length - 1}
+              onPrev={() => { if (pos > 0) setViewingMatchIdx(finishedMatches[pos - 1].matchIdx); }}
+              onNext={() => { if (pos >= 0 && pos < finishedMatches.length - 1) setViewingMatchIdx(finishedMatches[pos + 1].matchIdx); }}
+            />
+          );
+        })()}
         <div style={{ ...s.card, textAlign: "center", marginBottom: 12 }}>
-          <div style={{ fontSize: 11, color: C.gray }}>제{viewingMatch.matchIdx + 1}경기</div>
           <div style={{ fontSize: 22, fontWeight: 900, margin: "8px 0" }}>
             <span style={{ color: ourScore > opponentScore ? C.green : C.white }}>{ourScore}</span>
             <span style={{ color: C.gray }}> : </span>
