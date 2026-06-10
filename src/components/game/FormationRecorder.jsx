@@ -173,7 +173,7 @@ export default function FormationRecorder({
       <div style={{ display: "flex", gap: 6, marginTop: 8 }}>
         <button onClick={() => setShowOpponentGoalMenu(true)} style={{ flex: 1, padding: "10px 0", borderRadius: 8, border: "none", fontSize: 12, fontWeight: 700, cursor: "pointer", background: `${C.red}20`, color: C.red }}>⚽ 상대골</button>
         <button onClick={() => { setShowSubModal(true); setSubOut(null); }} style={{ flex: 1, padding: "10px 0", borderRadius: 8, border: "none", fontSize: 12, fontWeight: 700, cursor: "pointer", background: `${C.accent}20`, color: C.accent }}>🔄 교체</button>
-        <button onClick={() => setShowFormationPicker(true)} style={{ flex: 1, padding: "10px 0", borderRadius: 8, border: "none", fontSize: 12, fontWeight: 700, cursor: "pointer", background: C.grayDarker, color: C.grayLight }}>📋 포메이션</button>
+        <button onClick={() => setShowFormationPicker(true)} style={{ flex: 1, padding: "10px 0", borderRadius: 8, border: "none", fontSize: 12, fontWeight: 700, cursor: "pointer", background: C.cardLight, color: C.grayLight }}>📋 포메이션</button>
         <button onClick={handleFinish} style={{ flex: 1, padding: "10px 0", borderRadius: 8, border: "none", fontSize: 12, fontWeight: 700, cursor: "pointer", background: `${C.green}20`, color: C.green }}>🏁 종료</button>
       </div>
 
