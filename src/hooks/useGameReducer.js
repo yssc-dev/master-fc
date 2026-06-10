@@ -913,6 +913,17 @@ function gameReducer(state, action) {
       const matches = state.soccerMatches.map((m, i) => i === matchIdx ? { ...m, ...allowed } : m);
       return { ...state, soccerMatches: matches };
     }
+    // 휴식 경기: 생성+마감을 한 액션으로(2-dispatch 인덱스 레이스 제거)
+    case 'CREATE_AND_FINISH_REST_MATCH': {
+      const newMatch = {
+        matchIdx: state.soccerMatches.length,
+        opponent: "휴식", lineup: [], gk: "", defenders: [],
+        subs: [], formation: null, assignments: null, positionMap: null,
+        events: [], startedAt: Date.now(), ourScore: 0, opponentScore: 0,
+        status: "finished",
+      };
+      return { ...state, soccerMatches: [...state.soccerMatches, newMatch], currentMatchIdx: -1 };
+    }
     // 끝난 경기 다시 열기(풀편집): finished → playing 복귀
     // 다른 진행중 경기는 finished로 정리해 "playing은 최대 1개" 불변식 유지(오펀/중복 진행 방지)
     case 'REOPEN_SOCCER_MATCH': {

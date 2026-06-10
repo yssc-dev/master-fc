@@ -220,6 +220,9 @@ export default function SoccerApp({ authUser, teamContext, isNewGame, gameMode, 
   const reopenSoccerMatch = (matchIdx) => {
     dispatch({ type: 'REOPEN_SOCCER_MATCH', matchIdx });
   };
+  const createRestMatch = () => {
+    dispatch({ type: 'CREATE_AND_FINISH_REST_MATCH' });
+  };
   // 오늘 참석팀에 추가 (시트가 마스터 소스이므로 settings 영구저장 안 함)
   const addOpponent = (name) => {
     const trimmed = (name || "").trim();
@@ -470,6 +473,7 @@ export default function SoccerApp({ authUser, teamContext, isNewGame, gameMode, 
             onCreateMatch={createSoccerMatch} onAddEvent={addSoccerEvent}
             onDeleteEvent={deleteSoccerEvent} onFinishMatch={finishSoccerMatch}
             onUpdateMatchFormation={updateSoccerMatchFormation} onReopenMatch={reopenSoccerMatch}
+            onCreateRestMatch={createRestMatch}
             onAddOpponent={addOpponent} onGoToSummary={() => set('phase', 'summary')}
             gameSettings={state.settingsSnapshot || gameSettings} styles={s}
             savedFormation={state.soccerFormation}

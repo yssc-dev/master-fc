@@ -14,7 +14,7 @@ import AttendeeSelector from './AttendeeSelector';
 export default function SoccerMatchView({
   soccerMatches, currentMatchIdx, attendees, opponents,
   onCreateMatch, onAddEvent, onDeleteEvent, onFinishMatch,
-  onUpdateMatchFormation, onReopenMatch,
+  onUpdateMatchFormation, onReopenMatch, onCreateRestMatch,
   onAddOpponent, onRemoveOpponent, onRenameOpponent, onGoToSummary, gameSettings, styles: s,
   savedFormation, onFormationChange,
   sortedPlayers, playerSortMode, rosterHandlers,
@@ -326,10 +326,7 @@ export default function SoccerMatchView({
           onRemoveOpponent={onRemoveOpponent} onRenameOpponent={onRenameOpponent} styles={s} />
         <button onClick={() => {
           if (!confirm("이번 라운드를 휴식으로 처리하시겠습니까?")) return;
-          // 방금 생성한 휴식 경기(= 현재 배열 끝 인덱스)를 그대로 마감 — 진행중 다른 경기를 잘못 마감하지 않도록 고정
-          const restIdx = soccerMatches.length;
-          onCreateMatch({ opponent: "휴식", lineup: [], gk: "", defenders: [] });
-          onFinishMatch(restIdx);
+          onCreateRestMatch(); // 생성+마감 원자적 단일 액션
         }}
           style={{ marginTop: 10, width: "100%", padding: "12px 0", borderRadius: 10, border: `1px dashed ${C.grayDark}`, background: "transparent", fontSize: 13, color: C.gray, cursor: "pointer" }}>
           😴 휴식 (이번 라운드 스킵)
