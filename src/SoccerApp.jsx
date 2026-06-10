@@ -290,16 +290,26 @@ export default function SoccerApp({ authUser, teamContext, isNewGame, gameMode, 
       const [r1, r2, r3, r4, r5, r6] = results;
       const legacyOk = r1.status === 'fulfilled' && r2.status === 'fulfilled' && r3.status === 'fulfilled';
       if (!legacyOk) throw new Error('기존 시트 저장 실패');
+      // 분석 소스(로그_*) 전송 실패를 silent 처리하지 않음 — 하나라도 실패하면 미확정으로 두고 경고(풋살과 동일).
+      const rawFailed = [];
+      if (r4.status !== 'fulfilled') rawFailed.push('로그_이벤트');
+      if (r5.status !== 'fulfilled') rawFailed.push('로그_선수경기');
+      if (r6.status !== 'fulfilled') rawFailed.push('로그_매치');
+      const allOk = rawFailed.length === 0;
       // Firebase에 확정 state 저장 (HistoryView/PlayerAnalytics 소스)
       await FirebaseSync.saveFinalized(teamContext?.team, gameId, gameState);
-      // active 클리어 (목록/이어하기에서 제거)
-      await FirebaseSync.clearState(teamContext?.team, gameId);
       const r1v = r1.value, r2v = r2.value, r3v = r3.value;
-      const r4v = r4.status === 'fulfilled' ? r4.value : null;
-      const r5v = r5.status === 'fulfilled' ? r5.value : null;
-      const r6v = r6.status === 'fulfilled' ? r6.value : null;
-      alert(`기록 확정 완료!\n\n이벤트로그: ${r1v?.count || 0}건\n포인트로그: ${r2v?.count || 0}건\n선수별집계: ${r3v?.count || 0}명\n로그_이벤트: ${r4v?.count || 0}건${r4v?.skipped ? ` (skip ${r4v.skipped})` : ''}\n로그_선수경기: ${r5v?.count || 0}명${r5v?.skipped ? ` (skip ${r5v.skipped})` : ''}\n로그_매치: ${r6v?.count || 0}건${r6v?.skipped ? ` (skip ${r6v.skipped})` : ''}`);
-      onBackToMenu?.();
+      const ct = (r, unit) => r.status === 'fulfilled' ? `${r.value?.count || 0}${unit}${r.value?.skipped ? ` (skip ${r.value.skipped})` : ''}` : '❌ 실패';
+      const detail = `이벤트로그: ${r1v?.count || 0}건\n포인트로그: ${r2v?.count || 0}건\n선수별집계: ${r3v?.count || 0}명\n로그_이벤트: ${ct(r4, '건')}\n로그_선수경기: ${ct(r5, '명')}\n로그_매치: ${ct(r6, '건')}`;
+      if (allOk) {
+        // 모든 시트 성공 시에만 active 클리어(목록/이어하기에서 제거)
+        await FirebaseSync.clearState(teamContext?.team, gameId);
+        alert(`기록 확정 완료!\n\n${detail}`);
+        onBackToMenu?.();
+      } else {
+        // 분석 로그 누락 → 미확정 유지(active 보존)해 재전송 유도
+        alert(`⚠️ 분석 로그 일부 전송 실패: ${rawFailed.join(', ')}\n\n${detail}\n\n분석용 데이터가 누락됐습니다. "기록확정"을 다시 눌러 재전송하세요.\n(전부 성공 전까지 미확정 상태로 둡니다.)`);
+      }
     } catch (err) {
       alert("시트 저장 실패: " + err.message);
     }
