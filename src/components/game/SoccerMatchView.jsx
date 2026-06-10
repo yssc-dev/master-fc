@@ -167,24 +167,21 @@ export default function SoccerMatchView({
   if (viewingMatch) {
     const { ourScore, opponentScore } = calcSoccerScore(viewingMatch.events);
     const csPlayers = getCleanSheetPlayers(viewingMatch);
+    const isRest = viewingMatch.opponent === "휴식";
+    const viewPos = finishedMatches.findIndex(m => m.matchIdx === viewingMatch.matchIdx);
     return (
       <div>
         <div style={{ marginBottom: 10 }}>
           <button onClick={() => setViewingMatchIdx(null)} style={{ padding: "6px 14px", borderRadius: 8, background: C.grayDark, color: C.white, border: "none", fontSize: 12, cursor: "pointer" }}>← 돌아가기</button>
         </div>
-        {(() => {
-          // 끝난 경기들 사이 ◀▶ 이동(읽기 전용 보기). active 플로우는 미변경.
-          const pos = finishedMatches.findIndex(m => m.matchIdx === viewingMatch.matchIdx);
-          return (
-            <RoundNav
-              label={`제${viewingMatch.matchIdx + 1}경기`} total={soccerMatches.length}
-              statusText={viewingMatch.opponent === "휴식" ? "휴식" : "종료됨"} statusTone="green"
-              canPrev={pos > 0} canNext={pos >= 0 && pos < finishedMatches.length - 1}
-              onPrev={() => { if (pos > 0) setViewingMatchIdx(finishedMatches[pos - 1].matchIdx); }}
-              onNext={() => { if (pos >= 0 && pos < finishedMatches.length - 1) setViewingMatchIdx(finishedMatches[pos + 1].matchIdx); }}
-            />
-          );
-        })()}
+        {/* 끝난 경기들 사이 ◀▶ 이동(읽기 전용 보기). active 플로우는 미변경. */}
+        <RoundNav
+          label={`제${viewingMatch.matchIdx + 1}경기`} total={soccerMatches.length}
+          statusText={isRest ? "휴식" : "종료됨"} statusTone="green"
+          canPrev={viewPos > 0} canNext={viewPos >= 0 && viewPos < finishedMatches.length - 1}
+          onPrev={() => { if (viewPos > 0) setViewingMatchIdx(finishedMatches[viewPos - 1].matchIdx); }}
+          onNext={() => { if (viewPos >= 0 && viewPos < finishedMatches.length - 1) setViewingMatchIdx(finishedMatches[viewPos + 1].matchIdx); }}
+        />
         <div style={{ ...s.card, textAlign: "center", marginBottom: 12 }}>
           <div style={{ fontSize: 22, fontWeight: 900, margin: "8px 0" }}>
             <span style={{ color: ourScore > opponentScore ? C.green : C.white }}>{ourScore}</span>
@@ -207,8 +204,8 @@ export default function SoccerMatchView({
         ))}
         <div style={{ height: 72 }} />
         <ConfirmBar>
-          <span style={{ color: C.green, fontWeight: 700, fontSize: 13 }}>제{viewingMatch.matchIdx + 1}경기 종료됨</span>
-          {viewingMatch.opponent !== "휴식" && (
+          <span style={{ color: C.green, fontWeight: 700, fontSize: 13 }}>제{viewingMatch.matchIdx + 1}경기 {isRest ? "휴식" : "종료됨"}</span>
+          {!isRest && (
             <button onClick={() => handleReopenMatch(viewingMatch.matchIdx)}
               style={{ padding: "6px 16px", borderRadius: 8, background: C.orange, color: C.bg, border: "none", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>확정취소</button>
           )}
@@ -232,8 +229,8 @@ export default function SoccerMatchView({
             {otherMatches.map((m, i) => {
               const sc = calcSoccerScore(m.events);
               return (
-                <div key={i} onClick={() => setViewingMatchIdx(m.matchIdx)}
-                  style={{ display: "flex", justifyContent: "space-between", padding: "6px 10px", background: C.cardLight, borderRadius: 6, marginBottom: 3, fontSize: 12, cursor: "pointer", color: C.white }}>
+                <div key={i} onClick={() => m.opponent !== "휴식" && setViewingMatchIdx(m.matchIdx)}
+                  style={{ display: "flex", justifyContent: "space-between", padding: "6px 10px", background: C.cardLight, borderRadius: 6, marginBottom: 3, fontSize: 12, cursor: m.opponent === "휴식" ? "default" : "pointer", color: C.white, opacity: m.opponent === "휴식" ? 0.5 : 1 }}>
                   <span>제{m.matchIdx + 1}경기 vs {m.opponent}</span>
                   <span style={{ fontWeight: 700 }}>{sc.ourScore}:{sc.opponentScore}</span>
                 </div>

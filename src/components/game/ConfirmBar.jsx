@@ -4,9 +4,9 @@ export default function ConfirmBar({ children }) {
   return (
     <div style={{
       position: "fixed", bottom: 0, left: "50%", transform: "translateX(-50%)",
-      width: "100%", maxWidth: 500, zIndex: 90,
+      width: "100%", maxWidth: 500, zIndex: 100,
       background: "var(--app-bg-row)", borderTop: "0.5px solid var(--app-divider)",
-      padding: "10px 16px 20px",
+      padding: "10px 16px", paddingBottom: "max(20px, env(safe-area-inset-bottom))",
       display: "flex", alignItems: "center", justifyContent: "center", gap: 8, flexWrap: "wrap",
     }}>
       {children}
