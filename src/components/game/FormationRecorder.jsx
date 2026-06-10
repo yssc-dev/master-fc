@@ -4,6 +4,7 @@ import { FORMATIONS, FORMATION_KEYS } from '../../utils/formations';
 import { generateEventId } from '../../utils/idGenerator';
 import FormationPitch from './FormationPitch';
 import PlayerActionMenu from './PlayerActionMenu';
+import Modal from '../common/Modal';
 
 export default function FormationRecorder({
   formation: initFormation, assignments: initAssignments, positionMap: initPositionMap,
@@ -141,7 +142,7 @@ export default function FormationRecorder({
       <div style={{ display: "flex", justifyContent: "space-around", alignItems: "center", background: C.cardLight, borderRadius: 12, padding: "10px 8px", marginBottom: 8 }}>
         <div style={{ textAlign: "center" }}>
           <div style={{ fontSize: 10, color: C.gray }}>우리팀</div>
-          <div style={{ fontSize: 28, fontWeight: 900, color: ourScore > opponentScore ? C.green : C.white }}>{ourScore}</div>
+          <div style={{ fontSize: 40, fontWeight: 900, color: ourScore > opponentScore ? C.green : C.white }}>{ourScore}</div>
         </div>
         <div style={{ textAlign: "center" }}>
           <div style={{ fontSize: 11, color: C.gray }}>vs {opponent}</div>
@@ -149,7 +150,7 @@ export default function FormationRecorder({
         </div>
         <div style={{ textAlign: "center" }}>
           <div style={{ fontSize: 10, color: C.gray }}>상대팀</div>
-          <div style={{ fontSize: 28, fontWeight: 900, color: opponentScore > ourScore ? C.red : C.white }}>{opponentScore}</div>
+          <div style={{ fontSize: 40, fontWeight: 900, color: opponentScore > ourScore ? C.red : C.white }}>{opponentScore}</div>
         </div>
       </div>
 
@@ -200,23 +201,18 @@ export default function FormationRecorder({
 
       {/* Opponent goal menu */}
       {showOpponentGoalMenu && (
-        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: 300, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }} onClick={() => setShowOpponentGoalMenu(false)}>
-          <div style={{ background: C.card, borderRadius: 16, padding: 20, maxWidth: 280, width: "100%", textAlign: "center" }} onClick={e => e.stopPropagation()}>
-            <div style={{ fontSize: 16, fontWeight: 800, color: C.white, marginBottom: 16 }}>상대팀 득점</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              <button onClick={() => handleOpponentGoal(false)}
-                style={{ padding: "14px 0", borderRadius: 12, border: "none", fontSize: 15, fontWeight: 700, cursor: "pointer", background: `${C.red}25`, color: C.red }}>
-                ⚽ 일반 실점
-              </button>
-              <button onClick={() => handleOpponentGoal(true)}
-                style={{ padding: "14px 0", borderRadius: 12, border: "none", fontSize: 15, fontWeight: 700, cursor: "pointer", background: `${C.green}25`, color: C.green }}>
-                🔴 상대 자책골 (우리팀 +1)
-              </button>
-            </div>
-            <button onClick={() => setShowOpponentGoalMenu(false)}
-              style={{ marginTop: 10, padding: "10px 0", width: "100%", borderRadius: 10, border: "none", fontSize: 13, cursor: "pointer", background: C.grayDarker, color: C.grayLight }}>취소</button>
+        <Modal title="상대팀 득점" onClose={() => setShowOpponentGoalMenu(false)} maxWidth={300}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <button onClick={() => handleOpponentGoal(false)}
+              style={{ padding: "14px 0", borderRadius: 12, border: "none", fontSize: 15, fontWeight: 700, cursor: "pointer", background: `${C.red}25`, color: C.red }}>
+              ⚽ 일반 실점
+            </button>
+            <button onClick={() => handleOpponentGoal(true)}
+              style={{ padding: "14px 0", borderRadius: 12, border: "none", fontSize: 15, fontWeight: 700, cursor: "pointer", background: `${C.green}25`, color: C.green }}>
+              🔴 상대 자책골 (우리팀 +1)
+            </button>
           </div>
-        </div>
+        </Modal>
       )}
 
       {/* Action menu */}
@@ -226,55 +222,41 @@ export default function FormationRecorder({
 
       {/* Sub modal */}
       {showSubModal && (
-        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: 200, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }} onClick={() => { setShowSubModal(false); setSubOut(null); }}>
-          <div style={{ background: C.card, borderRadius: 16, padding: 20, maxWidth: 360, width: "100%", maxHeight: "80vh", overflowY: "auto" }} onClick={e => e.stopPropagation()}>
-            {!subOut ? (
-              <>
-                <div style={{ fontSize: 16, fontWeight: 800, color: C.white, textAlign: "center", marginBottom: 12 }}>🔄 나가는 선수</div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                  {Object.entries(assignments).map(([idx, name]) => (
-                    <button key={idx} onClick={() => handleSubOut(Number(idx), name)}
-                      style={{ padding: "10px 14px", borderRadius: 10, border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer", background: C.grayDarker, color: C.white }}>
-                      <span style={{ fontSize: 10, color: C.gray }}>{formData.positions[idx]?.role}</span> {name}
-                    </button>
-                  ))}
-                </div>
-              </>
-            ) : (
-              <>
-                <div style={{ fontSize: 16, fontWeight: 800, color: C.white, textAlign: "center", marginBottom: 4 }}>🔄 들어오는 선수</div>
-                <div style={{ fontSize: 12, color: C.red, textAlign: "center", marginBottom: 12 }}>{subOut.name} → ?</div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                  {subs.map(name => (
-                    <button key={name} onClick={() => handleSubIn(name)}
-                      style={{ padding: "10px 14px", borderRadius: 10, border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer", background: C.grayDarker, color: C.white }}>{name}</button>
-                  ))}
-                </div>
-                {subs.length === 0 && <div style={{ textAlign: "center", color: C.gray, fontSize: 12 }}>후보가 없습니다</div>}
-              </>
-            )}
-            <button onClick={() => { setShowSubModal(false); setSubOut(null); }}
-              style={{ marginTop: 12, padding: "10px 0", width: "100%", borderRadius: 10, border: "none", fontSize: 13, cursor: "pointer", background: C.grayDark, color: C.grayLight }}>취소</button>
-          </div>
-        </div>
+        <Modal title={subOut ? `🔄 ${subOut.name} → 들어올 선수` : "🔄 나가는 선수"} onClose={() => { setShowSubModal(false); setSubOut(null); }} maxWidth={360}>
+          {!subOut ? (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+              {Object.entries(assignments).map(([idx, name]) => (
+                <button key={idx} onClick={() => handleSubOut(Number(idx), name)}
+                  style={{ padding: "10px 14px", borderRadius: 10, border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer", background: C.cardLight, color: C.white }}>
+                  <span style={{ fontSize: 10, color: C.gray }}>{formData.positions[idx]?.role}</span> {name}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {subs.map(name => (
+                  <button key={name} onClick={() => handleSubIn(name)}
+                    style={{ padding: "10px 14px", borderRadius: 10, border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer", background: C.cardLight, color: C.white }}>{name}</button>
+                ))}
+              </div>
+              {subs.length === 0 && <div style={{ textAlign: "center", color: C.gray, fontSize: 12 }}>후보가 없습니다</div>}
+            </>
+          )}
+        </Modal>
       )}
 
       {/* Formation picker */}
       {showFormationPicker && (
-        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: 200, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }} onClick={() => setShowFormationPicker(false)}>
-          <div style={{ background: C.card, borderRadius: 16, padding: 20, maxWidth: 300, width: "100%" }} onClick={e => e.stopPropagation()}>
-            <div style={{ fontSize: 16, fontWeight: 800, color: C.white, textAlign: "center", marginBottom: 12 }}>📋 포메이션 변경</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {FORMATION_KEYS.map(key => (
-                <button key={key} onClick={() => handleFormationChange(key)}
-                  style={{ padding: "12px 0", borderRadius: 10, border: "none", fontSize: 14, fontWeight: 700, cursor: "pointer",
-                    background: formation === key ? C.accent : C.grayDarker, color: formation === key ? C.bg : C.white }}>{FORMATIONS[key].label}</button>
-              ))}
-            </div>
-            <button onClick={() => setShowFormationPicker(false)}
-              style={{ marginTop: 10, padding: "10px 0", width: "100%", borderRadius: 10, border: "none", fontSize: 13, cursor: "pointer", background: C.grayDark, color: C.grayLight }}>취소</button>
+        <Modal title="📋 포메이션 변경" onClose={() => setShowFormationPicker(false)} maxWidth={300}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {FORMATION_KEYS.map(key => (
+              <button key={key} onClick={() => handleFormationChange(key)}
+                style={{ padding: "12px 0", borderRadius: 10, border: "none", fontSize: 14, fontWeight: 700, cursor: "pointer",
+                  background: formation === key ? C.accent : C.cardLight, color: formation === key ? C.bg : C.white }}>{FORMATIONS[key].label}</button>
+            ))}
           </div>
-        </div>
+        </Modal>
       )}
     </div>
   );
