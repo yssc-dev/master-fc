@@ -8,6 +8,7 @@ import RosterSelector from './RosterSelector';
 import FormationSetup from './FormationSetup';
 import FormationRecorder from './FormationRecorder';
 import RoundNav from './RoundNav';
+import ConfirmBar from './ConfirmBar';
 import AttendeeSelector from './AttendeeSelector';
 
 export default function SoccerMatchView({
@@ -168,11 +169,8 @@ export default function SoccerMatchView({
     const csPlayers = getCleanSheetPlayers(viewingMatch);
     return (
       <div>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+        <div style={{ marginBottom: 10 }}>
           <button onClick={() => setViewingMatchIdx(null)} style={{ padding: "6px 14px", borderRadius: 8, background: C.grayDark, color: C.white, border: "none", fontSize: 12, cursor: "pointer" }}>← 돌아가기</button>
-          {viewingMatch.opponent !== "휴식" && (
-            <button onClick={() => handleReopenMatch(viewingMatch.matchIdx)} style={{ padding: "6px 14px", borderRadius: 8, background: `${C.accent}25`, color: C.accent, border: "none", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>✏️ 수정</button>
-          )}
         </div>
         {(() => {
           // 끝난 경기들 사이 ◀▶ 이동(읽기 전용 보기). active 플로우는 미변경.
@@ -207,6 +205,14 @@ export default function SoccerMatchView({
             {e.type === "redCard" && `🟥 ${e.player} 레드카드`}
           </div>
         ))}
+        <div style={{ height: 72 }} />
+        <ConfirmBar>
+          <span style={{ color: C.green, fontWeight: 700, fontSize: 13 }}>제{viewingMatch.matchIdx + 1}경기 종료됨</span>
+          {viewingMatch.opponent !== "휴식" && (
+            <button onClick={() => handleReopenMatch(viewingMatch.matchIdx)}
+              style={{ padding: "6px 16px", borderRadius: 8, background: C.orange, color: C.bg, border: "none", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>확정취소</button>
+          )}
+        </ConfirmBar>
       </div>
     );
   }
