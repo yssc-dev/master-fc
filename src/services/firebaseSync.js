@@ -25,8 +25,13 @@ function _kstDateFromGameId(gameId) {
 }
 
 function _buildSummary(gameId, state) {
-  const evtCount = (state.allEvents || []).length;
-  const matchCount = (state.completedMatches || []).length;
+  const soccer = Array.isArray(state.soccerMatches) && state.soccerMatches.length > 0;
+  const evtCount = soccer
+    ? state.soccerMatches.reduce((s, m) => s + ((m.events || []).length), 0)
+    : (state.allEvents || []).length;
+  const matchCount = soccer
+    ? state.soccerMatches.filter(m => m.status === "finished").length
+    : (state.completedMatches || []).length;
   const creator = state.gameCreator || state.lastEditor || '?';
   return `${gameId} | ${creator} | ${state.phase || '?'} | 이벤트 ${evtCount}건 | 완료 ${matchCount}경기`;
 }
