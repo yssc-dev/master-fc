@@ -29,6 +29,7 @@ export default function SoccerMatchView({
   });
   const [selectedOpponent, setSelectedOpponent] = useState(savedFormation?.selectedOpponent || null);
   const [viewingMatchIdx, setViewingMatchIdx] = useState(null);
+  const [finishedNavIdx, setFinishedNavIdx] = useState(null); // 경기종료 화면에서 ◀▶로 넘겨보는 위치(null=마지막)
   const [selectedPlayers, setSelectedPlayers] = useState(savedFormation?.selectedPlayers || []);
   // 포메이션은 경기 객체(soccerMatches[i])가 단일 소스 — 별도 matchFormation 상태/슬롯 없음.
 
@@ -147,6 +148,7 @@ export default function SoccerMatchView({
     // FormationRecorder가 넘긴 종료 직전 최종 포메이션을 경기 객체에 확정 반영(스냅샷 유실 방지)
     if (finalSnapshot && typeof finalSnapshot === "object") onUpdateMatchFormation?.(currentMatchIdx, finalSnapshot);
     onFinishMatch(currentMatchIdx);
+    setFinishedNavIdx(null); // 방금 끝낸(마지막) 경기를 보여주도록
     setViewState("matchFinished");
     saveFormationState({ viewState: "matchFinished" });
   };
@@ -154,6 +156,7 @@ export default function SoccerMatchView({
   const handleNextMatch = () => {
     setSelectedOpponent(null);
     setSelectedPlayers([]);
+    setFinishedNavIdx(null);
     setViewState("selectOpponent");
     saveFormationState({ viewState: "selectOpponent", selectedOpponent: null });
   };
@@ -209,21 +212,27 @@ export default function SoccerMatchView({
     );
   }
 
-  // 경기 종료 후
+  // 경기 종료 후 — ◀▶로 끝난 경기들을 넘겨볼 수 있음(기본: 마지막 경기)
   if (viewState === "matchFinished" && finishedMatches.length > 0) {
-    // 마지막(가장 최근 번호) 경기를 큰 카드로 표시 — 가장 직관적
-    // (경기 목록은 대진표 모달에 있으므로 여기선 중복 표시 안 함)
-    const shownMatch = finishedMatches[finishedMatches.length - 1];
+    const lastPos = finishedMatches.length - 1;
+    const pos = (finishedNavIdx != null && finishedNavIdx >= 0 && finishedNavIdx <= lastPos) ? finishedNavIdx : lastPos;
+    const shownMatch = finishedMatches[pos];
     const { ourScore, opponentScore } = calcSoccerScore(shownMatch.events);
     const result = soccerResultLabel(ourScore, opponentScore);
     const resultColor = result === "승" ? C.green : result === "패" ? C.red : C.gray;
+    const isRest = shownMatch.opponent === "휴식";
     return (
       <div>
+        <RoundNav
+          label={`제${shownMatch.matchIdx + 1}경기`} total={soccerMatches.length}
+          statusText={isRest ? "휴식" : "종료됨"} statusTone="green"
+          canPrev={pos > 0} canNext={pos < lastPos}
+          onPrev={() => setFinishedNavIdx(pos - 1)} onNext={() => setFinishedNavIdx(pos + 1)}
+        />
         <div style={{ ...s.card, textAlign: "center", marginBottom: 12 }}>
-          <div style={{ fontSize: 11, color: C.gray }}>제{shownMatch.matchIdx + 1}경기</div>
           <div style={{ fontSize: 28, fontWeight: 900, margin: "8px 0" }}>{ourScore} : {opponentScore}</div>
           <div style={{ fontSize: 16, fontWeight: 700, color: resultColor }}>vs {shownMatch.opponent} — {result}</div>
-          {shownMatch.opponent !== "휴식" && (
+          {!isRest && (
             <button onClick={() => handleReopenMatch(shownMatch.matchIdx)} style={{ marginTop: 10, padding: "6px 16px", borderRadius: 8, background: `${C.accent}25`, color: C.accent, border: "none", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>✏️ 이 경기 수정</button>
           )}
         </div>
