@@ -30,7 +30,7 @@ export default function SoccerMatchView({
   const [selectedOpponent, setSelectedOpponent] = useState(savedFormation?.selectedOpponent || null);
   const [viewingMatchIdx, setViewingMatchIdx] = useState(null);
   const [selectedPlayers, setSelectedPlayers] = useState(savedFormation?.selectedPlayers || []);
-  const [matchFormation, setMatchFormation] = useState(savedFormation?.matchFormation || null);
+  // 포메이션은 경기 객체(soccerMatches[i])가 단일 소스 — 별도 matchFormation 상태/슬롯 없음.
 
   // 멀티탭 동기화: 다른 탭이 savedFormation 을 바꿨을 때 이 탭의 로컬 state 도 따라가야 함.
   // (CourtRecorder GK 버그와 같은 패턴 — useState 초기값만으론 prop 변경 후 sync 안 됨)
@@ -42,11 +42,10 @@ export default function SoccerMatchView({
   }, [savedFormation?.viewState]);
   useEffect(() => { setSelectedOpponent(savedFormation?.selectedOpponent || null); }, [savedFormation?.selectedOpponent]);
   useEffect(() => { setSelectedPlayers(savedFormation?.selectedPlayers || []); }, [savedFormation?.selectedPlayers]);
-  useEffect(() => { setMatchFormation(savedFormation?.matchFormation || null); }, [savedFormation?.matchFormation]);
 
-  // 상태 변경 시 리듀서에 저장 (Firebase 자동 저장됨)
+  // 상태 변경 시 리듀서에 저장 (Firebase 자동 저장됨). UI 네비 상태만 — 포메이션 데이터는 경기 객체에.
   const saveFormationState = (updates) => {
-    const current = { viewState, selectedOpponent, selectedPlayers, matchFormation, ...updates };
+    const current = { viewState, selectedOpponent, selectedPlayers, ...updates };
     onFormationChange?.(current);
   };
 
@@ -64,22 +63,18 @@ export default function SoccerMatchView({
 
   // 포메이션 확정 → 경기 생성
   const handleFormationConfirm = ({ formation, assignments, gk, positionMap, subs }) => {
-    const mf = { formation, assignments, gk, positionMap, subs };
-    setMatchFormation(mf);
     const lineup = Object.values(assignments);
     const defenders = Object.entries(positionMap).filter(([, r]) => r === "DF").map(([n]) => n);
+    // 포메이션은 경기 객체에 저장(단일 소스)
     onCreateMatch({ opponent: selectedOpponent, lineup, gk, defenders, subs, formation, assignments, positionMap });
     setViewState("playing");
     setViewingMatchIdx(null);
-    saveFormationState({ viewState: "playing", matchFormation: mf });
+    saveFormationState({ viewState: "playing" });
   };
 
-  // 진행 중 포메이션/교체/카드로 배치가 바뀌면 경기 객체에 영구 반영(+로컬/멀티탭 동기화)
+  // 진행 중 포메이션/교체/카드 변경 → 경기 객체에만 반영(단일 소스)
   const handleFormationStateChange = (updates) => {
-    const merged = { ...(matchFormation || {}), ...updates };
-    setMatchFormation(merged);
     onUpdateMatchFormation?.(currentMatchIdx, updates);
-    saveFormationState({ matchFormation: merged });
   };
 
   // 경기 객체에서 레코더용 포메이션 복원 (저장돼 있으면 그대로, 없으면 lineup/gk/defenders로 4-4-2 재구성)
@@ -131,12 +126,14 @@ export default function SoccerMatchView({
     const m = soccerMatches[matchIdx];
     if (!m) return;
     if (!confirm(`제${matchIdx + 1}경기 (vs ${m.opponent}) 기록을 다시 열어 수정하시겠습니까?`)) return;
-    const mf = reconstructFormation(m);
     onReopenMatch?.(matchIdx);
-    setMatchFormation(mf);
+    // 레거시(포메이션 미저장) 경기만 재구성본을 경기 객체에 확정. 모던 경기는 이미 있으므로 불필요한 쓰기 회피.
+    if (!(m.formation && m.assignments && m.positionMap)) {
+      onUpdateMatchFormation?.(matchIdx, reconstructFormation(m));
+    }
     setViewState("playing");
     setViewingMatchIdx(null);
-    saveFormationState({ viewState: "playing", matchFormation: mf });
+    saveFormationState({ viewState: "playing" });
   };
 
   // 이벤트
@@ -151,16 +148,14 @@ export default function SoccerMatchView({
     if (finalSnapshot && typeof finalSnapshot === "object") onUpdateMatchFormation?.(currentMatchIdx, finalSnapshot);
     onFinishMatch(currentMatchIdx);
     setViewState("matchFinished");
-    setMatchFormation(null);
-    saveFormationState({ viewState: "matchFinished", matchFormation: null });
+    saveFormationState({ viewState: "matchFinished" });
   };
 
   const handleNextMatch = () => {
     setSelectedOpponent(null);
     setSelectedPlayers([]);
-    setMatchFormation(null);
     setViewState("selectOpponent");
-    saveFormationState({ viewState: "selectOpponent", selectedOpponent: null, matchFormation: null });
+    saveFormationState({ viewState: "selectOpponent", selectedOpponent: null });
   };
 
   // 과거 경기 보기
@@ -255,14 +250,17 @@ export default function SoccerMatchView({
   }
 
   // 경기 진행 중 (포메이션 레코더)
-  if (viewState === "playing" && currentMatch && matchFormation) {
+  if (viewState === "playing" && currentMatch) {
+    // 포메이션은 경기 객체에서 derive(단일 소스). key로 경기 전환 시 레코더 remount(uncontrolled 재시드).
+    const live = reconstructFormation(currentMatch);
     return (
       <FormationRecorder
-        formation={matchFormation.formation}
-        assignments={matchFormation.assignments}
-        positionMap={matchFormation.positionMap}
-        subs={matchFormation.subs}
-        gk={matchFormation.gk}
+        key={currentMatchIdx}
+        formation={live.formation}
+        assignments={live.assignments}
+        positionMap={live.positionMap}
+        subs={live.subs}
+        gk={live.gk}
         opponent={currentMatch.opponent}
         startedAt={currentMatch.startedAt || Date.now()}
         events={currentMatch.events || []}

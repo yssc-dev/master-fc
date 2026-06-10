@@ -6,6 +6,9 @@ import FormationPitch from './FormationPitch';
 import PlayerActionMenu from './PlayerActionMenu';
 import Modal from '../common/Modal';
 
+// NOTE: 이 컴포넌트는 uncontrolled — init* props로 마운트 시 1회만 시드하고 이후 prop 변경 무시.
+// 호출부(SoccerMatchView)는 경기 전환 시 key={currentMatchIdx}로 remount해 재시드함.
+// prop→state 동기화 useEffect를 추가하지 않는 한 key= 를 제거하면 다른 경기 데이터가 stale로 남는다.
 export default function FormationRecorder({
   formation: initFormation, assignments: initAssignments, positionMap: initPositionMap,
   subs: initSubs, gk: initGk, opponent, startedAt, matchMinutes = 90,

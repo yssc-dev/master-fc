@@ -56,7 +56,7 @@ const initialState = {
   soccerMatches: [],
   currentMatchIdx: -1,
   opponents: [],
-  soccerFormation: null, // { formation, assignments, positionMap, subs, gk, viewState, selectedOpponent }
+  soccerFormation: null, // UI 네비 상태만: { viewState, selectedOpponent, selectedPlayers }. 포메이션 데이터는 경기 객체가 단일 소스.
   // 경기 시작 시 스냅샷된 effective settings — 경기 중 규칙 변경에 영향받지 않음
   settingsSnapshot: null,
 };
