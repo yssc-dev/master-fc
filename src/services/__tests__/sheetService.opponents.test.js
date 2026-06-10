@@ -22,6 +22,21 @@ describe('parseSoccerOpponents', () => {
     ]);
   });
 
+  it('같은 열의 다른 섹션 헤더(상대팀별 다득점 TOP5)·라벨(상대팀)은 제외', () => {
+    const csv = [
+      ',,,,,,vs 상대팀명,경기,승,무,패,득점,실점',
+      ',,,,,,한울,31,22,7,2,71,18',
+      ',,,,,,아이콘,28,6,13,9,29,36',
+      ',,,,,,상대팀별 다득점 TOP5,,,,,,',   // 새 섹션 시작 → 표 끝
+      ',,,,,,상대팀,,,,,,',
+      ',,,,,,손흥민,10,,,,,',
+    ].join('\n');
+    expect(parseSoccerOpponents(csv)).toEqual([
+      { name: '한울', games: 31 },
+      { name: '아이콘', games: 28 },
+    ]);
+  });
+
   it('헤더가 없으면 빈 배열', () => {
     expect(parseSoccerOpponents('a,b,c\n1,2,3')).toEqual([]);
   });

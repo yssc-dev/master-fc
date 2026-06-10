@@ -117,7 +117,9 @@ export function parseSoccerOpponents(text) {
     const f = parseCSVLine(lines[i]);
     const name = (f[hCol] || '').trim();
     if (!name) break;                  // 상대팀 열이 비면 표 끝
-    if (name.includes('상대팀명')) continue;
+    // 같은 열 아래에 있는 다른 섹션(예: "상대팀별 다득점 TOP5") 만나면 표 끝으로 간주
+    if (name.includes('다득점') || name.includes('상대팀별') || name.toUpperCase().includes('TOP')) break;
+    if (name.includes('상대팀명') || name === '상대팀') continue; // 헤더/라벨 셀 스킵
     if (seen.has(name)) continue;
     seen.add(name);
     out.push({ name, games: parseInt(f[gamesCol]) || 0 });

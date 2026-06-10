@@ -387,10 +387,16 @@ export default function SoccerApp({ authUser, teamContext, isNewGame, gameMode, 
           </div>
         </div>
         <div style={s.bottomBar}>
-          <button onClick={() => dispatch({ type: 'START_MATCHES', schedule: null, pushState: null })}
-            style={s.btnFull(C.accent, C.bg)}>
-            축구 경기 시작 ({attendees.length}명)
-          </button>
+          {(() => {
+            const canStart = (state.opponents || []).length > 0;
+            return (
+              <button onClick={() => { if (canStart) dispatch({ type: 'START_MATCHES', schedule: null, pushState: null }); }}
+                disabled={!canStart}
+                style={{ ...s.btnFull(C.accent, C.bg), opacity: canStart ? 1 : 0.4, cursor: canStart ? "pointer" : "not-allowed" }}>
+                {canStart ? `축구 경기 시작 (${attendees.length}명)` : "상대팀을 1팀 이상 선택하세요"}
+              </button>
+            );
+          })()}
         </div>
       </div>
     );
