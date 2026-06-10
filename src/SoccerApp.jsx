@@ -14,6 +14,7 @@ import SoccerScheduleModal from './components/game/SoccerScheduleModal';
 import SoccerStandingsModal from './components/game/SoccerStandingsModal';
 import SoccerStandingsTable from './components/game/SoccerStandingsTable';
 import MatchTabBar from './components/game/MatchTabBar';
+import MatchHeader from './components/game/MatchHeader';
 import AttendeeSelector from './components/game/AttendeeSelector';
 import {
   calcSoccerPlayerStats, calcSoccerPlayerPoint, calcSoccerScore,
@@ -407,19 +408,8 @@ export default function SoccerApp({ authUser, teamContext, isNewGame, gameMode, 
 
     return (
       <div style={s.app}>
-        <div style={s.header}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <button onClick={onBackToMenu} style={{ position: "absolute", left: 16, background: C.headerBtnBg, color: C.headerBtnColor, border: "none", borderRadius: 8, padding: "4px 10px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>홈</button>
-            <div style={s.title}>⚽ 경기 진행</div>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-            <div style={s.subtitle}>축구 · {finishedCount}경기</div>
-            {AppSync.enabled() && syncStatus && (
-              <div style={{ fontSize: 9, padding: "2px 6px", borderRadius: 4, background: syncStatus === "saved" ? "rgba(52,199,89,0.12)" : syncStatus === "saving" ? "rgba(0,122,255,0.12)" : "rgba(255,59,48,0.12)", color: syncStatus === "saved" ? "var(--app-green)" : syncStatus === "saving" ? "var(--app-blue)" : "var(--app-red)", fontWeight: 600 }}>
-                {syncStatus === "saving" ? "저장 중…" : syncStatus === "saved" ? "저장됨" : "저장 실패"}
-              </div>
-            )}
-          </div>
+        <MatchHeader title="경기 진행" subtitle={`축구 · ${finishedCount}경기`} onHome={onBackToMenu}
+          syncStatus={AppSync.enabled() ? syncStatus : null}>
           <MatchTabBar tabs={[
             { key: 'schedule', label: '대진표', onClick: () => set('matchModal', 'soccerSchedule') },
             { key: 'standings', label: '팀순위', onClick: () => set('matchModal', 'soccerStandings') },
@@ -427,7 +417,7 @@ export default function SoccerApp({ authUser, teamContext, isNewGame, gameMode, 
             { key: 'finish', label: '경기마감', tone: 'green', strong: true, onClick: () => set('phase', 'summary'), hidden: finishedCount === 0 },
             { key: 'delete', label: '경기삭제', tone: 'red', onClick: deleteSoccerGame, hidden: teamContext?.role !== '관리자' },
           ]} />
-        </div>
+        </MatchHeader>
 
         {matchModal === "soccerSchedule" && (
           <SoccerScheduleModal soccerMatches={state.soccerMatches} onClose={() => set('matchModal', null)} styles={s} />
