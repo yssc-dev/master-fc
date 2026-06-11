@@ -161,6 +161,10 @@ export default function TournamentMatchManager({ tournament, schedule: rawSchedu
     await AppSync.writeRawPlayerGames({
       rows: rawPlayerGames,
       replaceBy: { team: ourTeamName, sport: '축구', mode: '대회', tournament_id: tournament.id },
+    }).catch(e => {
+      // 실패해도 경기 종료 플로우(상태 정리)는 계속 — 재집계는 다음 경기 종료 시 replaceBy로 복구됨
+      alert("로그_선수경기 저장 실패: " + e.message);
+      return null;
     });
 
     // clear Firebase activeGame

@@ -267,7 +267,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
     if (phase !== "setup" && phase !== "") {
       autoSync();
     }
-  }, [allEvents, completedMatches, currentRoundIdx, phase, gks, gksHistory, liveMercs, absentees, freeCourtMatches, confirmedRounds, pushState, teams, teamNames, splitPhase]);
+  }, [allEvents, completedMatches, currentRoundIdx, phase, gks, gksHistory, liveMercs, absentees, freeCourtMatches, confirmedRounds, pushState, teams, teamNames, splitPhase, attendees]);
 
   // Firebase 노드별 구독 — 어떤 자식이라도 바뀌면 재조립된 state 가 콜백으로 옴.
   const lastRemoteUpdateRef = useRef(0);
@@ -278,8 +278,9 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
     const unsub = FirebaseSync.subscribe(team, gid, (remoteState, meta) => {
       if (!remoteState) return;
       // 자기 변경 echo 무시 — 탭 단위 ID 비교 (같은 사용자 멀티탭 구분 위해)
-      if (meta?.updatedAt && Math.abs(Date.now() - meta.updatedAt) < 1500) {
-        if (meta.lastEditor === editorTag) return;
+      // updatedAt 없는 노드(레거시/복구 직후)도 자기 태그면 echo로 간주 — stale 덮어쓰기 방지
+      if (meta?.lastEditor === editorTag) {
+        if (!meta?.updatedAt || Math.abs(Date.now() - meta.updatedAt) < 1500) return;
       }
       // 같은 updatedAt 재방송 무시
       if (meta?.updatedAt && meta.updatedAt <= lastRemoteUpdateRef.current) return;
@@ -585,7 +586,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
     const name = newPlayer.trim();
     if (!name || attendees.includes(name) || teams.flat().includes(name)) { set('newPlayer', ""); return; }
     dispatch({ type: 'SET_FIELDS', fields: { attendees: [...attendees, name], newPlayer: "" } });
-    setSelectedPoolPlayer(name);
+    setSelectedPoolPlayers(prev => prev.includes(name) ? prev : [...prev, name]);
   };
 
   const unassignedPlayers = useMemo(() => {
@@ -747,14 +748,25 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
         pts.goguma = 0;
       }
       if (pts.goals === 0 && pts.assists === 0 && pts.owngoals === 0 && (pts.fouls || 0) === 0 && pts.conceded === 0 && pts.cleanSheets === 0 && pts.keeperGames === 0 && pts.crova === 0 && pts.goguma === 0 && rankScore === 0) return null;
-      return { gameDate: dateStr, name: p, ...pts, owngoals: pts.owngoals * ES2.ownGoalPoint, fouls: (pts.fouls || 0) * (ES2.foulPoint ?? -1), rankScore, inputTime };
+      // owngoals/fouls: 선수별집계 로그(역주행/반칙 컬럼)는 포인트 환산값,
+      // 로그_선수경기(PG)는 원시 횟수 — owngoalCount/foulCount로 분리 전달.
+      return {
+        gameDate: dateStr, name: p, ...pts,
+        owngoals: pts.owngoals * ES2.ownGoalPoint, fouls: (pts.fouls || 0) * (ES2.foulPoint ?? -1),
+        owngoalCount: pts.owngoals, foulCount: pts.fouls || 0,
+        rankScore, inputTime,
+      };
     }).filter(Boolean);
 
     const team = teamContext?.team || '';
     const rawEvents = buildRawEventsFromFutsal({ team, gameId: gameState.gameId, events: pointEvents });
     const rawPlayerGames = buildRawPlayerGamesFromFutsal({
       team, inputTime,
-      players: playerData.map(p => ({ ...p, playerTeam: getPlayerTeamName(p.name) })),
+      players: playerData.map(p => ({
+        ...p,
+        owngoals: p.owngoalCount, fouls: p.foulCount, // PG 시트는 원시 횟수
+        playerTeam: getPlayerTeamName(p.name),
+      })),
     });
     const matchRows = buildRoundRowsFromFutsal({
       team,
@@ -779,7 +791,8 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
         const f = [];
         if (r1.status !== 'fulfilled') f.push('포인트로그');
         if (r2.status !== 'fulfilled') f.push('선수별집계');
-        throw new Error(`핵심 시트 저장 실패: ${f.join(', ')}`);
+        const reasons = [r1, r2].filter(r => r.status !== 'fulfilled').map(r => r.reason?.message || '').filter(Boolean);
+        throw new Error(`핵심 시트 저장 실패: ${f.join(', ')}` + (reasons.length ? `\n${reasons.join('\n')}` : ''));
       }
       // 분석 소스(로그_*) 전송 실패를 silent 처리하지 않음 — 하나라도 실패하면 미확정으로 두고 경고.
       const rawFailed = [];
@@ -788,7 +801,11 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
       if (r5.status !== 'fulfilled') rawFailed.push('로그_매치');
       const allOk = rawFailed.length === 0;
       // Firebase에 확정 state 저장 (HistoryView/PlayerAnalytics 소스)
-      await FirebaseSync.saveFinalized(teamContext?.team, gameId, gameState);
+      // — 모든 시트 성공 시에만. 부분 실패 시 finalized 기록을 남기면
+      //   히스토리에 '완료'처럼 보여 재전송 의무를 놓치게 됨.
+      if (allOk) {
+        await FirebaseSync.saveFinalized(teamContext?.team, gameId, gameState);
+      }
       // 모든 시트 성공 시에만 gameFinalized:true (분석 로그 누락 시 false로 두어 재전송 유도 + Archive 차단)
       const team = teamContext?.team || '';
       const finalState = { ...gameState, gameFinalized: allOk };

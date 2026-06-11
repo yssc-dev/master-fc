@@ -29,6 +29,29 @@ const AppSync = {
     return auth?.team || "";
   },
 
+  // 시트 쓰기 공통 POST. Apps Script는 서버측 실패(잠금 실패/검증 실패 등)도
+  // HTTP 200 + { success:false }로 응답하므로, fulfilled 여부만 보는 호출부
+  // (Promise.allSettled)가 실패를 성공으로 오판하지 않게 여기서 throw로 변환한다.
+  // 비200(인증 리다이렉트/장애 HTML)도 의미있는 메시지로 조기 차단.
+  async _postWrite(payload, label) {
+    const resp = await fetch(APPS_SCRIPT_URL, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain" },
+      body: JSON.stringify(payload),
+    });
+    if (!resp.ok) {
+      console.warn(`${label} 실패: HTTP ${resp.status}`);
+      throw new Error(`${label} 실패: HTTP ${resp.status}`);
+    }
+    const result = await resp.json();
+    if (!result || result.success === false) {
+      const msg = result?.error || "서버 응답 오류";
+      console.warn(`${label} 실패:`, msg);
+      throw new Error(`${label} 실패: ${msg}`);
+    }
+    return result;
+  },
+
   async saveState(state) {
     if (!this.enabled()) return;
     try {
@@ -71,6 +94,8 @@ const AppSync = {
     } catch (e) { console.warn("상태 삭제 실패:", e.message); }
   },
 
+  // ★ 관리자 전용 — 서버(Code.js ADMIN_ACTIONS)가 role을 검증함.
+  //   멤버용 마감 플로우에 연결하면 '관리자 권한이 필요합니다'로 실패하니 주의.
   async finalizeState(gameId, state) {
     if (!this.enabled()) return;
     try {
@@ -173,108 +198,46 @@ const AppSync = {
     } catch (e) { console.warn("이력 조회 실패:", e.message); return []; }
   },
 
+  // ── 시트 쓰기 (실패 시 throw — 호출부 Promise.allSettled가 rejected로 분류) ──
+
   async writePointLog(data, pointLogSheet) {
     if (!this.enabled()) return null;
-    try {
-      const team = this._getTeam();
-      const resp = await fetch(APPS_SCRIPT_URL, {
-        method: "POST",
-        headers: { "Content-Type": "text/plain" },
-        body: JSON.stringify({ action: "writePointLog", data: { ...data, team }, pointLogSheet: pointLogSheet || "", authToken: this._getAuthToken() }),
-      });
-      return await resp.json();
-    } catch (e) { console.warn("포인트로그 저장 실패:", e.message); return null; }
+    return this._postWrite({ action: "writePointLog", data: { ...data, team: this._getTeam() }, pointLogSheet: pointLogSheet || "", authToken: this._getAuthToken() }, "포인트로그 저장");
   },
 
   async writePlayerLog(data, playerLogSheet) {
     if (!this.enabled()) return null;
-    try {
-      const team = this._getTeam();
-      const resp = await fetch(APPS_SCRIPT_URL, {
-        method: "POST",
-        headers: { "Content-Type": "text/plain" },
-        body: JSON.stringify({ action: "writePlayerLog", data: { ...data, team }, playerLogSheet: playerLogSheet || "", authToken: this._getAuthToken() }),
-      });
-      return await resp.json();
-    } catch (e) { console.warn("선수별집계 저장 실패:", e.message); return null; }
+    return this._postWrite({ action: "writePlayerLog", data: { ...data, team: this._getTeam() }, playerLogSheet: playerLogSheet || "", authToken: this._getAuthToken() }, "선수별집계 저장");
   },
 
   async writeEventLog(data, eventLogSheet) {
     if (!this.enabled()) return null;
-    try {
-      const team = this._getTeam();
-      const resp = await fetch(APPS_SCRIPT_URL, {
-        method: "POST",
-        headers: { "Content-Type": "text/plain" },
-        body: JSON.stringify({ action: "writeEventLog", data: { ...data, team }, eventLogSheet: eventLogSheet || "", authToken: this._getAuthToken() }),
-      });
-      return await resp.json();
-    } catch (e) { console.warn("이벤트로그 저장 실패:", e.message); return null; }
+    return this._postWrite({ action: "writeEventLog", data: { ...data, team: this._getTeam() }, eventLogSheet: eventLogSheet || "", authToken: this._getAuthToken() }, "이벤트로그 저장");
   },
 
   async writeSoccerPointLog(data, pointLogSheet) {
     if (!this.enabled()) return null;
-    try {
-      const team = this._getTeam();
-      const resp = await fetch(APPS_SCRIPT_URL, {
-        method: "POST",
-        headers: { "Content-Type": "text/plain" },
-        body: JSON.stringify({ action: "writeSoccerPointLog", data: { ...data, team }, pointLogSheet: pointLogSheet || "", authToken: this._getAuthToken() }),
-      });
-      return await resp.json();
-    } catch (e) { console.warn("축구 포인트로그 저장 실패:", e.message); return null; }
+    return this._postWrite({ action: "writeSoccerPointLog", data: { ...data, team: this._getTeam() }, pointLogSheet: pointLogSheet || "", authToken: this._getAuthToken() }, "축구 포인트로그 저장");
   },
 
   async writeSoccerPlayerLog(data, playerLogSheet) {
     if (!this.enabled()) return null;
-    try {
-      const team = this._getTeam();
-      const resp = await fetch(APPS_SCRIPT_URL, {
-        method: "POST",
-        headers: { "Content-Type": "text/plain" },
-        body: JSON.stringify({ action: "writeSoccerPlayerLog", data: { ...data, team }, playerLogSheet: playerLogSheet || "", authToken: this._getAuthToken() }),
-      });
-      return await resp.json();
-    } catch (e) { console.warn("축구 선수별집계 저장 실패:", e.message); return null; }
+    return this._postWrite({ action: "writeSoccerPlayerLog", data: { ...data, team: this._getTeam() }, playerLogSheet: playerLogSheet || "", authToken: this._getAuthToken() }, "축구 선수별집계 저장");
   },
 
   async writeRawEvents(data) {
     if (!this.enabled()) return null;
-    try {
-      const team = this._getTeam();
-      const resp = await fetch(APPS_SCRIPT_URL, {
-        method: "POST",
-        headers: { "Content-Type": "text/plain" },
-        body: JSON.stringify({ action: "writeRawEvents", data: { ...data, team }, authToken: this._getAuthToken() }),
-      });
-      return await resp.json();
-    } catch (e) { console.warn("로그_이벤트 저장 실패:", e.message); return null; }
+    return this._postWrite({ action: "writeRawEvents", data: { ...data, team: this._getTeam() }, authToken: this._getAuthToken() }, "로그_이벤트 저장");
   },
 
   async writeRawPlayerGames(data) {
     if (!this.enabled()) return null;
-    try {
-      const team = this._getTeam();
-      const resp = await fetch(APPS_SCRIPT_URL, {
-        method: "POST",
-        headers: { "Content-Type": "text/plain" },
-        body: JSON.stringify({ action: "writeRawPlayerGames", data: { ...data, team }, authToken: this._getAuthToken() }),
-      });
-      return await resp.json();
-    } catch (e) { console.warn("로그_선수경기 저장 실패:", e.message); return null; }
+    return this._postWrite({ action: "writeRawPlayerGames", data: { ...data, team: this._getTeam() }, authToken: this._getAuthToken() }, "로그_선수경기 저장");
   },
 
   async writeMatchLog(rows) {
     if (!this.enabled()) return null;
-    try {
-      const team = this._getTeam();
-      const resp = await fetch(APPS_SCRIPT_URL, {
-        method: "POST",
-        headers: { "Content-Type": "text/plain" },
-        body: JSON.stringify({ action: "writeRawMatches", data: { rows, team }, authToken: this._getAuthToken() }),
-      });
-      return await resp.json();
-    } catch (e) { console.warn("로그_매치 저장 실패:", e.message); return null; }
+    return this._postWrite({ action: "writeRawMatches", data: { rows, team: this._getTeam() }, authToken: this._getAuthToken() }, "로그_매치 저장");
   },
 
   async getMatchLog({ sport = '', dateFrom = '', dateTo = '' } = {}) {
