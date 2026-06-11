@@ -644,14 +644,19 @@ function gameReducer(state, action) {
       const prefix = `R${roundIdx + 1}_`;
       const newConfirmed = { ...state.confirmedRounds };
       delete newConfirmed[roundIdx];
-      const restoredGks = state.gksHistory[roundIdx] || {};
+      // 뒤에 확정된 라운드가 남아있으면(중간 라운드 취소) 라이브 gks 를 보존해야 함.
+      // 구 라운드 GK로 덮어쓰면 이후 라운드 확정 시 잘못된 GK가 기록(로그_선수경기 오염)됨.
+      const hasLaterConfirmed = Object.entries(newConfirmed)
+        .some(([k, v]) => v && parseInt(k, 10) > roundIdx);
+      const restoredGks = hasLaterConfirmed ? state.gks : (state.gksHistory[roundIdx] || {});
       const newGksHistory = { ...state.gksHistory };
       delete newGksHistory[roundIdx];
+      // matchId 없는 항목(RTDB partial write 등)은 라운드 소속 판정 불가 — 보존
       const removedMatches = state.completedMatches.filter(
-        m => m.matchId.startsWith(prefix) && !m.isExtra
+        m => (m.matchId || '').startsWith(prefix) && !m.isExtra
       );
       const newCompleted = state.completedMatches.filter(
-        m => !m.matchId.startsWith(prefix) || m.isExtra
+        m => !(m.matchId || '').startsWith(prefix) || m.isExtra
       );
       // 확정취소 시 그 라운드 매치들의 용병을 다시 라이브로 복원
       const nextLiveMercs = { ...state.liveMercs };
@@ -671,8 +676,6 @@ function gameReducer(state, action) {
       });
       // 뒤에 확정된 라운드가 남아있으면 currentRoundIdx 를 보존(진행 위치 유지).
       // 그렇지 않을 때만 roundIdx 로 롤백(가장 최신 라운드를 취소한 경우).
-      const hasLaterConfirmed = Object.entries(newConfirmed)
-        .some(([k, v]) => v && parseInt(k, 10) > roundIdx);
       const newCurrentRoundIdx = hasLaterConfirmed ? state.currentRoundIdx : roundIdx;
       const updates = {
         confirmedRounds: newConfirmed,
