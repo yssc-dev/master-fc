@@ -311,3 +311,92 @@ describe('expandStateForRtdb / 라운드트립', () => {
     expect(raw.matches).toEqual({ R1_C0: { matchId: 'R1_C0' } });
   });
 });
+
+// 축구 이벤트는 matchIdx 노드 통째 교체가 아니라 자식 단위로 diff 해야
+// 두 탭이 같은 경기에 동시에 기록해도 서로의 이벤트를 덮어쓰지 않음 (풋살 events/{id}와 동일 원칙).
+describe('diffStateToWrites — soccerMatches 자식 노드 단위 diff', () => {
+  const ev = (id, type, extra = {}) => ({ id, type, timestamp: Number(id.slice(1)), ...extra });
+
+  it('이벤트 추가 시 매치 통째가 아니라 이벤트 경로만 쓴다', () => {
+    const e1 = ev('e1', 'goal', { player: 'A' });
+    const e2 = ev('e2', 'yellowCard', { player: 'B' });
+    const base = { matchIdx: 0, opponent: '상대FC', status: 'playing', events: [e1] };
+    const writes = diffStateToWrites(
+      { soccerMatches: [base] },
+      { soccerMatches: [{ ...base, events: [e1, e2] }] },
+    );
+    expect(writes).toEqual({ 'soccerMatches/0/events/e2': e2 });
+  });
+
+  it('이벤트 삭제 시 해당 이벤트 경로에 null', () => {
+    const e1 = ev('e1', 'goal', { player: 'A' });
+    const e2 = ev('e2', 'yellowCard', { player: 'B' });
+    const base = { matchIdx: 0, opponent: '상대FC', status: 'playing', events: [e1, e2] };
+    const writes = diffStateToWrites(
+      { soccerMatches: [base] },
+      { soccerMatches: [{ ...base, events: [e1] }] },
+    );
+    expect(writes).toEqual({ 'soccerMatches/0/events/e2': null });
+  });
+
+  it('이벤트 외 필드 변경은 해당 필드 경로만 쓴다', () => {
+    const base = { matchIdx: 0, opponent: '상대FC', status: 'playing', events: [] };
+    const writes = diffStateToWrites(
+      { soccerMatches: [base] },
+      { soccerMatches: [{ ...base, status: 'finished', ourScore: 2 }] },
+    );
+    expect(writes).toEqual({
+      'soccerMatches/0/status': 'finished',
+      'soccerMatches/0/ourScore': 2,
+    });
+  });
+
+  it('신규 매치는 통째로 쓰되 events 를 id 키 객체로 직렬화', () => {
+    const e1 = ev('e1', 'goal', { player: 'A' });
+    const writes = diffStateToWrites(
+      { soccerMatches: [] },
+      { soccerMatches: [{ matchIdx: 0, opponent: 'X', events: [e1] }] },
+    );
+    expect(writes).toEqual({
+      'soccerMatches/0': { matchIdx: 0, opponent: 'X', events: { e1 } },
+    });
+  });
+
+  it('빈 events 배열에서 첫 이벤트 추가도 이벤트 경로만 쓴다 (공허 참 경로)', () => {
+    const e1 = ev('e1', 'goal', { player: 'A' });
+    const base = { matchIdx: 0, opponent: '상대FC', status: 'playing', events: [] };
+    const writes = diffStateToWrites(
+      { soccerMatches: [base] },
+      { soccerMatches: [{ ...base, events: [e1] }] },
+    );
+    expect(writes).toEqual({ 'soccerMatches/0/events/e1': e1 });
+  });
+
+  it('id 없는 이벤트가 섞여 있으면 매치 통째 교체로 폴백 (레거시 데이터 안전)', () => {
+    const legacy = { type: 'goal', timestamp: 1 };
+    const e9 = ev('e9', 'goal', { player: 'A' });
+    const base = { matchIdx: 0, events: [legacy] };
+    const next = { ...base, events: [legacy, e9] };
+    const writes = diffStateToWrites({ soccerMatches: [base] }, { soccerMatches: [next] });
+    expect(writes).toEqual({ 'soccerMatches/0': next });
+  });
+
+  it('매치 제거는 노드 null', () => {
+    const writes = diffStateToWrites(
+      { soccerMatches: [{ matchIdx: 0, events: [] }] },
+      { soccerMatches: [] },
+    );
+    expect(writes).toEqual({ 'soccerMatches/0': null });
+  });
+
+  it('expandStateForRtdb → reconstructState 라운드트립에서 events 를 정렬된 배열로 복원', () => {
+    const e1 = ev('e1', 'goal', { player: 'A' });
+    const e2 = ev('e2', 'goal', { player: 'B' });
+    const raw = expandStateForRtdb({
+      soccerMatches: [{ matchIdx: 0, opponent: 'X', events: [e2, e1] }],
+    });
+    expect(raw.soccerMatches['0'].events).toEqual({ e1, e2 });
+    const restored = reconstructState('g_1', raw);
+    expect(restored.soccerMatches[0].events).toEqual([e1, e2]);
+  });
+});

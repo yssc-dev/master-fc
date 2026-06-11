@@ -82,6 +82,25 @@ export function soccerMatchesToObj(arr) {
   return out;
 }
 
+// 매치의 이벤트가 전부 id를 가졌는지 — 이벤트 단위 diff 가능 여부 판정.
+// (레거시 id 없는 이벤트가 섞이면 매치 통째 교체로 폴백해야 안전)
+function soccerEventsHaveIds(events) {
+  const arr = Array.isArray(events)
+    ? events
+    : (events && typeof events === 'object' ? Object.values(events) : []);
+  return arr.every(e => e && e.id != null);
+}
+
+// RTDB 저장용 직렬화: events 배열을 id 키 객체로 변환.
+// 배열로 저장하면 RTDB가 숫자 키 객체로 바꿔 이벤트 단위 경로(events/{id})와 충돌함.
+export function serializeSoccerMatch(m) {
+  if (!m || typeof m !== 'object') return m;
+  if (Array.isArray(m.events) && m.events.length > 0 && soccerEventsHaveIds(m.events)) {
+    return { ...m, events: eventsToObj(m.events) };
+  }
+  return m;
+}
+
 // prev → next state diff. RTDB update() 에 그대로 쓸 수 있는 path-value map 반환.
 // updatedAt/lastEditor 는 호출자가 첨부 (firebase SDK serverTimestamp 사용 위해).
 export function diffStateToWrites(prev, next) {
@@ -121,13 +140,37 @@ export function diffStateToWrites(prev, next) {
     }
   }
 
-  // soccerMatches
+  // soccerMatches — 매치 통째 교체가 아니라 자식(필드/이벤트) 단위로 diff.
+  // 두 탭이 같은 경기에 동시에 이벤트를 기록해도 서로의 이벤트를 덮어쓰지 않게 함 (풋살 events/{id}와 동일 원칙).
   {
     const prevObj = soccerMatchesToObj(prev?.soccerMatches);
     const nextObj = soccerMatchesToObj(next?.soccerMatches);
     for (const id of new Set([...Object.keys(prevObj), ...Object.keys(nextObj)])) {
-      if (!deepEqual(prevObj[id], nextObj[id])) {
-        writes[`soccerMatches/${id}`] = nextObj[id] === undefined ? null : nextObj[id];
+      const pm = prevObj[id];
+      const nm = nextObj[id];
+      if (deepEqual(pm, nm)) continue;
+      if (nm === undefined) {
+        writes[`soccerMatches/${id}`] = null;
+        continue;
+      }
+      // 신규 매치이거나 id 없는 이벤트가 섞인 경우(레거시)는 통째 교체
+      if (pm === undefined || !soccerEventsHaveIds(pm.events) || !soccerEventsHaveIds(nm.events)) {
+        writes[`soccerMatches/${id}`] = serializeSoccerMatch(nm);
+        continue;
+      }
+      const keys = new Set([...Object.keys(pm), ...Object.keys(nm)]);
+      keys.delete('events');
+      for (const k of keys) {
+        if (!deepEqual(pm[k], nm[k])) {
+          writes[`soccerMatches/${id}/${k}`] = nm[k] === undefined ? null : nm[k];
+        }
+      }
+      const pe = eventsToObj(pm.events);
+      const ne = eventsToObj(nm.events);
+      for (const evId of new Set([...Object.keys(pe), ...Object.keys(ne)])) {
+        if (!deepEqual(pe[evId], ne[evId])) {
+          writes[`soccerMatches/${id}/events/${evId}`] = ne[evId] === undefined ? null : ne[evId];
+        }
       }
     }
   }
@@ -346,6 +389,11 @@ export function expandStateForRtdb(state) {
   if (state.confirmedRounds) out.confirmedRounds = state.confirmedRounds;
   if (state.allEvents) out.events = eventsToObj(state.allEvents);
   if (state.completedMatches) out.matches = matchesToObj(state.completedMatches);
-  if (state.soccerMatches) out.soccerMatches = soccerMatchesToObj(state.soccerMatches);
+  if (state.soccerMatches) {
+    const obj = soccerMatchesToObj(state.soccerMatches);
+    const serialized = {};
+    for (const k of Object.keys(obj)) serialized[k] = serializeSoccerMatch(obj[k]);
+    out.soccerMatches = serialized;
+  }
   return out;
 }
