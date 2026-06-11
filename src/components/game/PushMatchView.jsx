@@ -38,6 +38,16 @@ export default function PushMatchView({
     }
   }
 
+  // 경기 수 변화 없이 suggestedMatch만 원격에서 바뀐 경우(예: 다른 탭의 과거 점수 수정으로
+  // 재계산) — 위 가드가 못 잡으므로 별도 추적. 양 탭이 같은 대진을 보게 수렴시킨다.
+  // 새 원격 추천은 수동 대진변경보다 우선(수렴 우선 정책). 단 대진 편집 중에는 건드리지 않음.
+  const [lastSuggested, setLastSuggested] = useState(pushState?.suggestedMatch ?? null);
+  const sm = pushState?.suggestedMatch;
+  if (sm && !editingMatch && (sm.home !== lastSuggested?.home || sm.away !== lastSuggested?.away)) {
+    setLastSuggested(sm);
+    setCurrentMatch(sm);
+  }
+
   const isLive = viewingIdx >= completedMatches.length;
   const viewingPast = !isLive ? completedMatches[viewingIdx] : null;
 
