@@ -12,6 +12,7 @@ export function calcTrends({ playerName, playerLogs, matchLogs, maxSessions = 12
 
   const sessionMatches = {};
   for (const m of matchLogs) {
+    if (m.is_extra) continue; // 연습/이벤트성 매치 제외 — calcPlayerSummary와 동일 기준
     // home/away 양쪽에서 실제 출전한 매치만 카운트 (휴식 제외)
     const homeActual = parseActualPlayers(m.our_members_json);
     const awayActual = parseActualPlayers(m.opponent_members_json);

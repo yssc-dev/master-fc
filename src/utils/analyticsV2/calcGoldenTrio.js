@@ -30,8 +30,7 @@ export function calcGoldenTrio({ matchLogs, minRounds = 5, topN = 5 }) {
     playerRoundOutcomes[name][roundKey] = outcome;
   };
 
-  const bumpPair = (key, outcome, ref) => {
-    const roundKey = `${ref.date}|${ref.match_id}`;
+  const bumpPair = (key, outcome, ref, roundKey) => {
     if (!seenPair[key]) seenPair[key] = new Set();
     if (seenPair[key].has(roundKey)) return;
     seenPair[key].add(roundKey);
@@ -43,14 +42,18 @@ export function calcGoldenTrio({ matchLogs, minRounds = 5, topN = 5 }) {
     pairs[key].matches.push({ ...ref, outcome });
   };
 
+  let rowSeq = 0;
   for (const m of matchLogs || []) {
+    rowSeq++;
+    if (m.is_extra) continue; // 연습/이벤트성 매치 제외 — calcPlayerSummary와 동일 기준
     const home = parseMembers(m.our_members_json);
     const away = parseMembers(m.opponent_members_json);
     const our = Number(m.our_score) || 0;
     const opp = Number(m.opponent_score) || 0;
     const homeOutcome = our > opp ? 'W' : (our === opp ? 'D' : 'L');
     const awayOutcome = opp > our ? 'W' : (our === opp ? 'D' : 'L');
-    const roundKey = `${m.date}|${m.match_id}`;
+    // match_id 없는 레거시 행은 행 단위 고유 키로 폴백 (같은 날짜 매치끼리 합쳐지는 것 방지)
+    const roundKey = m.match_id ? `${m.date}|${m.match_id}` : `${m.date}|__row${rowSeq}`;
 
     const homeRef = { date: m.date, match_id: m.match_id, side: 'home', team: m.our_team_name, opponent: m.opponent_team_name, our, opp };
     const awayRef = { date: m.date, match_id: m.match_id, side: 'away', team: m.opponent_team_name, opponent: m.our_team_name, our: opp, opp: our };
@@ -62,7 +65,7 @@ export function calcGoldenTrio({ matchLogs, minRounds = 5, topN = 5 }) {
       const sorted = [...members].sort((a, b) => a.localeCompare(b, 'ko'));
       for (let i = 0; i < sorted.length; i++) {
         for (let j = i + 1; j < sorted.length; j++) {
-          bumpPair(`${sorted[i]}|${sorted[j]}`, outcome, ref);
+          bumpPair(`${sorted[i]}|${sorted[j]}`, outcome, ref, roundKey);
         }
       }
     };

@@ -20,14 +20,18 @@ export function calcSynergyMatrix({ matchLogs, minRounds = 5 }) {
 
   const parseMembers = (s) => parseActualPlayers(s);
 
+  let rowSeq = 0;
   for (const m of matchLogs || []) {
+    rowSeq++;
+    if (m.is_extra) continue; // 연습/이벤트성 매치 제외 — calcPlayerSummary와 동일 기준
     const home = parseMembers(m.our_members_json);
     const away = parseMembers(m.opponent_members_json);
     const our = Number(m.our_score) || 0;
     const opp = Number(m.opponent_score) || 0;
     const homeOutcome = our > opp ? 'W' : (our === opp ? 'D' : 'L');
     const awayOutcome = opp > our ? 'W' : (our === opp ? 'D' : 'L');
-    const roundKey = `${m.date}|${m.match_id}`;
+    // match_id 없는 레거시 행은 행 단위 고유 키로 폴백 (같은 날짜 매치끼리 합쳐지는 것 방지)
+    const roundKey = m.match_id ? `${m.date}|${m.match_id}` : `${m.date}|__row${rowSeq}`;
 
     const tally = (members, outcome) => {
       if (members.length === 0) return;

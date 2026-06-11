@@ -24,6 +24,7 @@ export function calcGkChemistry({ matchLogs, threshold = 5, includeOpponent = tr
     }
   }
   for (const m of matchLogs || []) {
+    if (m.is_extra) continue; // 연습/이벤트성 매치 제외 — calcPlayerSummary와 동일 기준
     const our = Number(m.our_score) || 0;
     const opp = Number(m.opponent_score) || 0;
     bump(m.our_gk, parseMembers(m.our_members_json), opp === 0);

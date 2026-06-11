@@ -134,7 +134,7 @@ export async function recoverFinalizedStateFromSheets({ team, date, settingsSnap
     useCrovaGoguma: true,
     crovaPoint: 1,
     gogumaPoint: -1,
-    ownGoalPoint: 2,
+    ownGoalPoint: -1, // 표준 기본값(settings.js)과 일치 — 양수면 복구 시 자책골이 가점으로 뒤집힘
   };
 
   const state = {
