@@ -5,6 +5,7 @@ import { fetchSheetData, fetchAttendanceData } from './services/sheetService';
 import AppSync from './services/appSync';
 import FirebaseSync from './services/firebaseSync';
 import { useGameReducer } from './hooks/useGameReducer';
+import { useFirebaseSync } from './hooks/useFirebaseSync';
 import { getSettings, getEffectiveSettings } from './config/settings';
 import { makeStyles } from './styles/theme';
 import PhaseIndicator from './components/common/PhaseIndicator';
@@ -115,16 +116,11 @@ export default function SoccerApp({ authUser, teamContext, isNewGame, gameMode, 
       .finally(() => set('attendanceLoading', false));
   };
 
-  // ── 자동저장 ──
-  const saveTimerRef = useRef(null);
-  const isSyncingRef = useRef(false);
-  const lastSyncedStateRef = useRef(null);
-  // 탭 단위 고유 ID — 같은 사용자가 멀티탭일 때 echo 판별용 (이름만으론 구분 불가)
-  const tabSessionIdRef = useRef(null);
-  if (tabSessionIdRef.current === null) {
-    tabSessionIdRef.current = Math.random().toString(36).slice(2, 10);
-  }
-  const editorTag = `${authUser?.name || "알 수 없음"}#${tabSessionIdRef.current}`;
+  // ── 자동저장 + 구독 — 풋살/축구 공용 훅 (src/hooks/useFirebaseSync.js) ──
+  const setSyncStatus = useCallback((v) => dispatch({ type: 'SET_FIELD', field: 'syncStatus', value: v }), [dispatch]);
+  const { editorTag, autoSync, cancelPendingSave } = useFirebaseSync({
+    teamContext, gameId, authUser, dispatch, setSyncStatus,
+  });
   const gameState = useMemo(() => ({
     gameId: gameId || "legacy",
     gameCreator: state.gameCreator || authUser?.name || "알 수 없음",
@@ -135,53 +131,10 @@ export default function SoccerApp({ authUser, teamContext, isNewGame, gameMode, 
     lastEditor: editorTag,
   }), [state.gameCreator, phase, attendees, state.soccerMatches, state.currentMatchIdx, state.opponents, state.soccerFormation, settingsSnapshot, authUser, gameId, editorTag]);
 
-  const autoSync = useCallback(() => {
-    if (isSyncingRef.current) return;
-    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-    saveTimerRef.current = setTimeout(async () => {
-      set('syncStatus', 'saving');
-      const team = teamContext?.team || "";
-      try {
-        const written = await FirebaseSync.syncDiff(team, gameId || "legacy", lastSyncedStateRef.current, gameState);
-        lastSyncedStateRef.current = gameState;
-        if (written > 0) {
-          set('syncStatus', 'saved');
-          setTimeout(() => set('syncStatus', ''), 2000);
-        } else {
-          set('syncStatus', '');
-        }
-      } catch (e) {
-        console.warn("자동저장 실패:", e.message);
-        set('syncStatus', 'error');
-      }
-    }, 300);
-  }, [gameState, teamContext]);
-
+  // 자동저장 트리거 — deps에서 제외된 gameState 필드는 setup에서만 바뀌거나 phase 전환에 동반됨.
   useEffect(() => {
-    if (phase !== "setup" && phase !== "") autoSync();
-  }, [state.soccerMatches, phase, state.currentMatchIdx, state.soccerFormation, state.opponents, attendees]);
-
-  // ── Firebase 노드별 구독 ──
-  const lastRemoteUpdateRef = useRef(0);
-  useEffect(() => {
-    const team = teamContext?.team;
-    if (!team) return;
-    const gid = gameId || "legacy";
-    const unsub = FirebaseSync.subscribe(team, gid, (remoteState, meta) => {
-      if (!remoteState) return;
-      // updatedAt 없는 노드(레거시/복구 직후)도 자기 태그면 echo로 간주 — stale 덮어쓰기 방지
-      if (meta?.lastEditor === editorTag) {
-        if (!meta?.updatedAt || Math.abs(Date.now() - meta.updatedAt) < 1500) return;
-      }
-      if (meta?.updatedAt && meta.updatedAt <= lastRemoteUpdateRef.current) return;
-      lastRemoteUpdateRef.current = meta?.updatedAt || Date.now();
-      isSyncingRef.current = true;
-      dispatch({ type: 'RESTORE_STATE', state: remoteState });
-      lastSyncedStateRef.current = remoteState;
-      setTimeout(() => { isSyncingRef.current = false; }, 500);
-    });
-    return unsub;
-  }, [teamContext?.team, editorTag, gameId]);
+    if (phase !== "setup" && phase !== "") autoSync(gameState);
+  }, [autoSync, state.soccerMatches, phase, state.currentMatchIdx, state.soccerFormation, state.opponents, attendees]);
 
   // ── 정렬된 선수 목록 ──
   const sortedPlayers = useMemo(() => {
@@ -255,6 +208,8 @@ export default function SoccerApp({ authUser, teamContext, isNewGame, gameMode, 
     const finished = state.soccerMatches.filter(m => m.status === "finished");
     if (finished.length === 0) { alert("종료된 경기가 없습니다."); return; }
     if (!confirm(`${gameD.getMonth() + 1}월 ${gameD.getDate()}일 축구기록을 확정하시겠습니까?\n\n${finished.length}경기 · 3종 로그를 저장합니다.`)) return;
+    // 펜딩 자동저장 취소 — 마감 성공 후 clearState된 노드를 타이머가 되살리는 레이스 방지
+    cancelPendingSave();
 
     const eventLogRows = buildEventLogRows(finished, dateStr);
     const pointLogRows = buildPointLogRows(finished, dateStr, inputTime);

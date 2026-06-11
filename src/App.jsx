@@ -12,6 +12,7 @@ import { fetchSheetData, fetchAttendanceData } from './services/sheetService';
 import AppSync from './services/appSync';
 import FirebaseSync from './services/firebaseSync';
 import { useGameReducer } from './hooks/useGameReducer';
+import { useFirebaseSync } from './hooks/useFirebaseSync';
 import { getSettings, getEffectiveSettings } from './config/settings';
 import { makeStyles } from './styles/theme';
 import PhaseIndicator from './components/common/PhaseIndicator';
@@ -220,16 +221,11 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
       .finally(() => set('attendanceLoading', false));
   };
 
-  // Auto-save
-  const saveTimerRef = useRef(null);
-  const isSyncingRef = useRef(false);
-  const lastSyncedStateRef = useRef(null);
-  // 탭 단위 고유 ID — 같은 사용자가 멀티탭일 때 echo 판별용 (이름만으론 구분 불가)
-  const tabSessionIdRef = useRef(null);
-  if (tabSessionIdRef.current === null) {
-    tabSessionIdRef.current = Math.random().toString(36).slice(2, 10);
-  }
-  const editorTag = `${authUser?.name || "알 수 없음"}#${tabSessionIdRef.current}`;
+  // Auto-save + 구독 — 풋살/축구 공용 훅 (src/hooks/useFirebaseSync.js)
+  const setSyncStatus = useCallback((v) => dispatch({ type: 'SET_FIELD', field: 'syncStatus', value: v }), [dispatch]);
+  const { editorTag, autoSync, lastSyncedStateRef, cancelPendingSave } = useFirebaseSync({
+    teamContext, gameId, authUser, dispatch, setSyncStatus,
+  });
   const gameState = useMemo(() => ({
     gameId: gameId || "legacy",
     gameCreator: state.gameCreator || authUser?.name || "알 수 없음",
@@ -240,59 +236,14 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
     lastEditor: editorTag,
   }), [state.gameCreator, phase, teams, teamNames, teamColorIndices, gks, gksHistory, liveMercs, absentees, freeCourtMatches, allEvents, completedMatches, schedule, currentRoundIdx, confirmedRounds, attendees, teamCount, courtCount, matchMode, isExtraRound, splitPhase, rotations, earlyFinish, gameFinalized, pushState, settingsSnapshot, authUser, gameId, editorTag]);
 
-  // 변경된 노드만 diff 해서 RTDB update. 동시 편집자끼리 다른 노드를 동시에 써도 안전.
-  const autoSync = useCallback(() => {
-    if (isSyncingRef.current) return;
-    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-    saveTimerRef.current = setTimeout(async () => {
-      set('syncStatus', 'saving');
-      const team = teamContext?.team || "";
-      try {
-        const written = await FirebaseSync.syncDiff(team, gameId || "legacy", lastSyncedStateRef.current, gameState);
-        lastSyncedStateRef.current = gameState;
-        if (written > 0) {
-          set('syncStatus', 'saved');
-          setTimeout(() => set('syncStatus', ''), 2000);
-        } else {
-          set('syncStatus', '');
-        }
-      } catch (e) {
-        console.warn("자동저장 실패:", e.message);
-        set('syncStatus', 'error');
-      }
-    }, 300);
-  }, [gameState, teamContext]);
-
+  // 자동저장 트리거. gameState의 일부 필드(schedule/teamCount/settingsSnapshot 등)는
+  // setup 단계에서만 바뀌거나 phase 전환에 동반되므로 deps에서 의도적으로 제외.
+  // 새 필드를 gameState에 추가할 때 단독으로 바뀔 수 있으면 여기 deps에도 넣을 것.
   useEffect(() => {
     if (phase !== "setup" && phase !== "") {
-      autoSync();
+      autoSync(gameState);
     }
-  }, [allEvents, completedMatches, currentRoundIdx, phase, gks, gksHistory, liveMercs, absentees, freeCourtMatches, confirmedRounds, pushState, teams, teamNames, splitPhase, attendees]);
-
-  // Firebase 노드별 구독 — 어떤 자식이라도 바뀌면 재조립된 state 가 콜백으로 옴.
-  const lastRemoteUpdateRef = useRef(0);
-  useEffect(() => {
-    const team = teamContext?.team;
-    if (!team) return;
-    const gid = gameId || "legacy";
-    const unsub = FirebaseSync.subscribe(team, gid, (remoteState, meta) => {
-      if (!remoteState) return;
-      // 자기 변경 echo 무시 — 탭 단위 ID 비교 (같은 사용자 멀티탭 구분 위해)
-      // updatedAt 없는 노드(레거시/복구 직후)도 자기 태그면 echo로 간주 — stale 덮어쓰기 방지
-      if (meta?.lastEditor === editorTag) {
-        if (!meta?.updatedAt || Math.abs(Date.now() - meta.updatedAt) < 1500) return;
-      }
-      // 같은 updatedAt 재방송 무시
-      if (meta?.updatedAt && meta.updatedAt <= lastRemoteUpdateRef.current) return;
-      lastRemoteUpdateRef.current = meta?.updatedAt || Date.now();
-      isSyncingRef.current = true;
-      dispatch({ type: 'RESTORE_STATE', state: remoteState });
-      // 원격 state 를 베이스라인으로 잡아 다음 diff 의 prev 로 사용 (echo 방지)
-      lastSyncedStateRef.current = remoteState;
-      setTimeout(() => { isSyncingRef.current = false; }, 500);
-    });
-    return unsub;
-  }, [teamContext?.team, editorTag, gameId]);
+  }, [autoSync, allEvents, completedMatches, currentRoundIdx, phase, gks, gksHistory, liveMercs, absentees, freeCourtMatches, confirmedRounds, pushState, teams, teamNames, splitPhase, attendees]);
 
   // Derived state
   const sortedPlayers = useMemo(() => {
@@ -707,6 +658,8 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
       ? `⚠️ 이미 전송된 기록입니다.\n재전송 시 구글시트에 중복 저장될 수 있습니다.\n\n수정된 내용을 재전송하시겠습니까?`
       : `${gameD.getMonth() + 1}월 ${gameD.getDate()}일 풋살기록을 확정하시겠습니까?\n\n시트에 포인트로그 + 선수별집계를 저장합니다.`;
     if (!confirm(reconfirmMsg)) return;
+    // 펜딩 자동저장이 마감 직후 stale state를 다시 쓰지 않게 취소
+    cancelPendingSave();
 
     const formatMatchId = (mid) => {
       const pPush = mid?.match(/^P(\d+)_C0$/);
