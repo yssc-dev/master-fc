@@ -2,6 +2,13 @@
 // 풋살 웹앱 Apps Script v2.0
 //
 // CHANGELOG
+// 2026-06-11: 보안 강화 — (1) 2파트 레거시 authToken('이름:번호') 폐지: 팀 접근 제어 우회 경로 차단.
+//             (2) _parseAuthToken이 토큰의 팀이 실제 소속인지 검증 + role 파싱.
+//             (3) 파괴적/유지보수 액션(deleteRaw*, deleteTournament, reimport*, migrate*,
+//                 backfill*, backupSheet, ensureEventLogHasGameId, finalizeState)에 관리자 role 서버측 검증 추가.
+//             (4) verifyAuth 브루트포스 방어 — 이름당 실패 10회 시 10분 잠금(CacheService).
+// 2026-06-11: _writePointLog/_writePlayerLog 시트 자동생성 버그 수정 — insertSheet('')(빈 상수) 호출로
+//             팀 전용 시트 첫 마감이 항상 실패하던 문제. insertSheet(targetName)으로 수정.
 // 2026-06-01: 선수별집계 로그 읽기 함수(_getCumulativeBonus/_getPrevRankings/_getRankingHistory)를
 //             하드코딩 인덱스(소속팀=12, 크로바=7 등) → 헤더명 기반(_playerLogColMap)으로 전환.
 //             향후 컬럼 삽입/순서변경에 견고. 헤더 탐색 실패 시 기존 표준 인덱스로 폴백.
@@ -176,17 +183,23 @@ function _successResponse(data) {
 function _parseAuthToken(token) {
   if (!token) return null;
   var parts = token.split(":");
-  // 새 형식: "팀이름:이름:번호"
-  if (parts.length === 3) {
-    var result = _verifyAuth(parts[1], parts[2]);
-    if (result.success) return { team: parts[0], name: parts[1], phone4: parts[2] };
+  // "팀이름:이름:번호" 형식만 허용.
+  // (2파트 레거시 '이름:번호'는 team이 비어 _checkTeamAccess가 무조건 통과되는 우회 경로라 폐지 — 2026-06-11)
+  if (parts.length !== 3) return null;
+  var result = _verifyAuth(parts[1], parts[2]);
+  if (!result.success) return null;
+  var tokenTeam = parts[0];
+  // 회원인증 시트가 5컬럼(팀/역할 포함)이면 토큰의 팀이 실제 소속인지 검증하고 role을 붙인다.
+  if (result.teams) {
+    var role = "";
+    for (var i = 0; i < result.teams.length; i++) {
+      if (result.teams[i].team === tokenTeam) { role = result.teams[i].role || "멤버"; break; }
+    }
+    if (!role) return null; // 소속이 아닌 팀을 토큰에 지정 — 거부
+    return { team: tokenTeam, name: parts[1], phone4: parts[2], role: role };
   }
-  // 이전 형식: "이름:번호"
-  if (parts.length === 2) {
-    var result = _verifyAuth(parts[0], parts[1]);
-    if (result.success) return { team: "", name: parts[0], phone4: parts[1] };
-  }
-  return null;
+  // 레거시 2컬럼 인증 시트 호환 (팀/역할 정보 없음)
+  return { team: tokenTeam, name: parts[1], phone4: parts[2], role: "멤버" };
 }
 
 function _verifyAuthToken(token) {
@@ -249,9 +262,18 @@ function doPost(e) {
 
     var action = body.action;
 
-    // verifyAuth는 인증 불필요
+    // verifyAuth는 인증 불필요 — 단 브루트포스 방어(이름당 실패 10회 → 10분 잠금)
     if (action === "verifyAuth") {
-      return _jsonResponse(_verifyAuth(body.name, body.phone4));
+      var cache = CacheService.getScriptCache();
+      var rlKey = "authfail_" + String(body.name || "").trim();
+      var fails = Number(cache.get(rlKey) || 0);
+      if (fails >= 10) {
+        return _errorResponse("시도 횟수를 초과했습니다. 10분 후 다시 시도하세요");
+      }
+      var vres = _verifyAuth(body.name, body.phone4);
+      if (vres.success) cache.remove(rlKey);
+      else cache.put(rlKey, String(fails + 1), 600);
+      return _jsonResponse(vres);
     }
 
     // 그 외 액션은 인증 필요
@@ -263,6 +285,18 @@ function doPost(e) {
     var requestTeam = body.team || (body.data && body.data.team) || "";
     if (!_checkTeamAccess(authInfo, requestTeam)) {
       return _errorResponse("다른 팀의 데이터에 접근할 수 없습니다");
+    }
+
+    // 파괴적/유지보수 액션은 서버측 role 검증 — 클라이언트 버튼 숨김만으로는 우회 가능
+    var ADMIN_ACTIONS = {
+      finalizeState: 1,
+      deleteRawPlayerGamesByDate: 1, deleteRawMatchesByDate: 1, deleteRawEventsByDate: 1,
+      deleteTournament: 1, reimportPointLog: 1,
+      migrateEventTypes: 1, migrateMatchIds: 1, backfillFutsalGk: 1,
+      backupSheet: 1, ensureEventLogHasGameId: 1,
+    };
+    if (ADMIN_ACTIONS[action] && authInfo.role !== "관리자") {
+      return _errorResponse("관리자 권한이 필요합니다");
     }
 
     if (action === "saveState") {
@@ -730,9 +764,10 @@ function _writePointLog(data, sheetName) {
   try {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     var targetName = sheetName || POINT_LOG_SHEET;
+    if (!targetName) return { success: false, error: "포인트로그 시트명이 지정되지 않았습니다" };
     var sheet = ss.getSheetByName(targetName);
     if (!sheet) {
-      sheet = ss.insertSheet(POINT_LOG_SHEET);
+      sheet = ss.insertSheet(targetName);
       sheet.getRange("A1:K1").setValues([["경기일자","경기번호","내팀","상대팀","득점선수","어시선수","자책골","실점키퍼명","입력시간","팀이름","반칙선수"]]);
       sheet.getRange("A1:K1").setFontWeight("bold");
     }
@@ -774,9 +809,10 @@ function _writePlayerLog(data, sheetName) {
   try {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     var targetName = sheetName || PLAYER_LOG_SHEET;
+    if (!targetName) return { success: false, error: "선수별집계 시트명이 지정되지 않았습니다" };
     var sheet = ss.getSheetByName(targetName);
     if (!sheet) {
-      sheet = ss.insertSheet(PLAYER_LOG_SHEET);
+      sheet = ss.insertSheet(targetName);
       sheet.getRange("A1:N1").setValues([["경기일자","선수명","골","어시","역주행","실점","클린시트","크로바","고구마","키퍼경기수","팀순위점수","입력시간","소속팀","반칙"]]);
       sheet.getRange("A1:N1").setFontWeight("bold");
     }
