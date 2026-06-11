@@ -141,7 +141,7 @@ export default function EventLog({ matchEvents, allEvents, matchId, homePlayers,
         };
 
         return (
-          <div key={localIdx} style={{ minWidth: 0 }}>
+          <div key={e.id ?? `i${localIdx}`} style={{ minWidth: 0 }}>
           <SwipeableEvent onDelete={deleteEvent} C={C}>
             <div
               style={{

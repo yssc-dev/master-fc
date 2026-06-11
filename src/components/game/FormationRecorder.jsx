@@ -71,7 +71,12 @@ export default function FormationRecorder({
       delete newPosMap[player];
       setAssignments(newAssignments);
       setPositionMap(newPosMap);
-      onStateChange?.({ assignments: newAssignments, positionMap: newPosMap });
+      // GK 퇴장 시 gk를 비워야 이후 실점 귀속/클린시트가 퇴장 선수에게 가지 않음
+      const wasGk = gk === player;
+      if (wasGk) setGk("");
+      onStateChange?.(wasGk
+        ? { assignments: newAssignments, positionMap: newPosMap, gk: "" }
+        : { assignments: newAssignments, positionMap: newPosMap });
     }
     setActionPlayer(null);
   };
