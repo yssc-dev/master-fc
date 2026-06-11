@@ -590,7 +590,7 @@ export default function PlayerAnalyticsLegacy({ teamName, teamMode, initialTab, 
             {(() => {
               const dates = teamAnalysis?.sortedDates;
               if (dates.length === 0) return null;
-              const maxPt = Math.max(...teamAnalysis?.pointRace.map(r => Math.max(...r.data)));
+              const maxPt = Math.max(...(teamAnalysis?.pointRace || []).map(r => Math.max(...r.data)));
               const padL = 25, padR = 10, padT = 15, padB = 25;
               const cw = 320 - padL - padR, ch = 180 - padT - padB;
               const xS = (i) => padL + (i / (dates.length - 1 || 1)) * cw;

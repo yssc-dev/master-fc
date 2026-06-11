@@ -57,7 +57,7 @@ function _expandStateForRtdb(state) {
 
 const FirebaseSync = {
   _safeTeam(team) {
-    return (team || "기본팀").replace(/[.#$/\[\]]/g, "_");
+    return (team || "기본팀").replace(/[.#$/[\]]/g, "_");
   },
 
   _gameRef(team, gameId) {

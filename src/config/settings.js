@@ -69,7 +69,7 @@ function _key(team) {
 }
 
 function _safeTeam(team) {
-  return (team || "기본팀").replace(/[.#$/\[\]]/g, "_");
+  return (team || "기본팀").replace(/[.#$/[\]]/g, "_");
 }
 
 function _firebaseRef(team) {
