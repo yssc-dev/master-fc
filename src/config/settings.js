@@ -61,7 +61,6 @@ const DEFAULTS = {
   dashboardSheet: "대시보드",
   pointLogSheet: "포인트로그",
   playerLogSheet: "선수별집계기록로그",
-  eventLogSheet: "",
 };
 
 function _key(team) {
@@ -246,7 +245,7 @@ const FUTSAL_KEYS = [
   "useCrovaGoguma", "dualTeams", "dualTeamStartDate", "dualTeamEndDate",
 ];
 const SOCCER_KEYS = [
-  "ownGoalPoint", "foulPoint", "cleanSheetPoint", "opponents", "eventLogSheet",
+  "ownGoalPoint", "foulPoint", "cleanSheetPoint", "opponents",
 ];
 
 export function isLegacyFormat(raw) {

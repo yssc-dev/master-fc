@@ -312,9 +312,6 @@ export default function SettingsScreen({ teamName, teamMode, teamEntries, isAdmi
           <div className="app-row"><SheetSelect label="대시보드 시트" value={settings.dashboardSheet} onChange={v => update("dashboardSheet", v)} /></div>
           <div className="app-row"><SheetSelect label="포인트로그 시트" value={settings.pointLogSheet} onChange={v => update("pointLogSheet", v)} /></div>
           <div className="app-row"><SheetSelect label="선수별집계 시트" value={settings.playerLogSheet} onChange={v => update("playerLogSheet", v)} /></div>
-          {isSoccer && (
-            <div className="app-row"><SheetSelect label="이벤트로그 시트" value={settings.eventLogSheet} onChange={v => update("eventLogSheet", v)} /></div>
-          )}
         </div>
       </div>
 

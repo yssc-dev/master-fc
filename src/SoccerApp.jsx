@@ -236,24 +236,23 @@ export default function SoccerApp({ authUser, teamContext, isNewGame, gameMode, 
 
     try {
       const results = await Promise.allSettled([
-        AppSync.writeEventLog({ events: eventLogRows }, gameSettings.eventLogSheet),
         AppSync.writeSoccerPointLog({ events: pointLogRows }, gameSettings.pointLogSheet),
         AppSync.writeSoccerPlayerLog({ players: playerLogRows }, gameSettings.playerLogSheet),
         AppSync.writeRawEvents({ rows: rawEvents }),
         AppSync.writeRawPlayerGames({ rows: rawPlayerGames }),
         AppSync.writeMatchLog(matchRows),
       ]);
-      const [r1, r2, r3, r4, r5, r6] = results;
-      const legacyOk = r1.status === 'fulfilled' && r2.status === 'fulfilled' && r3.status === 'fulfilled';
+      const [r1, r2, r3, r4, r5] = results;
+      const legacyOk = r1.status === 'fulfilled' && r2.status === 'fulfilled';
       if (!legacyOk) {
-        const reasons = [r1, r2, r3].filter(r => r.status !== 'fulfilled').map(r => r.reason?.message || '').filter(Boolean);
+        const reasons = [r1, r2].filter(r => r.status !== 'fulfilled').map(r => r.reason?.message || '').filter(Boolean);
         throw new Error('기존 시트 저장 실패' + (reasons.length ? `\n${reasons.join('\n')}` : ''));
       }
       // 분석 소스(로그_*) 전송 실패를 silent 처리하지 않음 — 하나라도 실패하면 미확정으로 두고 경고(풋살과 동일).
       const rawFailed = [];
-      if (r4.status !== 'fulfilled') rawFailed.push('로그_이벤트');
-      if (r5.status !== 'fulfilled') rawFailed.push('로그_선수경기');
-      if (r6.status !== 'fulfilled') rawFailed.push('로그_매치');
+      if (r3.status !== 'fulfilled') rawFailed.push('로그_이벤트');
+      if (r4.status !== 'fulfilled') rawFailed.push('로그_선수경기');
+      if (r5.status !== 'fulfilled') rawFailed.push('로그_매치');
       const allOk = rawFailed.length === 0;
       // Firebase에 확정 state 저장 (HistoryView/PlayerAnalytics 소스)
       // — 모든 시트 성공 시에만(풋살과 동일). 부분 실패 시 finalized 기록을 남기면
@@ -261,9 +260,9 @@ export default function SoccerApp({ authUser, teamContext, isNewGame, gameMode, 
       if (allOk) {
         await FirebaseSync.saveFinalized(teamContext?.team, gameId, gameState);
       }
-      const r1v = r1.value, r2v = r2.value, r3v = r3.value;
+      const r1v = r1.value, r2v = r2.value;
       const ct = (r, unit) => r.status === 'fulfilled' ? `${r.value?.count || 0}${unit}${r.value?.skipped ? ` (skip ${r.value.skipped})` : ''}` : '❌ 실패';
-      const detail = `이벤트로그: ${r1v?.count || 0}건\n포인트로그: ${r2v?.count || 0}건\n선수별집계: ${r3v?.count || 0}명\n로그_이벤트: ${ct(r4, '건')}\n로그_선수경기: ${ct(r5, '명')}\n로그_매치: ${ct(r6, '건')}`;
+      const detail = `포인트로그: ${r1v?.count || 0}건\n선수별집계: ${r2v?.count || 0}명\n로그_이벤트: ${ct(r3, '건')}\n로그_선수경기: ${ct(r4, '명')}\n로그_매치: ${ct(r5, '건')}`;
       if (allOk) {
         // 모든 시트 성공 시에만 active 클리어(목록/이어하기에서 제거)
         await FirebaseSync.clearState(teamContext?.team, gameId);
