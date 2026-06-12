@@ -30,4 +30,6 @@ export const SHEET_CONFIG = {
 };
 
 export const AUTH_STORAGE_KEY = "masterfc_auth";
-export const AUTH_EXPIRY_HOURS = 24;
+// 주 단위로 쓰는 앱이라 24h면 경기 날마다 세션 만료 → 매번 느린 Apps Script 재로그인.
+// 서버가 모든 쓰기에서 토큰을 재검증하므로(_parseAuthToken→_verifyAuth) 클라 세션을 길게 둬도 안전.
+export const AUTH_EXPIRY_HOURS = 720; // 30일
