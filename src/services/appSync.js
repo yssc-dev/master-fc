@@ -19,6 +19,18 @@ function cacheInvalidate(prefix) {
 const AppSync = {
   enabled() { return !!APPS_SCRIPT_URL; },
 
+  // Apps Script 인스턴스 프리워밍(콜드스타트 회피).
+  // doGet은 파라미터가 없으면 action=ping으로 인증/시트 접근 없이 즉시 응답한다.
+  // 로그인 화면이 뜨는 순간 호출하면, 사용자가 이름·4자리를 입력하는 몇 초 동안
+  // 콜드스타트(2~10s)가 겹쳐 끝나 직후의 verifyAuth(POST)가 따뜻한 인스턴스를 쓴다.
+  // fire-and-forget — 결과/실패 모두 무시.
+  warmup() {
+    if (!this.enabled()) return;
+    try {
+      fetch(APPS_SCRIPT_URL, { method: "GET" }).catch(() => {});
+    } catch { /* best-effort */ }
+  },
+
   _getAuthToken() {
     const auth = AuthUtil.getStored();
     return auth ? `${auth.team || ""}:${auth.name}:${auth.phone4}` : "";

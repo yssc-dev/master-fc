@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import AppSync from '../../services/appSync';
 import { useTheme } from '../../hooks/useTheme';
 import { SunIcon, MoonIcon } from '../common/icons';
@@ -9,6 +9,9 @@ export default function LoginScreen({ onLogin }) {
   const [phone4, setPhone4] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  // 화면 진입 즉시 Apps Script를 깨워, 입력하는 동안 콜드스타트를 끝내둔다.
+  useEffect(() => { AppSync.warmup(); }, []);
 
   const handleVerify = async () => {
     const trimName = name.trim();
