@@ -155,7 +155,8 @@ export default function SoccerApp({ authUser, teamContext, isNewGame, gameMode, 
       b.point - a.point ||
       b.goals - a.goals ||
       b.assists - a.assists ||
-      b.cleanSheets - a.cleanSheets
+      b.cleanSheets - a.cleanSheets ||
+      a.games - b.games
     );
   }, [state.soccerMatches, state.settingsSnapshot, gameSettings]);
 
