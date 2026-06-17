@@ -151,7 +151,12 @@ export default function SoccerApp({ authUser, teamContext, isNewGame, gameMode, 
     const raw = calcSoccerPlayerStats(finished);
     return Object.entries(raw).map(([name, st]) => ({
       name, ...st, point: calcSoccerPlayerPoint(st, ES),
-    })).sort((a, b) => b.point - a.point);
+    })).sort((a, b) =>
+      b.point - a.point ||
+      b.goals - a.goals ||
+      b.assists - a.assists ||
+      b.cleanSheets - a.cleanSheets
+    );
   }, [state.soccerMatches, state.settingsSnapshot, gameSettings]);
 
   // ── 축구 핸들러 ──
