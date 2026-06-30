@@ -92,7 +92,7 @@ export default function PlayerAnalytics({ teamName, teamMode, initialTab, isAdmi
       {tab === "personal" && (
         <PersonalAnalysisTab
           playerGameLogs={playerGameLogs} matchLogs={matchLogs} eventLogs={eventLogs}
-          C={C} authUserName={authUserName}
+          members={members || []} C={C} authUserName={authUserName}
         />
       )}
       {tab === "synergy" && <SynergyMatrixTab matchLogs={matchLogs} C={C} />}

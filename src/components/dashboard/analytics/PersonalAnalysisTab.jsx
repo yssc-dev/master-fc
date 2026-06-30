@@ -141,7 +141,7 @@ function getChaosBadge(chaosRate) {
 
 export default function PersonalAnalysisTab({
   playerGameLogs, matchLogs, eventLogs,
-  C, authUserName,
+  members, C, authUserName,
 }) {
   // 6개 카드 숫자는 모두 matchLogs+eventLogs 단일 소스에서 계산.
   // (이전: playerGameLogs/defenseStats/winStats 혼용 → 같은 "경기수"가 4종 5종으로 갈렸음)
@@ -155,8 +155,18 @@ export default function PersonalAnalysisTab({
   );
   const playerSummary = summaryV2.perPlayer;
 
+  // 레이더 백분위 비교 모집단 — 표본 있는 활동 선수(≥3경기)만.
+  // 0경기 선수를 모집단에 넣으면 다른 선수의 백분위가 왜곡되므로 드롭다운 명단과 분리.
+  const ratedPlayers = useMemo(
+    () => Object.keys(playerSummary).filter(n => playerSummary[n].rounds >= 3),
+    [playerSummary]
+  );
+
+  // 드롭다운 명단 — 전체 로스터(members) ∪ 기록 있는 선수. 0경기 선수도 선택 가능.
   const players = useMemo(() => {
-    const list = Object.keys(playerSummary).filter(n => playerSummary[n].rounds >= 3);
+    const names = new Set(Object.keys(playerSummary));
+    (members || []).forEach(m => { if (m && m.name) names.add(m.name); });
+    const list = Array.from(names);
     list.sort((a, b) => {
       if (authUserName) {
         if (a === authUserName) return -1;
@@ -165,19 +175,21 @@ export default function PersonalAnalysisTab({
       return a.localeCompare(b, "ko");
     });
     return list;
-  }, [playerSummary, authUserName]);
+  }, [playerSummary, members, authUserName]);
 
   const totalSessions = Math.max(summaryV2.totalSessions, 1);
 
   // ── Selected player state (default to authUserName if present) ────────────
-  const [selected, setSelected] = useState(() =>
-    authUserName && players.includes(authUserName) ? authUserName : (players[0] || null)
-  );
+  const [selected, setSelected] = useState(() => {
+    // 본인 기록이 있으면 본인, 없으면 기록 있는 선수를 우선 — 열자마자 '기록 없음'으로 시작하지 않도록.
+    if (authUserName && playerSummary[authUserName]) return authUserName;
+    return ratedPlayers[0] || players.find(p => playerSummary[p]) || players[0] || null;
+  });
 
   // ── Radar raw values for percentile calc ─────────────────────────────────
   const allRawValues = useMemo(() => {
     const scoring = [], creativity = [], defense = [], keeping = [], attendance = [], winRate = [];
-    players.forEach(name => {
+    ratedPlayers.forEach(name => {
       const s = playerSummary[name];
       scoring.push(s.rounds > 0 ? s.goals / s.rounds : 0);
       creativity.push(s.rounds > 0 ? s.assists / s.rounds : 0);
@@ -187,7 +199,7 @@ export default function PersonalAnalysisTab({
       winRate.push(s.winRate);
     });
     return { scoring, creativity, defense, keeping, attendance, winRate };
-  }, [players, playerSummary, totalSessions]);
+  }, [ratedPlayers, playerSummary, totalSessions]);
 
   const getPlayerData = (name) => {
     const s = playerSummary[name];
@@ -232,9 +244,7 @@ export default function PersonalAnalysisTab({
   const getRelativePosition = (name) => {
     const s = playerSummary[name];
     if (!s || s.rounds === 0) return null;
-    const qualified = players
-      .map(n => playerSummary[n])
-      .filter(ps => ps.rounds > 0);
+    const qualified = ratedPlayers.map(n => playerSummary[n]); // ratedPlayers는 이미 rounds>=3
     const goalsPerRound = qualified.map(ps => ps.goals / ps.rounds);
     const assistsPerRound = qualified.map(ps => ps.assists / ps.rounds);
     return {
@@ -284,6 +294,9 @@ export default function PersonalAnalysisTab({
   , [selected, playerGameLogs]);
 
   // ── Derived display values ────────────────────────────────────────────────
+  // 출전 라운드가 없으면(0경기 로스터 멤버 또는 골만 있는 이벤트only 선수) 분석 대신 '기록 없음' 표시.
+  // rounds===0이면 경기당 지표가 모두 0/모순("N골 / 0경기")이 되므로 풀 분석을 막는다.
+  const hasData = !!(selected && playerSummary[selected] && playerSummary[selected].rounds > 0);
   const pd = selected ? getPlayerData(selected) : { values: [50, 50, 50, 50, 50, 50], raw: {}, detail: {} };
   const values = pd.values;
   const type = getPlayerType(values);
@@ -300,10 +313,15 @@ export default function PersonalAnalysisTab({
       <div style={{ marginBottom: 14 }}>
         <select value={selected || ""} onChange={e => setSelected(e.target.value)}
           style={{ width: "100%", padding: "10px 14px", borderRadius: 50, fontSize: 14, fontWeight: 480, letterSpacing: "-0.14px", background: "transparent", color: C.white, border: `1.2px dashed ${C.grayDark}`, fontFamily: "inherit", appearance: "none", cursor: "pointer" }}>
-          {players.map(p => <option key={p} value={p}>{p} ({playerSummary[p].rounds}경기)</option>)}
+          {players.map(p => <option key={p} value={p}>{p} ({playerSummary[p]?.rounds || 0}경기)</option>)}
         </select>
       </div>
-      {selected && (
+      {selected && !hasData && (
+        <div style={{ textAlign: "center", padding: "32px 16px", color: C.gray, fontSize: 13 }}>
+          출전 경기 기록이 없습니다 (0경기)
+        </div>
+      )}
+      {hasData && (
         <div style={{ textAlign: "center" }}>
           <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
             <span style={{ fontSize: 24, fontWeight: 400, letterSpacing: "-0.6px", color: C.white }}>{selected}</span>
@@ -416,6 +434,7 @@ export default function PersonalAnalysisTab({
         </div>
       )}
 
+      {hasData && (<>
       {/* ── P3: Round Distribution ── */}
       <div style={cardStyle}>
         <RoundDistribution data={roundSlope.perPlayer[selected]} player={selected} ranking={roundSlope.ranking} threshold={10} C={C} />
@@ -459,6 +478,7 @@ export default function PersonalAnalysisTab({
           <div style={{ fontSize: 11, color: C.gray }}>표본 부족</div>
         )}
       </div>
+      </>)}
     </div>
   );
 }
