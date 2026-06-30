@@ -182,7 +182,8 @@ export function buildPointLogRows(soccerMatches, gameDate, inputTime) {
       } else if (e.type === "owngoal") {
         rows.push({ gameDate, matchId: String(matchNum), opponent: match.opponent, scorer: "OG", assist: "", conceded: "", ownGoalPlayer: e.player, inputTime });
       } else if (e.type === "opponentGoal") {
-        rows.push({ gameDate, matchId: String(matchNum), opponent: match.opponent, scorer: "", assist: "", conceded: "실점", ownGoalPlayer: "", inputTime });
+        // 실점 컬럼에는 실점 키퍼명(currentGk) — 리터럴 "실점"이 아님. buildEventLogRows와 동일 소스.
+        rows.push({ gameDate, matchId: String(matchNum), opponent: match.opponent, scorer: "", assist: "", conceded: e.currentGk || "", ownGoalPlayer: "", inputTime });
       }
     }
   }
