@@ -21,6 +21,7 @@ import {
   calcSoccerPlayerStats, calcSoccerPlayerPoint, calcSoccerScore,
   calcSoccerTeamRecord, calcSoccerOpponentRecords, soccerResultLabel,
   getCleanSheetPlayers, buildEventLogRows, buildPointLogRows, buildPlayerLogRows,
+  countFinishedSoccerMatches,
 } from './utils/soccerScoring';
 import { buildRawEventsFromSoccer, buildRawPlayerGamesFromSoccer } from './utils/rawLogBuilders';
 import { buildRoundRowsFromSoccer } from './utils/matchRowBuilder';
@@ -384,7 +385,7 @@ export default function SoccerApp({ authUser, teamContext, isNewGame, gameMode, 
 
   // ── MATCH PHASE ──
   if (phase === "match") {
-    const finishedCount = state.soccerMatches.filter(m => m.status === "finished").length;
+    const finishedCount = countFinishedSoccerMatches(state.soccerMatches);
     const teamRec = calcSoccerTeamRecord(state.soccerMatches);
     const oppRecords = calcSoccerOpponentRecords(state.soccerMatches);
     const deleteSoccerGame = async () => {

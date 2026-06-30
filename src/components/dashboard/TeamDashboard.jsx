@@ -3,6 +3,7 @@ import { fetchSheetData } from '../../services/sheetService';
 import AppSync from '../../services/appSync';
 import AuthUtil from '../../services/authUtil';
 import { getSettings, getEffectiveSettings } from '../../config/settings';
+import { pendingGameProgressLabel } from '../../utils/pendingGameLabel';
 import { useTheme } from '../../hooks/useTheme';
 import Modal from '../common/Modal';
 import { SunIcon, MoonIcon, SettingsIcon, HomeIcon, TrophyIcon, ChevronRight, SoccerBallIcon, ListIcon, MenuIcon, StarIcon } from '../common/icons';
@@ -724,12 +725,7 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
               {pendingGames.map((game, idx) => {
                 const gs = game.state || {};
                 const creator = gs.gameCreator || gs.lastEditor || "알 수 없음";
-                const curRound = (gs.currentRoundIdx || 0) + 1;
-                const totalRounds = (gs.schedule || []).length;
-                const completedCount = (gs.completedMatches || []).length;
-                const roundInfo = gs.matchMode === "schedule" && totalRounds > 0
-                  ? `${curRound}/${totalRounds} 라운드`
-                  : `${completedCount}매치 완료`;
+                const roundInfo = pendingGameProgressLabel(gs);
                 const attendeeCount = (gs.attendees || []).length;
                 // gameId = "g_1234567890" → 타임스탬프에서 날짜 추출
                 const gameTs = game.gameId?.startsWith("g_") ? parseInt(game.gameId.slice(2)) : null;

@@ -18,6 +18,15 @@ export function soccerResultLabel(ourScore, opponentScore) {
 }
 
 /**
+ * 완료된(status "finished") 축구 경기 수 — 휴식 경기 포함.
+ * 진행도/요약 카운트(대시보드 라벨·인앱 헤더·동기화 요약)의 단일 소스.
+ * ⚠️ 전적 계산(calcSoccerTeamRecord/calcSoccerOpponentRecords)은 휴식을 제외하므로 이 헬퍼를 쓰지 말 것.
+ */
+export function countFinishedSoccerMatches(soccerMatches) {
+  return (soccerMatches || []).filter(m => m && m.status === "finished").length;
+}
+
+/**
  * 오늘 팀 전적 집계 (우리팀 기준, 휴식 경기 제외) — 상대별 전적의 합계
  * @returns {{ played, wins, draws, losses, gf, ga }}
  */

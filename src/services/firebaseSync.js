@@ -1,5 +1,6 @@
 import { ref, set, get, remove, onValue, off, serverTimestamp, update } from 'firebase/database';
 import { firebaseDb } from '../config/firebase';
+import { countFinishedSoccerMatches } from '../utils/soccerScoring';
 import {
   META_FIELDS,
   WHOLE_REPLACE_FIELDS,
@@ -30,7 +31,7 @@ function _buildSummary(gameId, state) {
     ? state.soccerMatches.reduce((s, m) => s + ((m.events || []).length), 0)
     : (state.allEvents || []).length;
   const matchCount = soccer
-    ? state.soccerMatches.filter(m => m.status === "finished").length
+    ? countFinishedSoccerMatches(state.soccerMatches)
     : (state.completedMatches || []).length;
   const creator = state.gameCreator || state.lastEditor || '?';
   return `${gameId} | ${creator} | ${state.phase || '?'} | 이벤트 ${evtCount}건 | 완료 ${matchCount}경기`;
