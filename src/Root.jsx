@@ -11,6 +11,16 @@ import { loadSettingsFromFirebase } from './config/settings';
 import App from './App';
 import SoccerApp from './SoccerApp';
 
+// 팀 배열 → { teamName: [{mode, role}, ...] } 그룹. 순수 함수라 모듈 스코프(초기 state에서도 사용).
+function groupTeams(teams) {
+  const groups = {};
+  (teams || []).forEach(t => {
+    if (!groups[t.team]) groups[t.team] = [];
+    groups[t.team].push({ mode: t.mode, role: t.role });
+  });
+  return groups;
+}
+
 export default function Root() {
   // AuthUtil.getStored()를 한 번만 호출하여 초기 상태 설정
   const [initialStored] = useState(() => AuthUtil.getStored());
@@ -18,8 +28,9 @@ export default function Root() {
   const [authUser, setAuthUser] = useState(() =>
     initialStored ? { name: initialStored.name, phone4: initialStored.phone4 } : null
   );
-  const [allTeams, setAllTeams] = useState([]);
-  const [teamGroups, setTeamGroups] = useState({});
+  // 세션 복원 시에도 팀 목록을 캐시에서 복구 → 팀전환이 로그아웃되지 않고 즉시 동작.
+  const [allTeams, setAllTeams] = useState(() => AuthUtil.getStoredTeams() || []);
+  const [teamGroups, setTeamGroups] = useState(() => groupTeams(AuthUtil.getStoredTeams() || []));
   const [selectedTeamName, setSelectedTeamName] = useState(() => initialStored?.team || null);
   const [selectedTeamEntries, setSelectedTeamEntries] = useState(() =>
     initialStored?.team ? [{ mode: initialStored.mode || "풋살", role: initialStored.role || "멤버" }] : []
@@ -34,15 +45,6 @@ export default function Root() {
   const [isNewGame, setIsNewGame] = useState(false);
   const [gameMode, setGameMode] = useState(null);
   const [activeGameId, setActiveGameId] = useState(null);
-
-  const groupTeams = (teams) => {
-    const groups = {};
-    teams.forEach(t => {
-      if (!groups[t.team]) groups[t.team] = [];
-      groups[t.team].push({ mode: t.mode, role: t.role });
-    });
-    return groups;
-  };
 
   // eslint-disable-next-line react-hooks/exhaustive-deps -- 마운트 시 1회만 실행 (저장된 팀이 있으면 pending 체크)
   useEffect(() => {
@@ -74,6 +76,7 @@ export default function Root() {
   const handleLogin = (user, teams) => {
     setAuthUser(user);
     setAllTeams(teams);
+    AuthUtil.saveTeams(teams); // 팀전환/복원용 캐시
     setAuthed(true);
     const groups = groupTeams(teams);
     setTeamGroups(groups);
@@ -142,15 +145,30 @@ export default function Root() {
     setScreen("app");
   };
 
-  const handleSwitchTeam = () => {
-    if (allTeams.length === 0) {
-      handleLogout();
+  const handleSwitchTeam = async () => {
+    // 캐시/로그인으로 팀 목록이 있으면 즉시 홈(팀 선택)으로 — 세션 유지(로그아웃 안 함)
+    if (allTeams.length > 0) {
+      setTeamGroups(groupTeams(allTeams));
+      setScreen("home");
+      setPendingGames([]);
       return;
     }
-    const groups = groupTeams(allTeams);
-    setTeamGroups(groups);
-    setScreen("home");
-    setPendingGames([]);
+    // 캐시가 없는 구 세션 등: 저장된 자격으로 팀 목록만 재조회 — 로그아웃 대신
+    const stored = AuthUtil.getStored();
+    if (stored?.name) {
+      try {
+        const result = await AppSync.verifyAuth(stored.name, stored.phone4);
+        if (result?.success && Array.isArray(result.teams) && result.teams.length > 0) {
+          setAllTeams(result.teams);
+          AuthUtil.saveTeams(result.teams);
+          setTeamGroups(groupTeams(result.teams));
+          setScreen("home");
+          setPendingGames([]);
+          return;
+        }
+      } catch (e) { /* 재조회 실패 시 아래 로그아웃 폴백 */ }
+    }
+    handleLogout();
   };
 
   if (screen === "login" || !authed) return <LoginScreen onLogin={handleLogin} />;
