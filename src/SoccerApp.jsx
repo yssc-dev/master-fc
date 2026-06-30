@@ -34,7 +34,7 @@ export default function SoccerApp({ authUser, teamContext, isNewGame, gameMode, 
   const {
     phase, dataLoading, dataSource, seasonPlayers,
     syncStatus, attendanceLoading, attendees, newPlayer,
-    playerSortMode, matchModal, settingsSnapshot,
+    playerSortMode, matchModal, settingsSnapshot, gameFinalized,
   } = state;
 
   const set = (field, value) => dispatch({ type: 'SET_FIELD', field, value });
@@ -119,7 +119,7 @@ export default function SoccerApp({ authUser, teamContext, isNewGame, gameMode, 
 
   // ── 자동저장 + 구독 — 풋살/축구 공용 훅 (src/hooks/useFirebaseSync.js) ──
   const setSyncStatus = useCallback((v) => dispatch({ type: 'SET_FIELD', field: 'syncStatus', value: v }), [dispatch]);
-  const { editorTag, autoSync, cancelPendingSave } = useFirebaseSync({
+  const { editorTag, autoSync, cancelPendingSave, lastSyncedStateRef } = useFirebaseSync({
     teamContext, gameId, authUser, dispatch, setSyncStatus,
   });
   const gameState = useMemo(() => ({
@@ -128,9 +128,9 @@ export default function SoccerApp({ authUser, teamContext, isNewGame, gameMode, 
     phase, attendees, matchMode: "soccer", courtCount: 1,
     soccerMatches: state.soccerMatches, currentMatchIdx: state.currentMatchIdx,
     opponents: state.opponents, soccerFormation: state.soccerFormation,
-    settingsSnapshot,
+    settingsSnapshot, gameFinalized: state.gameFinalized,
     lastEditor: editorTag,
-  }), [state.gameCreator, phase, attendees, state.soccerMatches, state.currentMatchIdx, state.opponents, state.soccerFormation, settingsSnapshot, authUser, gameId, editorTag]);
+  }), [state.gameCreator, phase, attendees, state.soccerMatches, state.currentMatchIdx, state.opponents, state.soccerFormation, settingsSnapshot, state.gameFinalized, authUser, gameId, editorTag]);
 
   // 자동저장 트리거 — deps에서 제외된 gameState 필드는 setup에서만 바뀌거나 phase 전환에 동반됨.
   useEffect(() => {
@@ -266,20 +266,24 @@ export default function SoccerApp({ authUser, teamContext, isNewGame, gameMode, 
       // Firebase에 확정 state 저장 (HistoryView/PlayerAnalytics 소스)
       // — 모든 시트 성공 시에만(풋살과 동일). 부분 실패 시 finalized 기록을 남기면
       //   아카이브에 '완료'처럼 보여 재전송 의무를 놓치게 됨.
+      const finalState = { ...gameState, gameFinalized: allOk };
       if (allOk) {
-        await FirebaseSync.saveFinalized(teamContext?.team, gameId, gameState);
+        await FirebaseSync.saveFinalized(teamContext?.team, gameId, finalState);
       }
+      // gameFinalized를 active 노드에 반영(풋살과 동일) — 대시보드 '전송완료' 뱃지 + Archive 활성 근거.
+      // 자동 종료(clearState/메뉴) 제거: 확정 후에도 summary에 남아 '수정 후 재전송'·'Archive' 단계 제공.
+      await FirebaseSync.syncDiff(teamContext?.team || '', gameId || "legacy", lastSyncedStateRef.current, finalState);
+      lastSyncedStateRef.current = finalState;
+      set('gameFinalized', allOk);
       const r1v = r1.value, r2v = r2.value;
       const ct = (r, unit) => r.status === 'fulfilled' ? `${r.value?.count || 0}${unit}${r.value?.skipped ? ` (skip ${r.value.skipped})` : ''}` : '❌ 실패';
       const detail = `포인트로그: ${r1v?.count || 0}건\n선수별집계: ${r2v?.count || 0}명\n로그_이벤트: ${ct(r3, '건')}\n로그_선수경기: ${ct(r4, '명')}\n로그_매치: ${ct(r5, '건')}`;
       if (allOk) {
-        // 모든 시트 성공 시에만 active 클리어(목록/이어하기에서 제거)
-        await FirebaseSync.clearState(teamContext?.team, gameId);
-        alert(`기록 확정 완료!\n\n${detail}`);
-        onBackToMenu?.();
+        // active를 지우지 않고 '전송완료'로 목록에 남김 → 'Archive' 버튼으로 명시적 보관
+        alert(`기록 확정 완료!\n\n${detail}\n\n경기가 '전송완료'로 목록에 남았습니다.\n'Archive'를 누르면 목록에서 정리되고 보관됩니다.`);
       } else {
         // 분석 로그 누락 → 미확정 유지(active 보존)해 재전송 유도
-        alert(`⚠️ 분석 로그 일부 전송 실패: ${rawFailed.join(', ')}\n\n${detail}\n\n분석용 데이터가 누락됐습니다. "기록확정"을 다시 눌러 재전송하세요.\n(전부 성공 전까지 미확정 상태로 둡니다.)`);
+        alert(`⚠️ 분석 로그 일부 전송 실패: ${rawFailed.join(', ')}\n\n${detail}\n\n분석용 데이터가 누락됐습니다. "수정 후 재전송"을 눌러 재전송하세요.\n(전부 성공 전까지 미확정 상태로 둡니다.)`);
       }
     } catch (err) {
       alert("시트 저장 실패: " + err.message);
@@ -539,10 +543,33 @@ export default function SoccerApp({ authUser, teamContext, isNewGame, gameMode, 
         <div style={s.bottomBar}>
           <button onClick={() => set('phase', 'match')} style={s.btn(C.grayDark)}>경기로</button>
           <button onClick={handleFinalize}
-            style={{ ...s.btn(C.green), flex: 1, opacity: teamContext?.role === "관리자" ? 1 : 0.4 }}
+            style={{ ...s.btn(gameFinalized ? C.orange : C.green), flex: 1, opacity: teamContext?.role === "관리자" ? 1 : 0.4 }}
             disabled={teamContext?.role !== "관리자"}>
-            {teamContext?.role === "관리자" ? "기록확정(구글시트로 데이터전송)" : "기록확정 (관리자만)"}
+            {teamContext?.role === "관리자"
+              ? (gameFinalized ? "수정 후 재전송" : "기록확정(구글시트로 데이터전송)")
+              : "기록확정 (관리자만)"}
           </button>
+          {onBackToMenu && (
+            <button
+              disabled={!gameFinalized}
+              onClick={async () => {
+                if (!confirm("경기를 아카이브하면 더 이상 수정할 수 없습니다.\n수정이 필요하면 'Archive'에서 복구할 수 있습니다.\n\n아카이브하시겠습니까?")) return;
+                // 펜딩 자동저장 취소 — clearState 후 타이머가 active 노드를 되살리는 레이스 방지
+                cancelPendingSave();
+                try {
+                  await FirebaseSync.saveFinalized(teamContext?.team, gameId, gameState);
+                } catch (e) {
+                  // finalized 저장 실패 시 active를 지우면 경기가 유실됨 → 차단하고 active 보존.
+                  alert(`Archive 실패: finalized 저장에 실패했습니다.\n(${e.message})\n\n데이터 보존을 위해 active를 지우지 않았습니다. 잠시 후 다시 시도해주세요.`);
+                  return;
+                }
+                await FirebaseSync.clearState(teamContext?.team, gameId);
+                onBackToMenu();
+              }}
+              style={{ ...s.btn(C.grayDark), opacity: gameFinalized ? 1 : 0.3, cursor: gameFinalized ? "pointer" : "not-allowed" }}>
+              Archive
+            </button>
+          )}
         </div>
       </div>
     );
