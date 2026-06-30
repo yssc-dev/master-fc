@@ -391,6 +391,7 @@ export default function SoccerApp({ authUser, teamContext, isNewGame, gameMode, 
   // ── MATCH PHASE ──
   if (phase === "match") {
     const finishedCount = countFinishedSoccerMatches(state.soccerMatches);
+    const gameDate = gameDateFromId(gameId);
     const teamRec = calcSoccerTeamRecord(state.soccerMatches);
     const oppRecords = calcSoccerOpponentRecords(state.soccerMatches);
     const deleteSoccerGame = async () => {
@@ -403,7 +404,7 @@ export default function SoccerApp({ authUser, teamContext, isNewGame, gameMode, 
 
     return (
       <div style={s.app}>
-        <MatchHeader title="경기 진행" subtitle={`축구 · ${finishedCount}경기`} onHome={onBackToMenu}
+        <MatchHeader title="경기 진행" subtitle={`${gameDate.toLocaleDateString("ko-KR")} · 축구 · ${finishedCount}경기`} onHome={onBackToMenu}
           syncStatus={AppSync.enabled() ? syncStatus : null}>
           <MatchTabBar tabs={[
             { key: 'schedule', label: '대진표', onClick: () => set('matchModal', 'soccerSchedule') },
