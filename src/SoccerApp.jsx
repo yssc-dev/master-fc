@@ -25,6 +25,7 @@ import {
 } from './utils/soccerScoring';
 import { buildRawEventsFromSoccer, buildRawPlayerGamesFromSoccer } from './utils/rawLogBuilders';
 import { buildRoundRowsFromSoccer } from './utils/matchRowBuilder';
+import { gameDateFromId } from './utils/gameDate';
 
 export default function SoccerApp({ authUser, teamContext, isNewGame, gameMode, gameId, onLogout, onBackToMenu }) {
   const gameSettings = useMemo(() => getSettings(teamContext?.team), [teamContext?.team]);
@@ -481,12 +482,19 @@ export default function SoccerApp({ authUser, teamContext, isNewGame, gameMode, 
     const sRows = soccerStats;
     const rec = calcSoccerTeamRecord(state.soccerMatches);
     const oppRecords = calcSoccerOpponentRecords(state.soccerMatches);
+    const gameDate = gameDateFromId(gameId);
 
     return (
       <div style={s.app}>
         <div style={s.header}>
-          <div style={s.title}>📊 최종 집계</div>
-          <div style={s.subtitle}>{new Date().toLocaleDateString("ko-KR")} · {finished.length}경기</div>
+          <div style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <button onClick={onBackToMenu} aria-label="메뉴로" style={{
+              position: "absolute", left: 0, background: "none", border: "none",
+              color: "var(--app-text-primary)", fontSize: 22, cursor: "pointer", padding: "0 4px", lineHeight: 1,
+            }}>‹</button>
+            <div style={s.title}>📊 최종 집계</div>
+          </div>
+          <div style={s.subtitle}>{gameDate.toLocaleDateString("ko-KR")} · {finished.length}경기</div>
         </div>
         <PhaseIndicator activeIndex={3} />
         <div style={s.section}>
@@ -551,9 +559,12 @@ export default function SoccerApp({ authUser, teamContext, isNewGame, gameMode, 
           </button>
           {onBackToMenu && (
             <button
-              disabled={!gameFinalized}
               onClick={async () => {
-                if (!confirm("경기를 아카이브하면 더 이상 수정할 수 없습니다.\n수정이 필요하면 'Archive'에서 복구할 수 있습니다.\n\n아카이브하시겠습니까?")) return;
+                // gameFinalized면 일반 확인, 미확정이면 시트 전송 누락 경고(이미 전송했으면 보관 OK).
+                const msg = gameFinalized
+                  ? "경기를 아카이브하면 더 이상 수정할 수 없습니다.\n수정이 필요하면 'Archive'에서 복구할 수 있습니다.\n\n아카이브하시겠습니까?"
+                  : "⚠️ 이번 세션에서 '기록확정(구글시트 전송)'을 하지 않았습니다.\n\n• 이미 시트로 전송하셨다면 그대로 보관해도 됩니다.\n• 아직 전송 전이라면 보관 시 분석 데이터(로그_*)가 시트에서 누락됩니다 → 취소하고 '기록확정'을 먼저 누르세요.\n\n그래도 보관(아카이브)하시겠습니까?";
+                if (!confirm(msg)) return;
                 // 펜딩 자동저장 취소 — clearState 후 타이머가 active 노드를 되살리는 레이스 방지
                 cancelPendingSave();
                 try {
@@ -566,7 +577,7 @@ export default function SoccerApp({ authUser, teamContext, isNewGame, gameMode, 
                 await FirebaseSync.clearState(teamContext?.team, gameId);
                 onBackToMenu();
               }}
-              style={{ ...s.btn(C.grayDark), opacity: gameFinalized ? 1 : 0.3, cursor: gameFinalized ? "pointer" : "not-allowed" }}>
+              style={{ ...s.btn(C.grayDark), opacity: 1, cursor: "pointer" }}>
               Archive
             </button>
           )}
