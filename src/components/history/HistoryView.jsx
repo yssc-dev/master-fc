@@ -4,6 +4,8 @@ import { useTheme } from '../../hooks/useTheme';
 import { TEAM_COLORS } from '../../config/constants';
 import { calcMatchScore } from '../../utils/scoring';
 import { getEffectiveSettings } from '../../config/settings';
+import { countFinishedSoccerMatches } from '../../utils/soccerScoring';
+import SoccerArchiveDetail from './SoccerArchiveDetail';
 
 function calcStandings(completedMatches, teamNames) {
   const stats = {};
@@ -149,6 +151,12 @@ export default function HistoryView({ teamContext, onBack }) {
     const showBonus = es.useCrovaGoguma && courtCount === 2 && !isPush;
     const playerRows = calcPlayerStats(events, matches, attendees, teams, teamNames, es);
 
+    // 축구 게임: 데이터가 soccerMatches에 있고 completedMatches/teams는 비어있음.
+    // futsal 필드로는 0경기·0점이 되므로 전용 렌더(SoccerArchiveDetail)로 분기한다.
+    const isSoccer = matchMode === "soccer";
+    const soccerMatches = gs?.soccerMatches || [];
+    const soccerFinishedCount = countFinishedSoccerMatches(soccerMatches);
+
     return (
       <div style={hs.container}>
         <div style={hs.header}>
@@ -160,10 +168,15 @@ export default function HistoryView({ teamContext, onBack }) {
             <div style={{ fontSize: 18, fontWeight: 800, color: "#fff" }}>{formatDate(selectedGame.gameDate)} 경기 기록</div>
           </div>
           <div style={{ fontSize: 12, color: C.headerTextDim, marginTop: 2 }}>
-            {teamContext.team} · {isPush ? "밀어내기" : matchMode === "schedule" ? "대진표" : "자유대진"} · {matches.length}경기
+            {teamContext.team} · {isSoccer ? "축구" : isPush ? "밀어내기" : matchMode === "schedule" ? "대진표" : "자유대진"} · {isSoccer ? soccerFinishedCount : matches.length}경기
           </div>
         </div>
         <div style={{ padding: 16 }}>
+
+          {isSoccer ? (
+            <SoccerArchiveDetail soccerMatches={soccerMatches} es={es} styles={hs} />
+          ) : (
+          <>
 
           {/* 팀 순위 */}
           {standings.length > 0 && (
@@ -275,6 +288,8 @@ export default function HistoryView({ teamContext, onBack }) {
 
           {matches.length === 0 && (
             <div style={{ textAlign: "center", color: C.gray, padding: 20 }}>상세 기록이 없습니다</div>
+          )}
+          </>
           )}
 
           <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
