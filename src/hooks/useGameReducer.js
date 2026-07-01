@@ -3,6 +3,8 @@ import { FALLBACK_DATA } from '../config/fallbackData';
 import { calcMatchScore } from '../utils/scoring';
 import { calcSoccerScore, remapPlayerInSoccerEvents } from '../utils/soccerScoring';
 import { createInitialPushState, calcNextPushMatch } from '../utils/pushMatch';
+import { FORMATIONS, swapFormationSlots, defendersFromPositionMap } from '../utils/formations';
+import { generateEventId } from '../utils/idGenerator';
 
 const initialState = {
   phase: "setup",
@@ -946,6 +948,30 @@ function gameReducer(state, action) {
         const events = remapPlayerInSoccerEvents(m.events, b, a);
         const { ourScore, opponentScore } = calcSoccerScore(events);
         return { ...m, lineup, defenders, assignments, positionMap, gk, subs, events, ourScore, opponentScore };
+      });
+      return { ...state, soccerMatches: matches };
+    }
+    // 위치 교대(라인업 변경 편집기): 두 출전 슬롯의 위치만 교대. 논리 matchIdx 매칭(격리).
+    // role이 바뀌면 defenders 재계산(클린시트 정합), GK가 바뀌면 gkChange 배경 이벤트 추가
+    // (라이브 handleSwap과 동일 — 무실점 경기 두 GK 집계). 전제: 편집기 진입 시 레거시는 승격됨.
+    case 'SWAP_SOCCER_LINEUP_POSITIONS': {
+      const { matchIdx, aIdx, bIdx } = action;
+      const matches = state.soccerMatches.map(m => {
+        if (m.matchIdx !== matchIdx) return m;
+        const positions = FORMATIONS[m.formation]?.positions;
+        const res = swapFormationSlots(
+          { assignments: m.assignments, positionMap: m.positionMap, gk: m.gk, positions },
+          aIdx, bIdx
+        );
+        const defenders = defendersFromPositionMap(res.positionMap);
+        const next = { ...m, assignments: res.assignments, positionMap: res.positionMap, gk: res.gk, defenders };
+        if (res.gk !== m.gk) {
+          next.events = [
+            ...(m.events || []),
+            { type: 'gkChange', playerOut: m.gk, playerIn: res.gk, id: generateEventId(), timestamp: Date.now() },
+          ];
+        }
+        return next;
       });
       return { ...state, soccerMatches: matches };
     }
