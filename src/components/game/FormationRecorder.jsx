@@ -143,7 +143,10 @@ export default function FormationRecorder({
     if (res.gk !== gk) setGk(res.gk);
     setSubOut(null);
     setShowSubModal(false);
-    onStateChange?.({ assignments: res.assignments, positionMap: res.positionMap, gk: res.gk });
+    // formation도 함께 전송 — 교대는 이벤트가 없어, 레거시(formation 미저장) 매치면 remount 시
+    // reconstructFormation이 이벤트 재생 경로로 빠져 교대가 유실된다. formation을 실어 매치를
+    // '모던'으로 승격해 저장된 assignments/gk가 복원되게 한다.
+    onStateChange?.({ formation, assignments: res.assignments, positionMap: res.positionMap, gk: res.gk });
   };
 
   const handleFormationChange = (key) => {
