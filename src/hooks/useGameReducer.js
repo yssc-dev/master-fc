@@ -4,7 +4,6 @@ import { calcMatchScore } from '../utils/scoring';
 import { calcSoccerScore, remapPlayerInSoccerEvents } from '../utils/soccerScoring';
 import { createInitialPushState, calcNextPushMatch } from '../utils/pushMatch';
 import { FORMATIONS, swapFormationSlots, defendersFromPositionMap } from '../utils/formations';
-import { generateEventId } from '../utils/idGenerator';
 
 const initialState = {
   phase: "setup",
@@ -952,8 +951,7 @@ function gameReducer(state, action) {
       return { ...state, soccerMatches: matches };
     }
     // 위치 교대(라인업 변경 편집기): 두 출전 슬롯의 위치만 교대. 논리 matchIdx 매칭(격리).
-    // role이 바뀌면 defenders 재계산(클린시트 정합), GK가 바뀌면 gkChange 배경 이벤트 추가
-    // (라이브 handleSwap과 동일 — 무실점 경기 두 GK 집계). 전제: 편집기 진입 시 레거시는 승격됨.
+    // role이 바뀌면 defenders 재계산(클린시트 정합). 전제: 편집기 진입 시 레거시는 승격됨.
     case 'SWAP_SOCCER_LINEUP_POSITIONS': {
       const { matchIdx, aIdx, bIdx } = action;
       const matches = state.soccerMatches.map(m => {
@@ -964,14 +962,9 @@ function gameReducer(state, action) {
           aIdx, bIdx
         );
         const defenders = defendersFromPositionMap(res.positionMap);
-        const next = { ...m, assignments: res.assignments, positionMap: res.positionMap, gk: res.gk, defenders };
-        if (res.gk !== m.gk) {
-          next.events = [
-            ...(m.events || []),
-            { type: 'gkChange', playerOut: m.gk, playerIn: res.gk, id: generateEventId(), timestamp: Date.now() },
-          ];
-        }
-        return next;
+        // lineup 불변: SWAP은 '누가 뛰었는지'가 아닌 '어디서 뛰었는지'만 변경.
+        // gkChange 미기록: 편집기 위치교대는 사후 정정이라 키퍼 교체(2인 집계)가 아님 — 최종 gk만 키퍼.
+        return { ...m, assignments: res.assignments, positionMap: res.positionMap, gk: res.gk, defenders };
       });
       return { ...state, soccerMatches: matches };
     }

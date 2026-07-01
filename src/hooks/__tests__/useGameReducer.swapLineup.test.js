@@ -28,14 +28,12 @@ describe('gameReducer — SWAP_SOCCER_LINEUP_POSITIONS', () => {
     const next = gameReducer(base(), { type: 'SWAP_SOCCER_LINEUP_POSITIONS', matchIdx: 0, aIdx: 1, bIdx: 5 });
     expect(next.soccerMatches[0].defenders.sort()).toEqual(['D2','D3','D4','M1'].sort());
   });
-  it('GK 슬롯 교대 시 gk 갱신 + gkChange 1건', () => {
+  it('GK 슬롯 교대: gk 갱신, gkChange 미추가(편집기=정정)', () => {
     const next = gameReducer(base(), { type: 'SWAP_SOCCER_LINEUP_POSITIONS', matchIdx: 0, aIdx: 0, bIdx: 1 });
     const m = next.soccerMatches[0];
     expect(m.gk).toBe('D1');
-    const gkc = m.events.filter(e => e.type === 'gkChange');
-    expect(gkc).toHaveLength(1);
-    expect(gkc[0].playerOut).toBe('GK1');
-    expect(gkc[0].playerIn).toBe('D1');
+    expect(m.events.filter(e => e.type === 'gkChange')).toHaveLength(0);
+    expect(m.events).toHaveLength(0);
   });
   it('非GK 교대 → gkChange 미추가(events 불변)', () => {
     const next = gameReducer(base(), { type: 'SWAP_SOCCER_LINEUP_POSITIONS', matchIdx: 0, aIdx: 1, bIdx: 2 });

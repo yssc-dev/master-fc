@@ -92,6 +92,7 @@ export default function SoccerMatchView({
     let curGk = gk;
     let curSubs = [...(m.subs || [])];
     const slotOf = (player) => Object.keys(assignments).find(idx => assignments[idx] === player);
+    // gkChange는 replay 불필요 — 편집기 SWAP은 gkChange를 안 남기고, 라이브 gkChange는 modern 매치(저장된 배치)로 복원됨.
     [...(m.events || [])].sort((a, b) => a.timestamp - b.timestamp).forEach(e => {
       if (e.type === "sub") {
         const slot = slotOf(e.playerOut);
