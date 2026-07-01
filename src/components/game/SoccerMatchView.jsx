@@ -2,13 +2,13 @@ import { useState, useEffect } from 'react';
 import { useTheme } from '../../hooks/useTheme';
 import { calcSoccerScore, getCleanSheetPlayers, soccerResultLabel } from '../../utils/soccerScoring';
 import { generateEventId } from '../../utils/idGenerator';
-import { FORMATIONS } from '../../utils/formations';
+import { FORMATIONS, defendersFromPositionMap } from '../../utils/formations';
 import Modal from '../common/Modal';
 import OpponentSelector from './OpponentSelector';
 import FormationSetup from './FormationSetup';
 import FormationRecorder from './FormationRecorder';
 import FormationPitch from './FormationPitch';
-import LineupCorrectionModal from './LineupCorrectionModal';
+import LineupEditView from './LineupEditView';
 import RoundNav from './RoundNav';
 import ConfirmBar from './ConfirmBar';
 import AttendeeSelector from './AttendeeSelector';
@@ -22,7 +22,7 @@ export default function SoccerMatchView({
   onAddOpponent, onRemoveOpponent, onRenameOpponent, onGoToSummary, gameSettings, styles: s,
   savedFormation, onFormationChange,
   sortedPlayers, playerSortMode, rosterHandlers,
-  onSetMatchOpponent, onCorrectLineup, gameFinalized,
+  onSetMatchOpponent, onCorrectLineup, onSwapLineupPositions, gameFinalized,
 }) {
   const { C } = useTheme();
 
@@ -34,8 +34,7 @@ export default function SoccerMatchView({
   const [selectedPlayers, setSelectedPlayers] = useState(savedFormation?.selectedPlayers || []);
   const [navLocked, setNavLocked] = useState(false);            // goalFlow 열림 중 ◀▶ 잠금
   const [opponentModalIdx, setOpponentModalIdx] = useState(null); // 상대팀 변경 모달 대상 matchIdx
-  const [lineupModalIdx, setLineupModalIdx] = useState(null);     // 라인업 변경 모달 대상 matchIdx
-  const [correctionSeq, setCorrectionSeq] = useState(0);          // 정정 후 진행중 레코더 강제 remount
+  const [lineupEditIdx, setLineupEditIdx] = useState(null);       // 라인업 편집기 대상 matchIdx
 
   // 멀티탭 동기화: 서브플로우 상태만 따라감(playing/selectOpponent는 노드 권위가 아니므로 sync에서 제외).
   useEffect(() => {
@@ -124,7 +123,7 @@ export default function SoccerMatchView({
   // 포메이션 확정 → 경기 생성(status playing). viewState는 유휴로 복귀(노드는 status에서 파생).
   const handleFormationConfirm = ({ formation, assignments, gk, positionMap, subs }) => {
     const lineup = Object.values(assignments);
-    const defenders = Object.entries(positionMap).filter(([, r]) => r === "DF").map(([n]) => n);
+    const defenders = defendersFromPositionMap(positionMap);
     onCreateMatch({ opponent: selectedOpponent, lineup, gk, defenders, subs, formation, assignments, positionMap });
     // 경기 생성 후 selectedOpponent/selectedPlayers 클리어(로컬+RTDB) — 안 지우면 다른 탭이
     // FormationSetup에 갇혀 확정 시 유령 2번째 경기를 만드는 멀티탭 회귀 발생. handleFinishMatch와 동일 정리.
@@ -183,6 +182,37 @@ export default function SoccerMatchView({
     );
   }
 
+  // 라인업 편집기(전체화면) — formation/editRoster 서브플로우와 동일하게 조기 반환.
+  if (lineupEditIdx !== null) {
+    const m = soccerMatches.find(x => x.matchIdx === lineupEditIdx);
+    if (!m) { setLineupEditIdx(null); return null; }
+    const fm = reconstructFormation(m);
+    const played = [...new Set([
+      ...(m.lineup || []),
+      ...(m.events || []).filter(e => e.type === "sub").map(e => e.playerIn),
+    ])];
+    const bench = (fm.subs || []).filter(n => !played.includes(n)); // 뛴(교체out) 선수 제외 — CORRECT 중복 방지
+    return (
+      <LineupEditView
+        formation={fm.formation} assignments={fm.assignments} bench={bench}
+        title={`제${m.matchIdx + 1}경기 vs ${m.opponent} — 라인업 편집`}
+        onSwapPositions={(aIdx, bIdx) => onSwapLineupPositions?.(m.matchIdx, aIdx, bIdx)}
+        onCorrect={(out, inn) => {
+          // A(out)의 이관 대상 기록(goal에 등장/owngoal) 유무로 confirm 문구 분기
+          const hasRecords = (m.events || []).some(e =>
+            (e.type === "goal" && (e.player === out || e.assist === out)) ||
+            (e.type === "owngoal" && e.player === out));
+          const msg = hasRecords
+            ? `${out} → ${inn} 정정: ${out}의 골·어시 기록이 ${inn}로 이관됩니다. 계속?`
+            : `${out} → ${inn} 정정: ${out}를 미출전 처리하고 ${inn}를 출전으로 바꿉니다. 계속?`;
+          if (!confirm(msg)) return;
+          onCorrectLineup?.(m.matchIdx, out, inn);
+        }}
+        onBack={() => setLineupEditIdx(null)}
+      />
+    );
+  }
+
   // ── 연속체 노드 ──
   const atNewNode = safeNavIdx >= orderedMatches.length;      // 트레일링 새 경기 노드
   const node = atNewNode ? null : orderedMatches[safeNavIdx];
@@ -202,10 +232,15 @@ export default function SoccerMatchView({
     if (gameFinalized && !confirm("이미 구글시트로 전송(마감)된 경기입니다.\n상대팀을 바꾸면 최종집계 화면의 '수정 후 재전송'으로 다시 전송해야 시트가 정합됩니다.\n계속하시겠습니까?")) return;
     setOpponentModalIdx(node.matchIdx);
   };
-  const openLineupModal = () => {
+  const openLineupEditor = () => {
     if (!node) return;
-    if (gameFinalized && !confirm("이미 구글시트로 전송(마감)된 경기입니다.\n라인업을 정정하면 최종집계 화면의 '수정 후 재전송'으로 다시 전송해야 시트가 정합됩니다.\n계속하시겠습니까?")) return;
-    setLineupModalIdx(node.matchIdx);
+    if (navLocked) return; // 득점 입력(goalFlow) 중엔 레코더 언마운트=골 유실 → 진입 차단
+    if (gameFinalized && !confirm("이미 구글시트로 전송(마감)된 경기입니다.\n라인업을 바꾸면 최종집계 화면의 '수정 후 재전송'으로 다시 전송해야 시트가 정합됩니다.\n계속하시겠습니까?")) return;
+    // 레거시 경기(formation 미저장)는 SWAP이 raw assignments(null)로 no-op 되므로 modern 승격 후 편집
+    if (!(node.formation && node.assignments && node.positionMap)) {
+      onUpdateMatchFormation?.(node.matchIdx, reconstructFormation(node));
+    }
+    setLineupEditIdx(node.matchIdx);
   };
 
   return (
@@ -220,8 +255,8 @@ export default function SoccerMatchView({
 
       {canChangeOpponent && (
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 6, marginBottom: 10 }}>
-          <button onClick={openLineupModal}
-            style={{ fontSize: 12, padding: "5px 12px", borderRadius: 8, background: C.grayDark, color: C.white, border: "none", cursor: "pointer" }}>
+          <button onClick={openLineupEditor} disabled={navLocked}
+            style={{ fontSize: 12, padding: "5px 12px", borderRadius: 8, background: C.grayDark, color: navLocked ? C.gray : C.white, border: "none", cursor: navLocked ? "not-allowed" : "pointer", opacity: navLocked ? 0.5 : 1 }}>
             🔁 라인업 변경
           </button>
           <button onClick={openOpponentModal}
@@ -255,7 +290,7 @@ export default function SoccerMatchView({
         const live = reconstructFormation(currentMatch);
         return (
           <FormationRecorder
-            key={currentMatch.matchIdx + '-' + correctionSeq}
+            key={currentMatch.matchIdx}
             formation={live.formation} assignments={live.assignments} positionMap={live.positionMap}
             subs={live.subs} gk={live.gk} opponent={currentMatch.opponent}
             startedAt={currentMatch.startedAt || Date.now()} events={currentMatch.events || []}
@@ -341,26 +376,6 @@ export default function SoccerMatchView({
         </Modal>
       )}
 
-      {/* 라인업 변경(선발 정정) 모달 */}
-      {lineupModalIdx !== null && (() => {
-        const m = soccerMatches.find(x => x.matchIdx === lineupModalIdx);
-        if (!m) return null;
-        // 출전 = 선발(lineup) ∪ 교체투입(sub playerIn). 미출전 = 스쿼드(lineup∪subs) − 출전.
-        const subIn = (m.events || []).filter(e => e.type === "sub").map(e => e.playerIn);
-        const played = [...new Set([...(m.lineup || []), ...subIn])];
-        const roster = [...new Set([...(m.lineup || []), ...(m.subs || [])])];
-        const bench = roster.filter(n => !played.includes(n));
-        return (
-          <LineupCorrectionModal
-            played={played} bench={bench}
-            onCorrect={(out, inn) => {
-              onCorrectLineup?.(m.matchIdx, out, inn);
-              // 진행중 경기를 정정할 때만 레코더 remount(재시드). 과거경기 정정은 레코더 데이터와 무관.
-              if (currentMatch && m.matchIdx === currentMatch.matchIdx) setCorrectionSeq(sq => sq + 1);
-            }}
-            onClose={() => setLineupModalIdx(null)} />
-        );
-      })()}
     </div>
   );
 }
