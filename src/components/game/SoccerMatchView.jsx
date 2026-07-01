@@ -199,15 +199,16 @@ export default function SoccerMatchView({
         title={`제${m.matchIdx + 1}경기 vs ${m.opponent} — 라인업 편집`}
         onSwapPositions={(aIdx, bIdx) => onSwapLineupPositions?.(m.matchIdx, aIdx, bIdx)}
         onCorrect={(out, inn) => {
-          // A(out)의 이관 대상 기록(goal에 등장/owngoal) 유무로 confirm 문구 분기
-          const hasRecords = (m.events || []).some(e =>
-            (e.type === "goal" && (e.player === out || e.assist === out)) ||
-            (e.type === "owngoal" && e.player === out));
-          const msg = hasRecords
-            ? `${out} → ${inn} 정정: ${out}의 골·어시 기록이 ${inn}로 이관됩니다. 계속?`
-            : `${out} → ${inn} 정정: ${out}를 미출전 처리하고 ${inn}를 출전으로 바꿉니다. 계속?`;
-          if (!confirm(msg)) return;
+          // remapPlayerInSoccerEvents가 이관하는 모든 필드를 커버
+          const outHasRecords = (m.events || []).some(e =>
+            e.player === out || e.assist === out || e.currentGk === out ||
+            e.playerIn === out || e.playerOut === out);
+          const msg = outHasRecords
+            ? `${out}의 기록이 ${inn}로 이관됩니다. 계속?`
+            : `${out}를 미출전 처리하고 ${inn}를 출전으로 바꿉니다. 계속?`;
+          if (!confirm(msg)) return false;
           onCorrectLineup?.(m.matchIdx, out, inn);
+          return true;
         }}
         onBack={() => setLineupEditIdx(null)}
       />

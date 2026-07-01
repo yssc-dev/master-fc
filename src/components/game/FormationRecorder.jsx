@@ -166,7 +166,8 @@ export default function FormationRecorder({
     });
     const newGk = Object.entries(newAssignments).find(([idx]) => newForm.positions[idx].role === "GK")?.[1] || gk;
     setFormation(key); setAssignments(newAssignments); setPositionMap(newPosMap); setGk(newGk); setShowFormationPicker(false);
-    onStateChange?.({ formation: key, assignments: newAssignments, positionMap: newPosMap, gk: newGk });
+    const defenders = defendersFromPositionMap(newPosMap);
+    onStateChange?.({ formation: key, assignments: newAssignments, positionMap: newPosMap, gk: newGk, defenders });
   };
 
   const handleFinish = () => {

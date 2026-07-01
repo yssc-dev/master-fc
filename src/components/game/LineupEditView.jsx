@@ -21,8 +21,8 @@ export default function LineupEditView({ formation, assignments = {}, bench = []
   };
   const handleBenchTap = (name) => {
     if (!anchor) return;                                    // 먼저 출전 선수 선택 필요
-    onCorrect?.(anchor.name, name);                         // 정정(부모 confirm)
-    setAnchor(null);
+    const proceeded = onCorrect?.(anchor.name, name);       // 정정(부모 confirm)
+    if (proceeded !== false) setAnchor(null);               // 취소(=false) 시 anchor 유지 → 재탭 불필요
   };
 
   const benchHint = !anchor
