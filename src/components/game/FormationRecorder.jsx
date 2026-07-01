@@ -140,10 +140,18 @@ export default function FormationRecorder({
     );
     setAssignments(res.assignments);
     setPositionMap(res.positionMap);
-    if (res.gk !== gk) setGk(res.gk);
+    if (res.gk !== gk) {
+      setGk(res.gk);
+      // GK가 바뀌면 배경 기록(gkChange) — 무실점 경기도 두 GK를 집계(keeperGames/클린시트)에서
+      // 알 수 있게 한다. 실점 귀속은 opponentGoal의 currentGk가 담당. 타임라인엔 표시 안 함.
+      onAddEvent({ type: "gkChange", playerOut: gk, playerIn: res.gk, id: generateEventId(), timestamp: Date.now() });
+    }
     setSubOut(null);
     setShowSubModal(false);
-    onStateChange?.({ assignments: res.assignments, positionMap: res.positionMap, gk: res.gk });
+    // formation도 함께 전송 — 교대는 이벤트가 없어, 레거시(formation 미저장) 매치면 remount 시
+    // reconstructFormation이 이벤트 재생 경로로 빠져 교대가 유실된다. formation을 실어 매치를
+    // '모던'으로 승격해 저장된 assignments/gk가 복원되게 한다.
+    onStateChange?.({ formation, assignments: res.assignments, positionMap: res.positionMap, gk: res.gk });
   };
 
   const handleFormationChange = (key) => {
@@ -165,7 +173,8 @@ export default function FormationRecorder({
   };
 
   const formatTime = (ts) => startedAt ? `${Math.floor((ts - startedAt) / 60000)}'` : "";
-  const sortedEvents = [...events].sort((a, b) => a.timestamp - b.timestamp);
+  // gkChange는 집계용 배경 기록 — 타임라인/기록 목록에는 표시하지 않음(포메이션 변경과 동일 취급).
+  const sortedEvents = [...events].filter(e => e.type !== "gkChange").sort((a, b) => a.timestamp - b.timestamp);
 
   return (
     <div>
