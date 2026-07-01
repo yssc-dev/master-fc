@@ -79,11 +79,22 @@ export function buildRoundRowsFromSoccer({ team, mode = '기본', tournamentId =
   return stateJSON.soccerMatches.map(m => {
     const startedAt = m.startedAt;
     const gameId = startedAt ? `s_${startedAt}` : `s_${date}_${m.matchIdx}`;
+    // our_members_json = 그 경기에 실제 출전한 우리팀 전원.
+    // m.lineup은 '경기 생성 시점' 명단으로 고정(UPDATE_SOCCER_MATCH_FORMATION이 lineup을 갱신 안 함)이라,
+    // 경기 중 포메이션 편집/교체로 들어온 선수가 빠질 수 있다. 그래서 다음을 모두 합집합한다:
+    //   - lineup(선발) + 최종 피치 assignments(편집 반영) + GK + 수비
+    //   - 모든 이벤트 참여자(득점/어시/자책/카드/교체in·out/실점GK) — 소ccer 이벤트는 전부 우리팀 선수.
+    // 골만 입력되고 lineup엔 없던 선수도 이로써 rounds에 잡혀 개인분석 지표가 정확해진다.
     const startingPlayers = (m.lineup || []).filter(Boolean); // lineup은 선수 이름 문자열 배열
-    const subInPlayers = (m.events || [])
-      .filter(e => e.type === 'sub' && e.playerIn)
-      .map(e => e.playerIn);
-    const allMembers = Array.from(new Set([...startingPlayers, ...subInPlayers]));
+    const pitchPlayers = Object.values(m.assignments || {});
+    const eventPlayers = (m.events || []).flatMap(e => [e.player, e.assist, e.playerIn, e.playerOut, e.currentGk]);
+    const allMembers = Array.from(new Set([
+      ...startingPlayers,
+      ...pitchPlayers,
+      m.gk,
+      ...(m.defenders || []),
+      ...eventPlayers,
+    ].filter(Boolean)));
     return {
       team, sport: '축구', mode, tournament_id: tournamentId,
       date: date || '',

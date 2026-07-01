@@ -200,6 +200,29 @@ describe('buildRoundRowsFromSoccer', () => {
     expect(JSON.parse(r.opponent_members_json)).toEqual([]);
   });
 
+  it('lineup에 없어도 출전한 선수(득점자/어시/자책/GK/수비/교체in·out)를 our_members에 포함', () => {
+    const state = {
+      soccerMatches: [{
+        matchIdx: 1, opponent: 'X',
+        lineup: ['A', 'B'],          // 일부만 lineup에 기록
+        assignments: { '0': 'A', '7': 'PITCHONLY' }, // 포메이션 편집으로만 들어온 선수(이벤트 없음)
+        gk: 'GK1',                   // lineup에 없는 GK
+        defenders: ['DEF1'],         // lineup에 없는 수비수
+        events: [
+          { type: 'goal', player: '박동휘', assist: 'C' }, // lineup에 없는 득점자/어시
+          { type: 'owngoal', player: 'D' },                // lineup에 없는 자책
+          { type: 'sub', playerIn: 'E', playerOut: 'F' },  // 교체 in/out
+          { type: 'opponentGoal', currentGk: 'GK1' },
+        ],
+        status: 'finished', startedAt: 1713000000000,
+      }],
+    };
+    const rows = buildRoundRowsFromSoccer({ team: 'T', mode: '기본', date: '2026-04-10', stateJSON: state, inputTime: '' });
+    const members = JSON.parse(rows[0].our_members_json);
+    ['A', 'B', 'PITCHONLY', 'GK1', 'DEF1', '박동휘', 'C', 'D', 'E', 'F'].forEach(n => expect(members).toContain(n));
+    expect(members.length).toBe(new Set(members).size); // 중복 없음
+  });
+
   it('startedAt 없으면 s_{date}_{matchIdx} 폴백', () => {
     const state = { soccerMatches: [{ ...baseSoccerState.soccerMatches[0], startedAt: null }] };
     const rows = buildRoundRowsFromSoccer({ team: 'T', mode: '기본', date: '2026-04-10', stateJSON: state, inputTime: '' });
