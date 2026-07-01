@@ -88,10 +88,11 @@ export function getCleanSheetPlayers(match) {
   const { opponentScore } = calcSoccerScore(match.events);
   if (opponentScore > 0) return []; // 경기 총실점 0일 때만 — 그러면 뛴 GK 모두 클린시트
   const csPlayers = new Set();
-  getMatchGks(match).forEach(g => csPlayers.add(g));
+  getMatchGks(match).forEach(g => csPlayers.add(g)); // 뛴 모든 GK
   (match.defenders || []).forEach(d => csPlayers.add(d));
   for (const e of (match.events || [])) {
-    if (e.type === "sub" && (e.position === "GK" || e.position === "DF")) {
+    // GK 교체는 getMatchGks가 이미 반영 — 여기선 DF로 투입된 교체 선수만 추가
+    if (e.type === "sub" && e.position === "DF") {
       csPlayers.add(e.playerIn);
     }
   }
@@ -111,6 +112,10 @@ export function calcSoccerPlayerStats(soccerMatches) {
     const allPlayed = new Set(match.lineup || []);
     for (const e of (match.events || [])) {
       if (e.type === "sub") allPlayed.add(e.playerIn);
+      else if (e.type === "gkChange") { // 방어: 교대 참가자는 통상 lineup에 있으나 불변식에 의존 안 함
+        if (e.playerOut) allPlayed.add(e.playerOut);
+        if (e.playerIn) allPlayed.add(e.playerIn);
+      }
     }
     const csPlayers = getCleanSheetPlayers(match);
     const matchGks = getMatchGks(match); // 이 경기에서 GK로 뛴 모든 선수(교대/교체 포함)
@@ -179,6 +184,8 @@ export function buildEventLogRows(soccerMatches, gameDate) {
       } else if (e.type === "sub") {
         rows.push({ gameDate, matchNum, opponent, event: "교체", player: e.playerIn, relatedPlayer: e.playerOut, position: e.position || "", inputTime: new Date(e.timestamp).toLocaleString("ko-KR") });
       }
+      // gkChange: 집계 전용 배경 이벤트 — 로그_이벤트 시트에는 기록하지 않음(의도적).
+      // 실점 귀속은 '실점' 행의 currentGk로, keeperGames/클린시트는 로그_선수경기(PG)로 반영됨.
     }
   }
   return rows;

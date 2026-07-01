@@ -45,7 +45,24 @@ describe('getCleanSheetPlayers — 매치단위(총실점 0일 때만) + 뛴 GK 
   });
 });
 
+// A가 GK로 시작 → 벤치 B로 교체 투입(sub, pos GK). 최종 gk=B. 0실점.
+// 규칙은 swap뿐 아니라 sub로 GK 바꾼 경우에도 동일 적용 — 나간 GK(A)도 keeperGames/CS 크레딧.
+const subGkZeroConceded = {
+  matchIdx: 2, status: 'finished', opponent: '터틀파크',
+  lineup: ['A', 'C', 'D'], gk: 'B', defenders: [],
+  events: [{ id: 's', type: 'sub', position: 'GK', playerOut: 'A', playerIn: 'B', timestamp: 60 }],
+};
+
 describe('calcSoccerPlayerStats — GK 교대 집계', () => {
+  it('sub로 GK 교체(0실점): 나간 A·들어온 B 둘 다 keeperGames=1, cleanSheets=1', () => {
+    const s = calcSoccerPlayerStats([subGkZeroConceded]);
+    expect(s.A.keeperGames).toBe(1);
+    expect(s.B.keeperGames).toBe(1);
+    expect(s.A.cleanSheets).toBe(1);
+    expect(s.B.cleanSheets).toBe(1);
+    expect(s.C.fieldGames).toBe(1);
+  });
+
   it('0실점: A·B 둘 다 keeperGames=1, cleanSheets=1', () => {
     const s = calcSoccerPlayerStats([zeroConceded]);
     expect(s.A.keeperGames).toBe(1);
