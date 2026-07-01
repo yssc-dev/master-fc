@@ -81,8 +81,11 @@
   - 다른 출전 슬롯 → `onSwapPositions(anchor.idx, idx)` 위치 교대, anchor 해제.
 - 후보 칩 탭:
   - `anchor === null` → 무시(안내 문구 "먼저 바꿀 출전 선수를 탭하세요").
-  - anchor 있음 → confirm(`{anchor.name}의 기록을 {C}로 옮기고 정정합니다. 계속?`)
-    → `onCorrect(anchor.name, C)`, anchor 해제.
+  - anchor 있음 → confirm 후 `onCorrect(anchor.name, C)`, anchor 해제. **confirm 문구는
+    anchor(A)의 이관 대상 이벤트(goal/assist/owngoal에 A가 등장) 유무로 분기:**
+    - 있으면: `"{A} → {C} 정정: {A}의 골·어시 기록이 {C}로 이관됩니다. 계속?"`
+    - 없으면: `"{A} → {C} 정정: {A}를 미출전 처리하고 {C}를 출전으로 바꿉니다. 계속?"`
+    - (참고: 이 confirm은 **정정 전용**. 진행중 레코더의 정식 교체(sub)는 기록 이관이 없어 미표시.)
 - 하이라이트: `FormationPitch highlightIdx={anchor?.idx}`.
 - 후보 칩은 `anchor` 있을 때 활성(강조), 없을 때 흐리게 + 안내.
 - `anchor` 있는데 `bench`가 비었으면(모두 출전/교체됨) "미출전 선수 없음 — 자리 교대만 가능"
@@ -124,8 +127,8 @@ reducer:
 - 스코어 재계산 불필요(교대는 골 이벤트 무변경, gkChange는 스코어 무관).
 - gkChange의 id/timestamp는 **리듀서 내부**에서 `generateEventId()`/`Date.now()`로 생성
   (액션 최소화). `useGameReducer`에 `generateEventId` import 추가.
-- **defenders 재계산은 이 신규 경로에서만** 수행. 라이브 `handleSwap`도 동일한 defenders 미갱신
-  선존 갭이 있으나(별도 이슈), 본 스펙 범위 밖 — 사용자에게 후속 별도 보고.
+- defenders 재계산은 이 신규 SWAP 리듀서와 **라이브 `handleSwap` 양쪽 모두** 수행(아래
+  "라이브 위치교대 defenders 수정" 참조) — 위치교대의 defenders 미갱신 갭을 한 번에 정정.
 
 ### 데이터 흐름 (SoccerApp 배선)
 
@@ -179,6 +182,20 @@ swapSoccerLineupPositions(matchIdx, aIdx, bIdx):
     선수도 포함(:107)하므로, 그 선수를 정정 대상(in)으로 고르면 `CORRECT_SOCCER_LINEUP`이
     `lineup`에 중복(:935)을 만들어 데이터가 깨진다. 기존 과거경기 요약의 `benchNeverPlayed`
     계산(SoccerMatchView 현행 :278-282)과 **동일**하게 재사용한다.
+
+### 라이브 위치교대 defenders 수정 (동반 수정, 사용자 요청)
+
+진행중 레코더의 위치교대 `FormationRecorder.handleSwap`(:135-154)도 `swapFormationSlots` 후
+`onStateChange({ formation, assignments, positionMap, gk })`로 전파하는데, **`defenders`를 빼먹어**
+DF↔MF/GK 교대 시 `match.defenders`가 스테일 → getCleanSheetPlayers 오귀속(신규 SWAP과 동일 갭).
+
+수정:
+- `handleSwap`에서 `defenders = Object.entries(res.positionMap).filter(([,r])=>r==="DF").map(([n])=>n)`
+  계산해 `onStateChange({ formation, assignments, positionMap, gk, defenders })`로 함께 전달.
+- `UPDATE_SOCCER_MATCH_FORMATION` 화이트리스트에 `"defenders"` 추가(:913). **안전:** 루프가
+  `patch[k] !== undefined`일 때만 적용하므로, defenders를 안 넘기는 기존 호출부
+  (`handleSubIn`/`handleFormationChange`/reconstructFormation 승격)는 무영향.
+- 테스트: GK/DF 슬롯 관여 위치교대 후 UPDATE_SOCCER_MATCH_FORMATION에 defenders가 반영되는지.
 
 ## 삭제 대상
 
