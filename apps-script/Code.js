@@ -2,6 +2,9 @@
 // 풋살 웹앱 Apps Script v2.0
 //
 // CHANGELOG
+// 2026-07-01: backfillSoccerMembers 추가 — 레거시 축구 로그_매치의 빈 our_members_json을
+//             로그_이벤트 참여자(득점/어시/자책/실점GK) + our_gk 로 복원(개인분석 rounds 누락 해소).
+//             dryRun 기본, 빈 행만 채움(비파괴). 에디터에서 _dryrun→검토→_apply 순으로 실행.
 // 2026-06-11: 보안 강화 — (1) 2파트 레거시 authToken('이름:번호') 폐지: 팀 접근 제어 우회 경로 차단.
 //             (2) _parseAuthToken이 토큰의 팀이 실제 소속인지 검증 + role 파싱.
 //             (3) 파괴적/유지보수 액션(deleteRaw*, deleteTournament, reimport*, migrate*,
@@ -1426,6 +1429,95 @@ function backfillFutsalGk_dryRun() {
 }
 function backfillFutsalGk_apply() {
   var r = backfillFutsalGk({ dryRun: false });
+  Logger.log(JSON.stringify(r, null, 2));
+  return r;
+}
+
+// 레거시 축구 로그_매치의 빈 our_members_json 을, 같은 경기(team|date|match_id)의
+// 로그_이벤트 참여자(player + related_player + concede_gk) + 로그_매치.our_gk 로 복원한다.
+// 과거 데이터라 원본 명단이 없으므로 '이벤트에 등장한 선수'만 복원됨(무이벤트 출전자는 복원 불가).
+// - dryRun(기본 true): 미리보기만. false 로 실제 기록.
+// - onlyEmpty(기본 true): our_members_json 이 빈 배열/공백인 행만 채움(기존 명단 무손상, 비파괴).
+// - team: 지정 시 해당 팀만.
+function backfillSoccerMembers(opts) {
+  opts = opts || {};
+  var dryRun = opts.dryRun !== false;
+  var onlyEmpty = opts.onlyEmpty !== false;
+  var team = opts.team || "";
+
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var matchSheet = ss.getSheetByName(RAW_MATCHES_SHEET);
+  var evSheet = ss.getSheetByName(RAW_EVENTS_SHEET);
+  if (!matchSheet) return { success: false, error: "로그_매치 시트 없음" };
+  if (!evSheet) return { success: false, error: "로그_이벤트 시트 없음" };
+
+  var mH = matchSheet.getRange(1, 1, 1, matchSheet.getLastColumn()).getValues()[0];
+  var eH = evSheet.getRange(1, 1, 1, evSheet.getLastColumn()).getValues()[0];
+  function ci(h, n) { var i = h.indexOf(n); if (i < 0) throw new Error("헤더 누락: " + n); return i; }
+
+  var mTeam = ci(mH, "team"), mSport = ci(mH, "sport"), mDate = ci(mH, "date"),
+      mMid = ci(mH, "match_id"), mOpp = ci(mH, "opponent_team_name"),
+      mOurJson = ci(mH, "our_members_json"), mOurGk = ci(mH, "our_gk");
+  var eTeam = ci(eH, "team"), eDate = ci(eH, "date"), eMid = ci(eH, "match_id"),
+      ePlayer = ci(eH, "player"), eRelated = ci(eH, "related_player"), eGk = ci(eH, "concede_gk");
+
+  var matchLast = matchSheet.getLastRow();
+  if (matchLast < 2) return { success: true, dryRun: dryRun, scanned: 0, filled: 0 };
+  var evLast = evSheet.getLastRow();
+
+  // 로그_이벤트 인덱스: team|date|match_id → { 선수이름: true }
+  var evIndex = {};
+  if (evLast >= 2) {
+    var ev = evSheet.getRange(2, 1, evLast - 1, evSheet.getLastColumn()).getValues();
+    for (var i = 0; i < ev.length; i++) {
+      var k = String(ev[i][eTeam] || "") + "|" + _toDateStr(ev[i][eDate]) + "|" + String(ev[i][eMid] || "");
+      if (!evIndex[k]) evIndex[k] = {};
+      var cands = [ev[i][ePlayer], ev[i][eRelated], ev[i][eGk]];
+      for (var c = 0; c < cands.length; c++) {
+        var p = String(cands[c] || "").trim();
+        if (p) evIndex[k][p] = true;
+      }
+    }
+  }
+
+  var md = matchSheet.getRange(2, 1, matchLast - 1, matchSheet.getLastColumn()).getValues();
+  var scanned = 0, filled = 0, noEvents = 0, skippedNonEmpty = 0, samples = [], updates = [];
+  for (var r = 0; r < md.length; r++) {
+    if (String(md[r][mSport] || "") !== "축구") continue;
+    if (team && String(md[r][mTeam] || "") !== team) continue;
+    var cur = String(md[r][mOurJson] || "").trim();
+    var isEmpty = (cur === "" || cur === "[]");
+    if (onlyEmpty && !isEmpty) { skippedNonEmpty++; continue; }
+    scanned++;
+    var key = String(md[r][mTeam] || "") + "|" + _toDateStr(md[r][mDate]) + "|" + String(md[r][mMid] || "");
+    var setObj = evIndex[key] || {};
+    var members = Object.keys(setObj);
+    var gk = String(md[r][mOurGk] || "").trim();
+    if (gk && members.indexOf(gk) < 0) members.push(gk);
+    if (members.length === 0) { noEvents++; continue; }
+    filled++;
+    updates.push({ row: r + 2, col: mOurJson + 1, value: JSON.stringify(members) });
+    if (samples.length < 15) {
+      samples.push({ date: _toDateStr(md[r][mDate]), match_id: String(md[r][mMid] || ""),
+        opponent: String(md[r][mOpp] || ""), count: members.length, members: members });
+    }
+  }
+
+  if (!dryRun) {
+    for (var u = 0; u < updates.length; u++) {
+      matchSheet.getRange(updates[u].row, updates[u].col).setValue(updates[u].value);
+    }
+  }
+  return { success: true, dryRun: dryRun, team: team || "(전체)",
+    scanned: scanned, filled: filled, noEvents: noEvents, skippedNonEmpty: skippedNonEmpty, samples: samples };
+}
+function backfillSoccerMembers_dryrun() {
+  var r = backfillSoccerMembers({ dryRun: true, team: '하버FC' });
+  Logger.log(JSON.stringify(r, null, 2));
+  return r;
+}
+function backfillSoccerMembers_apply() {
+  var r = backfillSoccerMembers({ dryRun: false, team: '하버FC' });
   Logger.log(JSON.stringify(r, null, 2));
   return r;
 }
