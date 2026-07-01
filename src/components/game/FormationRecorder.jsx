@@ -1,6 +1,6 @@
 import { useState, useLayoutEffect } from 'react';
 import { useTheme } from '../../hooks/useTheme';
-import { FORMATIONS, FORMATION_KEYS, swapFormationSlots } from '../../utils/formations';
+import { FORMATIONS, FORMATION_KEYS, swapFormationSlots, defendersFromPositionMap } from '../../utils/formations';
 import { generateEventId } from '../../utils/idGenerator';
 import FormationPitch from './FormationPitch';
 import PlayerActionMenu from './PlayerActionMenu';
@@ -151,7 +151,9 @@ export default function FormationRecorder({
     // formation도 함께 전송 — 교대는 이벤트가 없어, 레거시(formation 미저장) 매치면 remount 시
     // reconstructFormation이 이벤트 재생 경로로 빠져 교대가 유실된다. formation을 실어 매치를
     // '모던'으로 승격해 저장된 assignments/gk가 복원되게 한다.
-    onStateChange?.({ formation, assignments: res.assignments, positionMap: res.positionMap, gk: res.gk });
+    // defenders도 재계산해 전송 — DF↔MF/GK 교대로 role이 바뀌면 클린시트 정합 유지.
+    const defenders = defendersFromPositionMap(res.positionMap);
+    onStateChange?.({ formation, assignments: res.assignments, positionMap: res.positionMap, gk: res.gk, defenders });
   };
 
   const handleFormationChange = (key) => {
