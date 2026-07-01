@@ -1,7 +1,7 @@
 import { useReducer } from 'react';
 import { FALLBACK_DATA } from '../config/fallbackData';
 import { calcMatchScore } from '../utils/scoring';
-import { calcSoccerScore } from '../utils/soccerScoring';
+import { calcSoccerScore, remapPlayerInSoccerEvents } from '../utils/soccerScoring';
 import { createInitialPushState, calcNextPushMatch } from '../utils/pushMatch';
 
 const initialState = {
@@ -923,6 +923,30 @@ function gameReducer(state, action) {
       const matches = state.soccerMatches.map(m =>
         m.matchIdx === matchIdx ? { ...m, opponent } : m
       );
+      return { ...state, soccerMatches: matches };
+    }
+    // 선발 오기입 정정: out(b, 잘못 기록)→in(a, 실제 뜀). 매치 전체 b→a 치환, b는 벤치로.
+    // 교체(sub) 아님 → sub 이벤트 생성 안 함. b의 이벤트는 a로 이관. 논리 matchIdx 매칭.
+    case 'CORRECT_SOCCER_LINEUP': {
+      const { matchIdx, out: b, in: a } = action;
+      if (!b || !a || b === a) return state;
+      const matches = state.soccerMatches.map(m => {
+        if (m.matchIdx !== matchIdx) return m;
+        const lineup = (m.lineup || []).map(n => n === b ? a : n);
+        const defenders = (m.defenders || []).map(n => n === b ? a : n);
+        const assignments = {};
+        for (const [idx, name] of Object.entries(m.assignments || {})) assignments[idx] = name === b ? a : name;
+        const positionMap = { ...(m.positionMap || {}) };
+        const roleForA = positionMap[b] ?? positionMap[a]; // b role, 없으면 a 기존 role(orphan)
+        delete positionMap[b];
+        if (roleForA !== undefined) positionMap[a] = roleForA;
+        const gk = m.gk === b ? a : m.gk;
+        const subs = [...(m.subs || []).filter(n => n !== a)];
+        if (!subs.includes(b)) subs.push(b);
+        const events = remapPlayerInSoccerEvents(m.events, b, a);
+        const { ourScore, opponentScore } = calcSoccerScore(events);
+        return { ...m, lineup, defenders, assignments, positionMap, gk, subs, events, ourScore, opponentScore };
+      });
       return { ...state, soccerMatches: matches };
     }
     // 휴식 경기: 생성+마감을 한 액션으로(2-dispatch 인덱스 레이스 제거)
