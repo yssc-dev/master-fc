@@ -7,6 +7,7 @@ import Modal from '../common/Modal';
 import OpponentSelector from './OpponentSelector';
 import FormationSetup from './FormationSetup';
 import FormationRecorder from './FormationRecorder';
+import FormationPitch from './FormationPitch';
 import RoundNav from './RoundNav';
 import ConfirmBar from './ConfirmBar';
 import AttendeeSelector from './AttendeeSelector';
@@ -269,6 +270,23 @@ export default function SoccerMatchView({
               <div style={{ fontSize: 14, fontWeight: 700, color: C.white }}>vs {node.opponent}{isRest ? "" : <span style={{ color: resultColor }}> — {result}</span>}</div>
               {csPlayers.length > 0 && <div style={{ fontSize: 11, color: C.yellow, marginTop: 6 }}>🛡 클린시트: {csPlayers.join(", ")}</div>}
             </div>
+            {!isRest && (() => {
+              // 그 경기의 배치(누가 어느 포지션으로 뛰었는지) 읽기전용 표시. 모던 매치는 저장된 최종 배치,
+              // 레거시는 lineup/이벤트로 재구성(reconstructFormation 단일 소스).
+              const fm = reconstructFormation(node);
+              const form = FORMATIONS[fm.formation] || FORMATIONS["4-4-2"];
+              return (
+                <div style={{ ...s.card, marginBottom: 12 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: C.gray, marginBottom: 8, textAlign: "center" }}>📋 포메이션 · {fm.formation}</div>
+                  <FormationPitch positions={form.positions} assignments={fm.assignments} size={300} />
+                  {fm.subs && fm.subs.length > 0 && (
+                    <div style={{ marginTop: 10, fontSize: 11, color: C.gray, textAlign: "center" }}>
+                      <span style={{ fontWeight: 600 }}>후보:</span> {fm.subs.join(", ")}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
             {[...(node.events || [])].filter(e => e.type !== "gkChange").sort((a, b) => a.timestamp - b.timestamp).map(e => (
               <div key={e.id} style={{ padding: "5px 10px", background: C.cardLight, borderRadius: 6, marginBottom: 3, fontSize: 11, color: C.white }}>
                 {e.type === "goal" && `⚽ ${e.player}${e.assist ? ` · 🅰️ ${e.assist}` : ""}`}
