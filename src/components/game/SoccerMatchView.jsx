@@ -3,14 +3,16 @@ import { useTheme } from '../../hooks/useTheme';
 import { calcSoccerScore, getCleanSheetPlayers, soccerResultLabel } from '../../utils/soccerScoring';
 import { generateEventId } from '../../utils/idGenerator';
 import { FORMATIONS } from '../../utils/formations';
+import Modal from '../common/Modal';
 import OpponentSelector from './OpponentSelector';
-import RosterSelector from './RosterSelector';
 import FormationSetup from './FormationSetup';
 import FormationRecorder from './FormationRecorder';
 import RoundNav from './RoundNav';
 import ConfirmBar from './ConfirmBar';
 import AttendeeSelector from './AttendeeSelector';
 
+// 축구 기록화면: 단일 navIdx 연속체로 [과거 경기…] + [진행중/새 경기]를 오간다(풋살 ScheduleMatchView 패턴).
+// 노드 본문 결정 권위 = navIdx + 경기 status. viewState는 서브플로우(formation/editRoster)와 유휴만.
 export default function SoccerMatchView({
   soccerMatches, currentMatchIdx, attendees, opponents,
   onCreateMatch, onAddEvent, onDeleteEvent, onFinishMatch,
@@ -18,66 +20,50 @@ export default function SoccerMatchView({
   onAddOpponent, onRemoveOpponent, onRenameOpponent, onGoToSummary, gameSettings, styles: s,
   savedFormation, onFormationChange,
   sortedPlayers, playerSortMode, rosterHandlers,
+  onSetMatchOpponent, gameFinalized,
 }) {
   const { C } = useTheme();
 
-  // 저장된 포메이션 상태에서 복원
-  const [viewState, setViewState] = useState(() => {
-    if (savedFormation?.viewState) return savedFormation.viewState;
-    if (currentMatchIdx >= 0 && soccerMatches[currentMatchIdx]?.status === "playing") return "playing";
-    return "selectOpponent";
-  });
+  // 서브플로우 뷰 상태만 유지: "selectOpponent"(유휴) / "formation" / "editRoster"
+  const [viewState, setViewState] = useState(() =>
+    (savedFormation?.viewState === "formation" || savedFormation?.viewState === "editRoster")
+      ? savedFormation.viewState : "selectOpponent");
   const [selectedOpponent, setSelectedOpponent] = useState(savedFormation?.selectedOpponent || null);
-  const [viewingMatchIdx, setViewingMatchIdx] = useState(null);
   const [selectedPlayers, setSelectedPlayers] = useState(savedFormation?.selectedPlayers || []);
-  // 포메이션은 경기 객체(soccerMatches[i])가 단일 소스 — 별도 matchFormation 상태/슬롯 없음.
+  const [navLocked, setNavLocked] = useState(false);            // goalFlow 열림 중 ◀▶ 잠금
+  const [opponentModalIdx, setOpponentModalIdx] = useState(null); // 상대팀 변경 모달 대상 matchIdx
 
-  // 멀티탭 동기화: 다른 탭이 savedFormation 을 바꿨을 때 이 탭의 로컬 state 도 따라가야 함.
-  // (CourtRecorder GK 버그와 같은 패턴 — useState 초기값만으론 prop 변경 후 sync 안 됨)
+  // 멀티탭 동기화: 서브플로우 상태만 따라감(playing/selectOpponent는 노드 권위가 아니므로 sync에서 제외).
   useEffect(() => {
-    if (savedFormation?.viewState !== undefined) {
-      // 로컬에서 명단수정 중이면 원격 viewState 변화로 화면을 빼앗기지 않게 유지
-      setViewState(local => local === "editRoster" ? local : savedFormation.viewState);
+    const v = savedFormation?.viewState;
+    if (v === "formation" || v === "editRoster") {
+      setViewState(local => local === "editRoster" ? local : v);
     }
   }, [savedFormation?.viewState]);
   useEffect(() => { setSelectedOpponent(savedFormation?.selectedOpponent || null); }, [savedFormation?.selectedOpponent]);
   useEffect(() => { setSelectedPlayers(savedFormation?.selectedPlayers || []); }, [savedFormation?.selectedPlayers]);
 
-  // 상태 변경 시 리듀서에 저장 (Firebase 자동 저장됨). UI 네비 상태만 — 포메이션 데이터는 경기 객체에.
   const saveFormationState = (updates) => {
-    const current = { viewState, selectedOpponent, selectedPlayers, ...updates };
-    onFormationChange?.(current);
+    onFormationChange?.({ viewState, selectedOpponent, selectedPlayers, ...updates });
   };
 
+  // ── 연속체 파생 ──
+  const orderedMatches = [...soccerMatches].sort((a, b) => a.matchIdx - b.matchIdx);
+  const playingPos = orderedMatches.findIndex(m => m.status === "playing");
+  const hasPlaying = playingPos >= 0;
+  const totalNodes = orderedMatches.length + (hasPlaying ? 0 : 1);
+  const editableIdx = hasPlaying ? playingPos : orderedMatches.length; // 진행중 경기 or 트레일링 새 경기
+
+  const [navIdx, setNavIdx] = useState(editableIdx);
+  // 구조가 바뀌면(생성/종료/확정취소/휴식) 편집 노드로 자동 포커스(풋살 FreeMatchView 가드 패턴).
+  const sig = `${orderedMatches.length}:${playingPos}`;
+  const [lastSig, setLastSig] = useState(sig);
+  if (sig !== lastSig) { setLastSig(sig); setNavIdx(editableIdx); }
+
+  const safeNavIdx = Math.max(0, Math.min(navIdx, totalNodes - 1));
   const currentMatch = currentMatchIdx >= 0 ? soccerMatches[currentMatchIdx] : null;
-  const finishedMatches = soccerMatches.filter(m => m.status === "finished");
-  const viewingMatch = viewingMatchIdx !== null ? soccerMatches[viewingMatchIdx] : null;
 
-  // 상대팀 선택 → 바로 포메이션으로
-  const handleOpponentSelect = (name) => {
-    setSelectedOpponent(name);
-    setSelectedPlayers(attendees);
-    setViewState("formation");
-    saveFormationState({ viewState: "formation", selectedOpponent: name, selectedPlayers: attendees });
-  };
-
-  // 포메이션 확정 → 경기 생성
-  const handleFormationConfirm = ({ formation, assignments, gk, positionMap, subs }) => {
-    const lineup = Object.values(assignments);
-    const defenders = Object.entries(positionMap).filter(([, r]) => r === "DF").map(([n]) => n);
-    // 포메이션은 경기 객체에 저장(단일 소스)
-    onCreateMatch({ opponent: selectedOpponent, lineup, gk, defenders, subs, formation, assignments, positionMap });
-    setViewState("playing");
-    setViewingMatchIdx(null);
-    saveFormationState({ viewState: "playing" });
-  };
-
-  // 진행 중 포메이션/교체/카드 변경 → 경기 객체에만 반영(단일 소스)
-  const handleFormationStateChange = (updates) => {
-    onUpdateMatchFormation?.(currentMatchIdx, updates);
-  };
-
-  // 경기 객체에서 레코더용 포메이션 복원 (저장돼 있으면 그대로, 없으면 lineup/gk/defenders로 4-4-2 재구성)
+  // 경기 객체에서 레코더용 포메이션 복원(저장돼 있으면 그대로, 없으면 lineup/gk/defenders로 4-4-2 재구성)
   const reconstructFormation = (m) => {
     if (m.formation && m.assignments && m.positionMap) {
       return { formation: m.formation, assignments: m.assignments, positionMap: m.positionMap, gk: m.gk || "", subs: m.subs || [] };
@@ -97,7 +83,6 @@ export default function SoccerMatchView({
       else name = others[oi++] ?? null;
       if (name) { assignments[idx] = name; positionMap[name] = pos.role; }
     });
-    // 기존 교체/퇴장 이벤트를 재생해 현재 피치 상태로 복원(레거시 경기 — 이미 나간 선수 재교체 방지)
     let curGk = gk;
     let curSubs = [...(m.subs || [])];
     const slotOf = (player) => Object.keys(assignments).find(idx => assignments[idx] === player);
@@ -121,176 +106,195 @@ export default function SoccerMatchView({
     return { formation, assignments, positionMap, gk: curGk, subs: curSubs };
   };
 
-  // 끝난 경기 다시 열기(풀편집)
+  // 상대팀 선택 → 포메이션 서브플로우
+  const handleOpponentSelect = (name) => {
+    setSelectedOpponent(name);
+    setSelectedPlayers(attendees);
+    setViewState("formation");
+    saveFormationState({ viewState: "formation", selectedOpponent: name, selectedPlayers: attendees });
+  };
+
+  // 포메이션 확정 → 경기 생성(status playing). viewState는 유휴로 복귀(노드는 status에서 파생).
+  const handleFormationConfirm = ({ formation, assignments, gk, positionMap, subs }) => {
+    const lineup = Object.values(assignments);
+    const defenders = Object.entries(positionMap).filter(([, r]) => r === "DF").map(([n]) => n);
+    onCreateMatch({ opponent: selectedOpponent, lineup, gk, defenders, subs, formation, assignments, positionMap });
+    setViewState("selectOpponent");
+    saveFormationState({ viewState: "selectOpponent" });
+  };
+
+  const handleFormationStateChange = (updates) => {
+    onUpdateMatchFormation?.(currentMatchIdx, updates);
+  };
+
+  // 끝난 경기 다시 열기(풀편집). viewState/navIdx는 손대지 않음 — 구조 변경으로 navIdx가 자동 리셋된다.
   const handleReopenMatch = (matchIdx) => {
-    const m = soccerMatches[matchIdx];
+    const m = soccerMatches.find(x => x.matchIdx === matchIdx);
     if (!m) return;
     if (!confirm(`제${matchIdx + 1}경기 (vs ${m.opponent}) 기록을 다시 열어 수정하시겠습니까?`)) return;
     onReopenMatch?.(matchIdx);
-    // 레거시(포메이션 미저장) 경기만 재구성본을 경기 객체에 확정. 모던 경기는 이미 있으므로 불필요한 쓰기 회피.
     if (!(m.formation && m.assignments && m.positionMap)) {
       onUpdateMatchFormation?.(matchIdx, reconstructFormation(m));
     }
-    setViewState("playing");
-    setViewingMatchIdx(null);
-    saveFormationState({ viewState: "playing" });
   };
 
-  // 이벤트
   const handleAddEvent = (event) => {
     onAddEvent(currentMatchIdx, { ...event, id: event.id || generateEventId(), timestamp: event.timestamp || Date.now() });
   };
   const handleDeleteEvent = (eventId) => { onDeleteEvent(currentMatchIdx, eventId); };
 
-  // 경기 종료
+  // 경기 종료. viewState 유휴 유지, navIdx는 구조 변경으로 새 경기 노드로 자동 이동.
   const handleFinishMatch = (finalSnapshot) => {
-    // FormationRecorder가 넘긴 종료 직전 최종 포메이션을 경기 객체에 확정 반영(스냅샷 유실 방지)
     if (finalSnapshot && typeof finalSnapshot === "object") onUpdateMatchFormation?.(currentMatchIdx, finalSnapshot);
-    const justIdx = currentMatchIdx;
     onFinishMatch(currentMatchIdx);
-    // 종료한 경기를 통합 보기(◀▶·확정취소)로 표시. ← 돌아가기 시 새 경기 생성 화면으로.
-    setViewingMatchIdx(justIdx);
+    setNavLocked(false);
     setSelectedOpponent(null);
     setSelectedPlayers([]);
     setViewState("selectOpponent");
     saveFormationState({ viewState: "selectOpponent", selectedOpponent: null });
   };
 
-  // 과거 경기 보기
-  if (viewingMatch) {
-    const { ourScore, opponentScore } = calcSoccerScore(viewingMatch.events);
-    const csPlayers = getCleanSheetPlayers(viewingMatch);
-    const isRest = viewingMatch.opponent === "휴식";
-    const result = soccerResultLabel(ourScore, opponentScore);
-    const resultColor = result === "승" ? C.green : result === "패" ? C.red : C.gray;
-    const viewPos = finishedMatches.findIndex(m => m.matchIdx === viewingMatch.matchIdx);
-    return (
-      <div>
-        <div style={{ marginBottom: 10 }}>
-          <button onClick={() => setViewingMatchIdx(null)} style={{ padding: "6px 14px", borderRadius: 8, background: C.grayDark, color: C.white, border: "none", fontSize: 12, cursor: "pointer" }}>← 돌아가기</button>
-        </div>
-        {/* 끝난 경기들 사이 ◀▶ 이동(읽기 전용 보기). active 플로우는 미변경. */}
-        <RoundNav
-          label={`제${viewingMatch.matchIdx + 1}경기`} total={soccerMatches.length}
-          statusText={isRest ? "휴식" : "종료됨"} statusTone="green"
-          canPrev={viewPos > 0} canNext={viewPos >= 0 && viewPos < finishedMatches.length - 1}
-          onPrev={() => { if (viewPos > 0) setViewingMatchIdx(finishedMatches[viewPos - 1].matchIdx); }}
-          onNext={() => { if (viewPos >= 0 && viewPos < finishedMatches.length - 1) setViewingMatchIdx(finishedMatches[viewPos + 1].matchIdx); }}
-        />
-        <div style={{ ...s.card, textAlign: "center", marginBottom: 12 }}>
-          <div style={{ fontSize: 22, fontWeight: 900, margin: "8px 0" }}>
-            <span style={{ color: ourScore > opponentScore ? C.green : C.white }}>{ourScore}</span>
-            <span style={{ color: C.gray }}> : </span>
-            <span style={{ color: opponentScore > ourScore ? C.red : C.white }}>{opponentScore}</span>
-          </div>
-          <div style={{ fontSize: 14, fontWeight: 700, color: C.white }}>vs {viewingMatch.opponent}{isRest ? "" : <span style={{ color: resultColor }}> — {result}</span>}</div>
-          {csPlayers.length > 0 && <div style={{ fontSize: 11, color: C.yellow, marginTop: 6 }}>🛡 클린시트: {csPlayers.join(", ")}</div>}
-        </div>
-        {[...(viewingMatch.events || [])].sort((a, b) => a.timestamp - b.timestamp).map(e => (
-          <div key={e.id} style={{ padding: "5px 10px", background: C.cardLight, borderRadius: 6, marginBottom: 3, fontSize: 11, color: C.white }}>
-            {e.type === "goal" && `⚽ ${e.player}${e.assist ? ` · 🅰️ ${e.assist}` : ""}`}
-            {e.type === "owngoal" && `🔴 ${e.player} (자책골)`}
-            {e.type === "opponentGoal" && `⚽ 상대골 (GK: ${e.currentGk || ""})`}
-            {e.type === "opponentOwnGoal" && `🔴 상대 자책골`}
-            {e.type === "sub" && `🔄 ${e.playerOut} → ${e.playerIn} (${e.position})`}
-            {e.type === "yellowCard" && `🟨 ${e.player} 옐로카드`}
-            {e.type === "redCard" && `🟥 ${e.player} 레드카드`}
-          </div>
-        ))}
-        <div style={{ height: 72 }} />
-        <ConfirmBar>
-          <span style={{ color: C.green, fontWeight: 700, fontSize: 13 }}>제{viewingMatch.matchIdx + 1}경기 {isRest ? "휴식" : "종료됨"}</span>
-          {!isRest && (
-            <button onClick={() => handleReopenMatch(viewingMatch.matchIdx)}
-              style={{ padding: "6px 16px", borderRadius: 8, background: C.orange, color: C.bg, border: "none", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>확정취소</button>
-          )}
-        </ConfirmBar>
-      </div>
-    );
-  }
-
-
-  // 경기 진행 중 (포메이션 레코더)
-  if (viewState === "playing" && currentMatch) {
-    // 포메이션은 경기 객체에서 derive(단일 소스). key로 경기 전환 시 레코더 remount(uncontrolled 재시드).
-    const live = reconstructFormation(currentMatch);
-    return (
-      <FormationRecorder
-        key={currentMatchIdx}
-        formation={live.formation}
-        assignments={live.assignments}
-        positionMap={live.positionMap}
-        subs={live.subs}
-        gk={live.gk}
-        opponent={currentMatch.opponent}
-        startedAt={currentMatch.startedAt || Date.now()}
-        events={currentMatch.events || []}
-        onAddEvent={handleAddEvent}
-        onDeleteEvent={handleDeleteEvent}
-        onFinishMatch={handleFinishMatch}
-        onStateChange={handleFormationStateChange}
-      />
-    );
-  }
-
-  // 포메이션 선택 (참석 멤버에서 바로 배치)
+  // ── 서브플로우(전체화면, RoundNav 없음) ──
   if (viewState === "formation" && selectedOpponent) {
     return (
-      <FormationSetup selectedPlayers={selectedPlayers} onConfirm={handleFormationConfirm} onBack={() => setViewState("selectOpponent")} title={`vs ${selectedOpponent}`} />
+      <FormationSetup selectedPlayers={selectedPlayers} onConfirm={handleFormationConfirm}
+        onBack={() => setViewState("selectOpponent")} title={`vs ${selectedOpponent}`} />
     );
   }
-
   if (viewState === "editRoster") {
     return (
       <div>
         <button onClick={() => setViewState("selectOpponent")} style={{ marginBottom: 10, padding: "6px 14px", borderRadius: 8, background: C.grayDark, color: C.white, border: "none", fontSize: 12, cursor: "pointer" }}>← 완료</button>
         <div style={{ fontSize: 13, fontWeight: 700, color: C.white, marginBottom: 4 }}>참석명단 수정</div>
         <div style={{ fontSize: 11, color: C.gray, marginBottom: 10 }}>변경은 다음 경기부터 반영됩니다. (진행/종료된 경기는 그대로)</div>
-        <AttendeeSelector
-          attendees={attendees} sortedPlayers={sortedPlayers || []} playerSortMode={playerSortMode}
-          {...rosterHandlers} styles={s} />
+        <AttendeeSelector attendees={attendees} sortedPlayers={sortedPlayers || []} playerSortMode={playerSortMode} {...rosterHandlers} styles={s} />
       </div>
     );
   }
 
-  // 상대팀 선택 (기본)
+  // ── 연속체 노드 ──
+  const atNewNode = safeNavIdx >= orderedMatches.length;      // 트레일링 새 경기 노드
+  const node = atNewNode ? null : orderedMatches[safeNavIdx];
+  const isRest = !!node && node.opponent === "휴식";
+  const isPlayingNode = !!node && node.status === "playing";
+
+  const navLabel = atNewNode ? `제${soccerMatches.length + 1}경기` : `제${node.matchIdx + 1}경기`;
+  const navStatusText = atNewNode ? "새 경기" : isRest ? "휴식" : isPlayingNode ? "진행중" : "종료됨";
+  const navStatusTone = isPlayingNode ? "orange" : atNewNode ? "gray" : "green";
+
+  const goPrev = () => { if (safeNavIdx > 0 && !navLocked) setNavIdx(safeNavIdx - 1); };
+  const goNext = () => { if (safeNavIdx < totalNodes - 1 && !navLocked) setNavIdx(safeNavIdx + 1); };
+
+  const canChangeOpponent = !!node && !atNewNode && !isRest;
+  const openOpponentModal = () => {
+    if (!node) return;
+    if (gameFinalized && !confirm("이미 구글시트로 전송(마감)된 경기입니다.\n상대팀을 바꾸면 최종집계 화면의 '수정 후 재전송'으로 다시 전송해야 시트가 정합됩니다.\n계속하시겠습니까?")) return;
+    setOpponentModalIdx(node.matchIdx);
+  };
+
   return (
     <div>
-      {finishedMatches.length > 0 && (
-        <div style={{ marginBottom: 14 }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: C.gray, marginBottom: 6 }}>오늘 경기 ({finishedMatches.length}경기)</div>
-          {finishedMatches.map((m, i) => {
-            const sc = calcSoccerScore(m.events);
-            return (
-              <div key={i} onClick={() => m.opponent !== "휴식" && setViewingMatchIdx(m.matchIdx)}
-                style={{ display: "flex", justifyContent: "space-between", padding: "8px 12px", background: C.cardLight, borderRadius: 8, marginBottom: 4, fontSize: 13, cursor: m.opponent === "휴식" ? "default" : "pointer", color: C.white, opacity: m.opponent === "휴식" ? 0.5 : 1 }}>
-                <span>{m.opponent === "휴식" ? `제${m.matchIdx + 1}경기 😴 휴식` : `제${m.matchIdx + 1}경기 vs ${m.opponent}`}</span>
-                {m.opponent !== "휴식" && <span style={{ fontWeight: 700 }}>{sc.ourScore}:{sc.opponentScore}</span>}
-              </div>
-            );
-          })}
-        </div>
-      )}
-      <div style={{ ...s.card }}>
-        <div style={{ fontSize: 14, fontWeight: 700, color: C.white, marginBottom: 10 }}>
-          {finishedMatches.length > 0 ? `제${finishedMatches.length + 1}경기` : "경기 생성"}
-        </div>
-        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
-          <button onClick={() => setViewState("editRoster")}
-            style={{ fontSize: 12, padding: "4px 10px", borderRadius: 6, background: C.grayDark, color: C.white, border: "none", cursor: "pointer" }}>
-            👥 명단 수정 ({attendees.length})
+      <RoundNav
+        label={navLabel} total={totalNodes}
+        statusText={navStatusText} statusTone={navStatusTone}
+        canPrev={safeNavIdx > 0 && !navLocked}
+        canNext={safeNavIdx < totalNodes - 1 && !navLocked}
+        onPrev={goPrev} onNext={goNext}
+      />
+
+      {canChangeOpponent && (
+        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 10 }}>
+          <button onClick={openOpponentModal}
+            style={{ fontSize: 12, padding: "5px 12px", borderRadius: 8, background: C.grayDark, color: C.white, border: "none", cursor: "pointer" }}>
+            🔁 상대팀 변경
           </button>
         </div>
-        <OpponentSelector opponents={opponents} onSelect={handleOpponentSelect} onAddOpponent={onAddOpponent}
-          onRemoveOpponent={onRemoveOpponent} onRenameOpponent={onRenameOpponent} styles={s} />
-        <button onClick={() => {
-          if (!confirm("이번 라운드를 휴식으로 처리하시겠습니까?")) return;
-          onCreateRestMatch(); // 생성+마감 원자적 단일 액션
-        }}
-          style={{ marginTop: 10, width: "100%", padding: "12px 0", borderRadius: 10, border: `1px dashed ${C.grayDark}`, background: "transparent", fontSize: 13, color: C.gray, cursor: "pointer" }}>
-          😴 휴식 (이번 라운드 스킵)
-        </button>
-      </div>
+      )}
+
+      {/* 새 경기 노드 */}
+      {atNewNode && (
+        <div style={{ ...s.card }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: C.white, marginBottom: 10 }}>제{soccerMatches.length + 1}경기</div>
+          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
+            <button onClick={() => setViewState("editRoster")}
+              style={{ fontSize: 12, padding: "4px 10px", borderRadius: 6, background: C.grayDark, color: C.white, border: "none", cursor: "pointer" }}>
+              👥 명단 수정 ({attendees.length})
+            </button>
+          </div>
+          <OpponentSelector opponents={opponents} onSelect={handleOpponentSelect} onAddOpponent={onAddOpponent}
+            onRemoveOpponent={onRemoveOpponent} onRenameOpponent={onRenameOpponent} styles={s} />
+          <button onClick={() => { if (!confirm("이번 라운드를 휴식으로 처리하시겠습니까?")) return; onCreateRestMatch(); }}
+            style={{ marginTop: 10, width: "100%", padding: "12px 0", borderRadius: 10, border: `1px dashed ${C.grayDark}`, background: "transparent", fontSize: 13, color: C.gray, cursor: "pointer" }}>
+            😴 휴식 (이번 라운드 스킵)
+          </button>
+        </div>
+      )}
+
+      {/* 진행 중 노드 — FormationRecorder(편집). goalFlow 열림 중 ◀▶ 잠금. */}
+      {isPlayingNode && currentMatch && (() => {
+        const live = reconstructFormation(currentMatch);
+        return (
+          <FormationRecorder
+            key={currentMatch.matchIdx}
+            formation={live.formation} assignments={live.assignments} positionMap={live.positionMap}
+            subs={live.subs} gk={live.gk} opponent={currentMatch.opponent}
+            startedAt={currentMatch.startedAt || Date.now()} events={currentMatch.events || []}
+            onAddEvent={handleAddEvent} onDeleteEvent={handleDeleteEvent} onFinishMatch={handleFinishMatch}
+            onStateChange={handleFormationStateChange} onFlowActiveChange={setNavLocked}
+          />
+        );
+      })()}
+
+      {/* 과거(종료/휴식) 노드 — 읽기전용 요약 */}
+      {node && !atNewNode && !isPlayingNode && (() => {
+        const { ourScore, opponentScore } = calcSoccerScore(node.events);
+        const csPlayers = getCleanSheetPlayers(node);
+        const result = soccerResultLabel(ourScore, opponentScore);
+        const resultColor = result === "승" ? C.green : result === "패" ? C.red : C.gray;
+        return (
+          <>
+            <div style={{ ...s.card, textAlign: "center", marginBottom: 12 }}>
+              <div style={{ fontSize: 22, fontWeight: 900, margin: "8px 0" }}>
+                <span style={{ color: ourScore > opponentScore ? C.green : C.white }}>{ourScore}</span>
+                <span style={{ color: C.gray }}> : </span>
+                <span style={{ color: opponentScore > ourScore ? C.red : C.white }}>{opponentScore}</span>
+              </div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: C.white }}>vs {node.opponent}{isRest ? "" : <span style={{ color: resultColor }}> — {result}</span>}</div>
+              {csPlayers.length > 0 && <div style={{ fontSize: 11, color: C.yellow, marginTop: 6 }}>🛡 클린시트: {csPlayers.join(", ")}</div>}
+            </div>
+            {[...(node.events || [])].sort((a, b) => a.timestamp - b.timestamp).map(e => (
+              <div key={e.id} style={{ padding: "5px 10px", background: C.cardLight, borderRadius: 6, marginBottom: 3, fontSize: 11, color: C.white }}>
+                {e.type === "goal" && `⚽ ${e.player}${e.assist ? ` · 🅰️ ${e.assist}` : ""}`}
+                {e.type === "owngoal" && `🔴 ${e.player} (자책골)`}
+                {e.type === "opponentGoal" && `⚽ 상대골 (GK: ${e.currentGk || ""})`}
+                {e.type === "opponentOwnGoal" && `🔴 상대 자책골`}
+                {e.type === "sub" && `🔄 ${e.playerOut} → ${e.playerIn} (${e.position})`}
+                {e.type === "yellowCard" && `🟨 ${e.player} 옐로카드`}
+                {e.type === "redCard" && `🟥 ${e.player} 레드카드`}
+              </div>
+            ))}
+            <div style={{ height: 72 }} />
+            <ConfirmBar>
+              <span style={{ color: C.green, fontWeight: 700, fontSize: 13 }}>제{node.matchIdx + 1}경기 {isRest ? "휴식" : "종료됨"}</span>
+              {!isRest && (
+                <button onClick={() => handleReopenMatch(node.matchIdx)}
+                  style={{ padding: "6px 16px", borderRadius: 8, background: C.orange, color: C.bg, border: "none", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>확정취소</button>
+              )}
+            </ConfirmBar>
+          </>
+        );
+      })()}
+
+      {/* 상대팀 변경 모달 — 논리 matchIdx로 교체 */}
+      {opponentModalIdx !== null && (
+        <Modal onClose={() => setOpponentModalIdx(null)} title="상대팀 변경">
+          <OpponentSelector
+            opponents={opponents}
+            onSelect={(name) => { onSetMatchOpponent?.(opponentModalIdx, name); setOpponentModalIdx(null); }}
+            onAddOpponent={onAddOpponent} onRemoveOpponent={onRemoveOpponent} onRenameOpponent={onRenameOpponent}
+            styles={s} />
+        </Modal>
+      )}
     </div>
   );
 }
