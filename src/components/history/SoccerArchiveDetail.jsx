@@ -1,8 +1,8 @@
 import { useTheme } from '../../hooks/useTheme';
 import SoccerStandingsTable from '../game/SoccerStandingsTable';
+import SoccerMatchResults from '../game/SoccerMatchResults';
 import {
-  calcSoccerPlayerStats, calcSoccerPlayerPoint, calcSoccerTeamRecord,
-  calcSoccerOpponentRecords, calcSoccerScore, soccerResultLabel, getCleanSheetPlayers,
+  calcSoccerPlayerStats, calcSoccerPlayerPoint, calcSoccerTeamRecord, calcSoccerOpponentRecords,
 } from '../../utils/soccerScoring';
 
 // 아카이브 상세의 축구(matchMode==="soccer") 게임 렌더 — SoccerApp 최종집계(SUMMARY)와 동일 구성:
@@ -39,27 +39,7 @@ export default function SoccerArchiveDetail({ soccerMatches, es, styles: hs }) {
       <div style={{ marginBottom: 16 }}>
         <div style={{ fontSize: 14, fontWeight: 800, color: C.white, marginBottom: 8 }}>📊 경기 결과</div>
         <div style={hs.card}>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead><tr>{["#", "상대팀", "결과", "CS"].map(h => <th key={h} style={hs.th}>{h}</th>)}</tr></thead>
-            <tbody>
-              {finished.map(m => {
-                const sc = calcSoccerScore(m.events);
-                const cs = getCleanSheetPlayers(m);
-                const result = soccerResultLabel(sc.ourScore, sc.opponentScore);
-                const isRest = m.opponent === "휴식";
-                return (
-                  <tr key={m.matchIdx}>
-                    <td style={hs.td()}>{m.matchIdx + 1}</td>
-                    <td style={{ ...hs.td(true), textAlign: "left", paddingLeft: 4 }}>{m.opponent}</td>
-                    <td style={{ ...hs.td(true), color: isRest ? C.gray : result === "승" ? C.green : result === "패" ? C.red : C.gray }}>
-                      {isRest ? "😴 휴식" : `${sc.ourScore}:${sc.opponentScore} ${result}`}
-                    </td>
-                    <td style={hs.td()}>{cs.length > 0 ? "🛡" : "-"}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+          <SoccerMatchResults matches={matches} styles={hs} />
         </div>
       </div>
 
