@@ -259,6 +259,15 @@ export default function SoccerMatchView({
         const csPlayers = getCleanSheetPlayers(node);
         const result = soccerResultLabel(ourScore, opponentScore);
         const resultColor = result === "승" ? C.green : result === "패" ? C.red : C.gray;
+        // 그 경기의 배치(누가 어느 포지션으로 뛰었는지) 읽기전용. 모던=저장된 최종 배치, 레거시=재구성.
+        const fm = isRest ? null : reconstructFormation(node);
+        const form = fm ? (FORMATIONS[fm.formation] || FORMATIONS["4-4-2"]) : null;
+        // 출전 = 선발(lineup) ∪ 교체 투입(sub playerIn). 레드카드로 퇴장한 선수도 lineup이라 포함됨.
+        const played = fm ? [...new Set([
+          ...(node.lineup || []),
+          ...(node.events || []).filter(e => e.type === "sub").map(e => e.playerIn),
+        ])] : [];
+        const benchNeverPlayed = fm ? (fm.subs || []).filter(n => !played.includes(n)) : [];
         return (
           <>
             <div style={{ ...s.card, textAlign: "center", marginBottom: 12 }}>
@@ -270,23 +279,22 @@ export default function SoccerMatchView({
               <div style={{ fontSize: 14, fontWeight: 700, color: C.white }}>vs {node.opponent}{isRest ? "" : <span style={{ color: resultColor }}> — {result}</span>}</div>
               {csPlayers.length > 0 && <div style={{ fontSize: 11, color: C.yellow, marginTop: 6 }}>🛡 클린시트: {csPlayers.join(", ")}</div>}
             </div>
-            {!isRest && (() => {
-              // 그 경기의 배치(누가 어느 포지션으로 뛰었는지) 읽기전용 표시. 모던 매치는 저장된 최종 배치,
-              // 레거시는 lineup/이벤트로 재구성(reconstructFormation 단일 소스).
-              const fm = reconstructFormation(node);
-              const form = FORMATIONS[fm.formation] || FORMATIONS["4-4-2"];
-              return (
-                <div style={{ ...s.card, marginBottom: 12 }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: C.gray, marginBottom: 8, textAlign: "center" }}>📋 포메이션 · {fm.formation}</div>
-                  <FormationPitch positions={form.positions} assignments={fm.assignments} size={300} />
-                  {fm.subs && fm.subs.length > 0 && (
-                    <div style={{ marginTop: 10, fontSize: 11, color: C.gray, textAlign: "center" }}>
-                      <span style={{ fontWeight: 600 }}>후보:</span> {fm.subs.join(", ")}
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
+            {fm && (
+              <div style={{ ...s.card, marginBottom: 12 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: C.gray, marginBottom: 8, textAlign: "center" }}>📋 포메이션 · {form.label}</div>
+                <FormationPitch positions={form.positions} assignments={fm.assignments} size={300} />
+                {played.length > 0 && (
+                  <div style={{ marginTop: 10, fontSize: 11, color: C.grayLight, textAlign: "center", lineHeight: 1.6 }}>
+                    <span style={{ fontWeight: 700, color: C.white }}>출전 ({played.length}):</span> {played.join(", ")}
+                  </div>
+                )}
+                {benchNeverPlayed.length > 0 && (
+                  <div style={{ marginTop: 4, fontSize: 11, color: C.gray, textAlign: "center" }}>
+                    <span style={{ fontWeight: 600 }}>미출전:</span> {benchNeverPlayed.join(", ")}
+                  </div>
+                )}
+              </div>
+            )}
             {[...(node.events || [])].filter(e => e.type !== "gkChange").sort((a, b) => a.timestamp - b.timestamp).map(e => (
               <div key={e.id} style={{ padding: "5px 10px", background: C.cardLight, borderRadius: 6, marginBottom: 3, fontSize: 11, color: C.white }}>
                 {e.type === "goal" && `⚽ ${e.player}${e.assist ? ` · 🅰️ ${e.assist}` : ""}`}

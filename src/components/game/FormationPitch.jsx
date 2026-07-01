@@ -3,6 +3,7 @@ import { ROLE_COLORS } from '../../utils/formations';
 
 export default function FormationPitch({ positions, assignments = {}, onPlayerTap, onEmptyTap, highlightIdx, size = 340 }) {
   const { C } = useTheme();
+  const interactive = !!(onPlayerTap || onEmptyTap); // 핸들러 없으면 읽기전용 — 포인터 커서 숨김
   const h = size * 1.45;
   const pad = 8;
 
@@ -27,7 +28,7 @@ export default function FormationPitch({ positions, assignments = {}, onPlayerTa
         return (
           <div key={idx}
             onClick={() => hasPlayer ? onPlayerTap?.(idx, player) : onEmptyTap?.(idx)}
-            style={{ position: "absolute", left: px - 22, top: py - 22, width: 44, height: 44, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", cursor: "pointer", zIndex: 10 }}>
+            style={{ position: "absolute", left: px - 22, top: py - 22, width: 44, height: 44, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", cursor: interactive ? "pointer" : "default", zIndex: 10 }}>
             <div style={{
               width: 32, height: 32, borderRadius: "50%",
               background: hasPlayer ? roleColor + "cc" : "rgba(255,255,255,0.15)",
