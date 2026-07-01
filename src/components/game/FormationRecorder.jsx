@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useLayoutEffect } from 'react';
 import { useTheme } from '../../hooks/useTheme';
 import { FORMATIONS, FORMATION_KEYS } from '../../utils/formations';
 import { generateEventId } from '../../utils/idGenerator';
@@ -26,8 +26,13 @@ export default function FormationRecorder({
   const [showSubModal, setShowSubModal] = useState(false);
   const [subOut, setSubOut] = useState(null);
 
-  // 미확정 2탭 골 입력이 열려 있으면 상위에 알려 ◀▶ 네비를 잠근다(remount로 인한 골 유실 방지)
-  useEffect(() => { onFlowActiveChange?.(goalFlow != null); }, [goalFlow, onFlowActiveChange]);
+  // 미확정 2탭 골 입력이 열려 있으면 상위에 알려 ◀▶ 네비를 잠근다(remount로 인한 골 유실 방지).
+  // useLayoutEffect: paint 전 동기 실행으로 goalFlow 열림~navLocked 반영 사이 프레임 갭 제거.
+  // cleanup: 언마운트/재실행 시 잠금 해제(navLocked 잔류 방지).
+  useLayoutEffect(() => {
+    onFlowActiveChange?.(goalFlow != null);
+    return () => onFlowActiveChange?.(false);
+  }, [goalFlow, onFlowActiveChange]);
 
   const events = Array.isArray(initEvents) ? initEvents : [];
   const formData = FORMATIONS[formation];

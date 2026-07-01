@@ -122,8 +122,12 @@ export default function SoccerMatchView({
     const lineup = Object.values(assignments);
     const defenders = Object.entries(positionMap).filter(([, r]) => r === "DF").map(([n]) => n);
     onCreateMatch({ opponent: selectedOpponent, lineup, gk, defenders, subs, formation, assignments, positionMap });
+    // 경기 생성 후 selectedOpponent/selectedPlayers 클리어(로컬+RTDB) — 안 지우면 다른 탭이
+    // FormationSetup에 갇혀 확정 시 유령 2번째 경기를 만드는 멀티탭 회귀 발생. handleFinishMatch와 동일 정리.
+    setSelectedOpponent(null);
+    setSelectedPlayers([]);
     setViewState("selectOpponent");
-    saveFormationState({ viewState: "selectOpponent" });
+    saveFormationState({ viewState: "selectOpponent", selectedOpponent: null, selectedPlayers: [] });
   };
 
   const handleFormationStateChange = (updates) => {
