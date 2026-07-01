@@ -912,7 +912,7 @@ function gameReducer(state, action) {
     case 'UPDATE_SOCCER_MATCH_FORMATION': {
       const { matchIdx, patch } = action;
       const allowed = {};
-      for (const k of ["formation", "assignments", "positionMap", "gk", "subs"]) {
+      for (const k of ["formation", "assignments", "positionMap", "gk", "subs", "defenders"]) {
         if (patch && patch[k] !== undefined) allowed[k] = patch[k];
       }
       const matches = state.soccerMatches.map((m, i) => i === matchIdx ? { ...m, ...allowed } : m);
