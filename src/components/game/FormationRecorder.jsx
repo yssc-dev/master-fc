@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTheme } from '../../hooks/useTheme';
 import { FORMATIONS, FORMATION_KEYS } from '../../utils/formations';
 import { generateEventId } from '../../utils/idGenerator';
@@ -12,7 +12,7 @@ import Modal from '../common/Modal';
 export default function FormationRecorder({
   formation: initFormation, assignments: initAssignments, positionMap: initPositionMap,
   subs: initSubs, gk: initGk, opponent, startedAt, matchMinutes = 90,
-  events: initEvents, onAddEvent, onDeleteEvent, onFinishMatch, onStateChange,
+  events: initEvents, onAddEvent, onDeleteEvent, onFinishMatch, onStateChange, onFlowActiveChange,
 }) {
   const { C } = useTheme();
   const [formation, setFormation] = useState(initFormation || "4-4-2");
@@ -25,6 +25,9 @@ export default function FormationRecorder({
   const [showFormationPicker, setShowFormationPicker] = useState(false);
   const [showSubModal, setShowSubModal] = useState(false);
   const [subOut, setSubOut] = useState(null);
+
+  // 미확정 2탭 골 입력이 열려 있으면 상위에 알려 ◀▶ 네비를 잠근다(remount로 인한 골 유실 방지)
+  useEffect(() => { onFlowActiveChange?.(goalFlow != null); }, [goalFlow, onFlowActiveChange]);
 
   const events = Array.isArray(initEvents) ? initEvents : [];
   const formData = FORMATIONS[formation];
