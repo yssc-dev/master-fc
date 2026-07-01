@@ -31,6 +31,8 @@ export default function SoccerMatchView({
   const [selectedOpponent, setSelectedOpponent] = useState(savedFormation?.selectedOpponent || null);
   const [selectedPlayers, setSelectedPlayers] = useState(savedFormation?.selectedPlayers || []);
   const [navLocked, setNavLocked] = useState(false);            // goalFlow 열림 중 ◀▶ 잠금
+  // 진행 중 경기가 사라지면(로컬 종료·외부 마감·다른 경기 확정취소) 네비 잠금 해제 — 멀티탭 stuck 방지
+  useEffect(() => { if (!hasPlaying) setNavLocked(false); }, [hasPlaying]);
   const [opponentModalIdx, setOpponentModalIdx] = useState(null); // 상대팀 변경 모달 대상 matchIdx
 
   // 멀티탭 동기화: 서브플로우 상태만 따라감(playing/selectOpponent는 노드 권위가 아니므로 sync에서 제외).
