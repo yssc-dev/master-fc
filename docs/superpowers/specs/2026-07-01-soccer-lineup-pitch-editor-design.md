@@ -85,40 +85,53 @@
     → `onCorrect(anchor.name, C)`, anchor 해제.
 - 하이라이트: `FormationPitch highlightIdx={anchor?.idx}`.
 - 후보 칩은 `anchor` 있을 때 활성(강조), 없을 때 흐리게 + 안내.
+- `anchor` 있는데 `bench`가 비었으면(모두 출전/교체됨) "미출전 선수 없음 — 자리 교대만 가능"
+  안내(정정 경로가 왜 비활성인지 명시). `onBack`은 anchor가 있어도 그냥 닫음(별도 확인 프롬프트 없음).
 
 ### 신규 리듀서: `SWAP_SOCCER_LINEUP_POSITIONS`
 
 과거/임의 경기의 두 출전 슬롯을 교대. 진행중 레코더의 `handleSwap`은 `currentMatchIdx`
 전용이라 과거 경기용 경로가 없으므로 신규가 필요하다. **논리 matchIdx로 매칭**(격리).
 
+**전제(중요):** 편집기 진입 시 레거시 경기는 이미 modern으로 승격됨(아래 "SoccerMatchView 변경"의
+formation 승격 참조) → 리듀서 도달 시 `m.formation`/`m.assignments`/`m.positionMap` 존재를 가정.
+승격이 없으면 `m.assignments`가 null이라 `swapFormationSlots`가 슬롯 null 가드로 **조용히 no-op**
+되어 교대가 유실된다(피치는 재구성된 fabricated 배치를 보여주므로 사용자는 실패를 알 수 없음).
+그래도 `swapFormationSlots` 자체 가드는 방어로 유지.
+
 ```
-action: { type, matchIdx, aIdx, bIdx, gkChangeId, gkChangeTs }
+action: { type, matchIdx, aIdx, bIdx }   // gkChange id/ts는 리듀서 내부 생성(액션에 안 실음)
 
 reducer:
   m 찾기 (m.matchIdx === matchIdx)
-  positions = FORMATIONS[m.formation]?.positions   // 없으면 no-op 반환
+  positions = FORMATIONS[m.formation]?.positions
   res = swapFormationSlots({ assignments: m.assignments, positionMap: m.positionMap,
                              gk: m.gk, positions }, aIdx, bIdx)   // 순수 헬퍼 재사용
-  next = { ...m, assignments: res.assignments, positionMap: res.positionMap, gk: res.gk }
+  // 교대로 역할(DF↔MF/GK 등)이 바뀔 수 있으므로 defenders를 positionMap에서 재계산.
+  //  getCleanSheetPlayers가 match.defenders를 직접 쓰므로(soccerScoring:92) 미갱신 시 클린시트 오귀속.
+  defenders = Object.entries(res.positionMap).filter(([, r]) => r === "DF").map(([n]) => n)
+  next = { ...m, assignments: res.assignments, positionMap: res.positionMap,
+           gk: res.gk, defenders }
   if (res.gk !== m.gk):
     // GK가 바뀌면 무실점 경기도 두 GK를 집계(keeperGames/클린시트)에서 알 수 있게
     // 배경 gkChange 이벤트 추가 (라이브 handleSwap과 동일). 실점 귀속은 opponentGoal.currentGk.
     next.events = [...(m.events||[]), { type:"gkChange", playerOut:m.gk, playerIn:res.gk,
-                                        id: gkChangeId, timestamp: gkChangeTs }]
+                                        id: generateEventId(), timestamp: Date.now() }]
   return 그 경기만 교체한 soccerMatches
 ```
 
 - `swapFormationSlots`는 순수 헬퍼(기존) → 그대로 재사용.
 - 스코어 재계산 불필요(교대는 골 이벤트 무변경, gkChange는 스코어 무관).
-- `gkChangeId`/`gkChangeTs`는 dispatch 시점(SoccerApp)에서 `generateEventId()`/`Date.now()`로
-  생성해 전달 → 리듀서는 GK 변경 시에만 사용(안 바뀌면 무시).
+- gkChange의 id/timestamp는 **리듀서 내부**에서 `generateEventId()`/`Date.now()`로 생성
+  (액션 최소화). `useGameReducer`에 `generateEventId` import 추가.
+- **defenders 재계산은 이 신규 경로에서만** 수행. 라이브 `handleSwap`도 동일한 defenders 미갱신
+  선존 갭이 있으나(별도 이슈), 본 스펙 범위 밖 — 사용자에게 후속 별도 보고.
 
 ### 데이터 흐름 (SoccerApp 배선)
 
 ```
 swapSoccerLineupPositions(matchIdx, aIdx, bIdx):
-  dispatch({ type:'SWAP_SOCCER_LINEUP_POSITIONS', matchIdx, aIdx, bIdx,
-             gkChangeId: generateEventId(), gkChangeTs: Date.now() })
+  dispatch({ type:'SWAP_SOCCER_LINEUP_POSITIONS', matchIdx, aIdx, bIdx })
 // correctSoccerLineup 은 기존 그대로 재사용
 ```
 `SoccerMatchView`에 `onSwapLineupPositions` prop 추가 전달(기존 `onCorrectLineup` 옆).
@@ -126,25 +139,46 @@ swapSoccerLineupPositions(matchIdx, aIdx, bIdx):
 ### `SoccerMatchView` 변경
 
 - `import LineupCorrectionModal` 및 관련 렌더 **삭제**. `lineupModalIdx` → `lineupEditIdx`로 대체.
-- `openLineupModal` → `openLineupEditor`: 동일한 `gameFinalized` confirm 가드 유지 후
-  `setLineupEditIdx(node.matchIdx)`.
-- **전체화면 편집기 조기 반환**(formation 서브플로우처럼): `lineupEditIdx !== null`이면
-  해당 경기를 찾아 `reconstructFormation` → `<LineupEditView>` 렌더. 미발견 시 안전 반환.
+- **`correctionSeq` 완전 제거**: 편집기는 전체화면 조기반환이라 진입 시 `FormationRecorder`가
+  언마운트되고, ←완료 복귀 시 새로 마운트되며 `reconstructFormation`(편집 반영분)으로 자연히
+  재시드된다. 강제 remount용 `correctionSeq` state/키 접미사(`matchIdx + '-' + correctionSeq`)는
+  불필요 → 삭제(단순화). (모달 시절엔 레코더가 뒤에 계속 마운트돼 있어 강제 remount가 필요했음.)
+  `FormationRecorder key`는 `currentMatch.matchIdx`로 단순화.
+- `openLineupModal` → `openLineupEditor` (Critical/Important 반영):
   ```
-  onSwapPositions={(aIdx,bIdx) => {
-    onSwapLineupPositions?.(m.matchIdx, aIdx, bIdx);
-    if (currentMatch && m.matchIdx === currentMatch.matchIdx) setCorrectionSeq(s=>s+1);
-  }}
-  onCorrect={(out,inn) => {
-    onCorrectLineup?.(m.matchIdx, out, inn);
-    if (currentMatch && m.matchIdx === currentMatch.matchIdx) setCorrectionSeq(s=>s+1);
-  }}
+  const openLineupEditor = () => {
+    if (!node) return;
+    if (navLocked) return;                        // ★B: goalFlow 입력 중 진입 차단
+    if (gameFinalized && !confirm("…재전송…")) return;   // 기존 가드 유지
+    if (!(node.formation && node.assignments && node.positionMap))  // ★A: 레거시 승격
+      onUpdateMatchFormation?.(node.matchIdx, reconstructFormation(node));
+    setLineupEditIdx(node.matchIdx);
+  };
+  ```
+  - **★A 레거시 승격**: 레거시 경기(`formation/assignments/positionMap` null)는 `SWAP` 리듀서가
+    raw `m.assignments`(null)을 읽어 no-op 되므로, 진입 시 `handleReopenMatch`(:147-149)와 동일하게
+    `UPDATE_SOCCER_MATCH_FORMATION(reconstructFormation)`으로 modern 승격 후 연다.
+    (dispatch + `setLineupEditIdx`는 같은 핸들러 → React 18 배치 → 다음 렌더에 승격분을 읽음.)
+  - **★B navLocked 가드**: 전체화면 편집기는 레코더를 언마운트하므로 goalFlow(2탭 골입력, 레코더
+    로컬 state) 활성 중 진입하면 골 유실. `navLocked`(=`onFlowActiveChange`) 중 진입 차단 +
+    `🔁 라인업 변경` 버튼도 `navLocked` 시 `disabled`. (상대팀 변경은 오버레이라 무관 — 그대로.)
+- **전체화면 편집기 조기 반환**(formation/editRoster 서브플로우와 동일하게 `return (<div>)` **이전**
+  위치 — RoundNav/노드/레코더와 동시 렌더 금지): `lineupEditIdx !== null`이면
+  `soccerMatches.find(m => m.matchIdx === lineupEditIdx)`로 찾아 `reconstructFormation` →
+  `<LineupEditView>` 렌더. 미발견 시 안전 반환(`setLineupEditIdx(null)`).
+  ```
+  onSwapPositions={(aIdx,bIdx) => onSwapLineupPositions?.(m.matchIdx, aIdx, bIdx)}
+  onCorrect={(out,inn) => onCorrectLineup?.(m.matchIdx, out, inn)}
   onBack={() => setLineupEditIdx(null)}
   ```
-- 진행중 경기 편집 시 편집 후에도 레코더가 최신 배치로 재시드되도록 **correctionSeq bump**
-  유지(기존 정정 remount 패턴 재사용). 과거 경기는 remount 무관.
-- 편집기 `bench`/`assignments`는 매 렌더 `reconstructFormation(m)`에서 파생
-  (출전=lineup∪sub-in, 미출전=(lineup∪subs)−출전 — 기존 과거경기 요약과 동일 계산).
+- 편집기 props는 매 렌더 `reconstructFormation(m)` + 아래 계산에서 파생:
+  - `assignments = fm.assignments`, `formation = fm.formation`.
+  - **★B `bench = fm.subs.filter(n => !played.includes(n))`** — 여기서
+    `played = [...new Set([...(m.lineup||[]), ...(m.events||[]).filter(e=>e.type==="sub").map(e=>e.playerIn)])]`.
+    **`fm.subs`를 그대로 넘기면 안 됨** — `reconstructFormation`의 `curSubs`는 교체로 빠진(뛴)
+    선수도 포함(:107)하므로, 그 선수를 정정 대상(in)으로 고르면 `CORRECT_SOCCER_LINEUP`이
+    `lineup`에 중복(:935)을 만들어 데이터가 깨진다. 기존 과거경기 요약의 `benchNeverPlayed`
+    계산(SoccerMatchView 현행 :278-282)과 **동일**하게 재사용한다.
 
 ## 삭제 대상
 
@@ -162,8 +196,12 @@ swapSoccerLineupPositions(matchIdx, aIdx, bIdx):
 
 - 두 리듀서 op 모두 **논리 matchIdx 매칭** → 타 경기 데이터 무변경(격리).
 - `CORRECT_SOCCER_LINEUP`은 `defenders`까지 치환(getCleanSheetPlayers가 직접 사용) — 재사용이므로 보존됨.
-- `SWAP_SOCCER_LINEUP_POSITIONS`는 GK 교대 시 `gkChange` 배경 이벤트로 keeper 집계 정합 유지.
-- `gkChange`는 타임라인/시트 미표시(기존 필터 유지).
+- `SWAP_SOCCER_LINEUP_POSITIONS`는 **defenders를 positionMap에서 재계산**(클린시트 정합) +
+  GK 교대 시 `gkChange` 배경 이벤트로 keeper 집계 정합 유지.
+- 레거시 경기는 **편집기 진입 시 modern 승격** → SWAP no-op 방지(raw assignments null 회피).
+- goalFlow 활성(`navLocked`) 중엔 편집기 진입 차단 → 레코더 언마운트로 인한 골 유실 방지.
+- `bench`(정정 후보)는 **뛴(교체 out) 선수 제외** → CORRECT의 lineup 중복 방지.
+- `gkChange`는 타임라인/시트 미표시(기존 필터 유지: soccerScoring:187, remap:243).
 - 풋살 모드 무영향(축구 전용 경로).
 - `gameFinalized` 경기 편집 시 재전송 안내 confirm(기존).
 
@@ -175,9 +213,15 @@ swapSoccerLineupPositions(matchIdx, aIdx, bIdx):
 - `SWAP_SOCCER_LINEUP_POSITIONS`: 두 필드 선수 슬롯 교대 → assignments/positionMap 반영, 타 경기 무변경.
 - GK 슬롯 관여 교대 → `gk` 갱신 + `gkChange` 이벤트 1건 추가(playerOut/playerIn 정확).
 - 非GK 교대 → `gkChange` 미추가, events 길이 불변.
-- `m.formation` 없음/`aIdx===bIdx` → no-op(안전).
+- **DF↔MF 교대 → `defenders`가 positionMap 반영(새 DF만 포함, 이전 DF 빠짐)** → getCleanSheetPlayers 정합.
+- `m.formation` 없음/`aIdx===bIdx` → no-op(안전, 방어).
 - 논리 matchIdx: 배열 index와 다른 경기에도 정확 매칭, 인접 경기 격리.
 - (회귀) `CORRECT_SOCCER_LINEUP` 기존 테스트 유지 — 재사용 확인.
+
+**통합 (SoccerMatchView 진입 로직):**
+- 레거시 경기(formation null) 진입 → `UPDATE_SOCCER_MATCH_FORMATION` 승격 dispatch 발생(SWAP 정상화 전제).
+- `navLocked=true`일 때 `openLineupEditor` no-op(진입 차단) + 버튼 disabled.
+- `bench` 계산: 교체로 빠진(뛴) 선수가 정정 후보에서 제외됨(중복 방지 회귀).
 
 **컴포넌트 (`LineupEditView` SSR 스모크):**
 - ThemeProvider로 렌더 시 throw 없음(피치 + 후보 칩 마운트). — SSR 한계상 탭 인터랙션·confirm은 수동 QA.
