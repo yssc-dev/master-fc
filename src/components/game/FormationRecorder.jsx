@@ -1,6 +1,6 @@
 import { useState, useLayoutEffect } from 'react';
 import { useTheme } from '../../hooks/useTheme';
-import { FORMATIONS, FORMATION_KEYS } from '../../utils/formations';
+import { FORMATIONS, FORMATION_KEYS, swapFormationSlots } from '../../utils/formations';
 import { generateEventId } from '../../utils/idGenerator';
 import FormationPitch from './FormationPitch';
 import PlayerActionMenu from './PlayerActionMenu';
@@ -131,6 +131,21 @@ export default function FormationRecorder({
     onStateChange?.({ assignments: newAssignments, positionMap: newPosMap, subs: newSubs, gk: role === "GK" ? subName : gk });
   };
 
+  // 출전 선수끼리 위치(포지션) 교대 — 교체 아님(이벤트 없음), 배치/역할/GK만 갱신.
+  const handleSwap = (targetPosIdx) => {
+    if (!subOut) return;
+    const res = swapFormationSlots(
+      { assignments, positionMap, gk, positions: formData.positions },
+      subOut.posIdx, targetPosIdx
+    );
+    setAssignments(res.assignments);
+    setPositionMap(res.positionMap);
+    if (res.gk !== gk) setGk(res.gk);
+    setSubOut(null);
+    setShowSubModal(false);
+    onStateChange?.({ assignments: res.assignments, positionMap: res.positionMap, gk: res.gk });
+  };
+
   const handleFormationChange = (key) => {
     const newForm = FORMATIONS[key];
     const currentPlayers = Object.values(assignments);
@@ -238,7 +253,7 @@ export default function FormationRecorder({
 
       {/* Sub modal */}
       {showSubModal && (
-        <Modal title={subOut ? `🔄 ${subOut.name} → 들어올 선수` : "🔄 나가는 선수"} onClose={() => { setShowSubModal(false); setSubOut(null); }} maxWidth={360}>
+        <Modal title={subOut ? `🔄 ${subOut.name} — 교체 / 위치교대` : "🔄 나가는 선수"} onClose={() => { setShowSubModal(false); setSubOut(null); }} maxWidth={360}>
           {!subOut ? (
             <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
               {Object.entries(assignments).map(([idx, name]) => (
@@ -250,13 +265,25 @@ export default function FormationRecorder({
             </div>
           ) : (
             <>
+              <div style={{ fontSize: 11, fontWeight: 700, color: C.gray, marginBottom: 6 }}>후보 (교체 투입)</div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                 {subs.map(name => (
                   <button key={name} onClick={() => handleSubIn(name)}
                     style={{ padding: "10px 14px", borderRadius: 10, border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer", background: C.cardLight, color: C.white }}>{name}</button>
                 ))}
+                {subs.length === 0 && <span style={{ color: C.gray, fontSize: 12 }}>후보 없음</span>}
               </div>
-              {subs.length === 0 && <div style={{ textAlign: "center", color: C.gray, fontSize: 12 }}>후보가 없습니다</div>}
+              <div style={{ fontSize: 11, fontWeight: 700, color: C.gray, margin: "14px 0 6px" }}>출전 선수 (위치 교대)</div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {Object.entries(assignments)
+                  .filter(([idx]) => Number(idx) !== subOut.posIdx)
+                  .map(([idx, name]) => (
+                    <button key={idx} onClick={() => handleSwap(Number(idx))}
+                      style={{ padding: "10px 14px", borderRadius: 10, border: `1px solid ${C.accent}55`, fontSize: 13, fontWeight: 600, cursor: "pointer", background: `${C.accent}12`, color: C.white }}>
+                      <span style={{ fontSize: 10, color: C.gray }}>{formData.positions[idx]?.role}</span> {name}
+                    </button>
+                  ))}
+              </div>
             </>
           )}
         </Modal>
