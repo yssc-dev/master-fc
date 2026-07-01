@@ -31,8 +31,6 @@ export default function SoccerMatchView({
   const [selectedOpponent, setSelectedOpponent] = useState(savedFormation?.selectedOpponent || null);
   const [selectedPlayers, setSelectedPlayers] = useState(savedFormation?.selectedPlayers || []);
   const [navLocked, setNavLocked] = useState(false);            // goalFlow 열림 중 ◀▶ 잠금
-  // 진행 중 경기가 사라지면(로컬 종료·외부 마감·다른 경기 확정취소) 네비 잠금 해제 — 멀티탭 stuck 방지
-  useEffect(() => { if (!hasPlaying) setNavLocked(false); }, [hasPlaying]);
   const [opponentModalIdx, setOpponentModalIdx] = useState(null); // 상대팀 변경 모달 대상 matchIdx
 
   // 멀티탭 동기화: 서브플로우 상태만 따라감(playing/selectOpponent는 노드 권위가 아니므로 sync에서 제외).
@@ -55,6 +53,9 @@ export default function SoccerMatchView({
   const hasPlaying = playingPos >= 0;
   const totalNodes = orderedMatches.length + (hasPlaying ? 0 : 1);
   const editableIdx = hasPlaying ? playingPos : orderedMatches.length; // 진행중 경기 or 트레일링 새 경기
+  // 진행 중 경기가 사라지면(로컬 종료·외부 마감·다른 경기 확정취소) 네비 잠금 해제 — 멀티탭 stuck 방지
+  // (hasPlaying 선언 뒤에 위치해야 함 — dep 배열이 렌더 중 즉시 평가되므로 TDZ 회피)
+  useEffect(() => { if (!hasPlaying) setNavLocked(false); }, [hasPlaying]);
 
   const [navIdx, setNavIdx] = useState(editableIdx);
   // 구조가 바뀌면(생성/종료/확정취소/휴식) 편집 노드로 자동 포커스(풋살 FreeMatchView 가드 패턴).
