@@ -14,13 +14,14 @@ import SoccerMatchView from './components/game/SoccerMatchView';
 import SoccerScheduleModal from './components/game/SoccerScheduleModal';
 import SoccerStandingsModal from './components/game/SoccerStandingsModal';
 import SoccerStandingsTable from './components/game/SoccerStandingsTable';
+import SoccerMatchResults from './components/game/SoccerMatchResults';
 import MatchTabBar from './components/game/MatchTabBar';
 import MatchHeader from './components/game/MatchHeader';
 import AttendeeSelector from './components/game/AttendeeSelector';
 import {
-  calcSoccerPlayerStats, calcSoccerPlayerPoint, calcSoccerScore,
-  calcSoccerTeamRecord, calcSoccerOpponentRecords, soccerResultLabel,
-  getCleanSheetPlayers, buildEventLogRows, buildPointLogRows, buildPlayerLogRows,
+  calcSoccerPlayerStats, calcSoccerPlayerPoint,
+  calcSoccerTeamRecord, calcSoccerOpponentRecords,
+  buildEventLogRows, buildPointLogRows, buildPlayerLogRows,
   countFinishedSoccerMatches,
 } from './utils/soccerScoring';
 import { buildRawEventsFromSoccer, buildRawPlayerGamesFromSoccer } from './utils/rawLogBuilders';
@@ -512,24 +513,7 @@ export default function SoccerApp({ authUser, teamContext, isNewGame, gameMode, 
         <div style={s.section}>
           <div style={s.sectionTitle}>📊 경기 결과</div>
           <div style={s.card}>
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead><tr>{["#", "상대팀", "결과", "CS"].map(h => <th key={h} style={s.th}>{h}</th>)}</tr></thead>
-              <tbody>
-                {finished.map(m => {
-                  const sc = calcSoccerScore(m.events);
-                  const cs = getCleanSheetPlayers(m);
-                  const result = soccerResultLabel(sc.ourScore, sc.opponentScore);
-                  return (
-                    <tr key={m.matchIdx}>
-                      <td style={s.td()}>{m.matchIdx + 1}</td>
-                      <td style={s.td(true)}>{m.opponent}</td>
-                      <td style={{ ...s.td(true), color: result === "승" ? C.green : result === "패" ? C.red : C.gray }}>{sc.ourScore}:{sc.opponentScore} {result}</td>
-                      <td style={s.td()}>{cs.length > 0 ? "🛡" : "-"}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+            <SoccerMatchResults matches={state.soccerMatches} styles={s} />
           </div>
         </div>
         <div style={s.section}>
