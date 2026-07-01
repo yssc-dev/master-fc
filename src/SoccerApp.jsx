@@ -188,6 +188,9 @@ export default function SoccerApp({ authUser, teamContext, isNewGame, gameMode, 
   const setSoccerMatchOpponent = (matchIdx, opponent) => {
     dispatch({ type: 'SET_SOCCER_MATCH_OPPONENT', matchIdx, opponent });
   };
+  const correctSoccerLineup = (matchIdx, out, inn) => {
+    dispatch({ type: 'CORRECT_SOCCER_LINEUP', matchIdx, out, in: inn });
+  };
   const createRestMatch = () => {
     dispatch({ type: 'CREATE_AND_FINISH_REST_MATCH' });
   };
@@ -476,6 +479,7 @@ export default function SoccerApp({ authUser, teamContext, isNewGame, gameMode, 
             savedFormation={state.soccerFormation}
             onFormationChange={(f) => dispatch({ type: 'SET_SOCCER_FORMATION', formation: f })}
             onSetMatchOpponent={setSoccerMatchOpponent}
+            onCorrectLineup={correctSoccerLineup}
             gameFinalized={state.gameFinalized}
           />
         </div>

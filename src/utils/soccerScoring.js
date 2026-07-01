@@ -226,3 +226,22 @@ export function buildPlayerLogRows(soccerMatches, gameDate, inputTime) {
     inputTime,
   }));
 }
+
+// 한 매치 이벤트에서 선수 이름 from→to를 모든 이름 필드에 걸쳐 치환(라인업 정정 시 b→a 이관).
+// 순수 — 입력 불변, 새 배열 반환.
+export function remapPlayerInSoccerEvents(events, from, to) {
+  if (!Array.isArray(events) || from === to) return events || [];
+  const r = (v) => (v === from ? to : v);
+  return events.map(e => {
+    switch (e.type) {
+      case "goal": return { ...e, player: r(e.player), assist: r(e.assist) };
+      case "owngoal":
+      case "redCard":
+      case "yellowCard": return { ...e, player: r(e.player) };
+      case "opponentGoal": return { ...e, currentGk: r(e.currentGk) };
+      case "sub":
+      case "gkChange": return { ...e, playerIn: r(e.playerIn), playerOut: r(e.playerOut) };
+      default: return e;
+    }
+  });
+}

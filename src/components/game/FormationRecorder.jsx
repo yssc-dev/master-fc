@@ -118,7 +118,7 @@ export default function FormationRecorder({
   const handleSubIn = (subName) => {
     if (!subOut) return;
     const role = formData.positions[subOut.posIdx]?.role || "FW";
-    onAddEvent({ type: "sub", playerOut: subOut.name, playerIn: subName, position: role, id: generateEventId(), timestamp: Date.now() });
+    onAddEvent({ type: "sub", playerOut: subOut.name, playerIn: subName, position: role, posIdx: subOut.posIdx, id: generateEventId(), timestamp: Date.now() });
     const newAssignments = { ...assignments, [subOut.posIdx]: subName };
     const newPosMap = { ...positionMap }; delete newPosMap[subOut.name]; newPosMap[subName] = role;
     const newSubs = [...subs.filter(n => n !== subName), subOut.name];
@@ -233,7 +233,10 @@ export default function FormationRecorder({
               {e.type === "yellowCard" && <><span>🟨</span><span style={{ color: "#eab308", fontWeight: 600 }}>{e.player}</span><span style={{ color: C.gray }}> 옐로카드</span></>}
               {e.type === "redCard" && <><span>🟥</span><span style={{ color: "#ef4444", fontWeight: 600 }}>{e.player}</span><span style={{ color: C.gray }}> 레드카드 (퇴장)</span></>}
               {e.type === "sub" && <><span>🔄</span><span style={{ color: C.red }}>{e.playerOut}</span><span style={{ color: C.gray }}>→</span><span style={{ color: C.green }}>{e.playerIn}</span></>}
-              <button onClick={() => onDeleteEvent(e.id)} style={{ marginLeft: "auto", background: `${C.red}30`, border: "none", borderRadius: 4, color: C.red, fontSize: 9, padding: "2px 5px", cursor: "pointer" }}>✕</button>
+              <button onClick={() => {
+                if (e.type === "sub" && !confirm("이 교체를 삭제하면 그 교체가 되돌려집니다(배치 복원). 계속하시겠습니까?")) return;
+                onDeleteEvent(e.id);
+              }} style={{ marginLeft: "auto", background: `${C.red}30`, border: "none", borderRadius: 4, color: C.red, fontSize: 9, padding: "2px 5px", cursor: "pointer" }}>✕</button>
             </div>
           ))}
         </div>

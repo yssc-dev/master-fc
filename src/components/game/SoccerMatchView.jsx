@@ -8,6 +8,7 @@ import OpponentSelector from './OpponentSelector';
 import FormationSetup from './FormationSetup';
 import FormationRecorder from './FormationRecorder';
 import FormationPitch from './FormationPitch';
+import LineupCorrectionModal from './LineupCorrectionModal';
 import RoundNav from './RoundNav';
 import ConfirmBar from './ConfirmBar';
 import AttendeeSelector from './AttendeeSelector';
@@ -21,7 +22,7 @@ export default function SoccerMatchView({
   onAddOpponent, onRemoveOpponent, onRenameOpponent, onGoToSummary, gameSettings, styles: s,
   savedFormation, onFormationChange,
   sortedPlayers, playerSortMode, rosterHandlers,
-  onSetMatchOpponent, gameFinalized,
+  onSetMatchOpponent, onCorrectLineup, gameFinalized,
 }) {
   const { C } = useTheme();
 
@@ -33,6 +34,8 @@ export default function SoccerMatchView({
   const [selectedPlayers, setSelectedPlayers] = useState(savedFormation?.selectedPlayers || []);
   const [navLocked, setNavLocked] = useState(false);            // goalFlow 열림 중 ◀▶ 잠금
   const [opponentModalIdx, setOpponentModalIdx] = useState(null); // 상대팀 변경 모달 대상 matchIdx
+  const [lineupModalIdx, setLineupModalIdx] = useState(null);     // 라인업 변경 모달 대상 matchIdx
+  const [correctionSeq, setCorrectionSeq] = useState(0);          // 정정 후 진행중 레코더 강제 remount
 
   // 멀티탭 동기화: 서브플로우 상태만 따라감(playing/selectOpponent는 노드 권위가 아니므로 sync에서 제외).
   useEffect(() => {
@@ -199,6 +202,11 @@ export default function SoccerMatchView({
     if (gameFinalized && !confirm("이미 구글시트로 전송(마감)된 경기입니다.\n상대팀을 바꾸면 최종집계 화면의 '수정 후 재전송'으로 다시 전송해야 시트가 정합됩니다.\n계속하시겠습니까?")) return;
     setOpponentModalIdx(node.matchIdx);
   };
+  const openLineupModal = () => {
+    if (!node) return;
+    if (gameFinalized && !confirm("이미 구글시트로 전송(마감)된 경기입니다.\n라인업을 정정하면 최종집계 화면의 '수정 후 재전송'으로 다시 전송해야 시트가 정합됩니다.\n계속하시겠습니까?")) return;
+    setLineupModalIdx(node.matchIdx);
+  };
 
   return (
     <div>
@@ -211,7 +219,11 @@ export default function SoccerMatchView({
       />
 
       {canChangeOpponent && (
-        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 10 }}>
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 6, marginBottom: 10 }}>
+          <button onClick={openLineupModal}
+            style={{ fontSize: 12, padding: "5px 12px", borderRadius: 8, background: C.grayDark, color: C.white, border: "none", cursor: "pointer" }}>
+            🔁 라인업 변경
+          </button>
           <button onClick={openOpponentModal}
             style={{ fontSize: 12, padding: "5px 12px", borderRadius: 8, background: C.grayDark, color: C.white, border: "none", cursor: "pointer" }}>
             🔁 상대팀 변경
@@ -243,7 +255,7 @@ export default function SoccerMatchView({
         const live = reconstructFormation(currentMatch);
         return (
           <FormationRecorder
-            key={currentMatch.matchIdx}
+            key={currentMatch.matchIdx + '-' + correctionSeq}
             formation={live.formation} assignments={live.assignments} positionMap={live.positionMap}
             subs={live.subs} gk={live.gk} opponent={currentMatch.opponent}
             startedAt={currentMatch.startedAt || Date.now()} events={currentMatch.events || []}
@@ -328,6 +340,27 @@ export default function SoccerMatchView({
             styles={s} />
         </Modal>
       )}
+
+      {/* 라인업 변경(선발 정정) 모달 */}
+      {lineupModalIdx !== null && (() => {
+        const m = soccerMatches.find(x => x.matchIdx === lineupModalIdx);
+        if (!m) return null;
+        // 출전 = 선발(lineup) ∪ 교체투입(sub playerIn). 미출전 = 스쿼드(lineup∪subs) − 출전.
+        const subIn = (m.events || []).filter(e => e.type === "sub").map(e => e.playerIn);
+        const played = [...new Set([...(m.lineup || []), ...subIn])];
+        const roster = [...new Set([...(m.lineup || []), ...(m.subs || [])])];
+        const bench = roster.filter(n => !played.includes(n));
+        return (
+          <LineupCorrectionModal
+            played={played} bench={bench}
+            onCorrect={(out, inn) => {
+              onCorrectLineup?.(m.matchIdx, out, inn);
+              // 진행중 경기를 정정할 때만 레코더 remount(재시드). 과거경기 정정은 레코더 데이터와 무관.
+              if (currentMatch && m.matchIdx === currentMatch.matchIdx) setCorrectionSeq(sq => sq + 1);
+            }}
+            onClose={() => setLineupModalIdx(null)} />
+        );
+      })()}
     </div>
   );
 }

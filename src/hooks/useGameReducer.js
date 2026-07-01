@@ -1,7 +1,7 @@
 import { useReducer } from 'react';
 import { FALLBACK_DATA } from '../config/fallbackData';
 import { calcMatchScore } from '../utils/scoring';
-import { calcSoccerScore } from '../utils/soccerScoring';
+import { calcSoccerScore, remapPlayerInSoccerEvents } from '../utils/soccerScoring';
 import { createInitialPushState, calcNextPushMatch } from '../utils/pushMatch';
 
 const initialState = {
@@ -925,6 +925,30 @@ function gameReducer(state, action) {
       );
       return { ...state, soccerMatches: matches };
     }
+    // 선발 오기입 정정: out(b, 잘못 기록)→in(a, 실제 뜀). 매치 전체 b→a 치환, b는 벤치로.
+    // 교체(sub) 아님 → sub 이벤트 생성 안 함. b의 이벤트는 a로 이관. 논리 matchIdx 매칭.
+    case 'CORRECT_SOCCER_LINEUP': {
+      const { matchIdx, out: b, in: a } = action;
+      if (!b || !a || b === a) return state;
+      const matches = state.soccerMatches.map(m => {
+        if (m.matchIdx !== matchIdx) return m;
+        const lineup = (m.lineup || []).map(n => n === b ? a : n);
+        const defenders = (m.defenders || []).map(n => n === b ? a : n);
+        const assignments = {};
+        for (const [idx, name] of Object.entries(m.assignments || {})) assignments[idx] = name === b ? a : name;
+        const positionMap = { ...(m.positionMap || {}) };
+        const roleForA = positionMap[b] ?? positionMap[a]; // b role, 없으면 a 기존 role(orphan)
+        delete positionMap[b];
+        if (roleForA !== undefined) positionMap[a] = roleForA;
+        const gk = m.gk === b ? a : m.gk;
+        const subs = [...(m.subs || []).filter(n => n !== a)];
+        if (!subs.includes(b)) subs.push(b);
+        const events = remapPlayerInSoccerEvents(m.events, b, a);
+        const { ourScore, opponentScore } = calcSoccerScore(events);
+        return { ...m, lineup, defenders, assignments, positionMap, gk, subs, events, ourScore, opponentScore };
+      });
+      return { ...state, soccerMatches: matches };
+    }
     // 휴식 경기: 생성+마감을 한 액션으로(2-dispatch 인덱스 레이스 제거)
     case 'CREATE_AND_FINISH_REST_MATCH': {
       const newMatch = {
@@ -958,11 +982,24 @@ function gameReducer(state, action) {
       return { ...state, soccerMatches: matches };
     }
     case 'DELETE_SOCCER_EVENT': {
+      // matchIdx는 배열 index(append-only 생성 + 삭제 없음으로 matchIdx===index 불변). 다른 소서 이벤트 액션과 동일.
       const { matchIdx, eventId } = action;
       const matches = state.soccerMatches.map((m, i) => {
         if (i !== matchIdx) return m;
+        const deleted = (m.events || []).find(e => e.id === eventId);
         const events = (m.events || []).filter(e => e.id !== eventId);
-        const { ourScore, opponentScore } = calcSoccerScore(events); // 상대자책골 포함 단일 집계
+        const { ourScore, opponentScore } = calcSoccerScore(events);
+        // 교체(sub) 삭제 → 그 교체를 되돌린다. 단 그 슬롯(posIdx)이 이후 안 바뀐 경우만(오염 방지).
+        if (deleted && deleted.type === "sub" && deleted.posIdx != null
+            && (m.assignments || {})[deleted.posIdx] === deleted.playerIn) {
+          const assignments = { ...m.assignments, [deleted.posIdx]: deleted.playerOut };
+          const positionMap = { ...(m.positionMap || {}) };
+          delete positionMap[deleted.playerIn];
+          positionMap[deleted.playerOut] = deleted.position;
+          const subs = [...(m.subs || []).filter(n => n !== deleted.playerOut), deleted.playerIn];
+          const gk = deleted.position === "GK" ? deleted.playerOut : m.gk;
+          return { ...m, events, ourScore, opponentScore, assignments, positionMap, subs, gk };
+        }
         return { ...m, events, ourScore, opponentScore };
       });
       return { ...state, soccerMatches: matches };
