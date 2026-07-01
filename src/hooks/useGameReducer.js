@@ -916,6 +916,15 @@ function gameReducer(state, action) {
       const matches = state.soccerMatches.map((m, i) => i === matchIdx ? { ...m, ...allowed } : m);
       return { ...state, soccerMatches: matches };
     }
+    // 상대팀만 교체(오기입 정정). 논리 matchIdx로 매칭 — 배열 index 불변식에 의존하지 않아
+    // 격리 보장(타 경기 무변경). events/score/status/lineup 등 다른 필드는 스프레드로 보존.
+    case 'SET_SOCCER_MATCH_OPPONENT': {
+      const { matchIdx, opponent } = action;
+      const matches = state.soccerMatches.map(m =>
+        m.matchIdx === matchIdx ? { ...m, opponent } : m
+      );
+      return { ...state, soccerMatches: matches };
+    }
     // 휴식 경기: 생성+마감을 한 액션으로(2-dispatch 인덱스 레이스 제거)
     case 'CREATE_AND_FINISH_REST_MATCH': {
       const newMatch = {
