@@ -69,11 +69,26 @@ export function calcSoccerOpponentRecords(soccerMatches) {
  * 클린시트 대상 선수 목록 (무실점 경기 시 GK + 모든 DF)
  * 교체로 나간 DF/GK도 포함
  */
+// 한 경기에서 GK로 뛴 모든 선수 집합.
+// 최종 match.gk + GK 변경(교체 sub[pos GK], 위치교대 gkChange)의 나간/들어온 선수 모두.
+// 무실점 경기는 실점 이벤트가 없어 이 기록으로만 두 GK를 알 수 있다(집계·클린시트 근거).
+export function getMatchGks(match) {
+  const gks = new Set();
+  if (match.gk) gks.add(match.gk);
+  for (const e of (match.events || [])) {
+    if ((e.type === "sub" && e.position === "GK") || e.type === "gkChange") {
+      if (e.playerOut) gks.add(e.playerOut);
+      if (e.playerIn) gks.add(e.playerIn);
+    }
+  }
+  return gks;
+}
+
 export function getCleanSheetPlayers(match) {
-  const { ourScore, opponentScore } = calcSoccerScore(match.events);
-  if (opponentScore > 0) return [];
+  const { opponentScore } = calcSoccerScore(match.events);
+  if (opponentScore > 0) return []; // 경기 총실점 0일 때만 — 그러면 뛴 GK 모두 클린시트
   const csPlayers = new Set();
-  if (match.gk) csPlayers.add(match.gk);
+  getMatchGks(match).forEach(g => csPlayers.add(g));
   (match.defenders || []).forEach(d => csPlayers.add(d));
   for (const e of (match.events || [])) {
     if (e.type === "sub" && (e.position === "GK" || e.position === "DF")) {
@@ -98,10 +113,11 @@ export function calcSoccerPlayerStats(soccerMatches) {
       if (e.type === "sub") allPlayed.add(e.playerIn);
     }
     const csPlayers = getCleanSheetPlayers(match);
+    const matchGks = getMatchGks(match); // 이 경기에서 GK로 뛴 모든 선수(교대/교체 포함)
     for (const name of allPlayed) {
       ensure(name);
       stats[name].games++;
-      const wasGk = name === match.gk || (match.events || []).some(e => e.type === "sub" && e.playerIn === name && e.position === "GK");
+      const wasGk = matchGks.has(name);
       if (wasGk) stats[name].keeperGames++;
       else stats[name].fieldGames++;
       if (csPlayers.includes(name)) stats[name].cleanSheets++;
