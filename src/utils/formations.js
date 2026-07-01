@@ -95,3 +95,9 @@ export function swapFormationSlots({ assignments, positionMap, gk, positions }, 
   if (roleB === "GK") newGk = aName; // B 슬롯이 GK였으면 이제 A가 그 자리 → A가 GK
   return { assignments: newAssignments, positionMap: newPositionMap, gk: newGk };
 }
+
+// positionMap(name→role)에서 DF인 선수 목록. 위치교대/정정 등 role이 바뀌는 연산 뒤
+// match.defenders 재계산의 단일 소스(getCleanSheetPlayers가 defenders를 직접 사용).
+export function defendersFromPositionMap(positionMap) {
+  return Object.entries(positionMap || {}).filter(([, r]) => r === "DF").map(([n]) => n);
+}

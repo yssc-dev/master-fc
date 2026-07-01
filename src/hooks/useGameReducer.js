@@ -3,6 +3,7 @@ import { FALLBACK_DATA } from '../config/fallbackData';
 import { calcMatchScore } from '../utils/scoring';
 import { calcSoccerScore, remapPlayerInSoccerEvents } from '../utils/soccerScoring';
 import { createInitialPushState, calcNextPushMatch } from '../utils/pushMatch';
+import { FORMATIONS, swapFormationSlots, defendersFromPositionMap } from '../utils/formations';
 
 const initialState = {
   phase: "setup",
@@ -910,7 +911,7 @@ function gameReducer(state, action) {
     case 'UPDATE_SOCCER_MATCH_FORMATION': {
       const { matchIdx, patch } = action;
       const allowed = {};
-      for (const k of ["formation", "assignments", "positionMap", "gk", "subs"]) {
+      for (const k of ["formation", "assignments", "positionMap", "gk", "subs", "defenders"]) {
         if (patch && patch[k] !== undefined) allowed[k] = patch[k];
       }
       const matches = state.soccerMatches.map((m, i) => i === matchIdx ? { ...m, ...allowed } : m);
@@ -946,6 +947,24 @@ function gameReducer(state, action) {
         const events = remapPlayerInSoccerEvents(m.events, b, a);
         const { ourScore, opponentScore } = calcSoccerScore(events);
         return { ...m, lineup, defenders, assignments, positionMap, gk, subs, events, ourScore, opponentScore };
+      });
+      return { ...state, soccerMatches: matches };
+    }
+    // 위치 교대(라인업 변경 편집기): 두 출전 슬롯의 위치만 교대. 논리 matchIdx 매칭(격리).
+    // role이 바뀌면 defenders 재계산(클린시트 정합). 전제: 편집기 진입 시 레거시는 승격됨.
+    case 'SWAP_SOCCER_LINEUP_POSITIONS': {
+      const { matchIdx, aIdx, bIdx } = action;
+      const matches = state.soccerMatches.map(m => {
+        if (m.matchIdx !== matchIdx) return m;
+        const positions = FORMATIONS[m.formation]?.positions;
+        const res = swapFormationSlots(
+          { assignments: m.assignments, positionMap: m.positionMap, gk: m.gk, positions },
+          aIdx, bIdx
+        );
+        const defenders = defendersFromPositionMap(res.positionMap);
+        // lineup 불변: SWAP은 '누가 뛰었는지'가 아닌 '어디서 뛰었는지'만 변경.
+        // gkChange 미기록: 편집기 위치교대는 사후 정정이라 키퍼 교체(2인 집계)가 아님 — 최종 gk만 키퍼.
+        return { ...m, assignments: res.assignments, positionMap: res.positionMap, gk: res.gk, defenders };
       });
       return { ...state, soccerMatches: matches };
     }
