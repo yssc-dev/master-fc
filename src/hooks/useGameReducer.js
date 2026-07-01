@@ -982,6 +982,7 @@ function gameReducer(state, action) {
       return { ...state, soccerMatches: matches };
     }
     case 'DELETE_SOCCER_EVENT': {
+      // matchIdx는 배열 index(append-only 생성 + 삭제 없음으로 matchIdx===index 불변). 다른 소서 이벤트 액션과 동일.
       const { matchIdx, eventId } = action;
       const matches = state.soccerMatches.map((m, i) => {
         if (i !== matchIdx) return m;

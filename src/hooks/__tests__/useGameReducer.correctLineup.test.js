@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { gameReducer, initialState } from '../useGameReducer';
+import { calcSoccerPlayerStats } from '../../utils/soccerScoring';
 
 const withState = (o) => ({ ...initialState, ...o });
 
@@ -67,5 +68,19 @@ describe('gameReducer — CORRECT_SOCCER_LINEUP', () => {
   it('out===in 또는 빈 값이면 무변경', () => {
     const s = base();
     expect(gameReducer(s, { type: 'CORRECT_SOCCER_LINEUP', matchIdx: 0, out: 'X', in: 'X' })).toBe(s);
+  });
+
+  it('정정 후 집계: a에 경기/클린시트 귀속, b는 미집계', () => {
+    const s = withState({ soccerMatches: [{
+      matchIdx: 0, opponent: 'X', status: 'finished',
+      lineup: ['GK1', 'b', 'M1'], defenders: ['b'], gk: 'GK1',
+      assignments: { 0: 'GK1', 1: 'b', 2: 'M1' }, positionMap: { GK1: 'GK', b: 'DF', M1: 'MF' },
+      subs: ['a'], events: [],
+    }] });
+    const next = gameReducer(s, { type: 'CORRECT_SOCCER_LINEUP', matchIdx: 0, out: 'b', in: 'a' });
+    const stats = calcSoccerPlayerStats(next.soccerMatches);
+    expect(stats['a'].games).toBe(1);
+    expect(stats['a'].cleanSheets).toBe(1); // 무실점 + a가 defenders
+    expect(stats['b']).toBeUndefined();      // b 미출전 → 집계 없음
   });
 });

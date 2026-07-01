@@ -49,4 +49,19 @@ describe('gameReducer — DELETE_SOCCER_EVENT sub 되돌리기', () => {
     expect(next.soccerMatches[0].events).toHaveLength(0);
     expect(next.soccerMatches[0].assignments).toEqual({ 0: 'A' });
   });
+
+  it('GK 교체 되돌리기: gk가 playerOut으로 복원', () => {
+    const s = withState({ soccerMatches: [{
+      matchIdx: 0, status: 'finished', opponent: 'X',
+      lineup: ['oldGK', 'D'], defenders: ['D'], gk: 'newGK',
+      assignments: { 0: 'newGK', 1: 'D' }, positionMap: { newGK: 'GK', D: 'DF' },
+      subs: ['oldGK'],
+      events: [{ id: 's', type: 'sub', playerOut: 'oldGK', playerIn: 'newGK', position: 'GK', posIdx: 0, timestamp: 1 }],
+    }] });
+    const next = gameReducer(s, { type: 'DELETE_SOCCER_EVENT', matchIdx: 0, eventId: 's' });
+    const m = next.soccerMatches[0];
+    expect(m.gk).toBe('oldGK');
+    expect(m.assignments[0]).toBe('oldGK');
+    expect(m.positionMap['oldGK']).toBe('GK');
+  });
 });

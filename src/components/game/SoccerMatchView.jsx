@@ -353,7 +353,11 @@ export default function SoccerMatchView({
         return (
           <LineupCorrectionModal
             played={played} bench={bench}
-            onCorrect={(out, inn) => { onCorrectLineup?.(m.matchIdx, out, inn); setCorrectionSeq(sq => sq + 1); }}
+            onCorrect={(out, inn) => {
+              onCorrectLineup?.(m.matchIdx, out, inn);
+              // 진행중 경기를 정정할 때만 레코더 remount(재시드). 과거경기 정정은 레코더 데이터와 무관.
+              if (currentMatch && m.matchIdx === currentMatch.matchIdx) setCorrectionSeq(sq => sq + 1);
+            }}
             onClose={() => setLineupModalIdx(null)} />
         );
       })()}
