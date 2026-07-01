@@ -45,7 +45,7 @@
 
 정의:
 
-- `orderedMatches = [...soccerMatches].sort((a,b) => a.matchIdx - b.matchIdx)` — finished/휴식 + 최대 1개의 playing.
+- `orderedMatches` = `soccerMatches`를 matchIdx 오름차순으로 본 것 (finished/휴식 + 최대 1개의 playing). **불변식 `soccerMatches[i].matchIdx === i`** 가 성립한다 — 경기는 append-only 생성(`matchIdx = soccerMatches.length`, reducer line 890)이고 Firebase 복원도 matchIdx로 재정렬(`firebaseSyncDiff.js:334` `Object.values(raw.soccerMatches).sort((a,b)=>a.matchIdx-b.matchIdx)`)하므로 **동기화 왕복 후에도 유지**된다(adversarial review에서 A·E 독립 검증). 따라서 `[...soccerMatches].sort(...)`는 현재 항상 항등(no-op)이며 **방어용**(중간 삭제 액션이 생겨 갭이 날 때만 의미). 실사용 식별은 아래처럼 **논리 matchIdx**로 한다.
 - `playingPos` = `orderedMatches`에서 status가 `"playing"`인 인덱스, 없으면 `-1`.
 - `hasPlaying = playingPos >= 0`.
 - 트레일링 “새 경기” 노드는 **`hasPlaying`이 false일 때만** 존재(맨 오른쪽).
@@ -72,25 +72,36 @@
 
 - `오늘 경기` 리스트 블록(line 259~273) **완전 삭제**.
 - 기존 `viewingMatch` 읽기전용 뷰(line 160~209)의 본문을 **매치 노드(finished)** 렌더로 재사용. 단, 자체 `RoundNav`/`← 돌아가기`는 상위 통합 `RoundNav`로 흡수(중복 제거).
-- `FormationRecorder`는 uncontrolled — 노드 전환/복귀 시 `key={match.matchIdx}`로 remount해 경기 객체에서 재시드(기존 line 219 패턴 유지). 진행 중 경기에서 ◀로 과거를 봤다가 ▶로 돌아와도 상태는 리듀서(events)에서 파생되므로 유실 없음.
+- `FormationRecorder`는 uncontrolled — 노드 전환/복귀 시 `key={match.matchIdx}`로 remount해 경기 객체에서 재시드(기존 line 219 패턴 유지). 진행 중 경기에서 ◀로 과거를 봤다가 ▶로 돌아와도 **이미 리듀서에 도달한 events는 유실 없음**.
+- ⚠️ **미확정 로컬 입력 보호 (불변식1 — 로그 무결성):** `FormationRecorder`의 **2탭 골 입력(`goalFlow`)** 은 탭1(골 선수 선택)에서 리듀서에 dispatch되지 **않는 로컬 `useState`** 다(`FormationRecorder.jsx:24,53` — `onAddEvent`는 탭2에서만 호출). remount되면 파괴되어 **골이 조용히 유실 → 마감 시트에 미기록**된다(adversarial review E-1). 따라서 진행 중 노드에서 `goalFlow`가 열려 있는 동안 ◀▶ 이동을 잠근다(아래 `canPrev/canNext` 가드). 구현: `FormationRecorder`가 `goalFlow` 활성 여부를 상위로 버블(`onFlowActiveChange(bool)`) → `SoccerMatchView`가 `navLocked`로 네비 비활성.
 
 ### RoundNav 라벨/상태칩
 
 `RoundNav` props(`label,total,onPrev,onNext,canPrev,canNext,statusText,statusTone`) 재사용:
 
-- `total = N`, `canPrev = navIdx > 0`, `canNext = navIdx < N-1`.
+- `total = N`, `canPrev = navIdx > 0 && !navLocked`, `canNext = navIdx < N-1 && !navLocked`. `navLocked` = 진행 중 노드에서 `goalFlow`(미확정 2탭 골 입력)가 열린 동안 true(위 미확정 로컬 입력 보호).
 - 매치 노드: `label = "제{match.matchIdx+1}경기"`.
 - 새 경기 노드: `label = "제{soccerMatches.length+1}경기"`.
 - statusText/tone: finished→`종료됨`/green, 휴식→`휴식`/green, playing→`진행중`/orange, 새 경기→`새 경기`/gray.
 
 ### 서브플로우 (formation 설정 / 명단 수정)
 
-- `formation`(포메이션 배치), `editRoster`(참석명단 수정)는 **새 경기 노드에서 진입하는 전용 전체화면 스텝**으로 유지 — `RoundNav` 없이 렌더, 완료/뒤로 시 새 경기 노드로 복귀(기존 `viewState` 머신 유지).
-- `viewState`는 서브플로우 라우팅(+멀티탭 동기화)에 계속 사용. 노드 본문(playing/finished/새경기)은 **경기 status에서 파생**해 결정.
+- `formation`(포메이션 배치), `editRoster`(참석명단 수정)는 **새 경기 노드에서 진입하는 전용 전체화면 스텝**으로 유지 — `RoundNav` 없이 렌더, 완료/뒤로 시 새 경기 노드로 복귀.
+- **`viewState` 값 은퇴 표 (SSOT — 노드 결정 권위를 status/navIdx로 단일화, adversarial review C1/A I-1):**
+
+  | viewState 값 | 재작성 후 |
+  | --- | --- |
+  | `formation` | **유지** — 서브플로우 라우팅 |
+  | `editRoster` | **유지** — 서브플로우 라우팅 |
+  | `playing` | **폐기** — 노드 본문은 `orderedMatches[navIdx].status === "playing"`에서 파생. 이 값을 **쓰거나 읽는 코드 전부 제거**(현 line 27·38~42·72·134·136·155·214) |
+  | `selectOpponent` | **폐기** — 새 경기 노드는 `navIdx === editableIdx && !hasPlaying`에서 파생. navIdx 자동리셋이 대체 |
+
+- 재작성 후 노드 본문은 오직 **경기 status + navIdx에서 파생**. `viewState`는 서브플로우(formation/editRoster) 전용이며, 멀티탭 동기화(`savedFormation.viewState`)에서 `playing`/`selectOpponent`는 더 이상 기록/적용하지 않음(다른 탭이 stale 값으로 오탭 렌더하는 것 방지).
 
 ### reopen(확정취소) 상호작용
 
-- 과거 매치 노드의 `ConfirmBar`에서 `확정취소` → `REOPEN_SOCCER_MATCH`(status playing 복귀, 다른 playing은 finished 정리) → 구조 변경 → `navIdx`가 그 경기(이제 `editableIdx`)로 리셋 → 전체 `FormationRecorder`로 골/어시/GK/포메이션 자유 편집. 기존 `handleReopenMatch`(line 125) 로직 유지, 화면 전환만 연속체에 맞춤.
+- 과거 매치 노드의 `ConfirmBar`에서 `확정취소` → `REOPEN_SOCCER_MATCH`(status playing 복귀, 다른 playing은 finished 정리) → 구조 변경 → `navIdx`가 그 경기(이제 `editableIdx`)로 **자동 리셋** → 전체 `FormationRecorder`로 골/어시/GK/포메이션 자유 편집.
+- ⚠️ **재작성 시 `handleReopenMatch` 정리 (현 line 125~137, adversarial review A I-1):** 검증/dispatch/reconstruct 블록(line 127~133)만 남기고 **`setViewingMatchIdx(null)`(line 135)·`saveFormationState({ viewState: "playing" })`(line 136) 제거**. `viewingMatchIdx` state는 `navIdx`로 대체되어 사라지므로 그 setter 호출을 남기면 확정취소 시 **크래시**(`setViewingMatchIdx is not a function`). 화면 전환은 navIdx 자동 리셋이 담당. `handleFormationConfirm`(line 72)·`handleFinishMatch`(line 155)의 `viewState:"playing"`/`"selectOpponent"` 쓰기도 동일하게 제거(위 은퇴 표).
 
 ---
 
@@ -103,13 +114,16 @@
 ```js
 case 'SET_SOCCER_MATCH_OPPONENT': {
   const { matchIdx, opponent } = action;
-  const matches = state.soccerMatches.map((m, i) =>
-    i === matchIdx ? { ...m, opponent } : m
+  // 논리 matchIdx로 매칭(배열 index 아님) — 격리 방어. 기존 액션들은 i === matchIdx를
+  // 쓰지만(불변식 index===matchIdx 의존), 신규 액션은 그 불변식이 깨져도 타 경기를 안 건드림.
+  const matches = state.soccerMatches.map(m =>
+    m.matchIdx === matchIdx ? { ...m, opponent } : m
   );
   return { ...state, soccerMatches: matches };
 }
 ```
 
+- 호출부는 `onSetMatchOpponent(match.matchIdx, name)`로 **논리 matchIdx**를 넘기고 액션도 `m.matchIdx === matchIdx`로 매칭 → 두 층이 같은 식별자를 써 **경기 격리 보장(불변식2)**. 배열 index 어긋남에 의존하지 않음(adversarial review A/B/C 공통 지적 → 방어 채택).
 - 상대팀은 경기 객체의 스칼라 필드. `soccerMatches`는 이미 RTDB 자식노드로 동기화되므로 별도 sync 배선 불필요(빈배열 함정 무관 — 스칼라).
 
 ### SoccerApp 핸들러/전달
@@ -125,12 +139,13 @@ case 'SET_SOCCER_MATCH_OPPONENT': {
   - `onSelect={(name) => { onSetMatchOpponent(match.matchIdx, name); closeModal(); }}`
   - `onAddOpponent`/`onRemoveOpponent`/`onRenameOpponent`는 기존 핸들러 전달 → 새 팀명 추가 시 `opponents` 목록에도 등록되고(line 17) 곧바로 해당 경기에 배정(line 18).
 - 진행 중/과거 **모든 매치 노드에서 확정취소 없이 즉시** 상대팀 교체.
+- ⚠️ **마감 후 가드 (불변식1 — 로그 무결성, adversarial review B1/E-2):** `state.gameFinalized === true`(시트 전송 완료)면 상대팀 변경 시 **"시트에 이미 전송됨 — summary의 ‘수정 후 재전송’ 필요"** 경고를 띄운다(또는 버튼 비활성). 마감 후 `경기로`(SoccerApp.jsx:553)로 복귀해 상대팀만 바꾸고 재전송을 빠뜨리면 **RTDB=수정본 / 시트=구본**으로 로그가 갈라진다.
 
 ### 안전성
 
-- 상대팀명은 세션 상태(reducer/RTDB)에만 존재하며 **경기마감(summary → 시트 전송) 전까지는 시트에 기록되지 않음** → 세션 내 변경은 시트 정합성 문제 없음.
-- 이벤트(goal/opponentGoal 등)는 opponent 문자열을 참조하지 않음(opponentGoal은 `currentGk`만 저장) → 상대팀 변경이 기존 이벤트·집계를 깨지 않음.
-- 이미 시트로 전송(마감)된 경기의 정정은 본 스펙 범위 밖(기존 시트 삭제+재전송 도구 소관).
+- **마감 전:** 상대팀명은 세션 상태(reducer/RTDB)에만 존재하며 시트에 기록되지 않음 → 세션 내 변경은 시트 정합성 문제 없음.
+- **마감 후:** 시트에 이미 old 상대팀이 기록됨 → 변경 시 반드시 **‘수정 후 재전송’**(SoccerApp.jsx:558)으로 재전송해야 정합. 위 마감 후 가드로 유도(재전송 누락 시 divergence).
+- 이벤트(goal/opponentGoal 등)는 opponent 문자열을 참조하지 않음(opponentGoal은 `currentGk`만 저장) → 상대팀 변경이 기존 이벤트·집계를 깨지 않음(경기 독립성 보존, A/E 검증).
 
 ---
 
@@ -154,13 +169,27 @@ case 'SET_SOCCER_MATCH_OPPONENT': {
 
 ## 테스트
 
-- 리듀서 유닛테스트: `SET_SOCCER_MATCH_OPPONENT`가 해당 matchIdx의 opponent만 바꾸고 events/score/status를 보존.
+- 리듀서 유닛테스트: `SET_SOCCER_MATCH_OPPONENT`가 해당 matchIdx의 opponent만 바꾸고 events/score/status/lineup 보존.
+- **격리 테스트(불변식2):** 3경기 배열에서 **중간(matchIdx=1)** 경기의 상대팀 변경 시 index 0·2의 opponent/events/status가 불변임을 검증(논리 matchIdx 매칭 회귀 방지).
 - 기존 `syncCoverage`/reducer 테스트 그린 유지(soccerMatches 동기화 경로 무변경 확인).
-- 수동 QA: (a) 화살표로 과거↔진행중↔새경기 이동, (b) 진행 중 ◀로 과거 열람 후 ▶ 복귀 시 레코더 상태 보존, (c) 과거/진행중 상대팀 변경 즉시 반영 + 대진표/집계 반영, (d) 확정취소 → 편집 → 재종료.
+- 수동 QA: (a) 화살표로 과거↔진행중↔새경기 이동, (b) 진행 중 ◀로 과거 열람 후 ▶ 복귀 시 레코더 상태 보존, (c) 과거/진행중 상대팀 변경 즉시 반영 + 대진표/집계 반영, (d) 확정취소 → 편집 → 재종료, (e) **미확정 골 입력 중(goalFlow 열림) ◀▶ 비활성 → 골 유실 없음**, (f) **마감 후 상대팀 변경 시 경고/가드 노출 + 재전송 유도**.
 
 ## 범위 밖 (Out of scope)
 
 - 과거 경기 피치 읽기전용 표시(readOnly FormationRecorder).
 - 과거 in-place 편집(확정취소 없이 골/어시 수정).
-- 이미 마감(시트 전송)된 경기의 상대팀 정정.
+- 이미 마감된 경기의 **자동 시트 정정**(신규 자동화 없음) — 정정은 기존 `수정 후 재전송` 경로 사용. 본 스펙은 마감 후 변경 시 경고/가드만 추가.
 - 풋살 모드 관련 일체.
+
+---
+
+## Adversarial review 반영 (2026-07-01)
+
+4-렌즈 독립 리뷰(A 데이터무결성 · E 회귀위험 · B 요구사항 · C 단순화/SSOT) + 수렴. 판정 **ISSUES FOUND**(0 Critical, 4 Important, 0 조작). 사용자 불변식 검증 결과:
+
+- **불변식2(경기 독립성) — 설계상 충족**: `SET_SOCCER_MATCH_OPPONENT`는 대상 경기의 opponent 스칼라만 변경(events/score/status/lineup 불변), `reconstructFormation`은 전달된 `m`만 읽고 fresh 객체 할당·dispatch 없음, `navIdx`는 뷰 전용, `index===matchIdx` 불변식은 동기화 왕복에서도 유지(`firebaseSyncDiff.js:334`). → 라이브 오염 경로 없음. (durability 위해 신규 액션은 논리 matchIdx 매칭으로 하드닝.)
+- **불변식1(로그 무결성) — 2개 갭을 스펙에 반영**: (1) `goalFlow` 미확정 골 유실 → `navLocked` 가드, (2) 마감 후 상대팀 변경 divergence → 마감 후 경고/가드 + 재전송 유도.
+
+반영된 Important 4건: ① goalFlow 네비 잠금(E-1) · ② 마감 후 가드(B1/E-2) · ③ `handleReopenMatch`/`viewState` 노드권위 은퇴(A I-1/C1) · ④ 신규 액션 논리-matchIdx 매칭 + 격리 테스트(A M-1/B2/C2).
+
+증거로 기각/강등: "index/matchIdx 어긋남 → 타 경기 오염"은 B·C가 Important(라이브 위험)로 봤으나 A가 `firebaseSyncDiff.js:78,334`로 불변식 유지 실증 → **라이브 버그 아님, 하드닝으로 격하**(dispatcher가 원본 재확인). 미채택(pre-existing): `REOPEN_SOCCER_MATCH` 경쟁 playing force-finish(E-3, 본 스펙 무변경). Minor 노트: `useNavIndex` 훅 추출 여지(C3), `OpponentSelector.onSelect` 이중용도 JSDoc(C4).
