@@ -101,3 +101,23 @@ export function swapFormationSlots({ assignments, positionMap, gk, positions }, 
 export function defendersFromPositionMap(positionMap) {
   return Object.entries(positionMap || {}).filter(([, r]) => r === "DF").map(([n]) => n);
 }
+
+// 교체(sub) 이벤트 삭제 되돌리기 — 리듀서(DELETE_SOCCER_EVENT)와 FormationRecorder
+// 로컬 state가 공유하는 단일 소스. 레코더 로컬만 안 되돌리면 이후 finish/onStateChange가
+// stale 배치를 재push해 리듀서의 되돌림을 덮는다(하버FC 6/30 출전 누락 사고의 기제).
+// 그 슬롯이 이후 다른 선수로 바뀌었거나 posIdx가 없으면(레거시 이벤트) null — 되돌리지 않음.
+export function revertSubInFormation({ assignments, positionMap, subs, gk }, sub) {
+  if (!sub || sub.type !== "sub" || sub.posIdx == null) return null;
+  if ((assignments || {})[sub.posIdx] !== sub.playerIn) return null;
+  const newAssignments = { ...assignments, [sub.posIdx]: sub.playerOut };
+  const newPositionMap = { ...positionMap };
+  delete newPositionMap[sub.playerIn];
+  newPositionMap[sub.playerOut] = sub.position;
+  const newSubs = [...(subs || []).filter(n => n !== sub.playerOut), sub.playerIn];
+  return {
+    assignments: newAssignments,
+    positionMap: newPositionMap,
+    subs: newSubs,
+    gk: sub.position === "GK" ? sub.playerOut : gk,
+  };
+}

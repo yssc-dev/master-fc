@@ -72,6 +72,26 @@ export function calcSoccerOpponentRecords(soccerMatches) {
 // 한 경기에서 GK로 뛴 모든 선수 집합.
 // 최종 match.gk + GK 변경(교체 sub[pos GK], 위치교대 gkChange)의 나간/들어온 선수 모두.
 // 무실점 경기는 실점 이벤트가 없어 이 기록으로만 두 GK를 알 수 있다(집계·클린시트 근거).
+/**
+ * 그 경기에 실제 출전한 선수 전원 — 출전 라벨/개인 집계의 단일 소스.
+ * lineup(선발) ∪ sub 투입 ∪ gkChange 참여 ∪ 최종 피치 assignments.
+ * lineup ∪ sub-in만으로는 부족: sub 이벤트가 삭제되거나 배치 편집으로 들어온 선수는
+ * assignments에만 남는다(matchRowBuilder our_members_json과 같은 합집합 철학).
+ * assignments는 RTDB 왕복 후 배열(숫자키 변환)일 수 있어 Object.values로 흡수.
+ */
+export function getSoccerPlayedPlayers(match) {
+  const fromEvents = (match.events || []).flatMap(e => {
+    if (e.type === "sub") return [e.playerIn];
+    if (e.type === "gkChange") return [e.playerOut, e.playerIn];
+    return [];
+  });
+  return [...new Set([
+    ...(match.lineup || []),
+    ...fromEvents,
+    ...Object.values(match.assignments || {}),
+  ].filter(Boolean))];
+}
+
 export function getMatchGks(match) {
   const gks = new Set();
   if (match.gk) gks.add(match.gk);
@@ -109,14 +129,7 @@ export function calcSoccerPlayerStats(soccerMatches) {
   };
   for (const match of soccerMatches) {
     if (match.status !== "finished") continue;
-    const allPlayed = new Set(match.lineup || []);
-    for (const e of (match.events || [])) {
-      if (e.type === "sub") allPlayed.add(e.playerIn);
-      else if (e.type === "gkChange") { // 방어: 교대 참가자는 통상 lineup에 있으나 불변식에 의존 안 함
-        if (e.playerOut) allPlayed.add(e.playerOut);
-        if (e.playerIn) allPlayed.add(e.playerIn);
-      }
-    }
+    const allPlayed = new Set(getSoccerPlayedPlayers(match));
     const csPlayers = getCleanSheetPlayers(match);
     const matchGks = getMatchGks(match); // 이 경기에서 GK로 뛴 모든 선수(교대/교체 포함)
     for (const name of allPlayed) {

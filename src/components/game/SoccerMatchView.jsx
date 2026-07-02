@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useTheme } from '../../hooks/useTheme';
-import { calcSoccerScore, getCleanSheetPlayers, soccerResultLabel } from '../../utils/soccerScoring';
+import { calcSoccerScore, getCleanSheetPlayers, getSoccerPlayedPlayers, soccerResultLabel } from '../../utils/soccerScoring';
 import { generateEventId } from '../../utils/idGenerator';
 import { FORMATIONS, defendersFromPositionMap } from '../../utils/formations';
 import Modal from '../common/Modal';
@@ -188,10 +188,7 @@ export default function SoccerMatchView({
     const m = soccerMatches.find(x => x.matchIdx === lineupEditIdx);
     if (!m) { setLineupEditIdx(null); return null; }
     const fm = reconstructFormation(m);
-    const played = [...new Set([
-      ...(m.lineup || []),
-      ...(m.events || []).filter(e => e.type === "sub").map(e => e.playerIn),
-    ])];
+    const played = getSoccerPlayedPlayers(m); // lineup ∪ sub-in ∪ assignments — 단일 소스
     const bench = (fm.subs || []).filter(n => !played.includes(n)); // 뛴(교체out) 선수 제외 — CORRECT 중복 방지
     return (
       <LineupEditView
@@ -311,11 +308,9 @@ export default function SoccerMatchView({
         // 그 경기의 배치(누가 어느 포지션으로 뛰었는지) 읽기전용. 모던=저장된 최종 배치, 레거시=재구성.
         const fm = isRest ? null : reconstructFormation(node);
         const form = fm ? (FORMATIONS[fm.formation] || FORMATIONS["4-4-2"]) : null;
-        // 출전 = 선발(lineup) ∪ 교체 투입(sub playerIn). 레드카드로 퇴장한 선수도 lineup이라 포함됨.
-        const played = fm ? [...new Set([
-          ...(node.lineup || []),
-          ...(node.events || []).filter(e => e.type === "sub").map(e => e.playerIn),
-        ])] : [];
+        // 출전 = lineup ∪ sub 투입 ∪ 최종 assignments(단일 소스 헬퍼).
+        // sub 이벤트가 삭제돼 배치에만 남은 선수도 출전으로 표시(레드카드 퇴장자는 lineup이라 포함).
+        const played = fm ? getSoccerPlayedPlayers(node) : [];
         const benchNeverPlayed = fm ? (fm.subs || []).filter(n => !played.includes(n)) : [];
         return (
           <>

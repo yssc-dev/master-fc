@@ -3,7 +3,7 @@ import { FALLBACK_DATA } from '../config/fallbackData';
 import { calcMatchScore } from '../utils/scoring';
 import { calcSoccerScore, remapPlayerInSoccerEvents } from '../utils/soccerScoring';
 import { createInitialPushState, calcNextPushMatch } from '../utils/pushMatch';
-import { FORMATIONS, swapFormationSlots, defendersFromPositionMap } from '../utils/formations';
+import { FORMATIONS, swapFormationSlots, defendersFromPositionMap, revertSubInFormation } from '../utils/formations';
 
 const initialState = {
   phase: "setup",
@@ -1009,16 +1009,9 @@ function gameReducer(state, action) {
         const events = (m.events || []).filter(e => e.id !== eventId);
         const { ourScore, opponentScore } = calcSoccerScore(events);
         // 교체(sub) 삭제 → 그 교체를 되돌린다. 단 그 슬롯(posIdx)이 이후 안 바뀐 경우만(오염 방지).
-        if (deleted && deleted.type === "sub" && deleted.posIdx != null
-            && (m.assignments || {})[deleted.posIdx] === deleted.playerIn) {
-          const assignments = { ...m.assignments, [deleted.posIdx]: deleted.playerOut };
-          const positionMap = { ...(m.positionMap || {}) };
-          delete positionMap[deleted.playerIn];
-          positionMap[deleted.playerOut] = deleted.position;
-          const subs = [...(m.subs || []).filter(n => n !== deleted.playerOut), deleted.playerIn];
-          const gk = deleted.position === "GK" ? deleted.playerOut : m.gk;
-          return { ...m, events, ourScore, opponentScore, assignments, positionMap, subs, gk };
-        }
+        // FormationRecorder 로컬 state와 같은 헬퍼 공유 — 한쪽만 되돌리는 드리프트 방지.
+        const reverted = deleted ? revertSubInFormation(m, deleted) : null;
+        if (reverted) return { ...m, events, ourScore, opponentScore, ...reverted };
         return { ...m, events, ourScore, opponentScore };
       });
       return { ...state, soccerMatches: matches };

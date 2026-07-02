@@ -1,6 +1,6 @@
 import { useState, useLayoutEffect } from 'react';
 import { useTheme } from '../../hooks/useTheme';
-import { FORMATIONS, FORMATION_KEYS, swapFormationSlots, defendersFromPositionMap } from '../../utils/formations';
+import { FORMATIONS, FORMATION_KEYS, swapFormationSlots, defendersFromPositionMap, revertSubInFormation } from '../../utils/formations';
 import { generateEventId } from '../../utils/idGenerator';
 import FormationPitch from './FormationPitch';
 import PlayerActionMenu from './PlayerActionMenu';
@@ -237,7 +237,18 @@ export default function FormationRecorder({
               {e.type === "redCard" && <><span>🟥</span><span style={{ color: "#ef4444", fontWeight: 600 }}>{e.player}</span><span style={{ color: C.gray }}> 레드카드 (퇴장)</span></>}
               {e.type === "sub" && <><span>🔄</span><span style={{ color: C.red }}>{e.playerOut}</span><span style={{ color: C.gray }}>→</span><span style={{ color: C.green }}>{e.playerIn}</span></>}
               <button onClick={() => {
-                if (e.type === "sub" && !confirm("이 교체를 삭제하면 그 교체가 되돌려집니다(배치 복원). 계속하시겠습니까?")) return;
+                if (e.type === "sub") {
+                  if (!confirm("이 교체를 삭제하면 그 교체가 되돌려집니다(배치 복원). 계속하시겠습니까?")) return;
+                  // 리듀서(DELETE_SOCCER_EVENT)가 매치를 되돌려도 이 컴포넌트는 uncontrolled라
+                  // 로컬 배치가 stale로 남아 다음 finish/onStateChange가 되돌림을 덮는다 — 로컬도 함께 되돌림.
+                  const reverted = revertSubInFormation({ assignments, positionMap, subs, gk }, e);
+                  if (reverted) {
+                    setAssignments(reverted.assignments);
+                    setPositionMap(reverted.positionMap);
+                    setSubs(reverted.subs);
+                    setGk(reverted.gk);
+                  }
+                }
                 onDeleteEvent(e.id);
               }} style={{ marginLeft: "auto", background: `${C.red}30`, border: "none", borderRadius: 4, color: C.red, fontSize: 9, padding: "2px 5px", cursor: "pointer" }}>✕</button>
             </div>
