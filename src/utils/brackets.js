@@ -50,10 +50,36 @@ export function generate6Team2Court() {
   return { firstHalf, needsMidSplit: true };
 }
 
+// 전반 고정 스케줄에서 해당 라운드 휴식팀을 도출 — fixture 테이블이 바뀌면 자동 추종
+function restersOf(round) {
+  const playing = new Set(round.matches.flat());
+  return new Set([0, 1, 2, 3, 4, 5].filter(i => !playing.has(i)));
+}
+const FIRST_HALF_6T = generate6Team2Court().firstHalf;
+const RESTED_AT_R5 = restersOf(FIRST_HALF_6T[4]);
+const RESTED_AT_R6 = restersOf(FIRST_HALF_6T[5]);
+
+// 순위순 3팀 [x0,x1,x2]을 회전시켜 후반 첫 라운드(R7) 휴식 자리(마지막 자리)를 조정:
+// (hard) R6 휴식팀은 배제 — 연속 휴식 금지
+// (soft) 가능하면 R5·R6 모두 뛴 팀을 우선 배치
+function rotateForR7Rest(group) {
+  let fallback = null;
+  for (let rot = 0; rot < group.length; rot++) {
+    const rotated = [...group.slice(rot), ...group.slice(0, rot)];
+    if (RESTED_AT_R6.has(rotated[2])) continue;
+    if (!RESTED_AT_R5.has(rotated[2])) return rotated;
+    if (!fallback) fallback = rotated;
+  }
+  // R6 휴식팀은 2팀뿐이라 3회전 중 최소 1회는 hard 조건을 통과 → fallback 항상 존재
+  return fallback;
+}
+
 // 6팀 후반 스케줄 생성 (순위 기반 재매핑)
 // rankedIndices = [1위팀idx, 2위팀idx, ..., 6위팀idx]
 export function generate6TeamSecondHalf(rankedIndices) {
-  const r = rankedIndices; // r[0]=1위, r[1]=2위, ... r[5]=6위
+  const top = rotateForR7Rest(rankedIndices.slice(0, 3));
+  const bottom = rotateForR7Rest(rankedIndices.slice(3, 6));
+  const r = [...top, ...bottom]; // r[0..2]=상위리그(회전됨), r[3..5]=하위리그(회전됨)
   return [
     { matches: [[r[0],r[1]], [r[3],r[4]]] },  // R7
     { matches: [[r[1],r[2]], [r[4],r[5]]] },  // R8
