@@ -28,6 +28,7 @@ export default function GkChemistryView({ chem, C }) {
     <div>
       <div style={{ fontSize: 11, color: C.gray, marginBottom: 10, lineHeight: 1.5 }}>
         GK가 X일 때 같은 팀이었던 필드 멤버별 무실점률. 그날 같은 팀 로스터 기준 근사 (라운드별 5인 출전 미입력).
+        <br />⚠️ 집계 범위: 로그_매치에 GK가 기록된 라운드만 — GK 기록이 빈 구 세션은 포함되지 않음.
       </div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
         {gks.map(g => (

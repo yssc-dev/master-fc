@@ -238,7 +238,7 @@ export default function PersonalAnalysisTab({
   }, [selected, playerGameLogs, summaryV2]);
 
   // ── P3/P4/C5 calculations ─────────────────────────────────────────────────
-  const roundSlope = useMemo(() => calcRoundSlope({ eventLogs: eventLogs || [], matchLogs: matchLogs || [], threshold: 10 }), [eventLogs, matchLogs]);
+  const roundSlope = useMemo(() => calcRoundSlope({ eventLogs: eventLogs || [], matchLogs: matchLogs || [], threshold: 10, minSessions: 3 }), [eventLogs, matchLogs]);
   const soloRatio = useMemo(() => calcSoloGoalRatio({ eventLogs: eventLogs || [], threshold: 10 }), [eventLogs]);
   const synergyMatrix = useMemo(() => calcSynergyMatrix({ matchLogs: matchLogs || [], minRounds: 5 }), [matchLogs]);
   const linkMatrix = useMemo(() => calcAssistLinkMatrix({ eventLogs: eventLogs || [] }), [eventLogs]);
@@ -323,7 +323,7 @@ export default function PersonalAnalysisTab({
             const trends = getTrends();
             const relPos = getRelativePosition(selected);
             const split = getGkFieldSplit(selected);
-            const hasAnything = trends.goals || trends.assists || relPos || (split && split.keeper.rounds > 0 && split.field.rounds > 0);
+            const hasAnything = trends.goals || trends.assists || relPos || (split && split.keeper.rounds > 0 && split.field.rounds > 0) || playerSummary[selected]?.teamGoals > 0;
             if (!hasAnything) return null;
             return (
               <div style={{ marginTop: 12, padding: "10px 12px", borderRadius: 8, background: C.cardLight, fontSize: 11, lineHeight: 1.9, textAlign: "left" }}>
@@ -356,6 +356,17 @@ export default function PersonalAnalysisTab({
                     <span style={{ color: C.gray }}>GK/필드: </span>
                     <span style={{ color: C.white }}>
                       GK {split.keeper.rounds}경기 {split.keeper.conceded}실 · 필드 {split.field.rounds}경기 {split.field.goals}골 {split.field.assists}어시
+                    </span>
+                  </div>
+                )}
+                {playerSummary[selected]?.teamGoals > 0 && (
+                  <div>
+                    <span style={{ color: C.gray }} title="본인 출전 매치의 팀 득점 중 골+어시로 관여한 비율">팀 득점 관여율: </span>
+                    <span style={{ color: C.accent, fontWeight: 700 }}>
+                      {Math.round(playerSummary[selected].goalInvolvement * 100)}%
+                    </span>
+                    <span style={{ color: C.gray }}>
+                      {' '}(팀 {playerSummary[selected].teamGoals}골 중 {playerSummary[selected].goals + playerSummary[selected].assists}회 관여)
                     </span>
                   </div>
                 )}
@@ -439,6 +450,24 @@ export default function PersonalAnalysisTab({
                 <span style={{ color: C.white, fontWeight: 700 }}>{pr.longestCleanSheet.value}회 <span style={{ color: C.gray, fontWeight: 400 }}>({pr.longestCleanSheet.startDate}~{pr.longestCleanSheet.endDate})</span></span>
               ) : <span style={{ color: C.gray }}>-</span>}
             </div>
+            {pr.keeperSummary && (
+              <div style={{ ...prRow, borderTop: `1px dashed ${C.grayDarker}` }}>
+                <span style={{ color: C.gray }} title="PG 누적 — 클린시트율은 무실점 세션 비율, 실점은 키퍼 경기당">🧤 키퍼 누적</span>
+                <span style={{ color: C.white, fontWeight: 700 }}>
+                  클린시트율 {Math.round(pr.keeperSummary.cleanSheetRate * 100)}%
+                  <span style={{ color: C.gray, fontWeight: 400 }}> · 경기당 {pr.keeperSummary.concededPerGame.toFixed(2)}실점 ({pr.keeperSummary.keeperGames}경기)</span>
+                </span>
+              </div>
+            )}
+            {pr.rankScore && pr.rankScore.total > 0 && (
+              <div style={{ ...prRow, borderTop: `1px dashed ${C.grayDarker}` }}>
+                <span style={{ color: C.gray }} title="세션 팀순위 배점(rank_score) 누적 — 승/무/패보다 세밀한 세션 기여 지표">🏅 랭크점수</span>
+                <span style={{ color: C.white, fontWeight: 700 }}>
+                  누적 {pr.rankScore.total}
+                  <span style={{ color: C.gray, fontWeight: 400 }}> · 세션당 {pr.rankScore.avg.toFixed(1)}{pr.bestRankScore ? ` · 최고 ${pr.bestRankScore.value} (${pr.bestRankScore.date})` : ''}</span>
+                </span>
+              </div>
+            )}
           </>
         ) : (
           <div style={{ fontSize: 11, color: C.gray }}>표본 부족</div>

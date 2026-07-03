@@ -97,6 +97,25 @@ describe('calcGoldenTrio', () => {
     expect(ab.baselineUnavailable).toBe(true);
   });
 
+  it('attackLift = 함께 뛴 라운드 팀득점/경기 − 개인 평균(duo 제외) 팀득점/경기', () => {
+    const logs = [
+      // A,B 함께 3라운드 — 팀 3득점씩 (경기당 3.0)
+      mk('R1_C1', ['A','B'], 3, 0),
+      mk('R2_C1', ['A','B'], 3, 1),
+      mk('R3_C1', ['A','B'], 3, 2),
+      // A 단독 2라운드 — 팀 1득점씩, B 단독 2라운드 — 팀 1득점씩 (개인 평균 1.0)
+      mk('R4_C1', ['A','X'], 1, 0),
+      mk('R5_C1', ['A','Y'], 1, 0),
+      mk('R6_C1', ['B','X'], 1, 0),
+      mk('R7_C1', ['B','Y'], 1, 0),
+    ];
+    const r = calcGoldenTrio({ matchLogs: logs, minRounds: 3, topN: 5 });
+    const ab = r.find(x => x.members[0] === 'A' && x.members[1] === 'B');
+    expect(ab.pairGoalsPerGame).toBeCloseTo(3.0, 5);
+    expect(ab.indivGoalsPerGame).toBeCloseTo(1.0, 5);
+    expect(ab.attackLift).toBeCloseTo(2.0, 5);
+  });
+
   it('respects topN', () => {
     const matchLogs = [];
     let id = 0;

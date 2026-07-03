@@ -10,7 +10,7 @@ export default function AssistPairList({ pairs, C }) {
   return (
     <div>
       <div style={{ fontSize: 11, color: C.gray, marginBottom: 10, lineHeight: 1.5 }}>
-        같은 페어가 반복적으로 만든 골. 페어당 누적 ≥ 3회.
+        같은 페어가 반복적으로 만든 골. 페어당 누적 ≥ 3회. 괄호는 함께 뛴 라운드 수 대비 빈도 — 오래 함께 뛴 조합의 노출 편향 보정.
       </div>
       {pairs.map((p, i) => (
         <div key={`${p.assister}|${p.scorer}`} style={{
@@ -23,7 +23,14 @@ export default function AssistPairList({ pairs, C }) {
               {p.assister} <span style={{ color: C.accent }}>→</span> {p.scorer}
             </span>
           </div>
-          <span style={{ fontSize: 12, color: C.green, fontWeight: 700 }}>{p.count}회</span>
+          <span style={{ fontSize: 12, color: C.green, fontWeight: 700 }}>
+            {p.count}회
+            {p.sharedGames != null && (
+              <span style={{ color: C.gray, fontWeight: 400, fontSize: 10, marginLeft: 6 }}>
+                (함께 {p.sharedGames}R · {p.perSharedGame.toFixed(2)}/R)
+              </span>
+            )}
+          </span>
         </div>
       ))}
     </div>

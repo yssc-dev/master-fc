@@ -40,7 +40,7 @@ describe('calcVolatility', () => {
     expect(r.streaky.map(x => x.player)).toEqual(['가', '나']);
   });
 
-  it('mean과 std 값을 정확히 계산 (모집단 분산)', () => {
+  it('mean과 std 값을 정확히 계산 (표본 분산 ÷(n-1) — 소표본 과소추정 보정)', () => {
     const logs = [
       { player: 'P', goals: 0, assists: 0 },
       { player: 'P', goals: 0, assists: 0 },
@@ -51,7 +51,17 @@ describe('calcVolatility', () => {
     const r = calcVolatility({ playerLogs: logs, minGames: 5 });
     const p = r.streaky.find(x => x.player === 'P');
     expect(p.mean).toBeCloseTo(2, 5);
-    // var = ((0-2)^2 + (0-2)^2 + (4-2)^2 + (4-2)^2 + (2-2)^2)/5 = 16/5 = 3.2 → std≈1.789
-    expect(p.std).toBeCloseTo(Math.sqrt(3.2), 5);
+    // var = ((0-2)^2 + (0-2)^2 + (4-2)^2 + (4-2)^2 + (2-2)^2)/(5-1) = 16/4 = 4 → std=2
+    expect(p.std).toBeCloseTo(2, 5);
+  });
+
+  it('짝수 인원: 상위 중간값 선수는 꾸준형 후보 유지 (중앙값 평균화 회귀 방지)', () => {
+    // 필터 경계 후보는 항상 모집단 구성원이라 두 중간값 '사이' 평균은 존재 불가 —
+    // 중앙값 공식 교체(평균화)로 포함/제외가 바뀌는 선수는 없어야 한다.
+    const mk = (name, g) => Array.from({ length: 5 }, () => ({ player: name, goals: g, assists: 0 }));
+    const logs = [...mk('하', 0), ...mk('중하', 1), ...mk('중상', 2), ...mk('상', 3)];
+    const r = calcVolatility({ playerLogs: logs, minGames: 5, topN: 4 });
+    // 참 중앙값 (1+2)/2 = 1.5 → '중상'(2)·'상'(3) 포함, '중하'(1) 제외
+    expect(r.consistent.map(x => x.player).sort()).toEqual(['상', '중상']);
   });
 });

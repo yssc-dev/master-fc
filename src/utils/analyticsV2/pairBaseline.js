@@ -39,3 +39,19 @@ export function recordRoundOutcome(playerRoundOutcomes, name, roundKey, outcome)
     playerRoundOutcomes[name][roundKey] = outcome;
   }
 }
+
+// 라운드별 수치(예: 그 라운드 자기팀 득점)의 duo 제외 평균 — 공격 케미 베이스라인용.
+// playerRoundValues: { name: { roundKey: number } }
+export function meanExcluding(playerRoundValues, name, duoRounds) {
+  const rv = playerRoundValues[name];
+  if (!rv) return { mean: 0, hasBaseline: false };
+  let sum = 0, n = 0, allSum = 0, allN = 0;
+  for (const rk of Object.keys(rv)) {
+    const v = rv[rk];
+    allSum += v; allN++;
+    if (duoRounds && duoRounds.has(rk)) continue;
+    sum += v; n++;
+  }
+  if (n === 0) return { mean: allN > 0 ? allSum / allN : 0, hasBaseline: false };
+  return { mean: sum / n, hasBaseline: true };
+}

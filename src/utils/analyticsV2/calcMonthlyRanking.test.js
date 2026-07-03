@@ -73,6 +73,27 @@ describe('calcMonthlyRanking 승률 — 양 팀 집계', () => {
     expect(r.goals.map(x => x.rank)).toEqual([1, 1, 3]);
   });
 
+  it('mvp = 월간 rank_score 합산 랭킹', () => {
+    const pg = (player, date, rank_score) => ({ player, date, goals: 0, assists: 0, rank_score });
+    const playerLogs = [
+      pg('A', '2026-06-04', 3), pg('A', '2026-06-11', 5),
+      pg('B', '2026-06-04', 4), pg('B', '2026-06-11', 2),
+    ];
+    const r = calcMonthlyRanking({ yearMonth: '2026-06', playerLogs, matchLogs: [] });
+    expect(r.mvp[0]).toMatchObject({ player: 'A', value: 8 });
+    expect(r.mvp[1]).toMatchObject({ player: 'B', value: 6 });
+  });
+
+  it("yearMonth='ALL'이면 전체 기간 집계 (시즌 뷰)", () => {
+    const pg = (player, date, goals) => ({ player, date, goals, assists: 0 });
+    const playerLogs = [
+      pg('A', '2026-05-01', 2), pg('A', '2026-06-04', 3),
+      pg('B', '2026-06-04', 1), pg('B', '2026-06-11', 1),
+    ];
+    const r = calcMonthlyRanking({ yearMonth: 'ALL', playerLogs, matchLogs: [] });
+    expect(r.goals.find(x => x.player === 'A')).toMatchObject({ value: 5, games: 2 });
+  });
+
   it('is_extra 매치는 승률에서 제외한다', () => {
     const matchLogs = [
       row('2026-06-04', ['A'], ['B'], 3, 1),

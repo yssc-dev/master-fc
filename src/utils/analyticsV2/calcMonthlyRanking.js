@@ -1,22 +1,26 @@
-// 특정 YYYY-MM 기준 득점/어시/공격포인트/승률 TOP N (공동 순위)
+// 특정 YYYY-MM 기준 득점/어시/공격포인트/MVP(rank_score)/승률 TOP N (공동 순위)
+// yearMonth='ALL'이면 전체 기간 집계 (시즌 뷰)
 // winRateMinGames: 승률 랭킹에 노출되기 위한 최소 경기 수 (표본 신뢰도)
-// statMinGames: 득점·어시·공격포인트 랭킹의 최소 세션 수 — 1세션 몰아치기가 월 상위 독식 방지
+// statMinGames: 득점·어시·공격포인트·MVP 랭킹의 최소 세션 수 — 1세션 몰아치기가 상위 독식 방지
 // ★ 휴식 선수는 매치 출전에서 제외 (actualPlayers 사용)
 import { parseActualPlayers } from './parseMembers';
 import { buildRankedTop } from './rankUtils';
 
 export function calcMonthlyRanking({ yearMonth, playerLogs, matchLogs, topN = 5, winRateMinGames = 5, statMinGames = 2 }) {
-  if (!yearMonth) return { goals: [], assists: [], attackPoints: [], winRate: [] };
+  if (!yearMonth) return { goals: [], assists: [], attackPoints: [], mvp: [], winRate: [] };
 
-  const inMonth = (d) => typeof d === 'string' && d.startsWith(yearMonth + '-');
+  const inMonth = yearMonth === 'ALL'
+    ? (d) => typeof d === 'string' && d.length > 0
+    : (d) => typeof d === 'string' && d.startsWith(yearMonth + '-');
 
-  // 선수별 월간 누적 + 세션 수 (PG 1행 = 1세션)
-  const statMap = {}; // name -> { goals, assists, games }
+  // 선수별 기간 누적 + 세션 수 (PG 1행 = 1세션)
+  const statMap = {}; // name -> { goals, assists, rankScore, games }
   for (const p of playerLogs || []) {
     if (!inMonth(p.date)) continue;
-    if (!statMap[p.player]) statMap[p.player] = { goals: 0, assists: 0, games: 0 };
+    if (!statMap[p.player]) statMap[p.player] = { goals: 0, assists: 0, rankScore: 0, games: 0 };
     statMap[p.player].goals += Number(p.goals) || 0;
     statMap[p.player].assists += Number(p.assists) || 0;
+    statMap[p.player].rankScore += Number(p.rank_score) || 0;
     statMap[p.player].games += 1;
   }
 
@@ -58,6 +62,8 @@ export function calcMonthlyRanking({ yearMonth, playerLogs, matchLogs, topN = 5,
     goals: statList(v => v.goals),
     assists: statList(v => v.assists),
     attackPoints: statList(v => v.goals + v.assists),
+    // MVP: 세션 팀순위 배점(rank_score) 누적 — '이달의 선수' 종합축
+    mvp: statList(v => v.rankScore),
     // 승률은 표본 신뢰도를 위해 최소 winRateMinGames경기 이상만 랭킹 (기본 5)
     winRate: buildRankedTop(
       Object.entries(winMap)

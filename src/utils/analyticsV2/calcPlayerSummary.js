@@ -31,6 +31,8 @@ export function calcPlayerSummary({ matchLogs = [], eventLogs = [], playerGameLo
         goals: 0, assists: 0, ownGoals: 0, fouls: 0,
         conceded: 0, fieldConceded: 0, avgConceded: 0,
         matches: 0, wins: 0, draws: 0, losses: 0, winRate: 0,
+        teamGoals: 0,            // 출전 매치의 자기팀 총 득점 (득점 관여율 분모)
+        goalInvolvement: 0,      // (goals+assists) / teamGoals — '팀 승리 견인' 근사
         _teamConceded: 0,        // 출전 매치의 자기팀 총 실점 (fieldConceded 계산용)
         _mtKeeperRounds: 0,      // matchLogs.our_gk 기반 fallback
         _mtConceded: 0,
@@ -63,6 +65,7 @@ export function calcPlayerSummary({ matchLogs = [], eventLogs = [], playerGameLo
       s._attendedDates.add(date);
       const teamConceded = side === 'our' ? oppScore : ourScore;
       s._teamConceded += teamConceded;
+      s.teamGoals += side === 'our' ? ourScore : oppScore;
       const isGk = (side === 'our' && name === ourGk) || (side === 'opp' && name === oppGk);
       if (isGk) {
         s._mtKeeperRounds++;
@@ -119,6 +122,7 @@ export function calcPlayerSummary({ matchLogs = [], eventLogs = [], playerGameLo
     s.fieldConceded = Math.max(0, s._teamConceded - conceded);
     s.avgConceded = s.fieldRounds > 0 ? s.fieldConceded / s.fieldRounds : 0;
     s.winRate = s.matches > 0 ? (s.wins + s.draws * 0.5) / s.matches : 0;
+    s.goalInvolvement = s.teamGoals > 0 ? (s.goals + s.assists) / s.teamGoals : 0;
     s.games = s._attendedDates.size;
     // 내부 필드 정리
     delete s._teamConceded; delete s._mtKeeperRounds; delete s._mtConceded;

@@ -210,4 +210,32 @@ describe('calcRoundSlope', () => {
     expect(r.perPlayer.A.tendency).toBeNull();
     expect(r.perPlayer.A.slope).toBeNull();
   });
+
+  it('F10: 유효 percentile 표본(validSampleCount) 기준으로 랭킹 진입 판정', () => {
+    // A: 이벤트 10개지만 8개는 단일 라운드 세션(percentile 불가) → 유효 표본 2 → 랭킹 제외
+    const eventLogs = [];
+    for (let i = 0; i < 8; i++) {
+      eventLogs.push({ date: `2026-03-0${i + 1}`, match_id: 'R1_C0', event_type: 'goal', player: 'A', related_player: '' });
+    }
+    // 유효 세션 하나 (R1~R2): A가 R2에 2골
+    eventLogs.push({ date: '2026-04-01', match_id: 'R1_C0', event_type: 'goal', player: 'X', related_player: '' });
+    eventLogs.push({ date: '2026-04-01', match_id: 'R2_C0', event_type: 'goal', player: 'A', related_player: '' });
+    eventLogs.push({ date: '2026-04-01', match_id: 'R2_C0', event_type: 'goal', player: 'A', related_player: '' });
+    const r = calcRoundSlope({ eventLogs, threshold: 10, minSessions: 1 });
+    expect(r.perPlayer.A.eventCount).toBe(10);
+    expect(r.perPlayer.A.validSampleCount).toBe(2);
+    expect(r.ranking.lateBloomers.find(x => x.player === 'A')).toBeUndefined();
+  });
+
+  it('F10: minSessions 미달(단일 세션 폭발)은 랭킹 제외', () => {
+    // A: 한 세션(R1~R4)에서 10골 몰아침 — 유효 표본 10이지만 세션 1개
+    const eventLogs = [];
+    for (let i = 0; i < 10; i++) {
+      eventLogs.push({ date: '2026-04-01', match_id: 'R4_C0', event_type: 'goal', player: 'A', related_player: '' });
+    }
+    eventLogs.push({ date: '2026-04-01', match_id: 'R1_C0', event_type: 'goal', player: 'X', related_player: '' });
+    const r = calcRoundSlope({ eventLogs, threshold: 10, minSessions: 3 });
+    expect(r.perPlayer.A.sessionCount).toBe(1);
+    expect(r.ranking.lateBloomers.find(x => x.player === 'A')).toBeUndefined();
+  });
 });

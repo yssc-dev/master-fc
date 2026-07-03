@@ -1,6 +1,7 @@
 // src/components/dashboard/analytics/AwardsTab.jsx
 import { useMemo, useState } from 'react';
 import { calcAwards } from '../../../utils/analyticsV2/calcAwards';
+import { calcClutch } from '../../../utils/analyticsV2/calcClutch';
 import { calcRoundSlope } from '../../../utils/analyticsV2/calcRoundSlope';
 import { calcSoloGoalRatio } from '../../../utils/analyticsV2/calcSoloGoalRatio';
 import { calcMonthlyRanking } from '../../../utils/analyticsV2/calcMonthlyRanking';
@@ -8,7 +9,8 @@ import { calcVolatility } from '../../../utils/analyticsV2/calcVolatility';
 
 export default function AwardsTab({ playerGameLogs, matchLogs, eventLogs, C, isSoccer = false }) {
   const awards = useMemo(() => calcAwards({ playerLogs: playerGameLogs || [], eventLogs: eventLogs || [] }), [playerGameLogs, eventLogs]);
-  const slope = useMemo(() => calcRoundSlope({ eventLogs: eventLogs || [], matchLogs: matchLogs || [], threshold: 10 }), [eventLogs, matchLogs]);
+  const clutch = useMemo(() => calcClutch({ eventLogs: eventLogs || [], matchLogs: matchLogs || [] }), [eventLogs, matchLogs]);
+  const slope = useMemo(() => calcRoundSlope({ eventLogs: eventLogs || [], matchLogs: matchLogs || [], threshold: 10, minSessions: 3 }), [eventLogs, matchLogs]);
   const solo = useMemo(() => calcSoloGoalRatio({ eventLogs: eventLogs || [], threshold: 10 }), [eventLogs]);
   const volatility = useMemo(() => calcVolatility({ playerLogs: playerGameLogs || [], minGames: 5, topN: 3 }), [playerGameLogs]);
 
@@ -141,6 +143,23 @@ export default function AwardsTab({ playerGameLogs, matchLogs, eventLogs, C, isS
     <div>
       <Card title="🎩 해트트릭 (한 경기 3골 이상)" items={awards.hatTricks} valueKey="count" valueFmt={v => `${v}회`} />
       <Card title="🔥 불꽃 (한 세션 3골 이상 — 하루 합산)" items={awards.fireStarter} valueKey="count" valueFmt={v => `${v}회`} />
+      {/* 🎯 클러치 — input_time으로 경기 내 골 순서 복원 (입력 시각 ≈ 실제 순서 전제) */}
+      <div style={{ padding: 14, background: C.cardLight, borderRadius: 12, marginBottom: 12 }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: C.gray, marginBottom: 4 }}>🎯 클러치 (결승골·역전골·동점골)</div>
+        <div style={{ fontSize: 10, color: C.gray, marginBottom: 10 }}>
+          입력 시각 기준 경기 내 골 순서 복원 · 결승골 = 승리 경기의 결정골
+          {clutch.skippedMatches > 0 && ` · 재구성 불일치 ${clutch.skippedMatches}경기 제외`}
+        </div>
+        {(clutch.ranking.winningGoals.length === 0 && clutch.ranking.comebackGoals.length === 0 && clutch.ranking.equalizers.length === 0) ? (
+          <div style={{ fontSize: 11, color: C.gray }}>표본 부족</div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+            <RankingCol title="🏆 결승골" rows={clutch.ranking.winningGoals} suffix="골" />
+            <RankingCol title="🔄 역전골" rows={clutch.ranking.comebackGoals} suffix="골" />
+            <RankingCol title="⚖️ 동점골" rows={clutch.ranking.equalizers} suffix="골" />
+          </div>
+        )}
+      </div>
       {/* 🧤 키퍼 — 클린시트 수 · 실점률 (PG 누적) */}
       <div style={{ padding: 14, background: C.cardLight, borderRadius: 12, marginBottom: 12 }}>
         <div style={{ fontSize: 12, fontWeight: 700, color: C.gray, marginBottom: 4 }}>
@@ -263,17 +282,23 @@ export default function AwardsTab({ playerGameLogs, matchLogs, eventLogs, C, isS
       {/* ── 월별 랭킹 ── */}
       <div style={{ padding: 14, background: C.cardLight, borderRadius: 12, marginBottom: 12 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: C.gray }}>📅 월별 랭킹</div>
+          <div style={{ fontSize: 12, fontWeight: 700, color: C.gray }}>📅 {effectiveMonth === 'ALL' ? '시즌 전체 랭킹' : '월별 랭킹'}</div>
           <select value={effectiveMonth} onChange={e => setSelectedMonth(e.target.value)}
             style={{ padding: "4px 10px", borderRadius: 50, fontSize: 11, fontWeight: 480, background: "transparent", color: C.white, border: `1px dashed ${C.grayDark}`, fontFamily: "inherit", appearance: "none", cursor: "pointer" }}>
-            {months.length === 0 ? <option value="">-</option> : months.map(m => <option key={m} value={m}>{m}</option>)}
+            {months.length === 0 ? <option value="">-</option> : (
+              <>
+                <option value="ALL">전체</option>
+                {months.map(m => <option key={m} value={m}>{m}</option>)}
+              </>
+            )}
           </select>
         </div>
         {ranking ? (
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            <RankingCol title="🏅 MVP (랭크점수)" rows={ranking.mvp} suffix="점" />
+            <RankingCol title="⚡ 공격포인트 (G+A)" rows={ranking.attackPoints} suffix="pt" />
             <RankingCol title="⚽ 득점" rows={ranking.goals} suffix="골" />
             <RankingCol title="🅰 어시" rows={ranking.assists} suffix="어시" />
-            <RankingCol title="⚡ 공격포인트 (G+A)" rows={ranking.attackPoints} suffix="pt" />
             <RankingCol title="🏁 승률" rows={ranking.winRate.map(x => ({ player: x.player, rank: x.rank, value: `${Math.round(x.value * 100)}%` }))} suffix="" />
           </div>
         ) : (

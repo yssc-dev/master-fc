@@ -110,6 +110,23 @@ describe('calcPlayerSummary', () => {
     expect(r.perPlayer.B.games).toBe(2); // 1/01, 1/15
   });
 
+  it('teamGoals = 본인 출전 매치의 자기팀 득점 합, goalInvolvement = (G+A)/teamGoals', () => {
+    const matchLogs = [
+      // A는 our 측: 팀 3득점
+      { date: '2026-01-01', match_id: 'R1_C0', our_members_json: '["A"]', opponent_members_json: '["B"]', our_score: 3, opponent_score: 1 },
+      // A는 opp 측: 팀 2득점 (opponent_score가 자기팀 득점)
+      { date: '2026-01-01', match_id: 'R2_C0', our_members_json: '["B"]', opponent_members_json: '["A"]', our_score: 0, opponent_score: 2 },
+    ];
+    const eventLogs = [
+      { event_type: 'goal', player: 'A', related_player: '', date: '2026-01-01', match_id: 'R1_C0' },
+      { event_type: 'goal', player: 'X', related_player: 'A', date: '2026-01-01', match_id: 'R2_C0' },
+    ];
+    const r = calcPlayerSummary({ matchLogs, eventLogs });
+    expect(r.perPlayer.A.teamGoals).toBe(5);          // 3 + 2
+    expect(r.perPlayer.A.goalInvolvement).toBeCloseTo(2 / 5, 5); // 1골 + 1어시
+    expect(r.perPlayer.B.teamGoals).toBe(1);          // R1 opp측 1 + R2 our측 0
+  });
+
   it('sessionDates = 전체 세션 날짜 정렬 배열 (스트릭 결석 절단용)', () => {
     const matchLogs = [
       { date: '2026-01-15', match_id: 'R1_C0', our_members_json: '["B"]', opponent_members_json: '[]', our_score: 0, opponent_score: 0 },

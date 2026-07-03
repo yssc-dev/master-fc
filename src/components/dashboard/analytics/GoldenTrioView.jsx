@@ -43,6 +43,12 @@ export default function GoldenTrioView({ matchLogs, C }) {
                     ? `${t.games}경기 듀오승률 ${Math.round(t.winRate * 100)}% / 단독 출전 표본 없음`
                     : `${t.games}경기 듀오승률 ${Math.round(t.winRate * 100)}% / 개인평균 ${Math.round(t.indivAvg * 100)}%`}
                 </div>
+                {!t.baselineUnavailable && t.attackLift != null && (
+                  <div style={{ fontSize: 10, marginTop: 2, color: t.attackLift > 0 ? '#22c55e' : t.attackLift < 0 ? '#ef4444' : C.gray }}>
+                    공격 케미 {t.attackLift >= 0 ? '+' : ''}{t.attackLift.toFixed(2)}골/경기
+                    <span style={{ color: C.gray }}> (함께 {t.pairGoalsPerGame.toFixed(2)} vs 개인 {t.indivGoalsPerGame.toFixed(2)})</span>
+                  </div>
+                )}
               </div>
               {t.baselineUnavailable ? (
                 <div style={{ fontSize: 10, fontWeight: 600, color: C.gray, textAlign: 'right' }}>

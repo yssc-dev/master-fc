@@ -36,8 +36,8 @@ export default function RoundDistribution({ data, player, ranking, threshold = 1
   const yOf = (v) => padT + innerH - (v / maxV) * innerH;
   const barW = Math.max(8, innerW / Math.max(rounds.length * 1.5, 1));
 
-  // tendency 표시: 0~1 percentile → 차트 가로축에 마커 위치
-  const tendencyX = data.tendency != null ? padL + data.tendency * innerW : null;
+  // tendency는 세션 진행도(0~1) 평균 — 막대 x축(선수의 활동 라운드 범위)과 좌표계가 달라
+  // 차트 위 마커 대신 별도 0~100% 게이지로 표시 (겹쳐 그리면 위치가 거짓말이 됨)
   const tendencyPct = data.tendency != null ? Math.round(data.tendency * 100) : null;
   const tendencyLabel = data.tendency == null
     ? '—'
@@ -61,13 +61,20 @@ export default function RoundDistribution({ data, player, ranking, threshold = 1
             </g>
           );
         })}
-        {tendencyX != null && (
-          <g>
-            <line x1={tendencyX} y1={padT} x2={tendencyX} y2={padT + innerH} stroke={C.orange} strokeWidth={1.5} strokeDasharray="3 2" />
-            <text x={tendencyX} y={padT - 1} textAnchor="middle" fill={C.orange} fontSize={9} fontWeight={700}>▼</text>
-          </g>
-        )}
       </svg>
+      {tendencyPct != null && (
+        <div style={{ marginTop: 6 }}>
+          <div style={{ position: 'relative', height: 14, borderRadius: 7, background: C.grayDarker, overflow: 'visible' }}>
+            <div style={{
+              position: 'absolute', top: -2, bottom: -2, left: `calc(${tendencyPct}% - 1.5px)`,
+              width: 3, borderRadius: 2, background: C.orange,
+            }} />
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9, color: C.gray, marginTop: 2 }}>
+            <span>세션 초반</span><span>중반</span><span>후반</span>
+          </div>
+        </div>
+      )}
       <div style={{ fontSize: 10, color: C.gray, marginTop: 4 }}>
         골/어시 {data.eventCount ?? data.sampleCount}회 · 활동 라운드 {data.activeRoundCount ?? rounds.length}개 · 성향 {tendencyLabel}
       </div>

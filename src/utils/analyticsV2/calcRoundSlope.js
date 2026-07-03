@@ -47,7 +47,10 @@ function resolveRoundIdx(lookup, date, matchId) {
   return parseRoundIdxFromString(matchId);
 }
 
-export function calcRoundSlope({ eventLogs, matchLogs, threshold = 10 }) {
+// threshold: 랭킹 진입 최소 '유효 percentile 표본' 수 (단일 라운드 세션 이벤트는 표본 불가라 제외)
+// minSessions: 랭킹 진입 최소 세션 수 — 단일 세션 폭발이 다세션 성향과 동급 노출되는 것 방지
+//   (기본 1 = 기존 동작. 분석탭 호출부는 3을 명시)
+export function calcRoundSlope({ eventLogs, matchLogs, threshold = 10, minSessions = 1 }) {
   const lookup = buildRoundIdxLookup(matchLogs);
 
   // 세션(date)별 최대 round_idx — percentile 계산용. matchLogs + eventLogs 둘 다 스캔.
@@ -106,6 +109,8 @@ export function calcRoundSlope({ eventLogs, matchLogs, threshold = 10 }) {
 
     perPlayer[player] = {
       eventCount: evs.length,
+      validSampleCount: percentiles.length, // percentile 정의 가능한 이벤트 수 (신뢰도 판정 기준)
+      sessionCount: new Set(evs.map(ev => ev.date)).size,
       activeRoundCount: Object.keys(countByRound).length,
       countByRound,
       tendency,
@@ -120,8 +125,8 @@ export function calcRoundSlope({ eventLogs, matchLogs, threshold = 10 }) {
   const lateBloomers = [];
   const earlyBirds = [];
   for (const player of Object.keys(perPlayer)) {
-    const { tendency, eventCount } = perPlayer[player];
-    if (tendency == null || eventCount < threshold) continue;
+    const { tendency, eventCount, validSampleCount, sessionCount } = perPlayer[player];
+    if (tendency == null || validSampleCount < threshold || sessionCount < minSessions) continue;
     if (tendency > 0.5) lateBloomers.push({ player, tendency, eventCount, slope: tendency - 0.5 });
     else if (tendency < 0.5) earlyBirds.push({ player, tendency, eventCount, slope: tendency - 0.5 });
   }
