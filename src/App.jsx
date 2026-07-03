@@ -4,7 +4,7 @@ import { FALLBACK_DATA } from './config/fallbackData';
 import { useTheme } from './hooks/useTheme';
 import { getPlayerPoint, getPlayerData, teamPower, calcMatchScore } from './utils/scoring';
 import { snakeDraft } from './utils/draft';
-import { generate4Team2Court, generate5Team2Court, generate6Team2Court, generate6TeamSecondHalf, generate1Court } from './utils/brackets';
+import { generate4Team2Court, generate5Team2Court, generate6Team2Court, generate6TeamSecondHalf, generate7Team2Court, generate8Team2Court, generate8TeamSecondHalf, generate1Court } from './utils/brackets';
 import { generateEventId, formatEventInputTime } from './utils/idGenerator';
 import { buildRawEventsFromFutsal, buildRawPlayerGamesFromFutsal } from './utils/rawLogBuilders';
 import { buildRoundRowsFromFutsal } from './utils/matchRowBuilder';
@@ -160,6 +160,8 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
           if (sheetTeamCount === 4) sched = generate4Team2Court();
           else if (sheetTeamCount === 5) sched = generate5Team2Court();
           else if (sheetTeamCount === 6) sched = generate6Team2Court().firstHalf;
+          else if (sheetTeamCount === 7) sched = generate7Team2Court();
+          else if (sheetTeamCount === 8) sched = generate8Team2Court().firstHalf;
         }
         // 1코트: 회전수 선택을 위해 teamBuild로 이동
         if (cc === 1) {
@@ -204,7 +206,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
             confirmedRounds: {},
             matchModal: null,
             phase: "match",
-            ...(sheetTeamCount === 6 ? { splitPhase: "first" } : {}),
+            ...(sheetTeamCount === 6 || sheetTeamCount === 8 ? { splitPhase: "first" } : {}),
           },
         });
       }
@@ -265,9 +267,9 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
       else if (m.awayScore > m.homeScore) { stats[m.awayTeam].wins++; stats[m.awayTeam].points += 3; stats[m.homeTeam].losses++; }
       else { stats[m.homeTeam].draws++; stats[m.awayTeam].draws++; stats[m.homeTeam].points++; stats[m.awayTeam].points++; }
     });
-    // 6팀 split second phase: 전반 6라운드 순위로 상/하위 리그 라벨 부여.
+    // 6·8팀 split second phase: 전반 6라운드 순위로 상/하위 리그 라벨 부여.
     const leagueByTeam = {};
-    if (teamCount === 6 && splitPhase === 'second') {
+    if ((teamCount === 6 || teamCount === 8) && splitPhase === 'second') {
       const fhStats = {};
       teamNames.forEach((t, i) => { fhStats[t] = { idx: i, gf: 0, ga: 0, points: 0 }; });
       completedMatches.forEach(m => {
@@ -283,7 +285,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
       const fhRanked = Object.entries(fhStats)
         .map(([name, s]) => ({ name, ...s }))
         .sort((a, b) => (b.points - a.points) || ((b.gf - b.ga) - (a.gf - a.ga)) || (b.gf - a.gf));
-      fhRanked.forEach((t, i) => { leagueByTeam[t.name] = i < 3 ? 'upper' : 'lower'; });
+      fhRanked.forEach((t, i) => { leagueByTeam[t.name] = i < teamCount / 2 ? 'upper' : 'lower'; });
     }
     return Object.entries(stats)
       .map(([name, s]) => ({ name, ...s, league: leagueByTeam[name] || null }))
@@ -564,6 +566,8 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
         if (teamCount === 4) sched = generate4Team2Court();
         else if (teamCount === 5) sched = generate5Team2Court();
         else if (teamCount === 6) { sched = generate6Team2Court().firstHalf; initSplitPhase = 'first'; }
+        else if (teamCount === 7) sched = generate7Team2Court();
+        else if (teamCount === 8) { sched = generate8Team2Court().firstHalf; initSplitPhase = 'first'; }
       } else sched = generate1Court(teamCount, rotations);
     } else if (matchMode === "push") {
       initPushState = createInitialPushState(teamCount);
@@ -573,8 +577,8 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
 
   const confirmRound = (roundIdx, matchResults) => {
     let newSchedule = null, newSplitPhase = null;
-    if (matchMode === "schedule" && !isExtraRound && teamCount === 6 && courtCount === 2 && splitPhase === "first") {
-      // 6라운드 × 2코트 = 12경기 모두 완료 시 스플릿
+    if (matchMode === "schedule" && !isExtraRound && (teamCount === 6 || teamCount === 8) && courtCount === 2 && splitPhase === "first") {
+      // 6·8팀 공통: 전반 6라운드 × 2코트 = 12경기 모두 완료 시 스플릿
       const cnt = completedMatches.filter(m => !m.isExtra).length + matchResults.length;
       if (cnt >= 12) {
         // 현재 라운드 결과까지 포함하여 순위 계산
@@ -593,7 +597,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
           .map(([, s]) => s)
           .sort((a, b) => (b.points - a.points) || ((b.gf - b.ga) - (a.gf - a.ga)) || (b.gf - a.gf));
         const rankedIndices = ranked.map(s => s.idx);
-        const secondHalf = generate6TeamSecondHalf(rankedIndices);
+        const secondHalf = teamCount === 8 ? generate8TeamSecondHalf(rankedIndices) : generate6TeamSecondHalf(rankedIndices);
         newSchedule = [...schedule, ...secondHalf];
         newSplitPhase = "second";
       }
@@ -816,6 +820,8 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
       teamCount === 4 ? "동일팀 4번씩 경기 · 12라운드"
       : teamCount === 5 ? "동일팀 2번씩 경기 · 10라운드"
       : teamCount === 6 ? "조별리그 → 순위별 재편성 · 12라운드"
+      : teamCount === 7 ? "전팀 풀리그 · 11라운드 · 매R 3팀 휴식"
+      : teamCount === 8 ? "조별리그 → 순위별 재편성 · 12라운드"
       : ""
     ) : "";
 
@@ -861,7 +867,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
             <div className="app-row" style={{ flexDirection: "column", alignItems: "stretch", gap: 8 }}>
               <span className="app-row-title">팀 수</span>
               <div style={segBar}>
-                {[3, 4, 5, 6].map(n => (
+                {[3, 4, 5, 6, 7, 8].map(n => (
                   <button key={n} onClick={() => dispatch({ type: 'SET_FIELDS', fields: { teamCount: n, ...(n === 3 ? { courtCount: 1 } : {}) } })}
                     style={segBtn(teamCount === n)}>{n}팀</button>
                 ))}
@@ -881,7 +887,7 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
               <span className="app-row-title">경기 모드</span>
               <div style={segBar}>
                 <button onClick={() => set('matchMode', 'schedule')} style={segBtn(matchMode === "schedule")}>
-                  {teamCount === 6 && courtCount === 2 ? "그룹 스플릿" : "대진표"}
+                  {(teamCount === 6 || teamCount === 8) && courtCount === 2 ? "그룹 스플릿" : "대진표"}
                 </button>
                 <button onClick={() => set('matchMode', 'free')} style={segBtn(matchMode === "free")}>자유대진</button>
                 <button onClick={() => dispatch({ type: 'SET_FIELDS', fields: { matchMode: 'push', courtCount: 1 } })} style={segBtn(matchMode === "push")}>밀어내기</button>
@@ -1409,6 +1415,8 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
                   {teamCount === 4 && courtCount === 2 && "동일팀 4번씩 경기 · 12라운드"}
                   {teamCount === 5 && courtCount === 2 && "동일팀 2번씩 경기 · 10라운드 · 매 라운드 1팀 휴식"}
                   {teamCount === 6 && courtCount === 2 && "조별리그 → 순위별 재편성 · 12라운드"}
+                  {teamCount === 7 && courtCount === 2 && "전팀 풀리그 · 11라운드 · 매 라운드 3팀 휴식"}
+                  {teamCount === 8 && courtCount === 2 && "조별리그(4팀×2조) → 순위별 재편성 · 12라운드"}
                   {courtCount === 1 && matchMode === "schedule" && `모든 팀 순서대로 경기 × ${rotations}회전`}
                   {matchMode === "free" && "매 라운드 직접 대진 선택"}
                   {matchMode === "push" && "승리팀 잔류, 패배팀 교체 · 2골 이상 승리 시 연장 · 3연승 후 휴식"}

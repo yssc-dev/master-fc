@@ -53,6 +53,8 @@ export default function ScheduleModal({ schedule, currentRoundIdx, viewingRoundI
     if (teamCount === 4 && courtCount === 2 && matchMode === "schedule") return "4팀·2코트 — 동일팀 4번씩 경기 · 12라운드";
     if (teamCount === 5 && courtCount === 2 && matchMode === "schedule") return "5팀·2코트 — 동일팀 2번씩 · 10라운드 · 매R 1팀 휴식";
     if (teamCount === 6 && courtCount === 2 && matchMode === "schedule") return "6팀·2코트 — 그룹 스플릿 · 12라운드";
+    if (teamCount === 7 && courtCount === 2 && matchMode === "schedule") return "7팀·2코트 — 전팀 풀리그 · 11라운드 · 매R 3팀 휴식";
+    if (teamCount === 8 && courtCount === 2 && matchMode === "schedule") return "8팀·2코트 — 그룹 스플릿 · 12라운드";
     if (courtCount === 1 && matchMode === "schedule") return `${teamCount}팀·1코트 — 라운드로빈 × ${rotations || 1}회전`;
     if (matchMode === "free") return "자유대진 — 매 라운드 직접 선택";
     return `${teamCount}팀 · ${courtCount}코트`;
@@ -150,7 +152,7 @@ export default function ScheduleModal({ schedule, currentRoundIdx, viewingRoundI
             {schedule.map((round, ri) => {
               const isCurrent = ri === currentRoundIdx;
               const isConfirmed = confirmedRounds[ri];
-              const isSplitBoundary = teamCount === 6 && splitPhase === "second" && ri === 6;
+              const isSplitBoundary = (teamCount === 6 || teamCount === 8) && splitPhase === "second" && ri === 6;
               return (
                 <React.Fragment key={ri}>
                   {/* 스플릿 구분선 */}

@@ -3,7 +3,7 @@ import Modal from '../common/Modal';
 
 export default function StandingsModal({ standings, splitPhase, teamCount, onClose, styles: s }) {
   const { C } = useTheme();
-  const is6TeamSplit = teamCount === 6 && splitPhase === "second";
+  const isSplitLeague = (teamCount === 6 || teamCount === 8) && splitPhase === "second";
 
   return (
     <Modal onClose={onClose} title="팀 순위">
@@ -13,7 +13,7 @@ export default function StandingsModal({ standings, splitPhase, teamCount, onClo
           {standings.map((t, i) => {
             const gd = t.gf - t.ga;
             // ★ 팀 순위는 승점 기준 통합 정렬. 리그는 소속 표시(상/하)로만 표현.
-            const league = is6TeamSplit ? (t.league === 'upper' ? 'upper' : t.league === 'lower' ? 'lower' : null) : null;
+            const league = isSplitLeague ? (t.league === 'upper' ? 'upper' : t.league === 'lower' ? 'lower' : null) : null;
             return (
               <tr key={t.name}>
                 <td style={s.td()}>{i + 1}</td>

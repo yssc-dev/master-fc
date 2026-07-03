@@ -90,6 +90,95 @@ export function generate6TeamSecondHalf(rankedIndices) {
   ];
 }
 
+// 7팀 2코트 — 풀 싱글 라운드로빈 11라운드 (R11은 1경기)
+// 팀당 6경기 균등, 모든 페어 1회. 연속휴식은 R10→R11 1팀뿐(전수 탐색상 수학적 최소, 0회는 불가능)
+export function generate7Team2Court() {
+  return [
+    { matches: [[0,1], [2,3]] },  // R1  (휴식: 4,5,6)
+    { matches: [[0,4], [5,6]] },  // R2  (휴식: 1,2,3)
+    { matches: [[0,2], [1,3]] },  // R3  (휴식: 4,5,6)
+    { matches: [[1,5], [4,6]] },  // R4  (휴식: 0,2,3)
+    { matches: [[0,3], [2,4]] },  // R5  (휴식: 1,5,6)
+    { matches: [[1,6], [2,5]] },  // R6  (휴식: 0,3,4)
+    { matches: [[0,5], [3,4]] },  // R7  (휴식: 1,2,6)
+    { matches: [[1,4], [2,6]] },  // R8  (휴식: 0,3,5)
+    { matches: [[0,6], [3,5]] },  // R9  (휴식: 1,2,4)
+    { matches: [[1,2], [4,5]] },  // R10 (휴식: 0,3,6)
+    { matches: [[3,6]] },         // R11 (1경기, 휴식: 0,1,2,4,5)
+  ];
+}
+
+// 8팀 2코트 — 그룹 스플릿 12라운드 (6팀 방식의 4팀 조 확장)
+// 전반 6R: 1~4팀(A조)·5~8팀(B조) 코트별 조내 싱글RR 동시 진행
+// 후반 6R: 전반 순위 기준 재편성(상위4/하위4). 전반 스케줄만 반환, 후반은 confirmRound에서 생성
+// 조내 경기 순서는 연속휴식 최소 배열(팀당 최대 1회, 조당 2회 — 4팀 1코트 RR에서 0회는 불가능)
+export function generate8Team2Court() {
+  const firstHalf = [
+    { matches: [[0,1], [4,5]] },  // R1
+    { matches: [[2,3], [6,7]] },  // R2
+    { matches: [[0,2], [4,6]] },  // R3
+    { matches: [[1,3], [5,7]] },  // R4
+    { matches: [[0,3], [4,7]] },  // R5
+    { matches: [[1,2], [5,6]] },  // R6
+  ];
+  return { firstHalf, needsMidSplit: true };
+}
+
+// 전반 고정 스케줄에서 도출 — fixture 테이블이 바뀌면 자동 추종
+const FIRST_HALF_8T = generate8Team2Court().firstHalf;
+// R6 출전팀. R6 휴식팀이 R7에도 쉬면 연속휴식이 되므로 후반 첫 라운드 휴식자리에서 배제 대상
+const R6_PLAYING_8T = new Set(FIRST_HALF_8T[5].matches.flat());
+// 전반에 이미 연속휴식을 겪은 팀 — 후반 내부 연속휴식 자리에 다시 배치하지 않는다
+const FH_DOUBLE_RESTED_8T = (() => {
+  const out = new Set();
+  for (let t = 0; t < 8; t++) {
+    let run = 0;
+    FIRST_HALF_8T.forEach(round => {
+      if (round.matches.flat().includes(t)) run = 0;
+      else if (++run >= 2) out.add(t);
+    });
+  }
+  return out;
+})();
+
+const PERMS4 = (() => {
+  const out = [];
+  const rec = (rest, acc) => rest.length === 0
+    ? out.push(acc)
+    : rest.forEach((x, i) => rec([...rest.slice(0, i), ...rest.slice(i + 1)], [...acc, x]));
+  rec([0, 1, 2, 3], []);
+  return out;
+})();
+
+// 순위순 4팀을 후반 패턴 위치 [q0,q1,q2,q3]에 배치.
+// 패턴상 R7 휴식 = q2,q3 / 내부 연속휴식 = q1(R8·R9), q2(R10·R11)
+// R7 출전 우선순위 규칙: R6 휴식팀 > R5 휴식팀 > R5·R6 연속 출전팀(후순위=휴식).
+// 8팀 전반 fixture는 R5 휴식(1,2,5,6)과 R6 휴식(0,3,4,7)이 정확히 보완 관계라
+// R5·R6 연속 출전팀이 존재하지 않음 → "R6 출전팀을 R7 휴식으로" = "R5 휴식팀을 R7 휴식으로"와 동치.
+// (1순위) R6 휴식팀을 q2,q3에서 배제 — R6→R7 연속휴식 방지, 그룹 구성상 불가피하면 최소화
+// (2순위) 전반 연속휴식 팀을 q1,q2에서 배제 — 한 팀에 연속휴식 2회 누적 방지
+// (동점) 순위 순서 유지 (PERMS4가 사전순이라 첫 최소 스코어 = 순위순에 가장 가까운 배치)
+function orderGroupForSecondHalf(group) {
+  let best = null, bestScore = Infinity;
+  for (const p of PERMS4) {
+    const o = [group[p[0]], group[p[1]], group[p[2]], group[p[3]]];
+    const boundary = (R6_PLAYING_8T.has(o[2]) ? 0 : 1) + (R6_PLAYING_8T.has(o[3]) ? 0 : 1);
+    const stacking = (FH_DOUBLE_RESTED_8T.has(o[1]) ? 1 : 0) + (FH_DOUBLE_RESTED_8T.has(o[2]) ? 1 : 0);
+    const score = boundary * 10 + stacking;
+    if (score < bestScore) { bestScore = score; best = o; }
+  }
+  return best;
+}
+
+// 8팀 후반 스케줄 생성 (순위 기반 재매핑)
+// rankedIndices = [1위팀idx, ..., 8위팀idx] → 상위4 = A코트, 하위4 = B코트
+export function generate8TeamSecondHalf(rankedIndices) {
+  const top = orderGroupForSecondHalf(rankedIndices.slice(0, 4));
+  const bot = orderGroupForSecondHalf(rankedIndices.slice(4, 8));
+  const pattern = [[0,1], [2,3], [0,2], [1,3], [0,3], [1,2]]; // 전반과 동일한 연속휴식 최소 배열
+  return pattern.map(([x, y]) => ({ matches: [[top[x], top[y]], [bot[x], bot[y]]] }));
+}
+
 // N팀 1코트 — 라운드로빈 × 회전수
 export function generateRoundRobin(teamIndices) {
   const n = teamIndices.length;

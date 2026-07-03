@@ -689,9 +689,9 @@ function gameReducer(state, action) {
         viewingRoundIdx: roundIdx,
         earlyFinish: false,
       };
-      // 6팀 스플릿 후 전반부 취소 시 스플릿 초기화
+      // 6·8팀 스플릿 후 전반부 취소 시 스플릿 초기화
       if (state.splitPhase === "second") {
-        const firstHalfLen = state.teamCount === 6 && state.courtCount === 2 ? 6 : state.schedule.length;
+        const firstHalfLen = (state.teamCount === 6 || state.teamCount === 8) && state.courtCount === 2 ? 6 : state.schedule.length;
         const isFirstHalf = roundIdx < firstHalfLen;
         if (isFirstHalf) {
           updates.splitPhase = "first";

@@ -40,6 +40,34 @@ describe('gameReducer — UNCONFIRM_ROUND gks 복원', () => {
     expect(next.currentRoundIdx).toBe(0);
   });
 
+  it('8팀 스플릿: 전반 라운드 취소 시 후반 스케줄 제거 + splitPhase=first 복귀', () => {
+    const fullSchedule = Array.from({ length: 12 }, () => ({ matches: [[0, 1], [4, 5]] }));
+    const state = withState({
+      teamCount: 8, courtCount: 2, matchMode: 'schedule',
+      splitPhase: 'second',
+      schedule: fullSchedule,
+      confirmedRounds: { 0: true, 1: true, 2: true, 3: true, 4: true, 5: true },
+      gksHistory: {}, completedMatches: [], currentRoundIdx: 6,
+    });
+    const next = gameReducer(state, { type: 'UNCONFIRM_ROUND', roundIdx: 5 });
+    expect(next.splitPhase).toBe('first');
+    expect(next.schedule).toHaveLength(6);
+  });
+
+  it('8팀 스플릿: 후반 라운드 취소는 splitPhase/스케줄 유지 (후반 중복 재생성 방지)', () => {
+    const fullSchedule = Array.from({ length: 12 }, () => ({ matches: [[0, 1], [4, 5]] }));
+    const state = withState({
+      teamCount: 8, courtCount: 2, matchMode: 'schedule',
+      splitPhase: 'second',
+      schedule: fullSchedule,
+      confirmedRounds: { 0: true, 1: true, 2: true, 3: true, 4: true, 5: true, 6: true },
+      gksHistory: {}, completedMatches: [], currentRoundIdx: 7,
+    });
+    const next = gameReducer(state, { type: 'UNCONFIRM_ROUND', roundIdx: 6 });
+    expect(next.splitPhase).toBe('second');
+    expect(next.schedule).toHaveLength(12);
+  });
+
   it('matchId 없는 completedMatches 항목이 있어도 크래시하지 않음', () => {
     // RTDB partial write 등으로 matchId가 빠진 항목이 동기화될 수 있음
     const state = withState({
