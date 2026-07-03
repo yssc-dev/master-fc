@@ -51,6 +51,9 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
   const [opponentRecords, setOpponentRecords] = useState([]); // [{opponent, games, wins, draws, losses, gf, ga}]
   const [attendanceData, setAttendanceData] = useState(null); // { totalDates, playerDates: {name: count} }
 
+  // 배열 prop 대신 파생 primitive로 의존 — 렌더마다 재fetch 방지
+  const hasSoccerEntry = teamEntries.some(e => e.mode === "축구");
+
   useEffect(() => {
     fetchSheetData()
       .then(data => { setMembers(data.players || []); setKeepers(data.keepers || []); })
@@ -60,7 +63,7 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
       setPrevRanks(deltas);
     }).catch(() => {});
     // 축구팀: 포인트로그에서 팀 전적 + 선수별집계에서 출석률
-    if (teamEntries.some(e => e.mode === "축구")) {
+    if (hasSoccerEntry) {
       AppSync.getPlayerLog(getSettings(teamName).playerLogSheet).then(plog => {
         if (!plog || plog.length === 0) return;
         const allDates = new Set(plog.map(p => p.date));
@@ -126,7 +129,8 @@ export default function TeamDashboard({ authUser, teamName, teamEntries, onStart
         setOpponentRecords(Object.values(oppRec).sort((a, b) => b.games - a.games));
       }).catch(() => {});
     }
-  }, []);
+    // teamName/hasSoccerEntry 변경 시 재조회 — 이전엔 []라 팀 전환에도 최초 데이터가 유지됐음
+  }, [teamName, hasSoccerEntry]);
 
   const ds = useMemo(() => ({
     container: { background: "var(--app-bg-grouped)", minHeight: "100vh",

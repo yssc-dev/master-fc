@@ -35,7 +35,6 @@ export function calcPlayerSummary({ matchLogs = [], eventLogs = [], playerGameLo
         _mtKeeperRounds: 0,      // matchLogs.our_gk 기반 fallback
         _mtConceded: 0,
         _attendedDates: new Set(), // PG 합산 시 출전 날짜만 인정
-        _roundsByDate: {},       // PG keeperRounds 캡 계산용
       };
     }
     return perPlayer[name];
@@ -62,7 +61,6 @@ export function calcPlayerSummary({ matchLogs = [], eventLogs = [], playerGameLo
       s.rounds++;
       s.matches++;
       s._attendedDates.add(date);
-      s._roundsByDate[date] = (s._roundsByDate[date] || 0) + 1;
       const teamConceded = side === 'our' ? oppScore : ourScore;
       s._teamConceded += teamConceded;
       const isGk = (side === 'our' && name === ourGk) || (side === 'opp' && name === oppGk);
@@ -124,7 +122,7 @@ export function calcPlayerSummary({ matchLogs = [], eventLogs = [], playerGameLo
     s.games = s._attendedDates.size;
     // 내부 필드 정리
     delete s._teamConceded; delete s._mtKeeperRounds; delete s._mtConceded;
-    delete s._attendedDates; delete s._roundsByDate;
+    delete s._attendedDates;
     void usedPg;
   }
 

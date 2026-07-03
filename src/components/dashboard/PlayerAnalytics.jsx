@@ -2,9 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useTheme } from '../../hooks/useTheme';
 import AppSync from '../../services/appSync';
 import { fetchSheetData } from '../../services/sheetService';
-import { getSettings, getEffectiveSettings } from '../../config/settings';
-import { buildGameRecordsFromLogs } from '../../utils/gameRecordBuilder';
-import { calcDefenseStats, calcWinContribution, calcWinStatsFromPointLog } from '../../utils/gameStateAnalyzer';
+import { getEffectiveSettings } from '../../config/settings';
 
 import PersonalAnalysisTab from './analytics/PersonalAnalysisTab';
 import SynergyMatrixTab from './analytics/SynergyMatrixTab';
@@ -23,46 +21,31 @@ export default function PlayerAnalytics({ teamName, teamMode, initialTab, isAdmi
   const { C } = useTheme();
   const [loading, setLoading] = useState(true);
   const [members, setMembers] = useState(null);
-  const [events, setEvents] = useState(null);
   const [playerGameLogs, setPlayerGameLogs] = useState([]);
   const [matchLogs, setMatchLogs] = useState([]);
   const [eventLogs, setEventLogs] = useState([]);
-  const [gameRecords, setGameRecords] = useState([]);
 
   const initial = initialTab && LEGACY_TAB_MAP[initialTab] ? LEGACY_TAB_MAP[initialTab] : (initialTab || 'personal');
   const [tab, setTab] = useState(initial);
 
   useEffect(() => {
-    const s = getSettings(teamName);
     const sport = isSoccer ? '축구' : '풋살';
     setLoading(true);
     Promise.all([
-      AppSync.getPointLog(s.pointLogSheet).catch(() => []),
       fetchSheetData().catch(() => null),
       AppSync.getMatchLog({ sport }).catch(() => ({ rows: [] })),
       AppSync.getEventLog({ sport }).catch(() => ({ rows: [] })),
       AppSync.getPlayerGameLog({ sport }).catch(() => ({ rows: [] })),
-    ]).then(([evts, sheetData, matchRes, eventRes, pgRes]) => {
-      setEvents(evts || []);
+    ]).then(([sheetData, matchRes, eventRes, pgRes]) => {
       if (sheetData) setMembers(sheetData.players);
-      const mRows = matchRes?.rows || [];
-      const eRows = eventRes?.rows || [];
-      setMatchLogs(mRows);
-      setEventLogs(eRows);
+      setMatchLogs(matchRes?.rows || []);
+      setEventLogs(eventRes?.rows || []);
       setPlayerGameLogs(pgRes?.rows || []);
-      setGameRecords(buildGameRecordsFromLogs(mRows, eRows));
     }).finally(() => setLoading(false));
   }, [teamName, isSoccer]);
 
   const settings = useMemo(() => getEffectiveSettings(teamName, isSoccer ? '축구' : '풋살'), [teamName, isSoccer]);
   const showCrovaGoguma = !isSoccer && settings?.useCrovaGoguma === true && teamName === '마스터FC';
-
-  const defenseStats = useMemo(() => gameRecords.length > 0 ? calcDefenseStats(gameRecords) : {}, [gameRecords]);
-  const winStats = useMemo(() => {
-    if (gameRecords.length > 0) return calcWinContribution(gameRecords);
-    if (isSoccer && events && events.length > 0) return calcWinStatsFromPointLog(events);
-    return {};
-  }, [gameRecords, isSoccer, events]);
 
   const tabs = [
     { key: "personal", label: "개인분석" },
