@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
-import { percentile } from '../../../utils/gameStateAnalyzer';
 import { calcTrend, calcRelativePosition } from '../../../utils/playerAnalyticsUtils';
+import { buildRadarPopulations, calcRadarValues, getPlayerType } from '../../../utils/analyticsV2/calcRadarData';
 import { calcTrends } from '../../../utils/analyticsV2/calcTrends';
 import { calcStreaks } from '../../../utils/analyticsV2/calcStreaks';
 import { calcPersonalRecords } from '../../../utils/analyticsV2/calcPersonalRecords';
@@ -122,15 +122,6 @@ function TrendLineChart({ points, smoothed, C }) {
 
 // ─── Badge helpers ───────────────────────────────────────────────────────────
 
-function getPlayerType(values) {
-  const [scoring, creativity] = values;
-  if (scoring >= 70 && scoring > creativity * 1.5) return { label: "킬러", color: "#ef4444" };
-  if (creativity >= 70 && creativity > scoring * 1.5) return { label: "메이커", color: "#3b82f6" };
-  const avg = values.reduce((a, b) => a + b, 0) / values.length;
-  if (avg >= 60) return { label: "올라운더", color: "#22c55e" };
-  return { label: "", color: "" };
-}
-
 function getChaosBadge(chaosRate) {
   if (chaosRate >= 0.3) return { emoji: "💣", label: "돌발왕", color: "#ef4444" };
   if (chaosRate >= 0.1) return { emoji: "⚡", label: "돌발주의", color: "#f97316" };
@@ -141,7 +132,7 @@ function getChaosBadge(chaosRate) {
 
 export default function PersonalAnalysisTab({
   playerGameLogs, matchLogs, eventLogs,
-  members, C, authUserName,
+  members, C, authUserName, isSoccer = false,
 }) {
   // 6개 카드 숫자는 모두 matchLogs+eventLogs 단일 소스에서 계산.
   // (이전: playerGameLogs/defenseStats/winStats 혼용 → 같은 "경기수"가 4종 5종으로 갈렸음)
@@ -186,51 +177,23 @@ export default function PersonalAnalysisTab({
     return ratedPlayers[0] || players.find(p => playerSummary[p]) || players[0] || null;
   });
 
-  // ── Radar raw values for percentile calc ─────────────────────────────────
-  const allRawValues = useMemo(() => {
-    const scoring = [], creativity = [], defense = [], keeping = [], attendance = [], winRate = [];
-    ratedPlayers.forEach(name => {
-      const s = playerSummary[name];
-      scoring.push(s.rounds > 0 ? s.goals / s.rounds : 0);
-      creativity.push(s.rounds > 0 ? s.assists / s.rounds : 0);
-      defense.push(s.fieldRounds > 0 ? s.avgConceded : 999);
-      keeping.push(s.keeperRounds > 0 ? s.conceded / s.keeperRounds : 999);
-      attendance.push(s.games / totalSessions);
-      winRate.push(s.winRate);
-    });
-    return { scoring, creativity, defense, keeping, attendance, winRate };
-  }, [ratedPlayers, playerSummary, totalSessions]);
+  // ── Radar 백분위 모집단 — 표본 없는 축은 제외 (999 센티널 금지, calcRadarData 참조) ──
+  const radarPops = useMemo(
+    () => buildRadarPopulations(playerSummary, ratedPlayers, totalSessions),
+    [ratedPlayers, playerSummary, totalSessions]
+  );
 
   const getPlayerData = (name) => {
     const s = playerSummary[name];
-    if (!s) return { values: [50, 50, 50, 50, 50, 50], raw: {} };
-    const chaosRate = s.rounds > 0 ? Math.abs(s.ownGoals || 0) / s.rounds : 0;
-    const raw = {
-      scoring: s.rounds > 0 ? s.goals / s.rounds : 0,
-      creativity: s.rounds > 0 ? s.assists / s.rounds : 0,
-      defense: s.fieldRounds > 0 ? s.avgConceded : 999,
-      keeping: s.keeperRounds > 0 ? s.conceded / s.keeperRounds : 999,
-      attendance: s.games / totalSessions,
-      winRate: s.winRate,
-      chaosRate,
-    };
+    if (!s) return { values: [null, null, null, null, null, null], raw: {}, detail: {} };
+    const { values, raw } = calcRadarValues(radarPops, s, totalSessions);
     const detail = {
       goals: s.goals, assists: s.assists, rounds: s.rounds, games: s.games, ownGoals: Math.abs(s.ownGoals || 0),
       keeperRounds: s.keeperRounds, conceded: s.conceded,
       fieldRounds: s.fieldRounds, fieldConceded: s.fieldConceded,
       wins: s.wins, draws: s.draws, losses: s.losses, totalMatches: s.matches,
     };
-    return {
-      values: [
-        percentile(allRawValues.scoring, raw.scoring),
-        percentile(allRawValues.creativity, raw.creativity),
-        percentile(allRawValues.defense, raw.defense, true),
-        percentile(allRawValues.keeping, raw.keeping, true),
-        percentile(allRawValues.attendance, raw.attendance),
-        percentile(allRawValues.winRate, raw.winRate),
-      ],
-      raw, detail,
-    };
+    return { values, raw, detail };
   };
 
   const getTrends = () => {
@@ -270,8 +233,9 @@ export default function PersonalAnalysisTab({
 
   const streakData = useMemo(() => {
     if (!selected || !playerGameLogs) return null;
-    return calcStreaks({ playerName: selected, playerLogs: playerGameLogs });
-  }, [selected, playerGameLogs]);
+    // sessionDates 전달 → 결석 세션이 연속 기록을 끊음 (calcStreaks 참조)
+    return calcStreaks({ playerName: selected, playerLogs: playerGameLogs, sessionDates: summaryV2.sessionDates });
+  }, [selected, playerGameLogs, summaryV2]);
 
   // ── P3/P4/C5 calculations ─────────────────────────────────────────────────
   const roundSlope = useMemo(() => calcRoundSlope({ eventLogs: eventLogs || [], matchLogs: matchLogs || [], threshold: 10 }), [eventLogs, matchLogs]);
@@ -340,14 +304,14 @@ export default function PersonalAnalysisTab({
                   {[
                     { label: "득점력", score: values[0], desc: `${pd.detail.goals}골 / ${pd.detail.rounds}경기 = 경기당 ${pd.raw.scoring?.toFixed(2)}골` },
                     { label: "창의력", score: values[1], desc: `${pd.detail.assists}어시 / ${pd.detail.rounds}경기 = 경기당 ${pd.raw.creativity?.toFixed(2)}어시` },
-                    { label: "수비력", score: values[2], desc: `필드 ${pd.detail.fieldRounds}경기, 팀실점 ${pd.detail.fieldConceded} = 경기당 ${pd.raw.defense === 999 ? "-" : pd.raw.defense?.toFixed(2)}실점` },
+                    { label: "수비력", score: values[2], desc: pd.detail.fieldRounds > 0 ? `필드 ${pd.detail.fieldRounds}경기, 팀실점 ${pd.detail.fieldConceded} = 경기당 ${pd.raw.defense?.toFixed(2)}실점` : "필드 경기 없음" },
                     { label: "키퍼", score: values[3], desc: pd.detail.keeperRounds > 0 ? `${pd.detail.keeperRounds}경기, ${pd.detail.conceded}실점 = 경기당 ${pd.raw.keeping?.toFixed(2)}실점` : "키퍼 경기 없음" },
                     { label: "참석률", score: values[4], desc: `${pd.detail.games} / ${totalSessions}게임 = ${Math.round(pd.raw.attendance * 100)}%` },
                     { label: "승리기여", score: values[5], desc: `${pd.detail.totalMatches}경기 ${pd.detail.wins}승 ${pd.detail.draws}무 ${pd.detail.losses}패 = 승률 ${Math.round(pd.raw.winRate * 100)}%` },
                   ].map(row => (
                     <tr key={row.label} style={{ borderBottom: `1px dashed ${C.grayDarker}` }}>
                       <td style={{ padding: "8px 4px", color: C.gray, fontSize: 10, width: 70 }}>{row.label}</td>
-                      <td style={{ padding: "8px 4px", color: C.white, fontWeight: 480, fontSize: 18, letterSpacing: "-0.4px", fontVariantNumeric: "tabular-nums", width: 38, textAlign: "center" }}>{Math.round(row.score)}</td>
+                      <td style={{ padding: "8px 4px", color: row.score == null ? C.gray : C.white, fontWeight: 480, fontSize: 18, letterSpacing: "-0.4px", fontVariantNumeric: "tabular-nums", width: 38, textAlign: "center" }}>{row.score == null ? "–" : Math.round(row.score)}</td>
                       <td style={{ padding: "8px 4px", color: C.gray, fontSize: 10 }}>{row.desc}</td>
                     </tr>
                   ))}
@@ -435,10 +399,12 @@ export default function PersonalAnalysisTab({
       )}
 
       {hasData && (<>
-      {/* ── P3: Round Distribution ── */}
+      {/* ── P3: Round Distribution — 축구는 라운드 개념이 없어 숨김 (match_id가 라운드 포맷이 아님) ── */}
+      {!isSoccer && (
       <div style={cardStyle}>
         <RoundDistribution data={roundSlope.perPlayer[selected]} player={selected} ranking={roundSlope.ranking} threshold={10} C={C} />
       </div>
+      )}
 
       {/* ── P4: Solo Goal Donut ── */}
       <div style={cardStyle}>

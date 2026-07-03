@@ -26,6 +26,7 @@ export function calcPersonalSynergy({ matrix, player, topN = 3 }) {
       losses: cell.losses,
       winRate: cell.winRate,
       liftSymmetric: cell.liftSymmetric ?? 0,
+      baselineUnavailable: cell.baselineUnavailable ?? false,
       isLowSample: cell.games < minRounds,
     });
   }

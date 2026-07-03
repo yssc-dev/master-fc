@@ -40,6 +40,39 @@ describe('calcMonthlyRanking 승률 — 양 팀 집계', () => {
     expect(kjh.games).toBe(lym.games);
   });
 
+  it('득점·어시 랭킹: statMinGames 미달(1세션 몰아치기)은 제외', () => {
+    const pg = (player, date, goals, assists = 0) => ({ player, date, goals, assists });
+    const playerLogs = [
+      pg('몰빵', '2026-06-04', 5),                    // 1세션 5골 → games 1, 제외
+      pg('꾸준', '2026-06-04', 2), pg('꾸준', '2026-06-11', 2), // 2세션 4골 → 포함
+    ];
+    const r = calcMonthlyRanking({ yearMonth: '2026-06', playerLogs, matchLogs: [], statMinGames: 2 });
+    expect(r.goals.find(x => x.player === '몰빵')).toBeUndefined();
+    expect(r.goals.find(x => x.player === '꾸준')).toMatchObject({ value: 4, games: 2 });
+  });
+
+  it('attackPoints = 월간 G+A 합산 랭킹', () => {
+    const pg = (player, date, goals, assists = 0) => ({ player, date, goals, assists });
+    const playerLogs = [
+      pg('A', '2026-06-04', 2, 3), pg('A', '2026-06-11', 1, 0), // G3+A3=6
+      pg('B', '2026-06-04', 4, 0), pg('B', '2026-06-11', 1, 0), // G5+A0=5
+    ];
+    const r = calcMonthlyRanking({ yearMonth: '2026-06', playerLogs, matchLogs: [], statMinGames: 2 });
+    expect(r.attackPoints.map(x => x.player)).toEqual(['A', 'B']);
+    expect(r.attackPoints[0].value).toBe(6);
+  });
+
+  it('동점자는 공동 순위(rank 필드), topN 경계에서 잘리지 않음', () => {
+    const pg = (player, date, goals) => ({ player, date, goals, assists: 0 });
+    const playerLogs = [
+      pg('A', '2026-06-04', 3), pg('A', '2026-06-11', 0),
+      pg('B', '2026-06-04', 3), pg('B', '2026-06-11', 0),
+      pg('C', '2026-06-04', 1), pg('C', '2026-06-11', 0),
+    ];
+    const r = calcMonthlyRanking({ yearMonth: '2026-06', playerLogs, matchLogs: [], statMinGames: 2 });
+    expect(r.goals.map(x => x.rank)).toEqual([1, 1, 3]);
+  });
+
   it('is_extra 매치는 승률에서 제외한다', () => {
     const matchLogs = [
       row('2026-06-04', ['A'], ['B'], 3, 1),

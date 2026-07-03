@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { buildRankedTop } from '../../../utils/analyticsV2/rankUtils';
 
 export default function CrovaGogumaRankTab({ members, C }) {
   const { crovaTop, gogumaTop } = useMemo(() => {
@@ -11,17 +12,11 @@ export default function CrovaGogumaRankTab({ members, C }) {
       if (c > 0) crovaMap[name] = c;
       if (g > 0) gogumaMap[name] = g;
     }
-    const buildTop = (map) => {
-      const arr = Object.entries(map)
-        .map(([name, score]) => ({ name, score }))
-        .sort((a, b) => b.score - a.score || a.name.localeCompare(b.name, 'ko'));
-      let rank = 0, prevScore = null;
-      const ranked = arr.map((row, i) => {
-        if (row.score !== prevScore) { rank = i + 1; prevScore = row.score; }
-        return { ...row, rank };
-      });
-      return ranked.filter(r => r.rank <= 5);
-    };
+    const buildTop = (map) =>
+      buildRankedTop(
+        Object.entries(map).map(([name, score]) => ({ name, value: score })),
+        { limit: 5 }
+      ).map(r => ({ name: r.name, score: r.value, rank: r.rank }));
     return { crovaTop: buildTop(crovaMap), gogumaTop: buildTop(gogumaMap) };
   }, [members]);
 

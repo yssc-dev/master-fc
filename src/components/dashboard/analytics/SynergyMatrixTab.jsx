@@ -19,6 +19,7 @@ export default function SynergyMatrixTab({ matchLogs, C }) {
         const [a, b] = [p, q].sort((x, y) => x.localeCompare(y, 'ko'));
         const cell = data.cells[`${a}|${b}`];
         if (!cell || cell.games < data.minRounds) continue;
+        if (cell.baselineUnavailable) continue; // 오염된 lift는 평균에서 제외
         sum += cell.liftSymmetric ?? 0; cnt += 1;
       }
       avg[p] = cnt > 0 ? sum / cnt : null;
@@ -39,10 +40,12 @@ export default function SynergyMatrixTab({ matchLogs, C }) {
   }
 
   // 색상 = 케미(liftSymmetric) 기준. 양수=초록, 음수=빨강, 중립=카드색
+  // baselineUnavailable(항상 동행)은 lift가 오염된 값이라 색을 칠하지 않음
   const colorFor = (cell, isDiag, isSelected) => {
     if (isSelected) return C.accent;
     if (isDiag) return C.borderColor;
     if (!cell || cell.games < data.minRounds) return C.cardLight;
+    if (cell.baselineUnavailable) return C.card;
     const lift = cell.liftSymmetric ?? 0;
     if (lift >= 0.05) return `rgba(34,197,94,${0.3 + Math.min(0.6, lift * 2)})`;
     if (lift <= -0.05) return `rgba(239,68,68,${0.3 + Math.min(0.6, -lift * 2)})`;
@@ -73,7 +76,7 @@ export default function SynergyMatrixTab({ matchLogs, C }) {
         ))}
       </div>
       <div style={{ fontSize: 11, color: C.gray, marginBottom: 10, lineHeight: 1.5 }}>
-        색상 = <b>케미</b>(두 사람 평균 능력치 대비 함께 뛸 때 추가 효과). 초록=호흡 좋음, 빨강=호흡 안좋음, 회색=표본 부족(&lt; {data.minRounds}경기). 셀을 탭하면 아래 상세가 고정됩니다.
+        색상 = <b>케미</b>(둘의 개인 평균 승률 — 함께 뛴 매치 제외 — 대비 함께 뛸 때 추가 효과). 초록=호흡 좋음, 빨강=호흡 안좋음, 회색=표본 부족(&lt; {data.minRounds}경기) 또는 항상 동행이라 측정 불가. 셀을 탭하면 아래 상세가 고정됩니다.
       </div>
       <div style={{ overflow: "auto" }}>
         <table style={{ borderCollapse: "collapse", fontSize: 9 }}>
@@ -135,7 +138,9 @@ export default function SynergyMatrixTab({ matchLogs, C }) {
               <>
                 <b>{active.a} × {active.b}</b>: {active.cell.games}경기 {active.cell.wins}승 {active.cell.draws}무 {active.cell.losses}패
                 · 승률 {Math.round(active.cell.winRate * 100)}%
-                · 케미 {(active.cell.liftSymmetric ?? 0) >= 0 ? '+' : ''}{((active.cell.liftSymmetric ?? 0) * 100).toFixed(1)}
+                {active.cell.baselineUnavailable
+                  ? ' · 케미 측정 불가(항상 동행)'
+                  : ` · 케미 ${(active.cell.liftSymmetric ?? 0) >= 0 ? '+' : ''}${((active.cell.liftSymmetric ?? 0) * 100).toFixed(1)}`}
               </>
             )
           ) : (

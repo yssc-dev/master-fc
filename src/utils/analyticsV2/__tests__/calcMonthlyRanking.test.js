@@ -16,13 +16,18 @@ describe('calcMonthlyRanking', () => {
 
   it('aggregates within month only', () => {
     const r = calcMonthlyRanking({ yearMonth: '2026-01', playerLogs, matchLogs });
-    expect(r.goals[0]).toEqual({ player: 'A', value: 5 });
+    expect(r.goals[0]).toMatchObject({ player: 'A', value: 5, games: 2, rank: 1 });
     expect(r.goals.find(x => x.player === 'A').value).toBe(5);
   });
 
-  it('ranks assists descending', () => {
+  it('ranks assists descending (statMinGames=1로 단세션 선수 포함)', () => {
+    const r = calcMonthlyRanking({ yearMonth: '2026-01', playerLogs, matchLogs, statMinGames: 1 });
+    expect(r.assists[0]).toMatchObject({ player: 'B', value: 3 });
+  });
+
+  it('기본 statMinGames=2: 1세션 선수는 득점·어시 랭킹에서 제외', () => {
     const r = calcMonthlyRanking({ yearMonth: '2026-01', playerLogs, matchLogs });
-    expect(r.assists[0]).toEqual({ player: 'B', value: 3 });
+    expect(r.assists.find(x => x.player === 'B')).toBeUndefined(); // B는 1월 1세션뿐
   });
 
   it('winRate uses only that month matches and includes games (min games 0)', () => {
@@ -59,6 +64,6 @@ describe('calcMonthlyRanking', () => {
 
   it('returns empty arrays for month with no data', () => {
     const r = calcMonthlyRanking({ yearMonth: '2025-12', playerLogs, matchLogs });
-    expect(r).toEqual({ goals: [], assists: [], winRate: [] });
+    expect(r).toEqual({ goals: [], assists: [], attackPoints: [], winRate: [] });
   });
 });

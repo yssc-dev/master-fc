@@ -133,5 +133,11 @@ export function calcPlayerSummary({ matchLogs = [], eventLogs = [], playerGameLo
     if (perPlayer[name].rounds > maxRounds) maxRounds = perPlayer[name].rounds;
   }
 
-  return { perPlayer, maxRounds, totalSessions: sessionDates.size };
+  return {
+    perPlayer,
+    maxRounds,
+    totalSessions: sessionDates.size,
+    // 스트릭 결석 절단용 — 클럽 전체 세션 날짜 (is_extra 제외, 정렬)
+    sessionDates: [...sessionDates].filter(Boolean).sort((a, b) => a.localeCompare(b)),
+  };
 }

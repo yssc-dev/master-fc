@@ -32,6 +32,14 @@ describe('calcPersonalSynergy', () => {
     expect(r.partners.every(p => p.isLowSample)).toBe(true);
   });
 
+  it('항상 동행 페어는 baselineUnavailable 패스스루', () => {
+    const matchLogs = Array.from({ length: 5 }, () => mk(['A', 'B'], 1, 0));
+    const matrix = calcSynergyMatrix({ matchLogs, minRounds: 1 });
+    const r = calcPersonalSynergy({ matrix, player: 'A' });
+    const b = r.partners.find(p => p.partner === 'B');
+    expect(b.baselineUnavailable).toBe(true);
+  });
+
   it('partners entries include winRate and liftSymmetric', () => {
     const matchLogs = Array.from({ length: 5 }, () => mk(['A', 'B'], 1, 0));
     const matrix = calcSynergyMatrix({ matchLogs, minRounds: 1 });

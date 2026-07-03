@@ -4,7 +4,11 @@
 // our_members_json + opponent_members_json 모두 처리, (date, match_id)로 dedupe
 // ★ 휴식 선수는 멤버 명단에서 제외 (actualPlayers 사용)
 // ★ 개인 baseline은 duo가 *함께 뛰지 않은* 라운드만 사용 (소표본 인플레이션 방지)
+//   — pairBaseline.winRateExcluding 단일 소스 (calcSynergyMatrix liftSymmetric과 동일)
+// ★ 한쪽이라도 duo 제외 표본이 없으면 baselineUnavailable=true (전체승률 폴백 = 오염된 값)
+//   → 정렬 시 측정 가능한 페어 뒤로, UI는 '측정 불가(항상 동행)' 표시
 import { parseActualPlayers } from './parseMembers';
+import { winRateExcluding, recordRoundOutcome } from './pairBaseline';
 
 export function calcGoldenTrio({ matchLogs, minRounds = 5, topN = 5 }) {
   const pairs = {};
@@ -26,8 +30,7 @@ export function calcGoldenTrio({ matchLogs, minRounds = 5, topN = 5 }) {
     if (outcome === 'W') players[name].wins++;
     else if (outcome === 'D') players[name].draws++;
     else players[name].losses++;
-    if (!playerRoundOutcomes[name]) playerRoundOutcomes[name] = {};
-    playerRoundOutcomes[name][roundKey] = outcome;
+    recordRoundOutcome(playerRoundOutcomes, name, roundKey, outcome);
   };
 
   const bumpPair = (key, outcome, ref, roundKey) => {
@@ -74,41 +77,28 @@ export function calcGoldenTrio({ matchLogs, minRounds = 5, topN = 5 }) {
     tally(away, awayOutcome, awayRef);
   }
 
-  // duo 라운드를 제외한 개인 승률 (전체 승률 폴백)
-  const playerWinRateExcluding = (name, duoRounds) => {
-    const ro = playerRoundOutcomes[name];
-    if (!ro) return 0;
-    let games = 0, wins = 0, draws = 0;
-    for (const rk of Object.keys(ro)) {
-      if (duoRounds.has(rk)) continue;
-      games++;
-      if (ro[rk] === 'W') wins++;
-      else if (ro[rk] === 'D') draws++;
-    }
-    if (games === 0) {
-      // duo로만 출전한 선수 → 전체 승률 폴백
-      const p = players[name];
-      return p && p.games > 0 ? (p.wins + 0.5 * p.draws) / p.games : 0;
-    }
-    return (wins + 0.5 * draws) / games;
-  };
-
   return Object.entries(pairs)
     .filter(([, v]) => v.games >= minRounds)
     .map(([key, v]) => {
       const [a, b] = key.split('|');
       const pairWR = (v.wins + 0.5 * v.draws) / v.games;
       const duoRounds = seenPair[key] || new Set();
-      const indivAvg = (playerWinRateExcluding(a, duoRounds) + playerWinRateExcluding(b, duoRounds)) / 2;
+      const aBase = winRateExcluding(playerRoundOutcomes, a, duoRounds);
+      const bBase = winRateExcluding(playerRoundOutcomes, b, duoRounds);
+      const indivAvg = (aBase.winRate + bBase.winRate) / 2;
       return {
         members: [a, b],
         games: v.games, wins: v.wins, draws: v.draws, losses: v.losses,
         winRate: pairWR,
         indivAvg,
         chemistry: pairWR - indivAvg,
+        baselineUnavailable: !aBase.hasBaseline || !bBase.hasBaseline,
         matches: v.matches,
       };
     })
-    .sort((a, b) => b.chemistry - a.chemistry || b.games - a.games)
+    .sort((a, b) =>
+      // 측정 가능한 페어 우선, 그 안에서 chemistry 내림차순
+      (a.baselineUnavailable === b.baselineUnavailable ? 0 : a.baselineUnavailable ? 1 : -1) ||
+      b.chemistry - a.chemistry || b.games - a.games)
     .slice(0, topN);
 }

@@ -38,11 +38,11 @@ describe('calcSynergyMatrix', () => {
     expect(aa.liftSymmetric).toBe(0);
   });
 
-  it('liftSymmetric = pair winRate - (X solo + Y solo)/2', () => {
+  it('liftSymmetric = pair winRate - duo 라운드 제외 개인 승률 평균 (calcGoldenTrio와 동일 베이스라인)', () => {
     const matchLogs = [
       // A,B 같이 4승 0패 → pair 1.0
       ...Array.from({ length: 4 }, (_, i) => ({ match_id: `R${i}_C1`, our_members_json: '["A","B"]', our_score: 1, opponent_score: 0 })),
-      // A 혼자 (B 없이) 0승 2패 → A solo 추가 결과
+      // A 혼자 (B 없이) 0승 2패
       { match_id: 'X1_C1', our_members_json: '["A","C"]', our_score: 0, opponent_score: 1 },
       { match_id: 'X2_C1', our_members_json: '["A","D"]', our_score: 0, opponent_score: 1 },
       // B 혼자 0승 2패
@@ -50,9 +50,23 @@ describe('calcSynergyMatrix', () => {
       { match_id: 'Y2_C1', our_members_json: '["B","F"]', our_score: 0, opponent_score: 1 },
     ];
     const r = calcSynergyMatrix({ matchLogs, minRounds: 1 });
-    // A solo: 4승 2패 = 4/6, B solo: 4승 2패 = 4/6, AB pair: 4승 0패 = 1.0
-    // lift = 1.0 - (4/6 + 4/6)/2 = 1.0 - 4/6 = 1/3
-    expect(r.cells['A|B'].liftSymmetric).toBeCloseTo(1 / 3, 5);
+    // duo 제외 A 개인: 0승 2패 = 0, duo 제외 B 개인: 0승 2패 = 0, AB pair: 1.0
+    // lift = 1.0 - (0 + 0)/2 = 1.0 (duo 라운드가 개인 베이스라인을 오염시키지 않음)
+    expect(r.cells['A|B'].liftSymmetric).toBeCloseTo(1.0, 5);
+    expect(r.cells['A|B'].baselineUnavailable).toBe(false);
+  });
+
+  it('항상 동행한 페어는 baselineUnavailable=true (한쪽만 단독 표본 없어도 true)', () => {
+    const matchLogs = [
+      // A,B 항상 함께 2승
+      { match_id: 'R1_C1', our_members_json: '["A","B"]', our_score: 1, opponent_score: 0 },
+      { match_id: 'R2_C1', our_members_json: '["A","B"]', our_score: 1, opponent_score: 0 },
+      // A만 단독 표본 1개 보유, B는 단독 표본 없음
+      { match_id: 'R3_C1', our_members_json: '["A","C"]', our_score: 0, opponent_score: 1 },
+    ];
+    const r = calcSynergyMatrix({ matchLogs, minRounds: 1 });
+    expect(r.cells['A|B'].baselineUnavailable).toBe(true); // B 단독 표본 없음
+    expect(r.cells['A|C'].baselineUnavailable).toBe(true); // C 단독 표본 없음
   });
 
   it('cells with games < minRounds still present but flagged via games<min', () => {

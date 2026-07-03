@@ -26,7 +26,7 @@ export default function GoldenTrioView({ matchLogs, C }) {
         const key = t.members.join('|');
         const isOpen = expanded === key;
         const chemPct = Math.round(t.chemistry * 100);
-        const chemColor = t.chemistry > 0 ? "#22c55e" : t.chemistry < 0 ? "#ef4444" : C.gray;
+        const chemColor = t.baselineUnavailable ? C.gray : t.chemistry > 0 ? "#22c55e" : t.chemistry < 0 ? "#ef4444" : C.gray;
         return (
           <div key={key} style={{ background: C.cardLight, borderRadius: 8, marginBottom: 8 }}>
             <div
@@ -39,12 +39,20 @@ export default function GoldenTrioView({ matchLogs, C }) {
                   {t.members.join(" + ")}
                 </div>
                 <div style={{ fontSize: 10, color: C.gray, marginTop: 2 }}>
-                  {t.games}경기 듀오승률 {Math.round(t.winRate * 100)}% / 개인평균 {Math.round(t.indivAvg * 100)}%
+                  {t.baselineUnavailable
+                    ? `${t.games}경기 듀오승률 ${Math.round(t.winRate * 100)}% / 단독 출전 표본 없음`
+                    : `${t.games}경기 듀오승률 ${Math.round(t.winRate * 100)}% / 개인평균 ${Math.round(t.indivAvg * 100)}%`}
                 </div>
               </div>
-              <div style={{ fontSize: 22, fontWeight: 800, color: chemColor }}>
-                {chemPct > 0 ? '+' : ''}{chemPct}
-              </div>
+              {t.baselineUnavailable ? (
+                <div style={{ fontSize: 10, fontWeight: 600, color: C.gray, textAlign: 'right' }}>
+                  측정 불가<br />(항상 동행)
+                </div>
+              ) : (
+                <div style={{ fontSize: 22, fontWeight: 800, color: chemColor }}>
+                  {chemPct > 0 ? '+' : ''}{chemPct}
+                </div>
+              )}
             </div>
             {isOpen && (
               <div style={{ padding: "0 12px 10px", borderTop: `1px dashed ${C.grayDarker}` }}>

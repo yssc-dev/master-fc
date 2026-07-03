@@ -63,6 +63,40 @@ describe('calcGoldenTrio', () => {
     expect(ab.chemistry).toBe(1);
   });
 
+  it('항상 동행 페어는 baselineUnavailable=true, 정렬 시 측정 가능한 페어 뒤로', () => {
+    const logs = [
+      // A,B 항상 함께 3승 (단독 표본 없음 → 측정 불가)
+      mk('R1_C1', ['A','B'], 1, 0),
+      mk('R2_C1', ['A','B'], 1, 0),
+      mk('R3_C1', ['A','B'], 1, 0),
+      // C,D 함께 3승 + 각자 단독 1패 (측정 가능, chemistry > 0)
+      mk('R4_C1', ['C','D'], 1, 0),
+      mk('R5_C1', ['C','D'], 1, 0),
+      mk('R6_C1', ['C','D'], 1, 0),
+      mk('R7_C1', ['C','X'], 0, 1),
+      mk('R8_C1', ['D','Y'], 0, 1),
+    ];
+    const r = calcGoldenTrio({ matchLogs: logs, minRounds: 3, topN: 5 });
+    const ab = r.find(x => x.members[0] === 'A' && x.members[1] === 'B');
+    const cd = r.find(x => x.members[0] === 'C' && x.members[1] === 'D');
+    expect(ab.baselineUnavailable).toBe(true);
+    expect(cd.baselineUnavailable).toBe(false);
+    // 측정 가능한 CD가 측정 불가 AB보다 앞
+    expect(r.indexOf(cd)).toBeLessThan(r.indexOf(ab));
+  });
+
+  it('한쪽만 단독 표본이 없어도 baselineUnavailable=true (비대칭 오염 방지)', () => {
+    const logs = [
+      mk('R1_C1', ['A','B'], 1, 0),
+      mk('R2_C1', ['A','B'], 1, 0),
+      mk('R3_C1', ['A','B'], 1, 0),
+      mk('R4_C1', ['A','C'], 0, 1), // A만 단독 표본 보유
+    ];
+    const r = calcGoldenTrio({ matchLogs: logs, minRounds: 3, topN: 5 });
+    const ab = r.find(x => x.members[0] === 'A' && x.members[1] === 'B');
+    expect(ab.baselineUnavailable).toBe(true);
+  });
+
   it('respects topN', () => {
     const matchLogs = [];
     let id = 0;

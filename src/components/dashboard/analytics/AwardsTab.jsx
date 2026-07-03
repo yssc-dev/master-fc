@@ -6,7 +6,7 @@ import { calcSoloGoalRatio } from '../../../utils/analyticsV2/calcSoloGoalRatio'
 import { calcMonthlyRanking } from '../../../utils/analyticsV2/calcMonthlyRanking';
 import { calcVolatility } from '../../../utils/analyticsV2/calcVolatility';
 
-export default function AwardsTab({ playerGameLogs, matchLogs, eventLogs, C }) {
+export default function AwardsTab({ playerGameLogs, matchLogs, eventLogs, C, isSoccer = false }) {
   const awards = useMemo(() => calcAwards({ playerLogs: playerGameLogs || [], eventLogs: eventLogs || [] }), [playerGameLogs, eventLogs]);
   const slope = useMemo(() => calcRoundSlope({ eventLogs: eventLogs || [], matchLogs: matchLogs || [], threshold: 10 }), [eventLogs, matchLogs]);
   const solo = useMemo(() => calcSoloGoalRatio({ eventLogs: eventLogs || [], threshold: 10 }), [eventLogs]);
@@ -130,7 +130,7 @@ export default function AwardsTab({ playerGameLogs, matchLogs, eventLogs, C }) {
         <div style={{ fontSize: 10, color: C.gray }}>-</div>
       ) : rows.map((r, i) => (
         <div key={r.player} style={{ display: "flex", justifyContent: "space-between", fontSize: 11, marginBottom: 2 }}>
-          <span style={{ color: C.white }}>{i + 1}. {r.player}</span>
+          <span style={{ color: C.white }}>{r.rank ?? i + 1}. {r.player}</span>
           <span style={{ color: C.white, fontWeight: 700 }}>{r.value}{suffix}</span>
         </div>
       ))}
@@ -139,7 +139,8 @@ export default function AwardsTab({ playerGameLogs, matchLogs, eventLogs, C }) {
 
   return (
     <div>
-      <Card title="🔥 불꽃 (해트트릭+ 횟수)" items={awards.fireStarter} valueKey="count" valueFmt={v => `${v}회`} />
+      <Card title="🎩 해트트릭 (한 경기 3골 이상)" items={awards.hatTricks} valueKey="count" valueFmt={v => `${v}회`} />
+      <Card title="🔥 불꽃 (한 세션 3골 이상 — 하루 합산)" items={awards.fireStarter} valueKey="count" valueFmt={v => `${v}회`} />
       {/* 🧤 키퍼 — 클린시트 수 · 실점률 (PG 누적) */}
       <div style={{ padding: 14, background: C.cardLight, borderRadius: 12, marginBottom: 12 }}>
         <div style={{ fontSize: 12, fontWeight: 700, color: C.gray, marginBottom: 4 }}>
@@ -174,8 +175,8 @@ export default function AwardsTab({ playerGameLogs, matchLogs, eventLogs, C }) {
         )}
       </div>
       <Card title="🤦 자책 누적" items={awards.owngoalKings} valueKey="total" valueFmt={v => `${v}회`} />
-      {/* 라운드 흐름: 초반강자(-) ← → 후반폭격기(+) */}
-      {(() => {
+      {/* 라운드 흐름: 초반강자(-) ← → 후반폭격기(+) — 축구는 라운드 개념 없음 → 숨김 */}
+      {!isSoccer && (() => {
         const late = slope.ranking.lateBloomers.slice(0, 3);
         const early = slope.ranking.earlyBirds.slice(0, 3);
         const maxAbs = Math.max(0.01,
@@ -269,10 +270,11 @@ export default function AwardsTab({ playerGameLogs, matchLogs, eventLogs, C }) {
           </select>
         </div>
         {ranking ? (
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
             <RankingCol title="⚽ 득점" rows={ranking.goals} suffix="골" />
             <RankingCol title="🅰 어시" rows={ranking.assists} suffix="어시" />
-            <RankingCol title="🏁 승률" rows={ranking.winRate.map(x => ({ player: x.player, value: `${Math.round(x.value * 100)}%` }))} suffix="" />
+            <RankingCol title="⚡ 공격포인트 (G+A)" rows={ranking.attackPoints} suffix="pt" />
+            <RankingCol title="🏁 승률" rows={ranking.winRate.map(x => ({ player: x.player, rank: x.rank, value: `${Math.round(x.value * 100)}%` }))} suffix="" />
           </div>
         ) : (
           <div style={{ fontSize: 11, color: C.gray }}>월 데이터 없음</div>

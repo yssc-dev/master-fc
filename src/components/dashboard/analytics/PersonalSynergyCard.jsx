@@ -64,7 +64,7 @@ export default function PersonalSynergyCard({ data, C }) {
       </div>
 
       <div style={{ fontSize: 10, color: C.gray, lineHeight: 1.6, marginBottom: 8 }}>
-        <b>승률</b> 함께 뛴 매치의 팀 승률 · <b>케미</b> 두 사람 평균 대비 추가 효과 · <b>공격pt</b> 둘이 합작한 골(내어시/내골)
+        <b>승률</b> 함께 뛴 매치의 팀 승률 · <b>케미</b> 둘의 개인 평균(함께 뛴 매치 제외) 대비 추가 효과 · <b>공격pt</b> 둘이 합작한 골(내어시/내골) · <b>동행만</b> 단독 출전 표본이 없어 케미 측정 불가
       </div>
 
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
@@ -80,7 +80,9 @@ export default function PersonalSynergyCard({ data, C }) {
         <tbody>
           {sorted.map(p => {
             const dim = p.isLowSample;
-            const liftStr = `${p.liftSymmetric >= 0 ? '+' : ''}${(p.liftSymmetric * 100).toFixed(1)}`;
+            const liftStr = p.baselineUnavailable
+              ? '동행만'
+              : `${p.liftSymmetric >= 0 ? '+' : ''}${(p.liftSymmetric * 100).toFixed(1)}`;
             return (
               <tr key={p.partner} style={{ borderBottom: `1px dashed ${C.grayDarker}`, opacity: dim ? 0.45 : 1 }}>
                 <td style={{ padding: '6px 4px', color: C.white, fontWeight: 480 }}>
@@ -89,7 +91,7 @@ export default function PersonalSynergyCard({ data, C }) {
                 </td>
                 <td style={{ padding: '6px 4px', color: C.gray, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{p.games}</td>
                 <td style={{ padding: '6px 4px', color: dim ? C.gray : winColor(p.winRate), textAlign: 'right', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{Math.round(p.winRate * 100)}%</td>
-                <td style={{ padding: '6px 4px', color: dim ? C.gray : liftColor(p.liftSymmetric), textAlign: 'right', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{liftStr}</td>
+                <td style={{ padding: '6px 4px', color: (dim || p.baselineUnavailable) ? C.gray : liftColor(p.liftSymmetric), textAlign: 'right', fontWeight: 600, fontVariantNumeric: 'tabular-nums', fontSize: p.baselineUnavailable ? 9 : undefined }}>{liftStr}</td>
                 <td style={{ padding: '6px 4px', color: C.white, textAlign: 'right', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
                   {(p.links?.total ?? 0) > 0 ? (
                     `${p.links.total}(${p.links.iAssisted}/${p.links.iScored})`

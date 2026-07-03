@@ -2,11 +2,13 @@
 // our_members_json + opponent_members_json 양쪽 모두 처리하고 (date, match_id) 단위로 dedupe
 // ★ 휴식 선수는 멤버 명단에서 제외 (actualPlayers 사용)
 import { parseActualPlayers } from './parseMembers';
+import { winRateExcluding, recordRoundOutcome } from './pairBaseline';
 
 export function calcSynergyMatrix({ matchLogs, minRounds = 5 }) {
   const playerSet = new Set();
   const cells = {};
   const seenByKey = {}; // key -> Set<roundKey>
+  const playerRoundOutcomes = {}; // name -> { roundKey: outcome } — duo 제외 베이스라인용
   const bump = (key, outcome, roundKey) => {
     if (!seenByKey[key]) seenByKey[key] = new Set();
     if (seenByKey[key].has(roundKey)) return;
@@ -36,7 +38,10 @@ export function calcSynergyMatrix({ matchLogs, minRounds = 5 }) {
     const tally = (members, outcome) => {
       if (members.length === 0) return;
       members.forEach(n => playerSet.add(n));
-      for (const name of members) bump(`${name}|${name}`, outcome, roundKey);
+      for (const name of members) {
+        bump(`${name}|${name}`, outcome, roundKey);
+        recordRoundOutcome(playerRoundOutcomes, name, roundKey, outcome);
+      }
       for (let i = 0; i < members.length; i++) {
         for (let j = i + 1; j < members.length; j++) {
           const [a, b] = [members[i], members[j]].sort((x, y) => x.localeCompare(y, 'ko'));
@@ -54,14 +59,18 @@ export function calcSynergyMatrix({ matchLogs, minRounds = 5 }) {
     const c = cells[k];
     c.winRate = c.games > 0 ? (c.wins + 0.5 * c.draws) / c.games : 0;
   }
-  // 2차: 페어 셀에 liftSymmetric 부착 — 두 사람 개인 평균 승률 대비 함께 뛸 때 추가 효과
+  // 2차: 페어 셀에 liftSymmetric 부착 — 두 사람 "duo 라운드 제외" 개인 승률 평균 대비 추가 효과
+  // (calcGoldenTrio chemistry와 동일 베이스라인 — pairBaseline.winRateExcluding 단일 소스)
   // self 셀(name|name)은 개인 전체 승률이므로 lift 0
+  // 한쪽이라도 duo 제외 표본이 없으면 폴백(전체 승률)이 섞여 값이 오염 → baselineUnavailable=true
   for (const k of Object.keys(cells)) {
     const [a, b] = k.split('|');
-    if (a === b) { cells[k].liftSymmetric = 0; continue; }
-    const aRate = cells[`${a}|${a}`]?.winRate ?? 0;
-    const bRate = cells[`${b}|${b}`]?.winRate ?? 0;
-    cells[k].liftSymmetric = cells[k].winRate - (aRate + bRate) / 2;
+    if (a === b) { cells[k].liftSymmetric = 0; cells[k].baselineUnavailable = false; continue; }
+    const duoRounds = seenByKey[k] || new Set();
+    const aBase = winRateExcluding(playerRoundOutcomes, a, duoRounds);
+    const bBase = winRateExcluding(playerRoundOutcomes, b, duoRounds);
+    cells[k].liftSymmetric = cells[k].winRate - (aBase.winRate + bBase.winRate) / 2;
+    cells[k].baselineUnavailable = !aBase.hasBaseline || !bBase.hasBaseline;
   }
 
   return {
