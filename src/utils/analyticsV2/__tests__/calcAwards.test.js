@@ -20,12 +20,9 @@ describe('calcAwards', () => {
     { player: 'L', date: '2026-01-01', goals: 0, assists: 0, keeper_games: 2, conceded: 0, cleansheets: 1, owngoals: 0 },
   ];
 
-  it('fireStarter counts goals>=3 sessions', () => {
+  it('fireStarter(세션 3골)는 제거됨 — 반환 키 자체가 없음', () => {
     const r = calcAwards({ playerLogs: logs });
-    expect(r.fireStarter).toEqual([
-      { player: 'A', count: 2 },
-      { player: 'B', count: 1 },
-    ]);
+    expect(r.fireStarter).toBeUndefined();
   });
 
   it('keepers.cleanSheetKings: PG 누적 cleansheets 합 내림차순', () => {
@@ -108,8 +105,7 @@ describe('calcAwards', () => {
   });
 
   it('respects custom topN', () => {
-    const r = calcAwards({ playerLogs: logs, topN: { fireStarter: 1, cleanSheet: 1, stingiest: 1, owngoal: 1 } });
-    expect(r.fireStarter).toHaveLength(1);
+    const r = calcAwards({ playerLogs: logs, topN: { cleanSheet: 1, stingiest: 1, owngoal: 1 } });
     expect(r.keepers.cleanSheetKings).toHaveLength(1);
     expect(r.keepers.stingiest).toHaveLength(1);
     expect(r.owngoalKings).toHaveLength(1);

@@ -2,6 +2,7 @@
 import { useMemo, useState } from 'react';
 import { calcAwards } from '../../../utils/analyticsV2/calcAwards';
 import { calcClutch } from '../../../utils/analyticsV2/calcClutch';
+import { calcDailyMvp } from '../../../utils/analyticsV2/calcDailyMvp';
 import { calcRoundSlope } from '../../../utils/analyticsV2/calcRoundSlope';
 import { calcSoloGoalRatio } from '../../../utils/analyticsV2/calcSoloGoalRatio';
 import { calcMonthlyRanking } from '../../../utils/analyticsV2/calcMonthlyRanking';
@@ -10,6 +11,7 @@ import { calcVolatility } from '../../../utils/analyticsV2/calcVolatility';
 export default function AwardsTab({ playerGameLogs, matchLogs, eventLogs, C, isSoccer = false }) {
   const awards = useMemo(() => calcAwards({ playerLogs: playerGameLogs || [], eventLogs: eventLogs || [] }), [playerGameLogs, eventLogs]);
   const clutch = useMemo(() => calcClutch({ eventLogs: eventLogs || [], matchLogs: matchLogs || [] }), [eventLogs, matchLogs]);
+  const dailyMvp = useMemo(() => calcDailyMvp({ playerGameLogs: playerGameLogs || [] }), [playerGameLogs]);
   const slope = useMemo(() => calcRoundSlope({ eventLogs: eventLogs || [], matchLogs: matchLogs || [], threshold: 10, minSessions: 3 }), [eventLogs, matchLogs]);
   const solo = useMemo(() => calcSoloGoalRatio({ eventLogs: eventLogs || [], threshold: 10 }), [eventLogs]);
   const volatility = useMemo(() => calcVolatility({ playerLogs: playerGameLogs || [], minGames: 5, topN: 3 }), [playerGameLogs]);
@@ -141,8 +143,30 @@ export default function AwardsTab({ playerGameLogs, matchLogs, eventLogs, C, isS
 
   return (
     <div>
+      {/* 🏆 일일 MVP — 그날 최종포인트(랭크점수+크로바+고구마) 1위 */}
+      <div style={{ padding: 14, background: C.cardLight, borderRadius: 12, marginBottom: 12 }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: C.gray, marginBottom: 4 }}>🏆 일일 MVP</div>
+        <div style={{ fontSize: 10, color: C.gray, marginBottom: 10 }}>
+          그날 최종포인트(랭크점수+크로바+고구마) 1위 · 동점 시 개인포인트(골+어시 등) 순, 그래도 같으면 공동 MVP
+        </div>
+        {dailyMvp.ranking.length === 0 ? (
+          <div style={{ fontSize: 11, color: C.gray }}>표본 부족</div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <RankingCol title="👑 MVP 횟수" rows={dailyMvp.ranking} suffix="회" />
+            <div>
+              <div style={{ fontSize: 10, color: C.gray, marginBottom: 6 }}>🗓 최근 세션 MVP</div>
+              {dailyMvp.recent.map(r => (
+                <div key={r.date} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginBottom: 2 }}>
+                  <span style={{ color: C.gray }}>{r.date.slice(5)}</span>
+                  <span style={{ color: C.white, fontWeight: 700 }}>{r.mvps.join(', ')} <span style={{ color: C.gray, fontWeight: 400 }}>({r.points}점)</span></span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
       <Card title="🎩 해트트릭 (한 경기 3골 이상)" items={awards.hatTricks} valueKey="count" valueFmt={v => `${v}회`} />
-      <Card title="🔥 불꽃 (한 세션 3골 이상 — 하루 합산)" items={awards.fireStarter} valueKey="count" valueFmt={v => `${v}회`} />
       {/* 🎯 클러치 — input_time으로 경기 내 골 순서 복원 (입력 시각 ≈ 실제 순서 전제) */}
       <div style={{ padding: 14, background: C.cardLight, borderRadius: 12, marginBottom: 12 }}>
         <div style={{ fontSize: 12, fontWeight: 700, color: C.gray, marginBottom: 4 }}>🎯 클러치 (결승골·역전골·동점골)</div>
@@ -295,7 +319,7 @@ export default function AwardsTab({ playerGameLogs, matchLogs, eventLogs, C, isS
         </div>
         {ranking ? (
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-            <RankingCol title="🏅 MVP (랭크점수)" rows={ranking.mvp} suffix="점" />
+            <RankingCol title="🏅 종합포인트 (랭크+크로바+고구마)" rows={ranking.totalPoints} suffix="점" />
             <RankingCol title="⚡ 공격포인트 (G+A)" rows={ranking.attackPoints} suffix="pt" />
             <RankingCol title="⚽ 득점" rows={ranking.goals} suffix="골" />
             <RankingCol title="🅰 어시" rows={ranking.assists} suffix="어시" />

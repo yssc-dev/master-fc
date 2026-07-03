@@ -64,6 +64,6 @@ describe('calcMonthlyRanking', () => {
 
   it('returns empty arrays for month with no data', () => {
     const r = calcMonthlyRanking({ yearMonth: '2025-12', playerLogs, matchLogs });
-    expect(r).toEqual({ goals: [], assists: [], attackPoints: [], mvp: [], winRate: [] });
+    expect(r).toEqual({ goals: [], assists: [], attackPoints: [], totalPoints: [], winRate: [] });
   });
 });

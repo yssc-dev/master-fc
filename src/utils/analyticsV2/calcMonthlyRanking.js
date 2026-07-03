@@ -1,4 +1,5 @@
-// 특정 YYYY-MM 기준 득점/어시/공격포인트/MVP(rank_score)/승률 TOP N (공동 순위)
+// 특정 YYYY-MM 기준 득점/어시/공격포인트/종합포인트/승률 TOP N (공동 순위)
+// 종합포인트(totalPoints) = rank_score + crova + goguma — 일일 MVP(calcDailyMvp)와 동일 통화
 // yearMonth='ALL'이면 전체 기간 집계 (시즌 뷰)
 // winRateMinGames: 승률 랭킹에 노출되기 위한 최소 경기 수 (표본 신뢰도)
 // statMinGames: 득점·어시·공격포인트·MVP 랭킹의 최소 세션 수 — 1세션 몰아치기가 상위 독식 방지
@@ -7,20 +8,21 @@ import { parseActualPlayers } from './parseMembers';
 import { buildRankedTop } from './rankUtils';
 
 export function calcMonthlyRanking({ yearMonth, playerLogs, matchLogs, topN = 5, winRateMinGames = 5, statMinGames = 2 }) {
-  if (!yearMonth) return { goals: [], assists: [], attackPoints: [], mvp: [], winRate: [] };
+  if (!yearMonth) return { goals: [], assists: [], attackPoints: [], totalPoints: [], winRate: [] };
 
   const inMonth = yearMonth === 'ALL'
     ? (d) => typeof d === 'string' && d.length > 0
     : (d) => typeof d === 'string' && d.startsWith(yearMonth + '-');
 
   // 선수별 기간 누적 + 세션 수 (PG 1행 = 1세션)
-  const statMap = {}; // name -> { goals, assists, rankScore, games }
+  const statMap = {}; // name -> { goals, assists, totalPoints, games }
   for (const p of playerLogs || []) {
     if (!inMonth(p.date)) continue;
-    if (!statMap[p.player]) statMap[p.player] = { goals: 0, assists: 0, rankScore: 0, games: 0 };
+    if (!statMap[p.player]) statMap[p.player] = { goals: 0, assists: 0, totalPoints: 0, games: 0 };
     statMap[p.player].goals += Number(p.goals) || 0;
     statMap[p.player].assists += Number(p.assists) || 0;
-    statMap[p.player].rankScore += Number(p.rank_score) || 0;
+    statMap[p.player].totalPoints +=
+      (Number(p.rank_score) || 0) + (Number(p.crova) || 0) + (Number(p.goguma) || 0);
     statMap[p.player].games += 1;
   }
 
@@ -62,8 +64,8 @@ export function calcMonthlyRanking({ yearMonth, playerLogs, matchLogs, topN = 5,
     goals: statList(v => v.goals),
     assists: statList(v => v.assists),
     attackPoints: statList(v => v.goals + v.assists),
-    // MVP: 세션 팀순위 배점(rank_score) 누적 — '이달의 선수' 종합축
-    mvp: statList(v => v.rankScore),
+    // 종합포인트: 최종포인트(rank_score+crova+goguma) 기간 누적 — '이달의 선수' 종합축
+    totalPoints: statList(v => v.totalPoints),
     // 승률은 표본 신뢰도를 위해 최소 winRateMinGames경기 이상만 랭킹 (기본 5)
     winRate: buildRankedTop(
       Object.entries(winMap)
