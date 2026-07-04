@@ -69,14 +69,14 @@ describe('분석탭 렌더 스모크 (지표 개편 경로)', () => {
     expect(html).not.toContain('NaN');
   });
 
-  it('AwardsTab: 해트트릭/클러치/일일MVP/종합포인트/전체 옵션 렌더, 불꽃 없음', () => {
+  it('AwardsTab: 해트트릭/일일MVP/종합포인트/전체 옵션 렌더, 불꽃·클러치 없음', () => {
     const html = wrap(AwardsTab, { playerGameLogs, matchLogs, eventLogs, C });
     expect(html).toContain('해트트릭');
-    expect(html).toContain('클러치');
     expect(html).toContain('일일 MVP');
     expect(html).toContain('종합포인트');
     expect(html).toContain('전체');
     expect(html).not.toContain('불꽃');
+    expect(html).not.toContain('클러치');
     expect(html).not.toContain('NaN');
   });
 
