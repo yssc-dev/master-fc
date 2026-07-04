@@ -73,15 +73,17 @@ describe('calcMonthlyRanking 승률 — 양 팀 집계', () => {
     expect(r.goals.map(x => x.rank)).toEqual([1, 1, 3]);
   });
 
-  it('totalPoints = 월간 최종포인트(rank_score+crova+goguma) 합산 랭킹', () => {
-    const pg = (player, date, rank_score, crova = 0, goguma = 0) => ({ player, date, goals: 0, assists: 0, rank_score, crova, goguma });
+  it('totalPoints = 월간 최종포인트(랭크+크로바+고구마+골+어시+클린시트−자책) 합산', () => {
+    const pg = (player, date, over) => ({ player, date, goals: 0, assists: 0, owngoals: 0, cleansheets: 0, crova: 0, goguma: 0, rank_score: 0, ...over });
     const playerLogs = [
-      pg('A', '2026-06-04', 3, 1, 0), pg('A', '2026-06-11', 5, 0, -2), // 3+1+5-2 = 7
-      pg('B', '2026-06-04', 4), pg('B', '2026-06-11', 2),              // 6
+      pg('A', '2026-06-04', { rank_score: 3, crova: 1, goals: 2 }),            // 6
+      pg('A', '2026-06-11', { rank_score: 5, goguma: -2, assists: 1, owngoals: 1 }), // 3 → 합 9
+      pg('B', '2026-06-04', { rank_score: 4, cleansheets: 1 }),                // 5
+      pg('B', '2026-06-11', { rank_score: 2 }),                                // 2 → 합 7
     ];
     const r = calcMonthlyRanking({ yearMonth: '2026-06', playerLogs, matchLogs: [] });
-    expect(r.totalPoints[0]).toMatchObject({ player: 'A', value: 7 });
-    expect(r.totalPoints[1]).toMatchObject({ player: 'B', value: 6 });
+    expect(r.totalPoints[0]).toMatchObject({ player: 'A', value: 9 });
+    expect(r.totalPoints[1]).toMatchObject({ player: 'B', value: 7 });
   });
 
   it("yearMonth='ALL'이면 전체 기간 집계 (시즌 뷰)", () => {

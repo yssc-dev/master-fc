@@ -147,7 +147,7 @@ export default function AwardsTab({ playerGameLogs, matchLogs, eventLogs, C, isS
       <div style={{ padding: 14, background: C.cardLight, borderRadius: 12, marginBottom: 12 }}>
         <div style={{ fontSize: 12, fontWeight: 700, color: C.gray, marginBottom: 4 }}>🏆 일일 MVP</div>
         <div style={{ fontSize: 10, color: C.gray, marginBottom: 10 }}>
-          그날 최종포인트(랭크점수+크로바+고구마) 1위 · 동점 시 개인포인트(골+어시 등) 순, 그래도 같으면 공동 MVP
+          그날 최종포인트(랭크점수+크로바+고구마+골+어시+클린시트−자책) 1위 · 동점 시 공동 MVP
         </div>
         {dailyMvp.ranking.length === 0 ? (
           <div style={{ fontSize: 11, color: C.gray }}>표본 부족</div>
@@ -319,7 +319,7 @@ export default function AwardsTab({ playerGameLogs, matchLogs, eventLogs, C, isS
         </div>
         {ranking ? (
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-            <RankingCol title="🏅 종합포인트 (랭크+크로바+고구마)" rows={ranking.totalPoints} suffix="점" />
+            <RankingCol title="🏅 종합포인트 (랭크+크로바+고구마+개인)" rows={ranking.totalPoints} suffix="점" />
             <RankingCol title="⚡ 공격포인트 (G+A)" rows={ranking.attackPoints} suffix="pt" />
             <RankingCol title="⚽ 득점" rows={ranking.goals} suffix="골" />
             <RankingCol title="🅰 어시" rows={ranking.assists} suffix="어시" />

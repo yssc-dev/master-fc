@@ -1,5 +1,6 @@
 // 특정 YYYY-MM 기준 득점/어시/공격포인트/종합포인트/승률 TOP N (공동 순위)
-// 종합포인트(totalPoints) = rank_score + crova + goguma — 일일 MVP(calcDailyMvp)와 동일 통화
+// 종합포인트(totalPoints) = rank_score + crova + goguma + goals + assists + cleansheets − owngoals
+//   — 일일 MVP(calcDailyMvp)와 동일 통화 (B안, owngoals는 PG 양수 카운트라 차감)
 // yearMonth='ALL'이면 전체 기간 집계 (시즌 뷰)
 // winRateMinGames: 승률 랭킹에 노출되기 위한 최소 경기 수 (표본 신뢰도)
 // statMinGames: 득점·어시·공격포인트·MVP 랭킹의 최소 세션 수 — 1세션 몰아치기가 상위 독식 방지
@@ -22,7 +23,9 @@ export function calcMonthlyRanking({ yearMonth, playerLogs, matchLogs, topN = 5,
     statMap[p.player].goals += Number(p.goals) || 0;
     statMap[p.player].assists += Number(p.assists) || 0;
     statMap[p.player].totalPoints +=
-      (Number(p.rank_score) || 0) + (Number(p.crova) || 0) + (Number(p.goguma) || 0);
+      (Number(p.rank_score) || 0) + (Number(p.crova) || 0) + (Number(p.goguma) || 0) +
+      (Number(p.goals) || 0) + (Number(p.assists) || 0) + (Number(p.cleansheets) || 0) -
+      (Number(p.owngoals) || 0);
     statMap[p.player].games += 1;
   }
 
