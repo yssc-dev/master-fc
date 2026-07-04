@@ -1,11 +1,19 @@
-// 일일 MVP: 그날 최종포인트 1위. (B안, 2026-07-04 사용자 결정)
-// 최종포인트 = rank_score + crova + goguma + goals + assists + cleansheets − owngoals
-//   - goguma는 시트에 음수로 저장되어 합산이 곧 차감
-//   - owngoals는 PG에 양수 카운트로 저장 → 명시적으로 차감
-//   - 개인포인트까지 합산하므로 별도 타이브레이크 불필요 — 완전 동점만 공동 MVP
-//   (팀 배점만 합산하던 이전 정의는 매주 1위 팀 전원이 공동 1등이 되는 문제가 있었음)
+// 일일 MVP: 그날 최종포인트 1위. (2026-07-04 사용자 확정)
+// 최종포인트 = goals + assists + cleansheets + crova + goguma + 역주행(감점)
+//   - 랭크점수(팀순위 배점)는 미포함 — 개인 포인트 축만 합산
+//   - goguma는 시트에 음수 저장 → 합산이 곧 차감
+//   - 역주행(owngoals) 정규화: 클럽 규칙은 자책 1개 = −2점(선수별집계기록 로그 확인).
+//     로그_선수경기에는 개수(양수)와 포인트값(음수)이 혼재 → 양수면 ×(−2), 음수면 그대로.
+//   - 완전 동점만 공동 MVP.
 // 레거시 방어: 그날 전원 rank_score/crova/goguma가 0이면(포인트 제도 미기록 세션)
 // 골 기록이 있어도 그 날짜는 스킵 — 제도 밖 세션에 소급 MVP를 주지 않는다.
+
+// 자책 감점 포인트 (혼재 부호 정규화)
+export function owngoalPoints(raw) {
+  const og = Number(raw) || 0;
+  return og < 0 ? og : -2 * og;
+}
+
 export function calcDailyMvp({ playerGameLogs, topN = 5, recentN = 5 }) {
   const byDate = {};
   for (const p of playerGameLogs || []) {
@@ -14,9 +22,8 @@ export function calcDailyMvp({ playerGameLogs, topN = 5, recentN = 5 }) {
     byDate[p.date].push({
       player: p.player,
       points:
-        (Number(p.rank_score) || 0) + (Number(p.crova) || 0) + (Number(p.goguma) || 0) +
-        (Number(p.goals) || 0) + (Number(p.assists) || 0) + (Number(p.cleansheets) || 0) -
-        (Number(p.owngoals) || 0),
+        (Number(p.goals) || 0) + (Number(p.assists) || 0) + (Number(p.cleansheets) || 0) +
+        (Number(p.crova) || 0) + (Number(p.goguma) || 0) + owngoalPoints(p.owngoals),
       hasPointData:
         (Number(p.rank_score) || 0) !== 0 || (Number(p.crova) || 0) !== 0 || (Number(p.goguma) || 0) !== 0,
     });
