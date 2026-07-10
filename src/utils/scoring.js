@@ -50,6 +50,7 @@ export function teamPower(members, players) {
 
 /**
  * 경기 점수 계산 (자책골은 상대팀에 +2로 집계)
+ * foul(옐로카드) 등 비득점 이벤트는 scoringTeam이 붙어 있어도 스코어 미반영.
  * @param {GameEvent[]} events - 전체 이벤트 배열
  * @param {string} matchId - 매치 식별자
  * @param {string} teamName - 점수를 계산할 팀명
@@ -58,5 +59,5 @@ export function teamPower(members, players) {
 export function calcMatchScore(events, matchId, teamName) {
   return events
     .filter(e => e.matchId === matchId && e.scoringTeam === teamName)
-    .reduce((s, e) => s + (e.type === "owngoal" ? 2 : 1), 0);
+    .reduce((s, e) => s + (e.type === "goal" ? 1 : e.type === "owngoal" ? 2 : 0), 0);
 }

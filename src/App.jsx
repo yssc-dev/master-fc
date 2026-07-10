@@ -338,7 +338,8 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
     allEvents.forEach(e => {
       if (e.type === "goal") { if (stats[e.player]) stats[e.player].goals++; if (e.assist && stats[e.assist]) stats[e.assist].assists++; if (e.concedingGk && stats[e.concedingGk]) stats[e.concedingGk].conceded++; }
       if (e.type === "owngoal") { if (stats[e.player]) stats[e.player].owngoals++; if (e.concedingGk && stats[e.concedingGk]) stats[e.concedingGk].conceded += 2; }
-      if (e.type === "foul") { if (stats[e.player]) stats[e.player].fouls++; if (e.concedingGk && stats[e.concedingGk]) stats[e.concedingGk].conceded++; }
+      // foul(옐로카드)은 스코어·GK 실점 무영향 — 레거시 이벤트에 concedingGk가 남아 있어도 미집계
+      if (e.type === "foul") { if (stats[e.player]) stats[e.player].fouls++; }
     });
     completedMatches.forEach(m => {
       if (m.homeGk && stats[m.homeGk]) { stats[m.homeGk].keeperGames++; if (m.awayScore === 0) stats[m.homeGk].cleanSheets++; }
@@ -683,12 +684,13 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
       gameDate: dateStr, matchId: e.matchId || "",
       myTeam: e.team || "",
       // goal: 본인팀이 득점 → 상대팀은 concedingTeam.
-      // owngoal/foul: 본인팀이 실점 → 상대팀은 scoringTeam.
+      // owngoal/foul: 본인팀 이벤트 → 상대팀은 scoringTeam.
       opponentTeam: e.type === "goal" ? (e.concedingTeam || "") : (e.scoringTeam || ""),
       scorer: e.type === "goal" ? e.player : "", assist: e.assist || "",
       ownGoalPlayer: e.type === "owngoal" ? e.player : "",
       foulPlayer: e.type === "foul" ? e.player : "",
-      concedingGk: e.concedingGk || "",
+      // foul(옐로카드)은 실점 아님 — 레거시 이벤트의 concedingGk가 시트로 새지 않게 차단
+      concedingGk: e.type === "foul" ? "" : (e.concedingGk || ""),
       inputTime: formatEventInputTime(e.timestamp, inputTime),
     }));
 
@@ -1592,11 +1594,11 @@ export default function App({ authUser, teamContext, isNewGame, gameMode, gameId
                   <div style={{ marginTop: 6 }}>
                     {evts.map((e, ei) => (
                       <div key={ei} style={s.eventLog}>
-                        <span>{e.type === "goal" ? "⚽" : "🔴"}</span>
+                        <span>{e.type === "goal" ? "⚽" : e.type === "foul" ? "🟨" : "🔴"}</span>
                         <span style={{ fontWeight: 600 }}>{e.player}</span>
-                        <span style={{ color: C.gray, fontSize: 11 }}>({e.type === "goal" ? "골" : "자책골"})</span>
+                        <span style={{ color: C.gray, fontSize: 11 }}>({e.type === "goal" ? "골" : e.type === "foul" ? "반칙" : "자책골"})</span>
                         {e.assist && <span style={{ color: C.gray, fontSize: 11 }}> ← {e.assist}<span style={{ opacity: 0.7 }}>(어시)</span></span>}
-                        {e.concedingGk && <span style={{ color: C.gray, fontSize: 11 }}> / 실점: {e.concedingGk}{e.type === "owngoal" ? " (2점)" : ""}</span>}
+                        {e.type !== "foul" && e.concedingGk && <span style={{ color: C.gray, fontSize: 11 }}> / 실점: {e.concedingGk}{e.type === "owngoal" ? " (2점)" : ""}</span>}
                       </div>
                     ))}
                   </div>

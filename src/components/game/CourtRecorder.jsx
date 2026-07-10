@@ -189,14 +189,15 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
     });
   };
 
-  // 반칙 (비매너) — 상대팀에 +1점, 본인팀 GK는 conceded +1
+  // 반칙 (옐로카드) — 스코어·GK 실점 무영향, 개인 포인트(foulPoint)만 반영.
+  // scoringTeam/concedingTeam은 시트 opponent 매핑·편집 UI용 팀 정보로만 유지(calcMatchScore가 foul을 미집계).
   const recordFoulEvent = (player) => {
     const isHome = isPlayerHome(player);
     const ownTeam = isHome ? homeTeam : awayTeam;
     onRecordEvent(courtLabel, {
       type: "foul", matchId, player,
       team: ownTeam, scoringTeam: isHome ? awayTeam : homeTeam, concedingTeam: ownTeam,
-      concedingGk: isHome ? homeGk : awayGk, concedingGkLoss: 1, assist: null, homeTeam, awayTeam,
+      concedingGk: null, concedingGkLoss: 0, assist: null, homeTeam, awayTeam,
     });
   };
 
@@ -239,7 +240,7 @@ export default function CourtRecorder({ matchInfo, homePlayers: initHomePlayers,
   const applyFoulRole = (player) => {
     if (readOnly) { readOnlyAlert(); return; }
     if (isPlayerAbsent(player)) { alert("휴식 중인 선수입니다. 먼저 휴식을 해제해 주세요."); return; }
-    if (!checkGk()) return;
+    // 반칙은 GK 실점 귀속이 없으므로 키퍼 미지정이어도 기록 가능
     recordFoulEvent(player);
   };
 
