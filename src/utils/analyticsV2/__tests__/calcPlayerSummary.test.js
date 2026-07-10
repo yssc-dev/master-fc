@@ -110,6 +110,23 @@ describe('calcPlayerSummary', () => {
     expect(r.perPlayer.B.games).toBe(2); // 1/01, 1/15
   });
 
+  it('games는 PG 날짜도 참석으로 인정 — 레거시 부분 명단에 없어도 PG에 있으면 참석 (대시보드 출석 기준)', () => {
+    const matchLogs = [
+      { date: '2026-01-01', match_id: 'R1_C0', our_members_json: '["A","B"]', opponent_members_json: '[]', our_score: 0, opponent_score: 0 },
+      { date: '2026-01-08', match_id: 'R1_C0', our_members_json: '["A"]',     opponent_members_json: '[]', our_score: 0, opponent_score: 0 },
+    ];
+    // B는 1/08 로그_매치 명단(레거시 부분 명단)에 없지만 PG 행이 있음 = 참석
+    const playerGameLogs = [
+      { date: '2026-01-08', player: 'B', keeper_games: 0, conceded: 0 },
+      // 세션 날짜가 아닌 PG 행은 무시 (>100% 방지)
+      { date: '2026-02-01', player: 'B', keeper_games: 0, conceded: 0 },
+    ];
+    const r = calcPlayerSummary({ matchLogs, eventLogs: [], playerGameLogs });
+    expect(r.perPlayer.B.games).toBe(2);   // 1/01(명단) + 1/08(PG)
+    expect(r.perPlayer.B.rounds).toBe(1);  // 경기수는 명단 기준 유지
+    expect(r.perPlayer.A.games).toBe(2);
+  });
+
   it('teamGoals = 본인 출전 매치의 자기팀 득점 합, goalInvolvement = (G+A)/teamGoals', () => {
     const matchLogs = [
       // A는 our 측: 팀 3득점

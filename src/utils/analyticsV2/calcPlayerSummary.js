@@ -123,7 +123,15 @@ export function calcPlayerSummary({ matchLogs = [], eventLogs = [], playerGameLo
     s.avgConceded = s.fieldRounds > 0 ? s.fieldConceded / s.fieldRounds : 0;
     s.winRate = s.matches > 0 ? (s.wins + s.draws * 0.5) / s.matches : 0;
     s.goalInvolvement = s.teamGoals > 0 ? (s.goals + s.assists) / s.teamGoals : 0;
-    s.games = s._attendedDates.size;
+    // 참석일(games): 로그_매치 명단 ∪ PG 날짜 — 대시보드 출석률과 동일 기준.
+    // 레거시 세션(~2026-04-23)의 로그_매치 명단은 이벤트에서 역산된 부분 명단이라
+    // 그날 기록 없는 참석자가 빠짐 → 참석 권위 소스인 PG로 보강.
+    // 세션 날짜 밖 PG 행은 무시(참석률 >100% 방지). rounds/승패 등은 명단 기준 유지.
+    const attended = new Set(s._attendedDates);
+    if (pgRows) {
+      for (const p of pgRows) { if (sessionDates.has(p.date)) attended.add(p.date); }
+    }
+    s.games = attended.size;
     // 내부 필드 정리
     delete s._teamConceded; delete s._mtKeeperRounds; delete s._mtConceded;
     delete s._attendedDates;
