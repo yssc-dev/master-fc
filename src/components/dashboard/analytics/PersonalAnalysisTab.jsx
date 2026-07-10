@@ -413,7 +413,7 @@ export default function PersonalAnalysisTab({
       {/* ── P3: Round Distribution — 축구는 라운드 개념이 없어 숨김 (match_id가 라운드 포맷이 아님) ── */}
       {!isSoccer && (
       <div style={cardStyle}>
-        <RoundDistribution data={roundSlope.perPlayer[selected]} player={selected} ranking={roundSlope.ranking} threshold={10} C={C} />
+        <RoundDistribution data={roundSlope.perPlayer[selected]} C={C} />
       </div>
       )}
 

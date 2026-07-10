@@ -1,7 +1,7 @@
 // src/components/dashboard/analytics/RoundDistribution.jsx
 import { useMemo } from 'react';
 
-export default function RoundDistribution({ data, player, ranking, threshold = 10, C }) {
+export default function RoundDistribution({ data, C }) {
   const stats = useMemo(() => {
     if (!data || data.sampleCount === 0) return null;
     const rounds = Object.keys(data.meanByRound).map(Number).sort((a, b) => a - b);
@@ -10,16 +10,6 @@ export default function RoundDistribution({ data, player, ranking, threshold = 1
     const maxV = Math.max(...rounds.map(r => data.meanByRound[r]));
     return { rounds, maxR, minR, maxV: maxV || 1 };
   }, [data]);
-
-  const caption = useMemo(() => {
-    if (!ranking) return null;
-    const suffix = ` (골+어시 ${threshold}회 이상)`;
-    const late = ranking.lateBloomers.findIndex(x => x.player === player);
-    if (late >= 0) return `🏃 후반 폭격기 ${ranking.lateBloomers.length}명 중 ${late + 1}위${suffix}`;
-    const early = ranking.earlyBirds.findIndex(x => x.player === player);
-    if (early >= 0) return `🎯 초반 강자 ${ranking.earlyBirds.length}명 중 ${early + 1}위${suffix}`;
-    return null;
-  }, [ranking, player, threshold]);
 
   if (!stats) {
     return (
@@ -38,12 +28,10 @@ export default function RoundDistribution({ data, player, ranking, threshold = 1
 
   // tendency는 세션 진행도(0~1) 평균 — 막대 x축(선수의 활동 라운드 범위)과 좌표계가 달라
   // 차트 위 마커 대신 별도 0~100% 게이지로 표시 (겹쳐 그리면 위치가 거짓말이 됨)
+  // 그룹 라벨/순위("후반 폭격기 N명 중 K위") 대신 연속 스펙트럼으로 해석:
+  // 낮을수록 세션 초반, 높을수록 후반에 포인트가 강한 선수.
   const tendencyPct = data.tendency != null ? Math.round(data.tendency * 100) : null;
-  const tendencyLabel = data.tendency == null
-    ? '—'
-    : data.tendency > 0.5 ? `후반 ${tendencyPct}%`
-    : data.tendency < 0.5 ? `초반 ${100 - tendencyPct}%`
-    : '중립';
+  const tendencyLabel = tendencyPct == null ? '—' : `${tendencyPct}%`;
 
   return (
     <div>
@@ -81,8 +69,10 @@ export default function RoundDistribution({ data, player, ranking, threshold = 1
       <div style={{ fontSize: 9, color: C.gray, marginTop: 2, lineHeight: 1.5, opacity: 0.7 }}>
         막대 = 절대 횟수 · 성향 = 세션별 라운드 진행도(0~100%) 평균. 세션마다 총 라운드 수가 달라서 "마지막 R"이 아닌 "끝쯤"인지로 환산.
       </div>
-      {caption && (
-        <div style={{ fontSize: 11, color: C.accent, marginTop: 4, fontWeight: 600 }}>{caption}</div>
+      {tendencyPct != null && (
+        <div style={{ fontSize: 11, color: C.accent, marginTop: 4, fontWeight: 600 }}>
+          성향이 낮을수록 세션 초반에, 높을수록 후반에 포인트가 강한 선수입니다
+        </div>
       )}
     </div>
   );
