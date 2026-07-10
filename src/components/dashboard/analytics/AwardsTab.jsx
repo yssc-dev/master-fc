@@ -6,6 +6,8 @@ import { calcRoundSlope } from '../../../utils/analyticsV2/calcRoundSlope';
 import { calcSoloGoalRatio } from '../../../utils/analyticsV2/calcSoloGoalRatio';
 import { calcMonthlyRanking } from '../../../utils/analyticsV2/calcMonthlyRanking';
 import { calcVolatility } from '../../../utils/analyticsV2/calcVolatility';
+import { calcPlayerSummary } from '../../../utils/analyticsV2/calcPlayerSummary';
+import { calcMetricLeaders } from '../../../utils/analyticsV2/calcMetricLeaders';
 
 export default function AwardsTab({ playerGameLogs, matchLogs, eventLogs, C, isSoccer = false }) {
   const awards = useMemo(() => calcAwards({ playerLogs: playerGameLogs || [], eventLogs: eventLogs || [] }), [playerGameLogs, eventLogs]);
@@ -13,6 +15,13 @@ export default function AwardsTab({ playerGameLogs, matchLogs, eventLogs, C, isS
   const slope = useMemo(() => calcRoundSlope({ eventLogs: eventLogs || [], matchLogs: matchLogs || [], threshold: 10, minSessions: 3 }), [eventLogs, matchLogs]);
   const solo = useMemo(() => calcSoloGoalRatio({ eventLogs: eventLogs || [], threshold: 10 }), [eventLogs]);
   const volatility = useMemo(() => calcVolatility({ playerLogs: playerGameLogs || [], minGames: 5, topN: 3 }), [playerGameLogs]);
+  // 지표 Top5 — 개인분석 레이더와 동일 단일소스(calcPlayerSummary)
+  const metricLeaders = useMemo(() => {
+    const { perPlayer, totalSessions } = calcPlayerSummary({
+      matchLogs: matchLogs || [], eventLogs: eventLogs || [], playerGameLogs: playerGameLogs || [],
+    });
+    return calcMetricLeaders({ perPlayer, totalSessions: Math.max(totalSessions, 1) });
+  }, [matchLogs, eventLogs, playerGameLogs]);
 
   const months = useMemo(() => {
     const set = new Set();
@@ -163,6 +172,29 @@ export default function AwardsTab({ playerGameLogs, matchLogs, eventLogs, C, isS
             </div>
           </div>
         )}
+      </div>
+      {/* 📊 지표 Top5 — 개인분석 레이더 6축(raw값) + 팀득점관여율 */}
+      <div style={{ padding: 14, background: C.cardLight, borderRadius: 12, marginBottom: 12 }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: C.gray, marginBottom: 4 }}>📊 지표 Top5</div>
+        <div style={{ fontSize: 10, color: C.gray, marginBottom: 10 }}>
+          개인분석 레이더와 동일 지표 · 10경기 이상 (키퍼는 4경기 이상) · ↓는 낮을수록 상위
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          <RankingCol title="⚽ 득점력 (경기당 골)"
+            rows={metricLeaders.scoring.map(x => ({ player: x.player, value: x.value.toFixed(2) }))} suffix="" />
+          <RankingCol title="🎨 창의력 (경기당 어시)"
+            rows={metricLeaders.creativity.map(x => ({ player: x.player, value: x.value.toFixed(2) }))} suffix="" />
+          <RankingCol title="🛡 수비력 (경기당 팀실점 ↓)"
+            rows={metricLeaders.defense.map(x => ({ player: x.player, value: x.value.toFixed(2) }))} suffix="" />
+          <RankingCol title="🧤 키퍼 (경기당 실점 ↓)"
+            rows={metricLeaders.keeping.map(x => ({ player: x.player, value: x.value.toFixed(2) }))} suffix="" />
+          <RankingCol title="📅 참석률"
+            rows={metricLeaders.attendance.map(x => ({ player: x.player, value: `${Math.round(x.value * 100)}%` }))} suffix="" />
+          <RankingCol title="🏁 승리기여 (승률)"
+            rows={metricLeaders.winRate.map(x => ({ player: x.player, value: `${Math.round(x.value * 100)}%` }))} suffix="" />
+          <RankingCol title="🎯 팀득점관여율 (골+어시/팀득점)"
+            rows={metricLeaders.involvement.map(x => ({ player: x.player, value: `${Math.round(x.value * 100)}%` }))} suffix="" />
+        </div>
       </div>
       <Card title="🎩 해트트릭 (한 경기 3골 이상)" items={awards.hatTricks} valueKey="count" valueFmt={v => `${v}회`} />
       {/* 클러치(결승골 등)는 2026-07-04 제거 — 입력 시각 기반 순서 복원은 사후 정정 입력을
