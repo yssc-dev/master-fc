@@ -153,8 +153,9 @@ export default function AwardsTab({ playerGameLogs, matchLogs, eventLogs, C, isS
               <span style={{ color: C.white }}>{i + 1}. {r.player}</span>
               <span style={{ color: C.white, fontWeight: 700 }}>{fmt(r.value)}</span>
             </div>
-            <div style={{ height: 4, borderRadius: 2, background: C.grayDarker }}>
-              <div style={{ width: `${Math.round(ratioOf(r.value) * 100)}%`, height: '100%', borderRadius: 2, background: C.accent, opacity: 0.85 }} />
+            {/* 막대는 보조 비교용 — 저채도(투명도↓)로 텍스트보다 뒤에 물러나게 */}
+            <div style={{ height: 3, borderRadius: 2, background: C.grayDarker, opacity: 0.6 }}>
+              <div style={{ width: `${Math.round(ratioOf(r.value) * 100)}%`, height: '100%', borderRadius: 2, background: C.accent, opacity: 0.35 }} />
             </div>
           </div>
         ))}
