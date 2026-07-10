@@ -10,14 +10,14 @@ export default function SoloGoalDonut({ data, C }) {
     );
   }
 
-  const { solo, assisted, total, soloRatio } = data;
+  const { solo, total, soloRatio } = data;
   const size = 110, r = 44, c = size / 2, stroke = 16;
   const circ = 2 * Math.PI * r;
   const soloArc = circ * soloRatio;
 
   return (
     <div>
-      <div style={{ fontSize: 12, fontWeight: 700, color: C.gray, marginBottom: 6 }}>🎯 단독골 vs 받아먹은 골</div>
+      <div style={{ fontSize: 12, fontWeight: 700, color: C.gray, marginBottom: 6 }}>🎯 단독골 비율 (어시 없는 골)</div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
         <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
           <circle cx={c} cy={c} r={r} fill="none" stroke={C.grayDarker} strokeWidth={stroke} />
@@ -28,9 +28,7 @@ export default function SoloGoalDonut({ data, C }) {
           </text>
         </svg>
         <div style={{ fontSize: 12, color: C.gray, lineHeight: 1.6 }}>
-          <div><span style={{ display: 'inline-block', width: 8, height: 8, background: C.accent, marginRight: 6 }}/>단독 {solo}골</div>
-          <div><span style={{ display: 'inline-block', width: 8, height: 8, background: C.grayDarker, marginRight: 6 }}/>받아먹은 {assisted}골</div>
-          <div style={{ marginTop: 4, fontSize: 10 }}>총 {total}골</div>
+          <div><span style={{ display: 'inline-block', width: 8, height: 8, background: C.accent, marginRight: 6 }}/>단독골 {solo} / 총 {total}골</div>
         </div>
       </div>
       <div style={{ fontSize: 11, color: C.accent, marginTop: 6, fontWeight: 600 }}>
