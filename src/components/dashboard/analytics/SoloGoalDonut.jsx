@@ -1,14 +1,7 @@
 // src/components/dashboard/analytics/SoloGoalDonut.jsx
-import { useMemo } from 'react';
-
-export default function SoloGoalDonut({ data, player, ranking, threshold = 10, C }) {
-  const caption = useMemo(() => {
-    if (!ranking) return null;
-    const idx = ranking.soloHeroes.findIndex(x => x.player === player);
-    if (idx >= 0) return `🎯 단독드리블골 ${ranking.soloHeroes.length}명 중 ${idx + 1}위 (골 ${threshold}회 이상)`;
-    return null;
-  }, [ranking, player, threshold]);
-
+// 순위 멘트("단독드리블골 N명 중 K위") 대신 연속 스펙트럼 해석:
+// 비율이 낮을수록 동료 어시를 받아 마무리, 높을수록 단독으로 만들어내는 유형.
+export default function SoloGoalDonut({ data, C }) {
   if (!data || data.total === 0) {
     return (
       <div style={{ padding: 16, textAlign: 'center', color: C.gray, fontSize: 12 }}>
@@ -40,9 +33,9 @@ export default function SoloGoalDonut({ data, player, ranking, threshold = 10, C
           <div style={{ marginTop: 4, fontSize: 10 }}>총 {total}골</div>
         </div>
       </div>
-      {caption && (
-        <div style={{ fontSize: 11, color: C.accent, marginTop: 6, fontWeight: 600 }}>{caption}</div>
-      )}
+      <div style={{ fontSize: 11, color: C.accent, marginTop: 6, fontWeight: 600 }}>
+        비율이 낮을수록 동료 어시로 마무리하는 유형, 높을수록 단독으로 만들어내는 유형입니다
+      </div>
     </div>
   );
 }

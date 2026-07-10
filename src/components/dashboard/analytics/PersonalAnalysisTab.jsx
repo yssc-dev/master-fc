@@ -419,7 +419,7 @@ export default function PersonalAnalysisTab({
 
       {/* ── P4: Solo Goal Donut ── */}
       <div style={cardStyle}>
-        <SoloGoalDonut data={soloRatio.perPlayer[selected]} player={selected} ranking={soloRatio.ranking} threshold={10} C={C} />
+        <SoloGoalDonut data={soloRatio.perPlayer[selected]} C={C} />
       </div>
 
       {/* ── C5: Personal Synergy Card ── */}
