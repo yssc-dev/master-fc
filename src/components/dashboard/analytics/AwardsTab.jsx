@@ -134,6 +134,34 @@ export default function AwardsTab({ playerGameLogs, matchLogs, eventLogs, C, isS
     );
   };
 
+  // 지표 Top5 전용 — 막대 길이는 1위 대비 상대값(단일 색, 크기 인코딩).
+  // invert(낮을수록 좋음)는 min/value로 환산해 1위가 항상 최장.
+  const MetricBarCol = ({ title, rows, fmt, invert = false }) => {
+    const best = rows.length ? rows[0].value : 0;
+    const ratioOf = (v) => {
+      if (invert) return v <= 0 ? 1 : Math.min(1, best / v);
+      return best <= 0 ? 0 : Math.max(0, Math.min(1, v / best));
+    };
+    return (
+      <div>
+        <div style={{ fontSize: 10, color: C.gray, marginBottom: 6 }}>{title}</div>
+        {rows.length === 0 ? (
+          <div style={{ fontSize: 10, color: C.gray }}>-</div>
+        ) : rows.map((r, i) => (
+          <div key={r.player} style={{ marginBottom: 6 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginBottom: 2 }}>
+              <span style={{ color: C.white }}>{i + 1}. {r.player}</span>
+              <span style={{ color: C.white, fontWeight: 700 }}>{fmt(r.value)}</span>
+            </div>
+            <div style={{ height: 4, borderRadius: 2, background: C.grayDarker }}>
+              <div style={{ width: `${Math.round(ratioOf(r.value) * 100)}%`, height: '100%', borderRadius: 2, background: C.accent, opacity: 0.85 }} />
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
   const RankingCol = ({ title, rows, suffix }) => (
     <div>
       <div style={{ fontSize: 10, color: C.gray, marginBottom: 6 }}>{title}</div>
@@ -179,21 +207,14 @@ export default function AwardsTab({ playerGameLogs, matchLogs, eventLogs, C, isS
         <div style={{ fontSize: 10, color: C.gray, marginBottom: 10 }}>
           개인분석 레이더와 동일 지표 · 10경기 이상 (키퍼는 4경기 이상) · ↓는 낮을수록 상위
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-          <RankingCol title="⚽ 득점력 (경기당 골)"
-            rows={metricLeaders.scoring.map(x => ({ player: x.player, value: x.value.toFixed(2) }))} suffix="" />
-          <RankingCol title="🎨 창의력 (경기당 어시)"
-            rows={metricLeaders.creativity.map(x => ({ player: x.player, value: x.value.toFixed(2) }))} suffix="" />
-          <RankingCol title="🛡 수비력 (경기당 팀실점 ↓)"
-            rows={metricLeaders.defense.map(x => ({ player: x.player, value: x.value.toFixed(2) }))} suffix="" />
-          <RankingCol title="🧤 키퍼 (경기당 실점 ↓)"
-            rows={metricLeaders.keeping.map(x => ({ player: x.player, value: x.value.toFixed(2) }))} suffix="" />
-          <RankingCol title="📅 참석률"
-            rows={metricLeaders.attendance.map(x => ({ player: x.player, value: `${Math.round(x.value * 100)}%` }))} suffix="" />
-          <RankingCol title="🏁 승리기여 (승률)"
-            rows={metricLeaders.winRate.map(x => ({ player: x.player, value: `${Math.round(x.value * 100)}%` }))} suffix="" />
-          <RankingCol title="🎯 팀득점관여율 (골+어시/팀득점)"
-            rows={metricLeaders.involvement.map(x => ({ player: x.player, value: `${Math.round(x.value * 100)}%` }))} suffix="" />
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <MetricBarCol title="⚽ 득점력 (경기당 골)" rows={metricLeaders.scoring} fmt={v => v.toFixed(2)} />
+          <MetricBarCol title="🎨 창의력 (경기당 어시)" rows={metricLeaders.creativity} fmt={v => v.toFixed(2)} />
+          <MetricBarCol title="🛡 수비력 (경기당 팀실점 ↓)" rows={metricLeaders.defense} fmt={v => v.toFixed(2)} invert />
+          <MetricBarCol title="🧤 키퍼 (경기당 실점 ↓)" rows={metricLeaders.keeping} fmt={v => v.toFixed(2)} invert />
+          <MetricBarCol title="📅 참석률" rows={metricLeaders.attendance} fmt={v => `${Math.round(v * 100)}%`} />
+          <MetricBarCol title="🏁 승리기여 (승률)" rows={metricLeaders.winRate} fmt={v => `${Math.round(v * 100)}%`} />
+          <MetricBarCol title="🎯 팀득점관여율 (골+어시/팀득점)" rows={metricLeaders.involvement} fmt={v => `${Math.round(v * 100)}%`} />
         </div>
       </div>
       <Card title="🎩 해트트릭 (한 경기 3골 이상)" items={awards.hatTricks} valueKey="count" valueFmt={v => `${v}회`} />
