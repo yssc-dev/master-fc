@@ -11,25 +11,21 @@ import FormationPitch from './FormationPitch';
 import LineupEditView from './LineupEditView';
 import RoundNav from './RoundNav';
 import ConfirmBar from './ConfirmBar';
-import AttendeeSelector from './AttendeeSelector';
-
 // 축구 기록화면: 단일 navIdx 연속체로 [과거 경기…] + [진행중/새 경기]를 오간다(풋살 ScheduleMatchView 패턴).
-// 노드 본문 결정 권위 = navIdx + 경기 status. viewState는 서브플로우(formation/editRoster)와 유휴만.
+// 노드 본문 결정 권위 = navIdx + 경기 status. viewState는 서브플로우(formation)와 유휴만.
 export default function SoccerMatchView({
   soccerMatches, currentMatchIdx, attendees, opponents,
   onCreateMatch, onAddEvent, onDeleteEvent, onFinishMatch,
   onUpdateMatchFormation, onReopenMatch, onCreateRestMatch,
   onAddOpponent, onRemoveOpponent, onRenameOpponent, onGoToSummary, gameSettings, styles: s,
   savedFormation, onFormationChange,
-  sortedPlayers, playerSortMode, rosterHandlers,
   onSetMatchOpponent, onCorrectLineup, onSwapLineupPositions, gameFinalized,
 }) {
   const { C } = useTheme();
 
-  // 서브플로우 뷰 상태만 유지: "selectOpponent"(유휴) / "formation" / "editRoster"
+  // 서브플로우 뷰 상태만 유지: "selectOpponent"(유휴) / "formation"
   const [viewState, setViewState] = useState(() =>
-    (savedFormation?.viewState === "formation" || savedFormation?.viewState === "editRoster")
-      ? savedFormation.viewState : "selectOpponent");
+    savedFormation?.viewState === "formation" ? savedFormation.viewState : "selectOpponent");
   const [selectedOpponent, setSelectedOpponent] = useState(savedFormation?.selectedOpponent || null);
   const [selectedPlayers, setSelectedPlayers] = useState(savedFormation?.selectedPlayers || []);
   const [navLocked, setNavLocked] = useState(false);            // goalFlow 열림 중 ◀▶ 잠금
@@ -38,10 +34,7 @@ export default function SoccerMatchView({
 
   // 멀티탭 동기화: 서브플로우 상태만 따라감(playing/selectOpponent는 노드 권위가 아니므로 sync에서 제외).
   useEffect(() => {
-    const v = savedFormation?.viewState;
-    if (v === "formation" || v === "editRoster") {
-      setViewState(local => local === "editRoster" ? local : v);
-    }
+    if (savedFormation?.viewState === "formation") setViewState("formation");
   }, [savedFormation?.viewState]);
   useEffect(() => { setSelectedOpponent(savedFormation?.selectedOpponent || null); }, [savedFormation?.selectedOpponent]);
   useEffect(() => { setSelectedPlayers(savedFormation?.selectedPlayers || []); }, [savedFormation?.selectedPlayers]);
@@ -172,18 +165,7 @@ export default function SoccerMatchView({
         onBack={() => setViewState("selectOpponent")} title={`vs ${selectedOpponent}`} />
     );
   }
-  if (viewState === "editRoster") {
-    return (
-      <div>
-        <button onClick={() => setViewState("selectOpponent")} style={{ marginBottom: 10, padding: "6px 14px", borderRadius: 8, background: C.grayDark, color: C.white, border: "none", fontSize: 12, cursor: "pointer" }}>← 완료</button>
-        <div style={{ fontSize: 13, fontWeight: 700, color: C.white, marginBottom: 4 }}>참석명단 수정</div>
-        <div style={{ fontSize: 11, color: C.gray, marginBottom: 10 }}>변경은 다음 경기부터 반영됩니다. (진행/종료된 경기는 그대로)</div>
-        <AttendeeSelector attendees={attendees} sortedPlayers={sortedPlayers || []} playerSortMode={playerSortMode} {...rosterHandlers} styles={s} />
-      </div>
-    );
-  }
-
-  // 라인업 편집기(전체화면) — formation/editRoster 서브플로우와 동일하게 조기 반환.
+  // 라인업 편집기(전체화면) — formation 서브플로우와 동일하게 조기 반환.
   if (lineupEditIdx !== null) {
     const m = soccerMatches.find(x => x.matchIdx === lineupEditIdx);
     if (!m) { setLineupEditIdx(null); return null; }
@@ -257,7 +239,7 @@ export default function SoccerMatchView({
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 6, marginBottom: 10 }}>
           <button onClick={openLineupEditor} disabled={navLocked}
             style={{ fontSize: 12, padding: "5px 12px", borderRadius: 8, background: C.grayDark, color: navLocked ? C.gray : C.white, border: "none", cursor: navLocked ? "not-allowed" : "pointer", opacity: navLocked ? 0.5 : 1 }}>
-            🔁 라인업 변경
+            🔁 출전 수정
           </button>
           <button onClick={openOpponentModal}
             style={{ fontSize: 12, padding: "5px 12px", borderRadius: 8, background: C.grayDark, color: C.white, border: "none", cursor: "pointer" }}>
@@ -270,12 +252,6 @@ export default function SoccerMatchView({
       {atNewNode && (
         <div style={{ ...s.card }}>
           <div style={{ fontSize: 14, fontWeight: 700, color: C.white, marginBottom: 10 }}>제{soccerMatches.length + 1}경기</div>
-          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
-            <button onClick={() => setViewState("editRoster")}
-              style={{ fontSize: 12, padding: "4px 10px", borderRadius: 6, background: C.grayDark, color: C.white, border: "none", cursor: "pointer" }}>
-              👥 명단 수정 ({attendees.length})
-            </button>
-          </div>
           <OpponentSelector opponents={opponents} onSelect={handleOpponentSelect} onAddOpponent={onAddOpponent}
             onRemoveOpponent={onRemoveOpponent} onRenameOpponent={onRenameOpponent} styles={s} />
           <button onClick={() => { if (!confirm("이번 라운드를 휴식으로 처리하시겠습니까?")) return; onCreateRestMatch(); }}
