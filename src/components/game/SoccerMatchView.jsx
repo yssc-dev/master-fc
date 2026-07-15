@@ -268,7 +268,7 @@ export default function SoccerMatchView({
           <FormationRecorder
             key={currentMatch.matchIdx}
             formation={live.formation} assignments={live.assignments} positionMap={live.positionMap}
-            subs={live.subs} gk={live.gk} opponent={currentMatch.opponent}
+            gk={live.gk} attendees={attendees} opponent={currentMatch.opponent}
             startedAt={currentMatch.startedAt || Date.now()} events={currentMatch.events || []}
             onAddEvent={handleAddEvent} onDeleteEvent={handleDeleteEvent} onFinishMatch={handleFinishMatch}
             onStateChange={handleFormationStateChange} onFlowActiveChange={setNavLocked}

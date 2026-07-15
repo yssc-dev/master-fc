@@ -1,6 +1,7 @@
 import { useState, useLayoutEffect } from 'react';
 import { useTheme } from '../../hooks/useTheme';
 import { FORMATIONS, FORMATION_KEYS, swapFormationSlots, defendersFromPositionMap, revertSubInFormation } from '../../utils/formations';
+import { getSubCandidates } from '../../utils/soccerScoring';
 import { generateEventId } from '../../utils/idGenerator';
 import FormationPitch from './FormationPitch';
 import PlayerActionMenu from './PlayerActionMenu';
@@ -9,16 +10,18 @@ import Modal from '../common/Modal';
 // NOTE: 이 컴포넌트는 uncontrolled — init* props로 마운트 시 1회만 시드하고 이후 prop 변경 무시.
 // 호출부(SoccerMatchView)는 경기 전환 시 key={currentMatchIdx}로 remount해 재시드함.
 // prop→state 동기화 useEffect를 추가하지 않는 한 key= 를 제거하면 다른 경기 데이터가 stale로 남는다.
+// `attendees`에 기본값을 주지 않는 것은 의도다 — 미연결 시 조용히 빈 벤치가 되면 발견이 어렵다.
+// undefined가 되는 경로는 prop 미연결(구현 실수)뿐이며, RTDB 빈배열 함정은
+// firebaseSyncDiff.js:357의 `attendees: raw.attendees || []`가 단일 지점에서 이미 막는다.
 export default function FormationRecorder({
   formation: initFormation, assignments: initAssignments, positionMap: initPositionMap,
-  subs: initSubs, gk: initGk, opponent, startedAt, matchMinutes = 90,
+  gk: initGk, attendees, opponent, startedAt, matchMinutes = 90,
   events: initEvents, onAddEvent, onDeleteEvent, onFinishMatch, onStateChange, onFlowActiveChange,
 }) {
   const { C } = useTheme();
   const [formation, setFormation] = useState(initFormation || "4-4-2");
   const [assignments, setAssignments] = useState(initAssignments || {});
   const [positionMap, setPositionMap] = useState(initPositionMap || {});
-  const [subs, setSubs] = useState(initSubs || []);
   const [gk, setGk] = useState(initGk || "");
   const [actionPlayer, setActionPlayer] = useState(null);
   const [goalFlow, setGoalFlow] = useState(null);
@@ -35,6 +38,11 @@ export default function FormationRecorder({
   }, [goalFlow, onFlowActiveChange]);
 
   const events = Array.isArray(initEvents) ? initEvents : [];
+  // 교체 후보 = 참석자 − 피치위 − 퇴장자. 로컬 state가 아니라 파생 —
+  // useState(prop) 시드는 최초 1회뿐이라 경기 도중 참석 처리된 선수를 영영 못 받는다
+  // (이 저장소가 과거 CourtRecorder GK에서 겪은 안티패턴).
+  // 교체 시 나간 선수는 assignments를 떠나므로 자동으로 후보에 복귀한다.
+  const subs = getSubCandidates(attendees, assignments, events);
   const formData = FORMATIONS[formation];
 
   let ourScore = 0, opponentScore = 0;
@@ -121,10 +129,11 @@ export default function FormationRecorder({
     onAddEvent({ type: "sub", playerOut: subOut.name, playerIn: subName, position: role, posIdx: subOut.posIdx, id: generateEventId(), timestamp: Date.now() });
     const newAssignments = { ...assignments, [subOut.posIdx]: subName };
     const newPosMap = { ...positionMap }; delete newPosMap[subOut.name]; newPosMap[subName] = role;
+    // newSubs는 onStateChange로 m.subs를 갱신하기 위해 유지(CORRECT_SOCCER_LINEUP/리듀서 revert가 읽음).
+    // 로컬 setSubs는 없다 — subs는 assignments에서 파생되므로 다음 렌더에 자동 반영된다.
     const newSubs = [...subs.filter(n => n !== subName), subOut.name];
     setAssignments(newAssignments);
     setPositionMap(newPosMap);
-    setSubs(newSubs);
     if (role === "GK") setGk(subName);
     setSubOut(null);
     setShowSubModal(false);
@@ -245,7 +254,9 @@ export default function FormationRecorder({
                   if (reverted) {
                     setAssignments(reverted.assignments);
                     setPositionMap(reverted.positionMap);
-                    setSubs(reverted.subs);
+                    // reverted.subs는 의도적으로 버린다 — subs는 파생이라 되돌려진 assignments에서
+                    // 자동 재계산된다. m.subs는 리듀서(DELETE_SOCCER_EVENT)가 독립적으로 되돌린다.
+                    // setSubs를 되살리지 말 것 = useState(prop) 안티패턴 회귀.
                     setGk(reverted.gk);
                   }
                 }

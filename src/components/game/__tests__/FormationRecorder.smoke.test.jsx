@@ -12,7 +12,7 @@ Object.defineProperty(window, 'matchMedia', {
 const render = (props) => renderToStaticMarkup(createElement(ThemeProvider, null,
   createElement(FormationRecorder, {
     formation: '4-4-2', assignments: { 0: 'GK1', 1: 'D1' }, positionMap: { GK1: 'GK', D1: 'DF' },
-    subs: ['BN1'], gk: 'GK1', opponent: '상대', startedAt: 1, events: [],
+    attendees: ['GK1', 'D1', 'BN1'], gk: 'GK1', opponent: '상대', startedAt: 1, events: [],
     onAddEvent(){}, onDeleteEvent(){}, onFinishMatch(){}, onStateChange(){}, onFlowActiveChange(){}, ...props,
   })));
 
