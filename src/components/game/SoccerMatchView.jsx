@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useTheme } from '../../hooks/useTheme';
-import { calcSoccerScore, getCleanSheetPlayers, getSoccerPlayedPlayers, soccerResultLabel } from '../../utils/soccerScoring';
+import { calcSoccerScore, getCleanSheetPlayers, getSoccerPlayedPlayers, getNonPlayers, soccerResultLabel } from '../../utils/soccerScoring';
 import { generateEventId } from '../../utils/idGenerator';
 import { FORMATIONS, defendersFromPositionMap } from '../../utils/formations';
 import Modal from '../common/Modal';
@@ -188,8 +188,9 @@ export default function SoccerMatchView({
     const m = soccerMatches.find(x => x.matchIdx === lineupEditIdx);
     if (!m) { setLineupEditIdx(null); return null; }
     const fm = reconstructFormation(m);
-    const played = getSoccerPlayedPlayers(m); // lineup ∪ sub-in ∪ assignments — 단일 소스
-    const bench = (fm.subs || []).filter(n => !played.includes(n)); // 뛴(교체out) 선수 제외 — CORRECT 중복 방지
+    // 정정 후보 = 참석자 − 출전자. m.subs(생성 시점 스냅샷) 대신 현재 참석자를 본다 —
+    // 나중에 참석 처리된 지각자도 후보가 돼야 하기 때문. 출전자 제외는 CORRECT 중복 방지.
+    const bench = getNonPlayers(m, attendees);
     return (
       <LineupEditView
         formation={fm.formation} assignments={fm.assignments} bench={bench}
@@ -311,7 +312,7 @@ export default function SoccerMatchView({
         // 출전 = lineup ∪ sub 투입 ∪ 최종 assignments(단일 소스 헬퍼).
         // sub 이벤트가 삭제돼 배치에만 남은 선수도 출전으로 표시(레드카드 퇴장자는 lineup이라 포함).
         const played = fm ? getSoccerPlayedPlayers(node) : [];
-        const benchNeverPlayed = fm ? (fm.subs || []).filter(n => !played.includes(n)) : [];
+        const benchNeverPlayed = fm ? getNonPlayers(node, attendees) : [];
         return (
           <>
             <div style={{ ...s.card, textAlign: "center", marginBottom: 12 }}>
