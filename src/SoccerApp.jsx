@@ -22,7 +22,7 @@ import {
   calcSoccerPlayerStats, calcSoccerPlayerPoint,
   calcSoccerTeamRecord, calcSoccerOpponentRecords,
   buildEventLogRows, buildPointLogRows, buildPlayerLogRows,
-  countFinishedSoccerMatches,
+  countFinishedSoccerMatches, getSoccerPlayedPlayers, keepLockedAttendees,
 } from './utils/soccerScoring';
 import { buildRawEventsFromSoccer, buildRawPlayerGamesFromSoccer } from './utils/rawLogBuilders';
 import { buildRoundRowsFromSoccer } from './utils/matchRowBuilder';
@@ -164,6 +164,17 @@ export default function SoccerApp({ authUser, teamContext, isNewGame, gameMode, 
       a.games - b.games
     );
   }, [state.soccerMatches, state.settingsSnapshot, gameSettings]);
+
+  // ── 참석 해제 잠금: 오늘 한 경기라도 뛴 선수 ──
+  // "출전했는데 불참 처리"라는 모순을 예방(유저 요구). 조기 귀가해도 뛴 기록은 남으므로 해제 금지.
+  // 이 잠금은 D2(교체후보 = 참석자 − 피치위 − 퇴장자)의 정합성 전제이기도 하다 —
+  // 교체아웃된 선수가 참석에서 빠지면 벤치에서 사라져 재투입이 불가능해진다.
+  // 축구 전용 파생: 리듀서(풋살 공용)는 건드리지 않는다.
+  const locked = useMemo(() => {
+    const s = new Set();
+    for (const m of state.soccerMatches || []) for (const n of getSoccerPlayedPlayers(m)) s.add(n);
+    return s;
+  }, [state.soccerMatches]);
 
   // ── 축구 핸들러 ──
   const createSoccerMatch = ({ opponent, lineup, gk, defenders, subs, formation, assignments, positionMap }) => {
@@ -465,13 +476,16 @@ export default function SoccerApp({ authUser, teamContext, isNewGame, gameMode, 
             sortedPlayers={sortedPlayers} playerSortMode={playerSortMode}
             rosterHandlers={{
               onSyncSheet: syncAttendance,
-              onToggle: (name) => dispatch({ type: 'TOGGLE_ATTENDEE', name }),
-              onSetAll: (names) => dispatch({ type: 'SET_ATTENDEES', attendees: names }),
-              onClear: () => set('attendees', []),
+              // 출전 기록이 있으면 해제 불가(D3). 추가는 언제나 허용 — 지각 참석 처리가 이 기능의 핵심.
+              onToggle: (name) => { if (locked.has(name)) return; dispatch({ type: 'TOGGLE_ATTENDEE', name }); },
+              // 통째 교체·초기화도 잠금 인원은 남긴다 — 칩만 막으면 이 둘로 뚫린다.
+              // 초기화는 "빈 명단 + 잠금 보존"이라 같은 헬퍼로 표현된다.
+              onSetAll: (names) => dispatch({ type: 'SET_ATTENDEES', attendees: keepLockedAttendees(names, locked) }),
+              onClear: () => dispatch({ type: 'SET_ATTENDEES', attendees: keepLockedAttendees([], locked) }),
               onToggleSort: () => set('playerSortMode', playerSortMode === "point" ? "name" : "point"),
               onAddManual: (name) => dispatch({ type: 'SET_FIELDS', fields: { attendees: [...attendees, name], newPlayer: "" } }),
               newPlayer, onNewPlayerChange: (v) => set('newPlayer', v),
-              attendanceLoading,
+              attendanceLoading, lockedNames: [...locked],
             }}
             onCreateMatch={createSoccerMatch} onAddEvent={addSoccerEvent}
             onDeleteEvent={deleteSoccerEvent} onFinishMatch={finishSoccerMatch}
