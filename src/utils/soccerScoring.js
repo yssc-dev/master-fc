@@ -135,6 +135,26 @@ export function keepLockedAttendees(names, locked) {
   return [...new Set([...(names || []), ...locked])];
 }
 
+/**
+ * 참석자 칩 목록 = 시즌 로스터 ∪ 참석자.
+ * 로스터는 '대시보드' 시트에서, 참석/출전 명단은 '참석명단' 시트에서 온다. 두 시트가 어긋나면
+ * 참석자인데 칩이 없어 보이지도 토글되지도 않는 선수가 생긴다 —
+ * 2026-07-14 게임 실측: 참석 24명 중 14명이 대시보드에 없었다.
+ * 로스터에 없는 참석자는 합성 항목으로 채운다. point/games는 대시보드 기준값이라 알 수 없어 0이고,
+ * games 0이라 '활동선수 전체'(games > 0) 필터에는 잡히지 않는다.
+ * @param {{name:string, point:number, games:number}[]} seasonPlayers
+ * @param {string[]} attendees
+ * @returns {{name:string, point:number, games:number}[]} 새 배열(원본 불변)
+ */
+export function mergeAttendeesIntoRoster(seasonPlayers, attendees) {
+  const arr = [...(seasonPlayers || [])];
+  const known = new Set(arr.map(p => p.name));
+  for (const n of (attendees || [])) {
+    if (!known.has(n)) { arr.push({ name: n, point: 0, games: 0 }); known.add(n); }
+  }
+  return arr;
+}
+
 export function getMatchGks(match) {
   const gks = new Set();
   if (match.gk) gks.add(match.gk);

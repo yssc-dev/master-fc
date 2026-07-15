@@ -22,7 +22,7 @@ import {
   calcSoccerPlayerStats, calcSoccerPlayerPoint,
   calcSoccerTeamRecord, calcSoccerOpponentRecords,
   buildEventLogRows, buildPointLogRows, buildPlayerLogRows,
-  countFinishedSoccerMatches, getSoccerPlayedPlayers, keepLockedAttendees,
+  countFinishedSoccerMatches, getSoccerPlayedPlayers, keepLockedAttendees, mergeAttendeesIntoRoster,
 } from './utils/soccerScoring';
 import { buildRawEventsFromSoccer, buildRawPlayerGamesFromSoccer } from './utils/rawLogBuilders';
 import { buildRoundRowsFromSoccer } from './utils/matchRowBuilder';
@@ -140,11 +140,13 @@ export default function SoccerApp({ authUser, teamContext, isNewGame, gameMode, 
   }, [autoSync, state.soccerMatches, phase, state.currentMatchIdx, state.soccerFormation, state.opponents, attendees]);
 
   // ── 정렬된 선수 목록 ──
+  // 로스터('대시보드' 시트)에 없는 참석자도 칩을 갖게 합친다 — 참석 명단은 '참석명단' 시트에서
+  // 오므로 두 시트가 어긋나면 참석자인데 토글할 칩이 없다(7/14 게임: 참석 24명 중 14명 누락).
   const sortedPlayers = useMemo(() => {
-    const arr = [...seasonPlayers];
+    const arr = mergeAttendeesIntoRoster(seasonPlayers, attendees);
     if (playerSortMode === "name") return arr.sort((a, b) => a.name.localeCompare(b.name, "ko"));
     return arr.sort((a, b) => b.point - a.point);
-  }, [seasonPlayers, playerSortMode]);
+  }, [seasonPlayers, playerSortMode, attendees]);
 
   // ── 축구 개인기록 (경기 중 모달용) ──
   const soccerStats = useMemo(() => {
