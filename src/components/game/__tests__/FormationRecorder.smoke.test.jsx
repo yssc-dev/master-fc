@@ -20,6 +20,8 @@ describe('FormationRecorder 렌더 스모크', () => {
   it('크래시 없이 렌더', () => {
     const html = render({});
     expect(html).toContain('D1');
+    // BN1 = 파생 벤치(참석자 − 피치위). getSubCandidates 유닛테스트는 헬퍼만 보고 JSX 배선은 안 덮어서 이 단언이 D2 렌더링 경로의 유일한 자동화 게이트.
+    expect(html).toContain('BN1');
     expect(html).not.toContain('NaN');
   });
 });
