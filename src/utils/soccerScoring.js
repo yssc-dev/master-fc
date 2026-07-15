@@ -92,6 +92,49 @@ export function getSoccerPlayedPlayers(match) {
   ].filter(Boolean))];
 }
 
+/**
+ * 미출전 = 참석자 − 출전자. 요약 표시와 라인업 편집기의 정정 후보가 공유한다.
+ * 유저 정의: "참석자 전원에서 (스타팅멤버+교체출전자)를 제외한 나머지가 미출전".
+ * 경기에 저장된 m.subs(생성 시점 스냅샷)는 의도적으로 안 본다 — 나중에 참석 처리된 지각자가
+ * 포함돼야 하고, 불참 처리된 벤치전용자는 빠져야 하기 때문.
+ * @param {object} match
+ * @param {string[]} attendees - 오늘 참석자
+ * @returns {string[]} 이 경기에 안 뛴 참석자
+ */
+export function getNonPlayers(match, attendees) {
+  const played = new Set(getSoccerPlayedPlayers(match));
+  return (attendees || []).filter(n => !played.has(n));
+}
+
+/**
+ * 진행중 경기의 교체 후보 = 참석자 − 피치 위 − 퇴장자.
+ * getNonPlayers와 규칙이 다르다: 교체아웃된 선수는 '출전자'지만 재투입 가능해야 하므로
+ * '− 출전자'를 쓸 수 없다. 대신 지금 피치에 없는 참석자를 후보로 본다.
+ * 퇴장자는 assignments에서 지워져 onPitch에 안 잡히므로 events에서 따로 배제한다.
+ * attendees에 기본값을 두지 않는다 — prop 미연결 시 조용히 빈 벤치가 되는 대신 즉시 터뜨린다.
+ * @param {string[]} attendees - 오늘 참석자
+ * @param {object} assignments - 현재 배치 { posIdx: name }
+ * @param {object[]} events - 경기 이벤트
+ * @returns {string[]} 지금 투입 가능한 선수
+ */
+export function getSubCandidates(attendees, assignments, events) {
+  const expelled = new Set((events || []).filter(e => e.type === "redCard").map(e => e.player));
+  const onPitch = new Set(Object.values(assignments || {}).filter(Boolean));
+  return attendees.filter(n => !onPitch.has(n) && !expelled.has(n));
+}
+
+/**
+ * 참석 명단을 일괄 변경할 때 잠금 인원(오늘 출전 기록 보유자)을 보존한다.
+ * "활동선수 전체"(onSetAll)와 "초기화"(onClear)가 공유 — 칩 탭만 막으면 이 둘로 뚫린다.
+ * 초기화는 keepLockedAttendees([], locked)로 호출한다.
+ * @param {string[]} names - 새로 지정하려는 명단
+ * @param {Set<string>|string[]} locked - 해제 금지 인원
+ * @returns {string[]}
+ */
+export function keepLockedAttendees(names, locked) {
+  return [...new Set([...(names || []), ...locked])];
+}
+
 export function getMatchGks(match) {
   const gks = new Set();
   if (match.gk) gks.add(match.gk);
