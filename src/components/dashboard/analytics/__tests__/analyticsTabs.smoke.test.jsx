@@ -80,6 +80,22 @@ describe('분석탭 렌더 스모크 (지표 개편 경로)', () => {
     expect(html).not.toContain('NaN');
   });
 
+  // 크로바(MVP)·고구마(꼴지)는 마스터FC 풋살 커스텀이라 축구엔 개념이 없고,
+  // buildRawPlayerGamesFromSoccer가 축구 PG에 crova:0/goguma:0을 박아 합산에도 안 들어간다.
+  // 자책골은 축구에도 있지만 용어가 다르다 — 축구는 '자책'(SoccerApp 개인기록 헤더), 풋살은 '역주행'.
+  it('AwardsTab: 축구 모드 — 라벨에서 크로바/고구마/역주행을 안 쓴다', () => {
+    const html = wrap(AwardsTab, { playerGameLogs, matchLogs, eventLogs, C, isSoccer: true });
+    expect(html).not.toContain('크로바');
+    expect(html).not.toContain('고구마');
+    expect(html).not.toContain('역주행');
+    expect(html).toContain('종합포인트 (골+어시+클린+자책)');
+  });
+
+  it('AwardsTab: 풋살 모드 — 크로바/고구마/역주행 라벨 유지', () => {
+    const html = wrap(AwardsTab, { playerGameLogs, matchLogs, eventLogs, C });
+    expect(html).toContain('종합포인트 (골+어시+클린+크로바+고구마+역주행)');
+  });
+
   it('AwardsTab: 축구 모드 — 라운드 흐름 숨김', () => {
     const html = wrap(AwardsTab, { playerGameLogs, matchLogs, eventLogs, C, isSoccer: true });
     expect(html).not.toContain('라운드 흐름');

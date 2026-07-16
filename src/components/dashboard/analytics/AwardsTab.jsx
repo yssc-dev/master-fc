@@ -10,6 +10,10 @@ import { calcPlayerSummary } from '../../../utils/analyticsV2/calcPlayerSummary'
 import { calcMetricLeaders } from '../../../utils/analyticsV2/calcMetricLeaders';
 
 export default function AwardsTab({ playerGameLogs, matchLogs, eventLogs, C, isSoccer = false }) {
+  // 크로바(MVP)·고구마(꼴지)는 마스터FC 풋살 커스텀이라 축구엔 개념이 없다 —
+  // buildRawPlayerGamesFromSoccer가 축구 PG에 crova:0/goguma:0을 박아 합산에도 안 들어간다.
+  // 자책골은 축구에도 있지만 용어가 다르다: 축구는 '자책'(SoccerApp 개인기록 헤더), 풋살은 '역주행'.
+  const bonusTerms = isSoccer ? "자책" : "크로바+고구마+역주행";
   const awards = useMemo(() => calcAwards({ playerLogs: playerGameLogs || [], eventLogs: eventLogs || [] }), [playerGameLogs, eventLogs]);
   const dailyMvp = useMemo(() => calcDailyMvp({ playerGameLogs: playerGameLogs || [] }), [playerGameLogs]);
   const slope = useMemo(() => calcRoundSlope({ eventLogs: eventLogs || [], matchLogs: matchLogs || [], threshold: 10, minSessions: 3 }), [eventLogs, matchLogs]);
@@ -183,7 +187,7 @@ export default function AwardsTab({ playerGameLogs, matchLogs, eventLogs, C, isS
       <div style={{ padding: 14, background: C.cardLight, borderRadius: 12, marginBottom: 12 }}>
         <div style={{ fontSize: 12, fontWeight: 700, color: C.gray, marginBottom: 4 }}>🏆 일일 MVP</div>
         <div style={{ fontSize: 10, color: C.gray, marginBottom: 10 }}>
-          그날 최종포인트(골+어시+클린시트+크로바+고구마+역주행) 1위 · 동점 시 공동 MVP
+          그날 최종포인트(골+어시+클린시트+{bonusTerms}) 1위 · 동점 시 공동 MVP
         </div>
         {dailyMvp.ranking.length === 0 ? (
           <div style={{ fontSize: 11, color: C.gray }}>표본 부족</div>
@@ -356,7 +360,7 @@ export default function AwardsTab({ playerGameLogs, matchLogs, eventLogs, C, isS
         </div>
         {ranking ? (
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-            <RankingCol title="🏅 종합포인트 (골+어시+클린+크로바+고구마+역주행)" rows={ranking.totalPoints} suffix="점" />
+            <RankingCol title={`🏅 종합포인트 (골+어시+클린+${bonusTerms})`} rows={ranking.totalPoints} suffix="점" />
             <RankingCol title="⚡ 공격포인트 (G+A)" rows={ranking.attackPoints} suffix="pt" />
             <RankingCol title="⚽ 득점" rows={ranking.goals} suffix="골" />
             <RankingCol title="🅰 어시" rows={ranking.assists} suffix="어시" />
