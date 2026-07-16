@@ -17,6 +17,26 @@ export default function AttendeeSelector({
     const name = (newPlayer || "").trim();
     if (name && !attendees.includes(name)) onAddManual(name);
   };
+
+  // 참석/불참을 위아래로 가른다. 정렬은 sortedPlayers 순서를 그대로 물려받는다.
+  const attending = new Set(attendees);
+  const present = sortedPlayers.filter(p => attending.has(p.name));
+  const absent = sortedPlayers.filter(p => !attending.has(p.name));
+
+  const sectionLabel = { fontSize: 12, fontWeight: 700, color: C.gray, marginBottom: 6 };
+  const emptyHint = { fontSize: 12, color: C.gray };
+
+  const renderChip = (p) => {
+    const isLocked = locked.has(p.name);
+    return (
+      <div key={p.name}
+        onClick={() => { if (!isLocked) onToggle(p.name); }}
+        title={isLocked ? "출전 기록이 있어 불참으로 바꿀 수 없습니다" : undefined}
+        style={{ ...s.chip(attending.has(p.name)), cursor: isLocked ? "not-allowed" : "pointer" }}>
+        <span>{isLocked ? "🔒 " : ""}{p.name}</span><span style={{ fontSize: 10, opacity: 0.7 }}>{p.point}p</span>
+      </div>
+    );
+  };
   return (
     <div>
       <div style={{ ...s.row, marginBottom: 10, flexWrap: "wrap" }}>
@@ -29,25 +49,21 @@ export default function AttendeeSelector({
           {playerSortMode === "point" ? "포인트순" : "이름순"}
         </button>
       </div>
+      <div style={sectionLabel}>참석 {present.length}</div>
       <div style={s.card}>
-        <div style={{ display: "flex", flexWrap: "wrap" }}>
-          {sortedPlayers.map(p => {
-            const isLocked = locked.has(p.name);
-            return (
-              <div key={p.name}
-                onClick={() => { if (!isLocked) onToggle(p.name); }}
-                title={isLocked ? "출전 기록이 있어 불참으로 바꿀 수 없습니다" : undefined}
-                style={{ ...s.chip(attendees.includes(p.name)), cursor: isLocked ? "not-allowed" : "pointer" }}>
-                <span>{isLocked ? "🔒 " : ""}{p.name}</span><span style={{ fontSize: 10, opacity: 0.7 }}>{p.point}p</span>
-              </div>
-            );
-          })}
-        </div>
+        <div style={{ display: "flex", flexWrap: "wrap" }}>{present.map(renderChip)}</div>
+        {present.length === 0 && <span style={emptyHint}>아직 아무도 참석으로 표시되지 않았습니다</span>}
         {lockedNames.length > 0 && (
           <div style={{ fontSize: 11, color: C.gray, marginTop: 8 }}>
             🔒 = 오늘 출전 기록이 있어 해제할 수 없습니다 ({lockedNames.length}명)
           </div>
         )}
+      </div>
+
+      <div style={{ ...sectionLabel, marginTop: 12 }}>불참 {absent.length}</div>
+      <div style={s.card}>
+        <div style={{ display: "flex", flexWrap: "wrap" }}>{absent.map(renderChip)}</div>
+        {absent.length === 0 && <span style={emptyHint}>전원 참석</span>}
       </div>
       <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
         <input style={s.input} placeholder="새 선수 이름" value={newPlayer || ""}

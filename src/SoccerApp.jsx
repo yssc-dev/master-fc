@@ -447,7 +447,7 @@ export default function SoccerApp({ authUser, teamContext, isNewGame, gameMode, 
             { key: 'schedule', label: '대진표', onClick: () => set('matchModal', 'soccerSchedule') },
             { key: 'standings', label: '팀순위', onClick: () => set('matchModal', 'soccerStandings') },
             { key: 'playerStats', label: '개인기록', onClick: () => set('matchModal', 'playerStats') },
-            { key: 'roster', label: `참석명단 ${attendees.length}`, onClick: () => set('matchModal', 'roster') },
+            { key: 'roster', label: '참석명단', onClick: () => set('matchModal', 'roster') },
             { key: 'finish', label: '경기마감', tone: 'green', strong: true, onClick: () => set('phase', 'summary'), hidden: finishedCount === 0 },
             { key: 'delete', label: '경기삭제', tone: 'red', onClick: deleteSoccerGame, hidden: teamContext?.role !== '관리자' },
           ]} />
@@ -488,7 +488,7 @@ export default function SoccerApp({ authUser, teamContext, isNewGame, gameMode, 
         {matchModal === "roster" && (
           <Modal onClose={() => set('matchModal', null)} title="참석명단" maxWidth={500}>
             <div style={{ fontSize: 11, color: C.gray, marginBottom: 10, lineHeight: 1.5 }}>
-              참석 {attendees.length}명 · 참석 여부만 바꿉니다.
+              참석 여부만 바꿉니다.
               이미 기록된 경기의 출전 선수는 그 경기에서 "🔁 출전 수정"으로 고치세요.
             </div>
             <AttendeeSelector
